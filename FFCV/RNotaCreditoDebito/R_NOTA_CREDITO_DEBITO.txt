@@ -1,0 +1,79 @@
+/*----------------------------------------------------------------------------*/
+--R_NOTA_CREDITO_DEBITO
+SELECT
+  nd.cd_nota_cred_deb CD_NOTA_FISCAL,
+  fr.cd_fornecedor CD_FORNECEDOR,
+  fr.nm_fornecedor NM_CLIENTE,
+  fr.ds_endereco || ',' || fr.nr_endereco  DS_ENDERE,
+  cd.nm_cidade NM_CIDADE,
+  fr.nr_cgc_cpf NR_CGC_CPF,
+  nd.ds_observacao DS_OBSERVACAO,
+  cn.ds_endereco_cobranca DS_ENDERECO_COBRANCA,
+  cn.ds_cidade_cobranca DS_CIDADE_COBRANCA,
+  '(' || substr(me.nr_ddd_fax,1,3) || ')' ||  substr(me.nr_fax,1,3) || '-' ||  substr(me.nr_fax,4,4) NR_FAX_EMPRESA,
+  fr.ds_bairro DS_BAIRRO,
+  cd.cd_uf NM_UF,
+  fr.cd_endereco_postal NR_CEP,
+  fr.ds_endereco_email EMAIL,
+  cn.ds_endereco_cobranca DS_ENDERECO_COBRANCA,
+  cn.ds_bairro_cobranca DS_BAIRRO_COBRANCA,
+  cn.ds_cidade_cobranca DS_CIDADE_COBRANCA,
+  cn.NR_CEP_COBRANCA NR_CEP_COBRANCA ,
+  cn.DS_UF_COBRANCA DS_UF_COBRANCA,
+  gf.ds_gru_fat DS_GRU_FAT,
+  nd.vl_iva,
+  sum(IT_NOTA_CREDITO_DEBITO.vl_it_nota_credito_debito) VL_GRU_FAT,
+  nd.vl_total_nota VL_TOTAL_NOTA,
+  me.ds_multi_empresa DS_MULTI_EMPRESA,
+  fn.cd_serie CD_SERIE,
+  nd.nr_id_nota_cred_deb NR_ID_NOTA_FISCAL,
+  me.ds_endereco || '  ' || me.nr_endereco || '  ' || me.nm_bairro DS_ENDERECO_EMPRESA,
+  cd.nm_cidade || ' - ' || me.cd_uf NM_CIDADE_EMPRESA,
+  me.ds_email_contato EMAIL_HOSPITAL,
+  '(' || substr(me.nr_telefone_empresa,1,3) || ')' ||  substr(me.nr_telefone_empresa,4,3) || '-' ||  substr(me.nr_telefone_empresa,7,4) NR_FONE_EMPRESA,
+  replace(me.cd_identificador_empresa,'-','') NR_CGC,
+  to_char(nd.dt_emissao, 'DD/MM/YYYY' ) DT_EMISSAO,
+  me.nr_ddd_empresa  NR_DDD_EMPRESA,
+  gf.cd_gru_fat CD_GRU_FAT,
+  nf.nr_fone NR_FONE
+FROM dbamv.nota_credito_debito nd,
+     (SELECT CD_NOTA_CRED_DEB
+               , CD_NOTA_FISCAL_BASE
+               , CD_IT_NOTA_FISCAL_BASE
+               , CD_CON_REC_BASE
+               , CD_GRU_FAT
+               , CD_SETOR
+               , CD_ATENDIMENTO
+               , Sum(VL_IT_NOTA_CREDITO_DEBITO)  VL_IT_NOTA_CREDITO_DEBITO
+               , Sum(QT_IT_NOTA_CREDITO_DEBITO)  QT_IT_NOTA_CREDITO_DEBITO
+            FROM DBAMV.IT_NOTA_CREDITO_DEBITO
+            GROUP BY CD_NOTA_CRED_DEB
+               , CD_NOTA_FISCAL_BASE
+               , CD_IT_NOTA_FISCAL_BASE
+               , CD_CON_REC_BASE
+               , CD_GRU_FAT
+               , CD_SETOR
+               , CD_ATENDIMENTO) IT_NOTA_CREDITO_DEBITO ,
+     dbamv.gru_fat gf,
+     dbamv.fornecedor fr,
+     dbamv.cidade cd,
+     dbamv.convenio cn,
+     dbamv.multi_empresas me,
+     dbamv.formulario_nf fn,
+     dbamv.nota_fiscal nf
+WHERE nd.cd_nota_cred_deb = IT_NOTA_CREDITO_DEBITO.cd_nota_cred_deb (+)
+AND nd.cd_nota_cred_deb = :CAMPO_CD_NOTA_FISCAL
+AND  IT_NOTA_CREDITO_DEBITO.cd_gru_fat = gf.cd_gru_fat (+)
+AND nd.cd_fornecedor =  fr.cd_fornecedor
+AND fr.cd_cidade = cd.cd_cidade (+)
+AND cn.cd_convenio = :CAMPO_CD_CONVENIO
+AND me.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and nd.cd_formulario_nota_cred_deb = fn.cd_formulario_nf
+and IT_NOTA_CREDITO_DEBITO.cd_nota_fiscal_base = nf.cd_nota_fiscal (+)
+GROUP BY  nd.cd_nota_cred_deb, gf.cd_gru_fat, gf.ds_gru_fat, fr.cd_fornecedor, fr.nm_fornecedor, fr.ds_endereco,
+          fr.nr_endereco, cd.nm_cidade, fr.nr_cgc_cpf, nd.ds_observacao, cn.ds_endereco_cobranca,
+          cn.ds_cidade_cobranca, me.nr_fax, me.nr_ddd_fax, fr.ds_bairro,  cd.cd_uf, fr.cd_endereco_postal,
+          fr.ds_endereco_email, cn.ds_endereco_cobranca, cn.ds_bairro_cobranca, cn.ds_cidade_cobranca,
+          cn.NR_CEP_COBRANCA, cn.DS_UF_COBRANCA, me.ds_multi_empresa, nd.nr_id_nota_cred_deb,nd.vl_iva,
+          fn.cd_serie, fn.cd_tipo_ncf, nd.vl_total_nota, me.ds_endereco, me.nr_endereco, me.nm_bairro, nf.nr_fone,
+          cd.nm_cidade, me.cd_uf, me.ds_email_contato, me.nr_telefone_empresa, me.cd_identificador_empresa, nd.dt_emissao, me.nr_ddd_empresa

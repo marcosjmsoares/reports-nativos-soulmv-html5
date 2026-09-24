@@ -1,0 +1,42 @@
+/*----------------------------------------------------------------------------*/
+--R_PATOLOGIAS_OCORRIDAS
+SELECT * FROM (
+Select Reg_Fat.Cd_Espec_SUS||' - '||Espec_SUS.Ds_Espec_SUS Espec_SUS
+     , Procedimento_SUS.CD_PROCEDIMENTO
+     , Procedimento_SUS.DS_PROCEDIMENTO
+     , Count(*)                    Qtd_Lancada
+     , Procedimento_SUS_Valor.Vl_Total_Internacao Vl_Unitario
+     , Procedimento_SUS_Valor.Vl_Total_Internacao* Count(*) Vl_Total
+  From Dbamv.Reg_Fat
+     , Dbamv.ItReg_Fat
+     , Dbamv.Procedimento_SUS
+     , Dbamv.Espec_SUS
+     , Dbamv.Fatura
+     , Dbamv.Remessa_Fatura
+     , Dbamv.Procedimento_SUS_Valor
+     , Dbamv.Config_FFIS
+     , (Select CD_PROCEDIMENTO
+             , Max(Dt_Vigencia) Dt_Vigencia
+          From Dbamv.Procedimento_SUS_Valor
+         Where Dt_Vigencia <= :CAMPO_COMPET
+          Group By CD_PROCEDIMENTO) Val_Vigente
+ Where Config_FFIS.Cd_Convenio     = Reg_Fat.Cd_Convenio
+   And Fatura.Cd_Fatura            = Remessa_Fatura.Cd_Fatura
+   And Remessa_Fatura.Cd_Remessa   = Reg_Fat.Cd_Remessa
+   And ItReg_Fat.CD_PROCEDIMENTO   = Procedimento_SUS.CD_PROCEDIMENTO
+   And ItReg_Fat.Cd_Reg_Fat        = Reg_Fat.Cd_Reg_Fat
+   And Val_Vigente.CD_PROCEDIMENTO = ItReg_Fat.CD_PROCEDIMENTO
+   And Procedimento_SUS_Valor.CD_PROCEDIMENTO     = ItReg_Fat.CD_PROCEDIMENTO
+   And Procedimento_SUS_Valor.Dt_Vigencia         = Val_Vigente.Dt_Vigencia
+   And Espec_SUS.Cd_Espec_SUS      = Reg_Fat.Cd_Espec_SUS
+   And To_Char(Fatura.Dt_Competencia,'MM/YYYY') = To_Char(:CAMPO_COMPET, 'MM/YYYY')
+   And Sn_Proced_Realizado         = 'S'
+   And Reg_Fat.Cd_Multi_Empresa    = :CAMPO_CD_MULTI_EMPRESA
+ Group By Reg_Fat.Cd_Espec_SUS
+        , Espec_SUS.Ds_Espec_SUS
+        , Procedimento_SUS.CD_PROCEDIMENTO
+		, Procedimento_SUS.DS_PROCEDIMENTO
+		, Procedimento_SUS_Valor.Vl_Total_Internacao
+:CAMPO_CF_ORDER
+)
+ORDER BY ESPEC_SUS

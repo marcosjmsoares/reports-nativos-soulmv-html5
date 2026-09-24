@@ -1,0 +1,176 @@
+/*----------------------------------------------------------------------------*/
+--R_IMP_MGES_FNFI
+select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IMP_MGES_FNFI_R_13_Q_ENTSERV
+SELECT * FROM (
+select max(es.dt_entrada)         Dt_Entrada
+      ,cp.nr_documento            Documento
+      ,cp.cd_fornecedor           Cd_Fornecedor
+      ,cp.nr_serie                nr_serie
+      ,fornec.nm_fornecedor       Fornecedor
+      ,cp.dt_emissao              Dt_emissao
+      ,cp.dt_importacao_mges      Dt_importacao
+      ,trunc(dt_lancamento)       Data
+      ,cp.vl_bruto_conta          Vl_bruto_conta
+      ,Du.dt_vencimento           Dt_Vencimento
+      ,Du.vl_parcela              Vl_Parcela
+      ,Du.cd_parcela              Cd_Parcela
+      ,Cp.cd_Con_Pag              Cd_Con_Pag
+      ,DECODE(:CAMPO_SN_AGRUPAR, 'S', OFICINA.CD_MULTI_EMPRESA,  NULL) CD_MULTI_EMPRESA_OFI
+      ,OFICINA.CD_MULTI_EMPRESA OFICINA
+      ,OFICINA.CD_MULTI_EMPRESA ||' - '|| ME.DS_MULTI_EMPRESA DS_MULTI_OFICINA
+from  dbamv.con_pag               Cp
+     ,dbamv.documento_entrada     De
+     ,dbamv.fornecedor            Fornec
+     ,dbamv.duplicata             Du
+     ,dbamv.Ent_serv              es
+     ,dbamv.oficina
+     ,dbamv.multi_empresas     me
+     ,dbamv.usuario_multi_empresa ume
+where  cp.dt_importacao_mges    between :CAMPO_DT_INICIO and 
+  and  de.sn_importada_fnfi     = 'S'
+  and  cp.cd_fornecedor         = fornec.cd_fornecedor
+  and  cp.nr_documento          =  de.nr_documento
+  and  cp.cd_fornecedor         =  de.cd_fornecedor
+  and  cp.dt_emissao            =  de.dt_emissao
+  and  du.nr_documento          =  de.nr_documento
+  and  du.cd_fornecedor         =  de.cd_fornecedor
+  and  cp.nr_documento          =  es.nr_documento
+  and  cp.cd_fornecedor         =  es.cd_fornecedor
+  and  cp.nr_serie              =  es.nr_serie
+  and  cp.cd_multi_empresa      =  ume.cd_multi_empresa
+  and  ume.cd_id_usuario        =  USER
+  and  oficina.cd_oficina       =  es.cd_oficina
+  AND  OFICINA.cd_multi_empresa = me.cd_multi_empresa
+Group By cp.nr_documento
+        ,cp.cd_fornecedor
+        ,fornec.nm_fornecedor
+        ,cp.nr_serie
+        ,cp.dt_emissao
+        ,cp.dt_importacao_mges
+        ,trunc(dt_lancamento)
+        ,cp.vl_bruto_conta
+        ,Du.dt_vencimento
+        ,Du.vl_parcela
+        ,Du.cd_parcela
+        ,Cp.cd_Con_Pag
+        ,OFICINA.CD_MULTI_EMPRESA
+	,me.ds_multi_empresa
+)
+ORDER BY CD_MULTI_EMPRESA_OFI,DT_IMPORTACAO,DOCUMENTO,DT_EMISSAO,FORNECEDOR,CD_CON_PAG,VL_BRUTO_CONTA,CD_FORNECEDOR,DT_ENTRADA,NR_SERIE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IMP_MGES_FNFI_R_EMPRESA_EST_G_Q_DATA_LANCAMENTO
+SELECT * FROM (
+select  max(Ep.dt_entrada)       Dt_Entrada
+        ,cp.nr_documento         Documento
+	,cp.cd_fornecedor        Cd_Fornecedor
+        ,cp.nr_serie             nr_serie
+	,fornec.nm_fornecedor    Fornecedor
+	,cp.dt_emissao           Dt_emissao
+	,cp.dt_importacao_mges   Dt_importacao
+	,trunc(dt_lancamento)    Data
+	,cp.vl_bruto_conta       Vl_bruto_conta
+	,Du.dt_vencimento        Dt_Vencimento
+	,Du.vl_parcela           Vl_Parcela
+	,Du.cd_parcela           Cd_Parcela
+        ,Cp.cd_Con_Pag           Cd_Con_Pag
+        ,DECODE(:CAMPO_SN_AGRUPAR, 'S', ESTOQUE.CD_MULTI_EMPRESA,  NULL) CD_MULTI_EMPRESA_EST
+	,ESTOQUE.CD_MULTI_EMPRESA EMPRESA
+	,ESTOQUE.CD_MULTI_EMPRESA ||' - '|| ME.DS_MULTI_EMPRESA DS_MULTI_EMPRESA
+from    dbamv.con_pag            Cp
+       ,dbamv.documento_entrada  De
+       ,dbamv.fornecedor         Fornec
+       ,dbamv.duplicata          Du
+       ,dbamv.Ent_Pro            Ep
+       ,dbamv.estoque
+       ,dbamv.multi_empresas     me
+       ,dbamv.usuario_multi_empresa ume
+where  cp.dt_importacao_mges  between :CAMPO_DT_INICIO and 
+and    de.sn_importada_fnfi     = 'S'
+and    cp.cd_fornecedor         = fornec.cd_fornecedor
+and    cp.nr_documento          = de.nr_documento
+and    cp.nr_serie              = de.nr_serie
+and    cp.cd_fornecedor         = de.cd_fornecedor
+and    cp.dt_emissao            = de.dt_emissao
+and    du.nr_documento          = de.nr_documento
+and    du.nr_serie              = de.nr_serie
+and    du.cd_fornecedor         = de.cd_fornecedor
+and    cp.nr_documento          = Ep.nr_documento
+and    cp.cd_fornecedor         = Ep.cd_fornecedor
+and    cp.nr_serie              = Ep.nr_serie
+and    cp.cd_multi_empresa      = ume.cd_multi_empresa
+and    ume.cd_id_usuario        = USER
+and    estoque.Cd_Estoque       = Ep.Cd_Estoque
+AND    cp.cd_devolucao IS null   
+AND    estoque.cd_multi_empresa      = me.cd_multi_empresa
+Group By cp.nr_documento
+	,cp.cd_fornecedor
+	,fornec.nm_fornecedor
+        ,cp.nr_serie
+	,cp.dt_emissao
+	,cp.dt_importacao_mges
+	,trunc(dt_lancamento)
+	,cp.vl_bruto_conta
+	,Du.dt_vencimento
+	,Du.vl_parcela
+	,Du.cd_parcela
+        ,Cp.cd_Con_Pag
+        ,ESTOQUE.CD_MULTI_EMPRESA
+	,me.ds_multi_empresa
+UNION ALL
+select dev_for.dt_devolucao     Dt_Entrada
+     , dev_for.nr_documento     Documento
+     , ep.cd_fornecedor         Cd_Fornecedor
+     , dev_for.nr_serie         nr_serie
+     , fornecedor.nm_fornecedor Fornecedor
+     , dev_for.dt_emissao       Dt_emissao
+     , dev_for.dt_devolucao     Dt_importacao
+     , To_Date(Null)            Data
+     , dev_for.vl_total         Vl_bruto_conta
+     , it.dt_vencimento         dt_vencimento
+     , it.vl_duplicata          vl_parcela
+     , To_Number(NULL)          cd_parcela
+     , ep.cd_con_pag            cd_con_pag
+     , DECODE(:CAMPO_SN_AGRUPAR, 'S', ESTOQUE.CD_MULTI_EMPRESA,  NULL) CD_MULTI_EMPRESA_EST
+     , ESTOQUE.CD_MULTI_EMPRESA EMPRESA
+     , ESTOQUE.CD_MULTI_EMPRESA ||' - '|| ME.DS_MULTI_EMPRESA DS_MULTI_EMPRESA
+  FROM dbamv.ent_pro ep,
+       dbamv.fornecedor         fornecedor,
+       dbamv.dev_for            dev_for,
+       dbamv.estoque            estoque,
+       dbamv.con_pag            cp,
+       dbamv.itcon_pag          it,
+       dbamv.multi_empresas     me
+ WHERE fornecedor.cd_fornecedor     = ep.cd_fornecedor
+   AND dev_for.cd_ent_pro           = ep.cd_ent_pro
+   AND estoque.cd_estoque           = ep.cd_estoque
+   AND cp.cd_con_pag                = dev_for.cd_con_pag
+   AND cp.cd_con_pag                = it.cd_con_pag
+   AND dev_for.sn_inportada_finfi   = 'S'
+   AND dev_for.dt_devolucao         BETWEEN :CAMPO_DT_INICIO and 
+   AND estoque.cd_multi_empresa = me.cd_multi_empresa
+GROUP BY dev_for.dt_devolucao
+     , dev_for.nr_documento
+     , ep.cd_fornecedor
+     , dev_for.nr_serie
+     , fornecedor.nm_fornecedor
+     , dev_for.dt_emissao
+     , dev_for.dt_devolucao
+     , To_Date(Null)
+     , dev_for.vl_total
+     , it.dt_vencimento
+     , it.vl_duplicata
+     , To_Number(NULL)
+     , ep.cd_con_pag
+     , estoque.cd_multi_empresa
+     , me.ds_multi_empresa
+)
+ORDER BY CD_MULTI_EMPRESA_EST, DT_IMPORTACAO, DOCUMENTO,DT_EMISSAO,DT_ENTRADA,FORNECEDOR,
+CD_FORNECEDOR,CD_CON_PAG,VL_BRUTO_CONTA,NR_SERIE

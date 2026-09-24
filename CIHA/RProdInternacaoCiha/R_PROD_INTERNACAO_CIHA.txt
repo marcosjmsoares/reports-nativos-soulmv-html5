@@ -1,0 +1,167 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_INTERNACAO_CIHA
+select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_INTER_CIHA_ANALITICO
+select producao_convenio_ciha.cd_ori_ate                               cd_ori_ate_a
+     , ori_ate.ds_ori_ate                                           ds_ori_ate_a
+     , producao_convenio_ciha.cd_convenio                              cd_convenio_a
+     , convenio.nm_convenio                                         nm_convenio_a
+     , producao_convenio_ciha.cd_atendimento                           cd_atendimento_a
+     , producao_convenio_ciha.dt_atendimento                           dt_atendimento_a
+     , producao_convenio_ciha.dt_alta                                  dt_alta_a
+     , decode(producao_convenio_ciha.dt_alta,null,'Internado','Alta')  tp_situacao_atendimento_a
+     , DECODE(producao_convenio_ciha.nr_dias_internacao, 0
+                     , DECODE(geracao_ciha.SN_PACIENTE_DIA, 'S' ,1 , 0)
+                     , producao_convenio_ciha.nr_dias_internacao)     nr_paciente_dia_a
+     , producao_convenio_ciha.cd_paciente                              cd_paciente_a
+     , paciente.nm_paciente                                         nm_paciente_a
+  from dbamv.geracao_ciha
+     , dbamv.producao_convenio_ciha
+     , dbamv.ori_ate
+     , dbamv.convenio
+     , dbamv.paciente
+ where producao_convenio_ciha.cd_paciente               = paciente.cd_paciente
+   and producao_convenio_ciha.cd_convenio               = convenio.cd_convenio
+   and producao_convenio_ciha.cd_ori_ate                = ori_ate.cd_ori_ate
+   and producao_convenio_ciha.cd_modalidade_ciha        = '02'
+   and producao_convenio_ciha.cd_geracao                = geracao_ciha.cd_geracao
+   and to_char(geracao_ciha.dt_competencia,'MMYYYY') = to_char(:CAMPO_COMPET,'MMYYYY')
+   and geracao_ciha.cd_multi_empresa                 = dbamv.pkg_mv2000.le_empresa
+   and (:CAMPO_TP_PRODUCAO = 'CNV-I'  )
+union all
+select atendimento_sus_ciha.cd_ori_ate                               cd_ori_ate_a
+     , ori_ate.ds_ori_ate                                            ds_ori_ate_a
+     , atendimento_sus_ciha.cd_convenio                              cd_convenio_a
+     , convenio.nm_convenio                                          nm_convenio_a
+     , atendimento_sus_ciha.cd_atendimento                           cd_atendimento_a
+     , atendimento_sus_ciha.dt_atendimento                           dt_atendimento_a
+     , atendimento_sus_ciha.dt_alta                                  dt_alta_a
+     , decode(atendimento_sus_ciha.dt_alta,null,'Internado', 'Alta') tp_situacao_atendimento_a
+     , dbamv.pkg_ciha_producao.f_paciente_dia( :CAMPO_COMPET
+                                             , atendimento_sus_ciha.dt_atendimento
+                                             , atendimento_sus_ciha.dt_alta) nr_paciente_dia_a
+     , atendimento_sus_ciha.cd_paciente                              cd_paciente_a
+     , paciente.nm_paciente                                          nm_paciente_a
+  from dbamv.atendimento_sus_ciha
+     , dbamv.ori_ate
+     , dbamv.convenio
+     , dbamv.paciente
+ where atendimento_sus_ciha.cd_paciente        = paciente.cd_paciente
+   and atendimento_sus_ciha.cd_convenio        = convenio.cd_convenio
+   and atendimento_sus_ciha.cd_ori_ate         = ori_ate.cd_ori_ate
+   and atendimento_sus_ciha.cd_atendimento NOT IN (SELECT cd_atendimento FROM dbamv.glosas_sus WHERE cd_atendimento = atendimento_sus_ciha.cd_atendimento)
+   and
+         (
+          trunc(:CAMPO_COMPET,'MM') = trunc(atendimento_sus_ciha.dt_competencia_ciha,'MM')
+           OR
+          atendimento_sus_ciha.cd_atendimento IN (SELECT cd_atendimento FROM dbamv.reg_fat WHERE cd_atendimento = atendimento_sus_ciha.cd_atendimento AND reg_fat.nr_identificacao = 5)
+         )
+   and atendimento_sus_ciha.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+   and ( :CAMPO_TP_ORIGEM_CALCULO = 'A' and :CAMPO_TP_PRODUCAO = 'SUS-I' and atendimento_sus_ciha.tp_producao = :CAMPO_TP_PRODUCAO )
+union all
+SELECT ori_ate.cd_ori_ate                                             cd_ori_ate_a
+     , ori_ate.ds_ori_ate                                             ds_ori_ate_a
+     , convenio.cd_convenio                                           cd_convenio_a
+     , convenio.nm_convenio                                           nm_convenio_a
+     , producao_sus_ciha.cd_atendimento                               cd_atendimento_a
+     , producao_sus_ciha.dt_inicial                                   dt_atendimento_a
+     , producao_sus_ciha.dt_final                                     dt_alta_a
+     , decode(producao_sus_ciha.dt_final,null,'Internado', 'Alta')    tp_situacao_atendimento_a
+     , producao_sus_ciha.nr_dias_internacao nr_paciente_dia_a
+     , producao_sus_ciha.cd_paciente                                 cd_paciente_a
+     , paciente.nm_paciente                                          nm_paciente_a
+  FROM dbamv.producao_sus_ciha
+     , dbamv.ori_ate
+     , dbamv.convenio
+     , dbamv.paciente
+     , dbamv.atendime
+  WHERE producao_sus_ciha.cd_atendimento     = atendime.cd_atendimento
+    AND atendime.cd_ori_ate                  = ori_ate.cd_ori_ate
+    AND atendime.cd_convenio                 = convenio.cd_convenio
+    AND atendime.cd_paciente        = paciente.cd_paciente
+    and producao_sus_ciha.cd_glosa is null
+    and to_char(producao_sus_ciha.dt_competencia,'MMYYYY') = to_char(:CAMPO_COMPET,'MMYYYY')
+    AND producao_sus_ciha.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+    AND ( :CAMPO_TP_ORIGEM_CALCULO = 'P' AND producao_sus_ciha.tp_producao = :CAMPO_TP_PRODUCAO )
+ order by cd_ori_ate_a, cd_convenio_a, cd_atendimento_a
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_INTER_CIHA_SINTETICO
+select producao_convenio_ciha.cd_ori_ate                  cd_ori_ate_s
+     , ori_ate.ds_ori_ate                                 ds_ori_ate_s
+     , producao_convenio_ciha.cd_convenio                 cd_convenio_s
+     , convenio.nm_convenio                               nm_convenio_s
+     , count('x')                                         qt_atendimento_s
+   , Sum(Decode(producao_convenio_ciha.nr_dias_internacao , 0, 1, producao_convenio_ciha.nr_dias_internacao ) ) nr_paciente_dia_s
+  from dbamv.geracao_ciha
+     , dbamv.producao_convenio_ciha
+     , dbamv.ori_ate
+     , dbamv.convenio
+ where producao_convenio_ciha.cd_convenio               = convenio.cd_convenio
+   and producao_convenio_ciha.cd_ori_ate                = ori_ate.cd_ori_ate
+   and producao_convenio_ciha.cd_modalidade_ciha        = '02'
+   and producao_convenio_ciha.cd_geracao                = geracao_ciha.cd_geracao
+   and to_char(geracao_ciha.dt_competencia,'MMYYYY') = to_char(:CAMPO_COMPET,'MMYYYY')
+   and geracao_ciha.cd_multi_empresa                 = dbamv.pkg_mv2000.le_empresa
+   and (:CAMPO_TP_PRODUCAO = 'CNV-I'  )
+ group by producao_convenio_ciha.cd_ori_ate
+        , ori_ate.ds_ori_ate
+        , producao_convenio_ciha.cd_convenio
+        , convenio.nm_convenio
+union all
+select atendimento_sus_ciha.cd_ori_ate                     cd_ori_ate_s
+     , ori_ate.ds_ori_ate                                  ds_ori_ate_s
+     , atendimento_sus_ciha.cd_convenio                    cd_convenio_s
+     , convenio.nm_convenio                                nm_convenio_s
+     , count('x')                                          qt_atendimento_s
+     , sum(nvl(dbamv.pkg_ciha_producao.F_PACIENTE_DIA( :CAMPO_COMPET
+                                                     , atendimento_sus_ciha.dt_atendimento
+                                                     , atendimento_sus_ciha.dt_alta ),0)) nr_paciente_dia_s
+  from dbamv.atendimento_sus_ciha
+     , dbamv.ori_ate
+     , dbamv.convenio
+ where atendimento_sus_ciha.cd_convenio        = convenio.cd_convenio
+   and atendimento_sus_ciha.cd_ori_ate         = ori_ate.cd_ori_ate
+   and to_char(atendimento_sus_ciha.dt_atendimento,'MMYYYY') = to_char(:CAMPO_COMPET,'MMYYYY')
+   and
+         (
+          trunc(:CAMPO_COMPET,'MM') = trunc(atendimento_sus_ciha.dt_competencia_ciha,'MM')
+           OR
+          atendimento_sus_ciha.cd_atendimento IN (SELECT cd_atendimento FROM dbamv.reg_fat WHERE cd_atendimento = atendimento_sus_ciha.cd_atendimento AND reg_fat.nr_identificacao = 5)
+         )
+   and atendimento_sus_ciha.cd_atendimento NOT IN (SELECT cd_atendimento FROM dbamv.glosas_sus WHERE cd_atendimento = atendimento_sus_ciha.cd_atendimento)
+   and atendimento_sus_ciha.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+   and ( :CAMPO_TP_ORIGEM_CALCULO = 'A' and :CAMPO_TP_PRODUCAO = 'SUS-I' and atendimento_sus_ciha.tp_producao = :CAMPO_TP_PRODUCAO )
+ group by atendimento_sus_ciha.cd_ori_ate
+        , ori_ate.ds_ori_ate
+        , atendimento_sus_ciha.cd_convenio
+        , convenio.nm_convenio
+union all
+select atendime.cd_ori_ate                     cd_ori_ate_s
+     , ori_ate.ds_ori_ate                                  ds_ori_ate_s
+     , convenio.cd_convenio                    cd_convenio_s
+     , convenio.nm_convenio                                nm_convenio_s
+     , count('x')                                          qt_atendimento_s
+     , sum(producao_sus_ciha.NR_DIAS_INTERNACAO)  nr_paciente_dia_s
+  from dbamv.producao_sus_ciha
+     , dbamv.ori_ate
+     , dbamv.convenio
+     , dbamv.atendime
+ where producao_sus_ciha.cd_atendimento        = atendime.cd_atendimento
+   and atendime.cd_convenio        = convenio.cd_convenio
+   and atendime.cd_ori_ate         = ori_ate.cd_ori_ate
+   and producao_sus_ciha.cd_glosa IS null
+   and to_char(producao_sus_ciha.dt_competencia,'MMYYYY') = to_char(:CAMPO_COMPET,'MMYYYY')
+   and producao_sus_ciha.cd_multi_empresa   = dbamv.pkg_mv2000.le_empresa
+   and ( :CAMPO_TP_ORIGEM_CALCULO = 'P' and :CAMPO_TP_PRODUCAO = 'SUS-I' and producao_sus_ciha.tp_producao = :CAMPO_TP_PRODUCAO )
+ group by atendime.cd_ori_ate
+        , ori_ate.ds_ori_ate
+        , convenio.cd_convenio
+        , convenio.nm_convenio
+order by cd_ori_ate_s, cd_convenio_s

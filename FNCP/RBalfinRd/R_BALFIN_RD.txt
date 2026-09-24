@@ -1,0 +1,501 @@
+/*----------------------------------------------------------------------------*/
+--R_BALFIN_RD
+SELECT   cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         SUM(vl_grupo)           vl_rateio,
+         SUM(vl_desconto_grupo)  vl_desconto_grupo,
+         SUM(vl_acrescimo_grupo) vl_acrescimo_grupo ,
+         SUM(vl_liquido_grupo)   vl_liquido_grupo,
+         DECODE (tp_quitacao, 'DESPESA','DESPESAS', 'RECEITAS') descricao,
+         codigo
+    FROM (
+select nvl(g.cd_gru_res,0) cd_gru_res
+     ,nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) vl_liquido_grupo
+     , 'RECEITA' tp_quitacao
+     , 1 codigo
+from dbamv.con_rec c
+      ,dbamv.itcon_rec it
+      ,dbamv.rat_conrec r
+      ,dbamv.item_res i
+      ,dbamv.gru_res g
+      ,dbamv.reccon_rec rec
+where c.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P','G')
+  and c.cd_con_rec = r.cd_con_rec
+  and rec.cd_itcon_rec = it.cd_itcon_rec
+  and rec.dt_recebimento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and r.cd_item_res = i.cd_item_res
+  and c.cd_con_rec = it.cd_con_rec
+  and i.cd_gru_res  = g.cd_gru_res
+  and vl_rateio > 0
+  and rec.dt_estorno is null
+  and not exists (select cd_con_rec_agrup from dbamv.itcon_rec where cd_con_rec_agrup = c.cd_con_rec)
+union all
+select g.cd_gru_res cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , i.cd_item_res cd_item_res
+     , nvl(i.ds_item_res,'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) vl_liquido_grupo
+     , 'DESPESA'  tp_quitacao
+     , 2 codigo
+from dbamv.itcon_pag it
+    , dbamv.ratcon_pag r
+    , dbamv.con_pag c
+    , dbamv.item_res i
+    , dbamv.gru_res g
+    , dbamv.pagcon_pag p
+where  it.cd_con_pag = c.cd_con_pag
+  and c.cd_con_pag = r.cd_con_pag
+  and r.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P')
+  and r.cd_item_res = i.cd_item_res
+  and i.cd_gru_res = g.cd_gru_res
+  and vl_rateio > 0
+  and p.dt_pagamento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and p.cd_itcon_pag = it.cd_itcon_pag
+  and p.dt_estorno is null
+  and not exists (select cd_con_pag_agrup from dbamv.itcon_pag where cd_con_pag_agrup = c.cd_con_pag)
+union all
+select nvl(g.cd_gru_res,0) cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_grupo
+     , 0 vl_acrescimo_grupo
+     , 0 vl_desconto_grupo
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_liquido_grupo
+     , decode(l.tp_operacao_saldo_conta, '+', 'RECEITA', 'DESPESA') tp_quitacao
+     , decode(l.tp_operacao_saldo_conta, '+', 1, 2)  codigo
+from dbamv.mov_concor m
+     , dbamv.con_cor cc
+     ,dbamv.lan_concor l
+     ,dbamv.empresa_lan_concor e
+     ,dbamv.item_res i
+     ,dbamv.gru_res g
+where m.cd_lan_concor = l.cd_lan_concor
+  and l.cd_lan_concor = e.cd_lan_concor
+  and m.cd_con_cor = cc.cd_con_cor
+  and cc.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and e.cd_item_res = i.cd_item_res
+  and i.cd_gru_res  = g.cd_gru_res
+  and m.dt_movimentacao  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and e.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and :CAMPO_SN_LAN_BAN = 'S'
+  and l.sn_lanc_extrato = 'S'
+  and m.cd_cheque is null
+  and m.cd_bordero is null
+  and cd_mov_concor_transferencia is null
+  and m.vl_movimentacao - nvl(vl_conciliado,0) > 0
+  and ( (  m.cd_aplicacao is not null and nvl( l.tp_operacao_saldo_conta, '0' )  = '0'
+      and nvl( l.tp_operacao_saldo_aplicacao, '0' )  <> '0' ) or  m.cd_aplicacao is null )
+  and m.cd_con_cor_transferencia is null
+  and m.cd_mov_caixa is null
+  and m.cd_pagcon_pag is null
+  and (not exists( select cd_mov_concor
+                     from dbamv.rec_mov_con r
+                    where r.cd_mov_concor = m.cd_mov_concor )
+       or exists( select cd_mov_concor
+                    from dbamv.rec_mov_con r
+                   where r.cd_mov_concor = m.cd_mov_concor
+                     and m.cd_fornecedor is not null
+                     and m.cd_lan_concor  in ( select conf.cd_lanca_credito_convenio
+                                                          from dbamv.config_financ conf
+                                                         where conf.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA)))
+)
+GROUP BY tp_quitacao,cd_gru_res, ds_gru_res, cd_item_res, ds_item_res, codigo
+ORDER BY codigo
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_BALFIN_RD_2
+select * from(
+SELECT   cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         SUM(vl_grupo)           vl_rateio,
+         SUM(vl_desconto_grupo)  vl_desconto_grupo,
+         SUM(vl_acrescimo_grupo) vl_acrescimo_grupo ,
+         SUM(vl_liquido_grupo)   vl_liquido_grupo,
+         DECODE (tp_quitacao, 'DESPESA','DESPESAS', 'RECEITAS') descricao,
+         codigo
+    FROM (
+select nvl(g.cd_gru_res,0) cd_gru_res
+     ,nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) vl_liquido_grupo
+     , 'RECEITA' tp_quitacao
+     , 1 codigo
+from dbamv.con_rec c
+      ,dbamv.itcon_rec it
+      ,dbamv.rat_conrec r
+      ,dbamv.item_res i
+      ,dbamv.gru_res g
+      ,dbamv.reccon_rec rec
+where c.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P','G')
+  and c.cd_con_rec = r.cd_con_rec
+  and rec.cd_itcon_rec = it.cd_itcon_rec
+  and rec.dt_recebimento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and r.cd_item_res = i.cd_item_res
+  and c.cd_con_rec = it.cd_con_rec
+  and i.cd_gru_res  = g.cd_gru_res
+  and vl_rateio > 0
+  and rec.dt_estorno is null
+  and not exists (select cd_con_rec_agrup from dbamv.itcon_rec where cd_con_rec_agrup = c.cd_con_rec)
+union all
+select g.cd_gru_res cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , i.cd_item_res cd_item_res
+     , nvl(i.ds_item_res,'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) vl_liquido_grupo
+     , 'DESPESA'  tp_quitacao
+     , 2 codigo
+from dbamv.itcon_pag it
+    , dbamv.ratcon_pag r
+    , dbamv.con_pag c
+    , dbamv.item_res i
+    , dbamv.gru_res g
+    , dbamv.pagcon_pag p
+where  it.cd_con_pag = c.cd_con_pag
+  and c.cd_con_pag = r.cd_con_pag
+  and r.cd_multi_empresa in :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P')
+  and r.cd_item_res = i.cd_item_res
+  and i.cd_gru_res = g.cd_gru_res
+  and vl_rateio > 0
+  and p.dt_pagamento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and p.cd_itcon_pag = it.cd_itcon_pag
+  and p.dt_estorno is null
+  and not exists (select cd_con_pag_agrup from dbamv.itcon_pag where cd_con_pag_agrup = c.cd_con_pag)
+union all
+select nvl(g.cd_gru_res,0) cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_grupo
+     , 0 vl_acrescimo_grupo
+     , 0 vl_desconto_grupo
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_liquido_grupo
+     , decode(l.tp_operacao_saldo_conta, '+', 'RECEITA', 'DESPESA') tp_quitacao
+     , decode(l.tp_operacao_saldo_conta, '+', 1, 2)  codigo
+from dbamv.mov_concor m
+     , dbamv.con_cor cc
+     ,dbamv.lan_concor l
+     ,dbamv.empresa_lan_concor e
+     ,dbamv.item_res i
+     ,dbamv.gru_res g
+where m.cd_lan_concor = l.cd_lan_concor
+  and l.cd_lan_concor = e.cd_lan_concor
+  and m.cd_con_cor = cc.cd_con_cor
+  and cc.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and e.cd_item_res = i.cd_item_res
+  and i.cd_gru_res  = g.cd_gru_res
+  and m.dt_movimentacao  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and e.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and :CAMPO_SN_LAN_BAN = 'S'
+  and l.sn_lanc_extrato = 'S'
+  and m.cd_cheque is null
+  and m.cd_bordero is null
+  and cd_mov_concor_transferencia is null
+  and m.vl_movimentacao - nvl(vl_conciliado,0) > 0
+  and ( (  m.cd_aplicacao is not null and nvl( l.tp_operacao_saldo_conta, '0' )  = '0'
+      and nvl( l.tp_operacao_saldo_aplicacao, '0' )  <> '0' ) or  m.cd_aplicacao is null )
+  and m.cd_con_cor_transferencia is null
+  and m.cd_mov_caixa is null
+  and m.cd_pagcon_pag is null
+  and (not exists( select cd_mov_concor
+                     from dbamv.rec_mov_con r
+                    where r.cd_mov_concor = m.cd_mov_concor )
+       or exists( select cd_mov_concor
+                    from dbamv.rec_mov_con r
+                   where r.cd_mov_concor = m.cd_mov_concor
+                     and m.cd_fornecedor is not null
+                     and m.cd_lan_concor  in ( select conf.cd_lanca_credito_convenio
+                                                          from dbamv.config_financ conf
+                                                         where conf.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA)))
+)
+GROUP BY tp_quitacao,cd_gru_res, ds_gru_res, cd_item_res, ds_item_res, codigo
+ORDER BY codigo
+)
+where CODIGO = :CAMPO_CODIGO
+AND DS_GRU_RES = :CAMPO_DS_GRU_RES
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_BALFIN_RD_2_2
+select * from(
+SELECT   cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         SUM(vl_grupo)           vl_rateio,
+         SUM(vl_desconto_grupo)  vl_desconto_grupo,
+         SUM(vl_acrescimo_grupo) vl_acrescimo_grupo ,
+         SUM(vl_liquido_grupo)   vl_liquido_grupo,
+         DECODE (tp_quitacao, 'DESPESA','DESPESAS', 'RECEITAS') descricao,
+         codigo
+    FROM (
+select nvl(g.cd_gru_res,0) cd_gru_res
+     ,nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) vl_liquido_grupo
+     , 'RECEITA' tp_quitacao
+     , 1 codigo
+from dbamv.con_rec c
+      ,dbamv.itcon_rec it
+      ,dbamv.rat_conrec r
+      ,dbamv.item_res i
+      ,dbamv.gru_res g
+      ,dbamv.reccon_rec rec
+where c.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P','G')
+  and c.cd_con_rec = r.cd_con_rec
+  and rec.cd_itcon_rec = it.cd_itcon_rec
+  and rec.dt_recebimento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and r.cd_item_res = i.cd_item_res
+  and c.cd_con_rec = it.cd_con_rec
+  and i.cd_gru_res  = g.cd_gru_res
+  and vl_rateio > 0
+  and rec.dt_estorno is null
+  and not exists (select cd_con_rec_agrup from dbamv.itcon_rec where cd_con_rec_agrup = c.cd_con_rec)
+union all
+select g.cd_gru_res cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , i.cd_item_res cd_item_res
+     , nvl(i.ds_item_res,'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) vl_liquido_grupo
+     , 'DESPESA'  tp_quitacao
+     , 2 codigo
+from dbamv.itcon_pag it
+    , dbamv.ratcon_pag r
+    , dbamv.con_pag c
+    , dbamv.item_res i
+    , dbamv.gru_res g
+    , dbamv.pagcon_pag p
+where  it.cd_con_pag = c.cd_con_pag
+  and c.cd_con_pag = r.cd_con_pag
+  and r.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P')
+  and r.cd_item_res = i.cd_item_res
+  and i.cd_gru_res = g.cd_gru_res
+  and vl_rateio > 0
+  and p.dt_pagamento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and p.cd_itcon_pag = it.cd_itcon_pag
+  and p.dt_estorno is null
+  and not exists (select cd_con_pag_agrup from dbamv.itcon_pag where cd_con_pag_agrup = c.cd_con_pag)
+union all
+select nvl(g.cd_gru_res,0) cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_grupo
+     , 0 vl_acrescimo_grupo
+     , 0 vl_desconto_grupo
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_liquido_grupo
+     , decode(l.tp_operacao_saldo_conta, '+', 'RECEITA', 'DESPESA') tp_quitacao
+     , decode(l.tp_operacao_saldo_conta, '+', 1, 2)  codigo
+from dbamv.mov_concor m
+     , dbamv.con_cor cc
+     ,dbamv.lan_concor l
+     ,dbamv.empresa_lan_concor e
+     ,dbamv.item_res i
+     ,dbamv.gru_res g
+where m.cd_lan_concor = l.cd_lan_concor
+  and l.cd_lan_concor = e.cd_lan_concor
+  and m.cd_con_cor = cc.cd_con_cor
+  and cc.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and e.cd_item_res = i.cd_item_res
+  and i.cd_gru_res  = g.cd_gru_res
+  and m.dt_movimentacao  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and e.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and :CAMPO_SN_LAN_BAN = 'S'
+  and l.sn_lanc_extrato = 'S'
+  and m.cd_cheque is null
+  and m.cd_bordero is null
+  and cd_mov_concor_transferencia is null
+  and m.vl_movimentacao - nvl(vl_conciliado,0) > 0
+  and ( (  m.cd_aplicacao is not null and nvl( l.tp_operacao_saldo_conta, '0' )  = '0'
+      and nvl( l.tp_operacao_saldo_aplicacao, '0' )  <> '0' ) or  m.cd_aplicacao is null )
+  and m.cd_con_cor_transferencia is null
+  and m.cd_mov_caixa is null
+  and m.cd_pagcon_pag is null
+  and (not exists( select cd_mov_concor
+                     from dbamv.rec_mov_con r
+                    where r.cd_mov_concor = m.cd_mov_concor )
+       or exists( select cd_mov_concor
+                    from dbamv.rec_mov_con r
+                   where r.cd_mov_concor = m.cd_mov_concor
+                     and m.cd_fornecedor is not null
+                     and m.cd_lan_concor  in ( select conf.cd_lanca_credito_convenio
+                                                          from dbamv.config_financ conf
+                                                         where conf.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA)))
+)
+GROUP BY tp_quitacao,cd_gru_res, ds_gru_res, cd_item_res, ds_item_res, codigo
+ORDER BY codigo
+)
+where CODIGO = :CAMPO_CODIGO
+AND DS_GRU_RES = :CAMPO_DS_GRU_RES
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_BALFIN_RD_2_2_2
+SELECT   cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         SUM(vl_grupo)           vl_rateio,
+         SUM(vl_desconto_grupo)  vl_desconto_grupo,
+         SUM(vl_acrescimo_grupo) vl_acrescimo_grupo ,
+         SUM(vl_liquido_grupo)   vl_liquido_grupo,
+         DECODE (tp_quitacao, 'DESPESA','DESPESAS', 'RECEITAS') descricao,
+         codigo
+    FROM (
+select nvl(g.cd_gru_res,0) cd_gru_res
+     ,nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_acrescimo, r.vl_rateio, 1 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_desconto,  r.vl_rateio, 1 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_rec, r.ROWID, rec.vl_recebido,   r.vl_rateio, 1 ) vl_liquido_grupo
+     , 'RECEITA' tp_quitacao
+     , 1 codigo
+from dbamv.con_rec c
+      ,dbamv.itcon_rec it
+      ,dbamv.rat_conrec r
+      ,dbamv.item_res i
+      ,dbamv.gru_res g
+      ,dbamv.reccon_rec rec
+where c.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P','G')
+  and c.cd_con_rec = r.cd_con_rec
+  and rec.cd_itcon_rec = it.cd_itcon_rec
+  and rec.dt_recebimento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and r.cd_item_res = i.cd_item_res
+  and c.cd_con_rec = it.cd_con_rec
+  and i.cd_gru_res  = g.cd_gru_res
+  and vl_rateio > 0
+  and rec.dt_estorno is null
+  and not exists (select cd_con_rec_agrup from dbamv.itcon_rec where cd_con_rec_agrup = c.cd_con_rec)
+union all
+select g.cd_gru_res cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , i.cd_item_res cd_item_res
+     , nvl(i.ds_item_res,'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) +
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ),0) -
+       nvl(dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ),0) vl_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_acrescimo, r.vl_rateio, 2 ) vl_acrescimo_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_desconto,  r.vl_rateio, 2 ) vl_desconto_grupo
+     , dbamv.calcula_valor_rateio (c.cd_con_pag, r.ROWID, p.vl_pago,         r.vl_rateio, 2 ) vl_liquido_grupo
+     , 'DESPESA'  tp_quitacao
+     , 2 codigo
+from dbamv.itcon_pag it
+    , dbamv.ratcon_pag r
+    , dbamv.con_pag c
+    , dbamv.item_res i
+    , dbamv.gru_res g
+    , dbamv.pagcon_pag p
+where  it.cd_con_pag = c.cd_con_pag
+  and c.cd_con_pag = r.cd_con_pag
+  and r.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and it.tp_quitacao in ('Q','P')
+  and r.cd_item_res = i.cd_item_res
+  and i.cd_gru_res = g.cd_gru_res
+  and vl_rateio > 0
+  and p.dt_pagamento  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and p.cd_itcon_pag = it.cd_itcon_pag
+  and p.dt_estorno is null
+  and not exists (select cd_con_pag_agrup from dbamv.itcon_pag where cd_con_pag_agrup = c.cd_con_pag)
+union all
+select nvl(g.cd_gru_res,0) cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_grupo
+     , 0 vl_acrescimo_grupo
+     , 0 vl_desconto_grupo
+     , m.vl_movimentacao - nvl(vl_conciliado,0)  vl_liquido_grupo
+     , decode(l.tp_operacao_saldo_conta, '+', 'RECEITA', 'DESPESA') tp_quitacao
+     , decode(l.tp_operacao_saldo_conta, '+', 1, 2)  codigo
+from dbamv.mov_concor m
+     , dbamv.con_cor cc
+     ,dbamv.lan_concor l
+     ,dbamv.empresa_lan_concor e
+     ,dbamv.item_res i
+     ,dbamv.gru_res g
+where m.cd_lan_concor = l.cd_lan_concor
+  and l.cd_lan_concor = e.cd_lan_concor
+  and m.cd_con_cor = cc.cd_con_cor
+  and cc.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and e.cd_item_res = i.cd_item_res
+  and i.cd_gru_res  = g.cd_gru_res
+  and m.dt_movimentacao  between add_months(to_date(:CAMPO_COMPET,'yyyymm'),-12)   and   last_day(to_date(:CAMPO_COMPET,'yyyymm'))
+  and e.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA
+  and :CAMPO_SN_LAN_BAN = 'S'
+  and l.sn_lanc_extrato = 'S'
+  and m.cd_cheque is null
+  and m.cd_bordero is null
+  and cd_mov_concor_transferencia is null
+  and m.vl_movimentacao - nvl(vl_conciliado,0) > 0
+  and ( (  m.cd_aplicacao is not null and nvl( l.tp_operacao_saldo_conta, '0' )  = '0'
+      and nvl( l.tp_operacao_saldo_aplicacao, '0' )  <> '0' ) or  m.cd_aplicacao is null )
+  and m.cd_con_cor_transferencia is null
+  and m.cd_mov_caixa is null
+  and m.cd_pagcon_pag is null
+  and (not exists( select cd_mov_concor
+                     from dbamv.rec_mov_con r
+                    where r.cd_mov_concor = m.cd_mov_concor )
+       or exists( select cd_mov_concor
+                    from dbamv.rec_mov_con r
+                   where r.cd_mov_concor = m.cd_mov_concor
+                     and m.cd_fornecedor is not null
+                     and m.cd_lan_concor  in ( select conf.cd_lanca_credito_convenio
+                                                          from dbamv.config_financ conf
+                                                         where conf.cd_multi_empresa IN :CAMPO_CD_MULTI_EMPRESA)))
+)
+GROUP BY tp_quitacao,cd_gru_res, ds_gru_res, cd_item_res, ds_item_res, codigo
+ORDER BY codigo

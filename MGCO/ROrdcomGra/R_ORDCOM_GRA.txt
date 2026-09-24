@@ -1,0 +1,148 @@
+/*----------------------------------------------------------------------------*/
+--R_ORDCOM_GRA
+SELECT TP_ORD_COM
+  FROM ORD_COM
+ WHERE CD_ORD_COM = to_number(:CAMPO_CD_ORD_COM)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ORDCOM_GRA_R_ITORD_SER1_Q_ITORD_SER
+SELECT * FROM (
+select itord_ser.cd_ord_com   cd_ord_com_ser
+      ,manu_serv.cd_servico   cd_servico
+      ,manu_serv.nm_servico   nm_servico
+      ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_ser.vl_total,itord_ser.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)     vl_total_ser
+      ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_ser.vl_desconto,itord_ser.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) vl_total_desc
+      ,itsol_ser.ds_servico   ds_servico
+      ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_frete,ord_com_moeda.vl_frete_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) vl_frete
+      ,ord_com.tp_frete tp_frete
+      ,ord_com.sn_inclusao_nota sn_incluso_nota
+      ,ORD_COM.DT_ORD_COM DT_LANCAMENTO
+      ,Nvl(itord_ser.vl_perc_desconto,0.0) vl_perc_desconto
+      ,Nvl(itord_ser.vl_perc_imposto,0.0) vl_perc_imposto
+      ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_ser.vl_desconto,itord_ser.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) vl_desconto
+      ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_ser.vl_imposto,itord_ser.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) vl_imposto
+      , Nvl((SELECT configest.sn_desc_ipi_ord_com_serv
+              FROM dbamv.configest
+             WHERE  configest.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA ),'N') AS SN_DESC_IPI_ORD_COM_SERV
+      ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_outros,ord_com_moeda.vl_outros_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) vl_outros
+      ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_icms,ord_com_moeda.vl_icms_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) vl_icms
+,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_desconto,ord_com_moeda.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) vl_desconto_nota
+  from dbamv.itord_ser
+      ,dbamv.manu_serv
+      ,dbamv.itsol_ser
+      ,dbamv.ord_com
+      ,dbamv.ord_com_moeda
+      ,dbamv.estoque
+      ,dbamv.fonte_recurso_itsol_ser
+      ,dbamv.fonte_recurso
+ where itord_ser.cd_ser_sol     =   manu_serv.cd_servico
+   and itsol_ser.cd_sol_com(+)  =   ord_com.cd_sol_com
+   and (itsol_ser.cd_sol_com is null
+        or itsol_ser.cd_ser_sol =   itord_ser.cd_ser_sol)
+   and ord_com.cd_ord_com       =   itord_ser.cd_ord_com
+   AND ord_com.cd_ord_com       =   ord_com_moeda.cd_ord_com(+)
+   and estoque.cd_estoque       =   ord_com.cd_estoque
+   and estoque.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+   and fonte_recurso_itsol_ser.cd_sol_com(+) = itsol_ser.cd_sol_com
+   and fonte_recurso_itsol_ser.cd_ser_sol(+) = itsol_ser.cd_ser_sol
+   and fonte_recurso.cd_fonte_recurso    (+) = fonte_recurso_itsol_ser.cd_fonte_recurso
+ order by cd_ord_com_ser
+)
+WHERE CD_ORD_COM_SER = to_number(:CAMPO_CD_ORD_COM)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ORDCOM_GRA_R_ORD_COM_Q_ORD_COM
+select  sol_com.cd_conta                                 cd_conta
+       ,conta.ds_conta                                   ds_conta
+       ,sol_com.cd_rubrica                               cd_rubrica
+       ,rubrica.ds_rubrica                               ds_rubrica
+       ,sol_com.cd_fonte_recurso                         cd_fonte_recurso
+       ,fonte_recurso.ds_fonte_recurso                   ds_fonte_recurso
+       ,ord_com.cd_ord_com                               cd_ord_com
+       ,ord_com.cd_sol_com                               cd_sol_com
+       ,ORD_COM.NR_PDC_BIONEXO 			 	 NR_PDC_BIONEXO
+       ,fornecedor.cd_fornecedor                         cd_fornecedor
+       ,fornecedor.nm_fornecedor                         nm_fornecedor
+       ,fornecedor.nm_fantasia                           nm_fantasia
+       ,fornecedor.nr_cgc_cpf                            nr_cgc_cpf
+       ,fornecedor.nr_insc_est                           nr_insc_est
+       ,fornecedor.ds_endereco                           ds_enderecO
+       ,fornecedor.nr_endereco                           nr_endereco
+       ,fornecedor.ds_complemento                        ds_complemento
+       ,fornecedor.ds_bairro                             ds_bairro
+       ,fornecedor.nr_cep                                nr_cep
+       ,fornecedor.tp_fornecedor                         tp_fornecedor
+       ,Nvl(cidade.nm_cidade,'CADASTRAR MUNICÍPIO')      nm_cidade
+       ,cidade.cd_uf                                     cd_uf
+       ,nvl(fornecedor.nr_conta, ' ') 					 nr_conta
+       ,nvl(fornecedor.dv_conta_corrente, ' ') 			 dv_conta_corrente
+       ,nvl(fornecedor.cd_agencia,  ' ') 				 cd_agencia
+       ,nvl(fornecedor.dv_agencia, ' ') 				 dv_agencia
+       ,nvl(to_char(fornecedor.cd_banco), ' ') 			 cd_banco
+       ,nvl(ord_com.vl_perc_desconto,0)                  vl_perc_desconto
+       ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_desconto,ord_com_moeda.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)    vl_desconto
+       ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_desconto_comercial,ord_com_moeda.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)    vl_desconto_comercial
+       ,ord_com.dt_prev_entrega_intervalo                dt_prev_entrega_intervalo
+       ,ord_com.dt_prev_entrega                          dt_prev_entrega
+       ,ord_com.tp_frete                                 tp_frete
+       ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_frete,ord_com_moeda.vl_frete_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)  vl_frete
+       ,ord_com.sn_inclusao_nota 						 sn_incluso_nota
+       ,ord_com.ds_ordem_de_compra                       ds_ordem_de_compra
+       ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_total,ord_com_moeda.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)  VL_TOTAL_ORD_COM
+       ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_outros,ord_com_moeda.vl_outros_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)  vl_outros
+       ,condicoes_pagamento.cd_condicao_pagamento        cd_condicao_pagamento
+       ,condicoes_pagamento.ds_condicao_pagamento        ds_condicao_pagamento
+       ,cotador.ds_cotador                               ds_cotador
+       ,setor.nm_setor                                   nm_setor
+       ,ord_com.cd_id_usuario_autorizou                  cd_id_usuario_autorizou
+       ,ord_com.dt_ord_com                               dt_ord_com
+       ,ord_com.tp_ord_com                               tp_ord_com
+       ,nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ord_com.vl_icms,ord_com_moeda.vl_icms_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)           vl_icms 
+       ,ORD_COM.DT_ORD_COM DT_LANCAMENTO
+       ,nvl(dbamv.moeda_padrao(pkg_mv2000.le_empresa), ' ') cd_moeda_padrao
+       ,nvl((SELECT distinct ds_indice_moeda FROM indice_moeda WHERE cd_moeda = dbamv.moeda_padrao(pkg_mv2000.le_empresa) AND ROWNUM = 1), ' ') ds_moeda
+       ,ORD_COM.TP_SITUACAO  TP_SITUACAO
+      ,(SELECT ('Cód. Integr: ' || cd_oc_externo) AS cd_oc_externo
+          FROM dbamv.ord_com
+         WHERE cd_ord_com = to_number(:CAMPO_CD_ORD_COM)
+           AND 'S' = (SELECT valor FROM dbamv.configuracao WHERE chave = 'SN_CONSULTA_INTEGRACAO' AND CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA)) AS cd_oc_externo
+      ,(SELECT ('Contrato: ' || cd_contrato) AS cd_contrato
+          FROM dbamv.ord_com
+         WHERE cd_ord_com = to_number(:CAMPO_CD_ORD_COM)
+           AND 'N' <> (SELECT dbamv.pack_aprovacao.fnc_ponto_status('ORDEM_COMPRA') FROM dual)) AS cd_contrato
+ ,(SELECT ('Excede Contrato?: ' ||
+               Decode(sn_excede_contrato,'S','Sim', 'N','Não')
+               ) AS sn_excede_contrato
+          FROM dbamv.ord_com
+         WHERE cd_ord_com = to_number(:CAMPO_CD_ORD_COM)
+           AND 'A' <> (SELECT dbamv.pack_aprovacao.fnc_ponto_status('ORDEM_COMPRA') FROM dual)) AS sn_excede_contrato
+  from  dbamv.ord_com
+       ,dbamv.estoque
+       ,dbamv.fornecedor
+       ,dbamv.sol_com
+       ,dbamv.cidade
+       ,dbamv.condicoes_pagamento
+       ,dbamv.cotador
+       ,dbamv.setor
+       ,dbamv.conta
+       ,dbamv.rubrica
+       ,dbamv.fonte_recurso
+       ,dbamv.ord_com_moeda
+  where ord_com.cd_ord_com            = to_number(:CAMPO_CD_ORD_COM)
+    and estoque.cd_estoque            = ord_com.cd_estoque
+    and estoque.cd_multi_empresa      = :CAMPO_CD_MULTI_EMPRESA
+    and fornecedor.cd_fornecedor      = ord_com.cd_fornecedor
+    and cidade.cd_cidade              (+)= fornecedor.cd_cidade
+    and sol_com.cd_sol_com            (+)= ord_com.cd_sol_com
+    and setor.cd_setor                (+)= sol_com.cd_setor
+    and cotador.cd_cotador            (+)= sol_com.cd_cotador
+    and ord_com.cd_condicao_pagamento    = condicoes_pagamento.cd_condicao_pagamento
+    and conta.cd_conta                (+)= sol_com.cd_conta
+    and rubrica.cd_rubrica            (+)= sol_com.cd_rubrica
+    and ord_com.cd_ord_com               = ord_com_moeda.cd_ord_com(+)
+    and fonte_recurso.cd_fonte_recurso(+)= sol_com.cd_fonte_recurso
+   order by ord_com.cd_ord_com

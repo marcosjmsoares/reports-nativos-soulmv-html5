@@ -1,0 +1,182 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_ANUAL
+SELECT * FROM (
+select pc_01.cd_contabil    cd_conta_01
+      ,pc_01.ds_conta       ds_conta_01
+      ,pc_02.cd_contabil    cd_conta_02
+      ,pc_02.ds_conta       ds_conta_02
+      ,pc_03.cd_contabil    cd_conta_03
+      ,pc_03.ds_conta       ds_conta_03
+      ,pc_04.cd_contabil    cd_conta_04
+      ,pc_04.ds_conta       ds_conta_04
+      ,pc_05.cd_contabil    cd_conta_05
+      ,pc_05.ds_conta       ds_conta_05
+      ,pc_06.cd_contabil    cd_conta_06
+      ,pc_06.ds_conta       ds_conta_06
+      ,pc_07.cd_contabil    cd_conta_07
+      ,pc_07.ds_conta       ds_conta_07
+      , decode('','S', lanca.cd_setor_custo, lanca.cd_setor)  cd_setor
+     , decode('','S', lanca.nm_setor_custo, lanca.nm_setor)  nm_setor
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '01', nvl(lanca.vl_lcto,0), 0))   vl_lcto_jan
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '02', nvl(lanca.vl_lcto,0), 0))   vl_lcto_fev
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '03', nvl(lanca.vl_lcto,0), 0))   vl_lcto_mar
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '04', nvl(lanca.vl_lcto,0), 0))   vl_lcto_abr
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '05', nvl(lanca.vl_lcto,0), 0))   vl_lcto_mai
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '06', nvl(lanca.vl_lcto,0), 0))   vl_lcto_jun
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '07', nvl(lanca.vl_lcto,0), 0))   vl_lcto_jul
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '08', nvl(lanca.vl_lcto,0), 0))   vl_lcto_ago
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '09', nvl(lanca.vl_lcto,0), 0))   vl_lcto_set
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '10', nvl(lanca.vl_lcto,0), 0))   vl_lcto_out
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '11', nvl(lanca.vl_lcto,0), 0))   vl_lcto_nov
+      ,sum(decode(substr(to_char(lanca.dt_lcto, 'mm/yyyy'), 1, 2), '12', nvl(lanca.vl_lcto,0), 0))   vl_lcto_dez
+from   dbamv.plano_contas    pc_01
+      ,dbamv.plano_contas    pc_02
+      ,dbamv.plano_contas    pc_03
+      ,dbamv.plano_contas    pc_04
+      ,dbamv.plano_contas    pc_05
+      ,dbamv.plano_contas    pc_06
+      ,dbamv.plano_contas    pc_07
+      ,dbamv.multi_empresas  me
+      , dbamv.grau_da_conta g
+      ,(
+select pc_result.cd_reduzido              cd_reduzido
+     , pc_result.cd_contabil              cd_contabil
+     , setor.cd_setor                     cd_setor
+     , setor.nm_setor                     nm_setor
+     , setor_custo.cd_setor        cd_setor_custo
+     , setor_custo.nm_setor          nm_setor_custo
+     , trunc(lcto_cont.dt_lcto,'month')   dt_lcto
+     , sum(decode(lcto_setor.cd_setor_debito, null, lcto_setor.vl_lcto_setor, 0-lcto_setor.vl_lcto_setor)) vl_lcto
+from dbamv.plano_contas    pc_result
+   , dbamv.plano_contas    pc_lanc
+   , dbamv.lcto_contabil   lcto_cont
+   , dbamv.lcto_setor      lcto_setor
+   , dbamv.setor           setor
+   , dbamv.setor           setor_custo
+where pc_result.cd_reduzido = pc_lanc.cd_reduzido_resultado
+  and ( pc_lanc.cd_reduzido   = lcto_cont.cd_reduzido_credito
+     or pc_lanc.cd_reduzido   = lcto_cont.cd_reduzido_debito )
+  and lcto_cont.cd_lcto_contabil = lcto_setor.cd_lcto_contabil
+  and  ( (:CAMPO_SETOR_CUSTO <> '%'
+        and DBAMV.VERIF_CD_SETOR_PAI(setor.cd_setor, setor_custo.cd_setor) = 1)
+      or  (:CAMPO_SETOR_CUSTO = '%'
+        and DBAMV.VERIF_CD_SETOR_CUSTO_MAX(setor.cd_setor) = setor_custo.cd_setor ) )
+  and ( setor.cd_setor        = lcto_setor.cd_setor_credito
+     or setor.cd_setor        = lcto_setor.cd_setor_debito)
+  and substr(to_char(lcto_cont.dt_lcto, 'dd/mm/yyyy'), 7, 4) = :CAMPO_ANO
+group by pc_result.cd_reduzido
+       , pc_result.cd_contabil
+       , setor.cd_setor
+       , setor.nm_setor
+       , trunc(lcto_cont.dt_lcto,'month')
+       , setor_custo.cd_setor
+       , setor_custo.nm_setor
+union all
+select pc_result.cd_reduzido    cd_reduzido
+     , pc_result.cd_contabil    cd_contabil
+     , setor.cd_setor           cd_setor
+     , setor.nm_setor           nm_setor
+     , setor_custo.cd_setor        cd_setor_custo
+     , setor_custo.nm_setor          nm_setor_custo
+     , trunc(lcto_cont.dt_lcto,'month')  dt_lcto
+     , sum(decode(lcto_setor.cd_setor_debito, null, lcto_setor.vl_lcto_setor, 0-lcto_setor.vl_lcto_setor)) vl_lcto
+from dbamv.plano_contas    pc_result
+   , dbamv.lcto_contabil   lcto_cont
+   , dbamv.lcto_setor      lcto_setor
+   , dbamv.setor           setor
+   , dbamv.multi_empresas  me
+   , dbamv.setor           setor_custo
+where pc_result.cd_multi_empresa = me.cd_multi_empresa
+  and ((dbamv.pkg_fcct_processa_variacao.f_sn_controla_natureza( me.cd_multi_empresa ) = 'N'
+          and substr(pc_result.cd_contabil,1,1) <> me.cd_ativo
+          and substr(pc_result.cd_contabil,1,1) <> me.cd_passivo
+          and substr(pc_result.cd_contabil,1,1) <> me.cd_receita
+          and substr(pc_result.cd_contabil,1,1) <> me.cd_despesa
+       )
+       or
+        (dbamv.pkg_fcct_processa_variacao.f_sn_controla_natureza( me.cd_multi_empresa ) = 'S'
+          and dbamv.fnc_fcct_natureza_inter(NULL,
+                                 pc_result.cd_reduzido,
+                                 NULL,
+                                 'N',
+                                 'N',
+                                 'N',
+                                 'N') = 'S'
+        )
+      )
+  and ( pc_result.cd_reduzido = lcto_cont.cd_reduzido_credito
+     or pc_result.cd_reduzido = lcto_cont.cd_reduzido_debito )
+  and lcto_cont.cd_lcto_contabil = lcto_setor.cd_lcto_contabil
+  and  ( (:CAMPO_SETOR_CUSTO <> '%'
+        and DBAMV.VERIF_CD_SETOR_PAI(setor.cd_setor, setor_custo.cd_setor) = 1)
+      or  (:CAMPO_SETOR_CUSTO = '%'
+        and DBAMV.VERIF_CD_SETOR_CUSTO_MAX(setor.cd_setor) = setor_custo.cd_setor ) )
+  and ( setor.cd_setor        = lcto_setor.cd_setor_credito
+     or setor.cd_setor        = lcto_setor.cd_setor_debito)
+  and substr(to_char(lcto_cont.dt_lcto, 'dd/mm/yyyy'), 7, 4) = :CAMPO_ANO
+group by pc_result.cd_reduzido
+       , pc_result.cd_contabil
+       , setor.cd_setor
+       , setor.nm_setor
+       , setor_custo.cd_setor
+       , setor_custo.nm_setor
+       , trunc(lcto_cont.dt_lcto,'month')) lanca
+where  pc_07.cd_reduzido_pai(+)   = pc_06.cd_reduzido
+and    pc_06.cd_reduzido_pai(+)   = pc_05.cd_reduzido
+and    pc_05.cd_reduzido_pai(+)   = pc_04.cd_reduzido
+and    pc_04.cd_reduzido_pai(+)   = pc_03.cd_reduzido
+and    pc_03.cd_reduzido_pai(+)   = pc_02.cd_reduzido
+and    pc_02.cd_reduzido_pai(+)   = pc_01.cd_reduzido
+and    pc_01.cd_reduzido_pai is null
+and    me.cd_multi_empresa = :CAMPO_MULTI_EMPRESA
+AND me.cd_multi_empresa = g.cd_multi_empresa
+AND g.cd_grau_da_conta = 1
+  and ((dbamv.pkg_fcct_processa_variacao.f_sn_controla_natureza( me.cd_multi_empresa ) = 'N'
+          and substr(pc_01.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_ativo
+          and substr(pc_01.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_passivo
+          and substr(pc_01.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_receita
+          and substr(pc_01.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_despesa
+       )
+       or
+        (dbamv.pkg_fcct_processa_variacao.f_sn_controla_natureza( me.cd_multi_empresa ) = 'S'
+          and dbamv.fnc_fcct_natureza_inter(NULL,
+                                 pc_01.cd_reduzido,
+                                 NULL,
+                                 'N',
+                                 'N',
+                                 'N',
+                                 'N') = 'S'
+        )
+      )
+and nvl(pc_07.cd_reduzido,
+           nvl(pc_06.cd_reduzido,
+               nvl(pc_05.cd_reduzido,
+                   nvl(pc_04.cd_reduzido,
+                       nvl(pc_03.cd_reduzido,
+                           nvl(pc_02.cd_reduzido,
+                               pc_01.cd_reduzido)))))) = lanca.cd_reduzido
+group by decode('','S', lanca.cd_setor_custo, lanca.cd_setor)
+      , decode('','S', lanca.nm_setor_custo, lanca.nm_setor)
+      ,pc_01.cd_contabil
+      ,pc_01.ds_conta
+      ,pc_02.cd_contabil
+      ,pc_02.ds_conta
+      ,pc_03.cd_contabil
+      ,pc_03.ds_conta
+      ,pc_04.cd_contabil
+      ,pc_04.ds_conta
+      ,pc_05.cd_contabil
+      ,pc_05.ds_conta
+      ,pc_06.cd_contabil
+      ,pc_06.ds_conta
+      ,pc_07.cd_contabil
+      ,pc_07.ds_conta
+)
+ORDER BY CD_SETOR,NM_SETOR,
+CD_CONTA_01,DS_CONTA_01,
+CD_CONTA_02,DS_CONTA_02,
+CD_CONTA_03,DS_CONTA_03,
+CD_CONTA_04,DS_CONTA_04,
+CD_CONTA_05,DS_CONTA_05,
+CD_CONTA_06,DS_CONTA_06,
+CD_CONTA_07,DS_CONTA_07

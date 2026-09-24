@@ -1,0 +1,53 @@
+/*----------------------------------------------------------------------------*/
+--R_NOTA_ENTRADA
+SELECT * FROM (
+select c.cd_con_pag     cd_con_pag
+      ,c.cd_reduzido    cd_reduzido_fornec
+      ,(select nvl(ds_financ,ds_conta) from dbamv.plano_contas pc where c.cd_reduzido = pc.cd_reduzido) ds_conta_fornec
+      ,c.cd_fornecedor  cd_fornecedor
+      ,c.ds_fornecedor  nm_fornecedor
+      ,c.cd_tip_doc     cd_tip_doc
+      ,(select ds_tip_doc from dbamv.tip_doc td where c.cd_tip_doc = td.cd_tip_doc) ds_tip_doc
+      ,c.nr_documento   nr_documento
+      ,c.nr_ncf nr_ncf
+      ,c.dt_emissao     dt_emissao
+     ,(nvl(c.vl_bruto_conta,0) + (nvl(c.vl_desconto,0) - nvl(c.vl_acrescimo,0)))       vl_bruto_conta
+      ,c.vl_acrescimo      vl_acrescimo
+      ,c.vl_desconto       vl_desconto
+      ,c.vl_bruto_conta   vl_total
+      ,c.cd_historico_padrao    cd_historico_padrao
+      ,(select ds_historico_padrao from dbamv.historico_padrao hp where c.cd_historico_padrao = hp.cd_historico_padrao) ds_historico_padrao
+      , c.ds_observacao   observacao
+      , c.ds_con_pag       ds_con_pag
+      , c.cd_multi_empresa
+      , (select to_char(max(nr_parcela), 'fm00') from dbamv.itcon_pag icp where icp.cd_con_pag = c.cd_con_pag) tot_parcelas
+      ,nvl(c.vl_bruto_conta,0) -  Nvl((SELECT sum(nvl(vl_detalhamento,0))from dbamv.tip_detcon_pag t where c.cd_con_pag = t.cd_con_pag_pai(+)),0) - Nvl(( SELECT Sum(Decode(it.tp_quitacao,'Q',0,  round(dbamv.prc_fnfi_calc_prev_imp_pgto( C.CD_FORNECEDOR, IT.CD_ITCON_PAG, SYSDATE , VL_DUPLICATA - Nvl(it.vl_soma_pago,0), C.CD_MULTI_EMPRESA),2))) VL_DETALHAMENTO FROM DBAMV.ITCON_PAG IT WHERE IT.CD_CON_PAG = c.cd_con_pag AND 'S' = :CAMPO_PSN_IMP_PAG),0) vl_pago_liquido
+ ,  (   SELECT Count(cd_con_pag) FROM
+                    (SELECT
+                       t.vl_detalhamento ,
+                       cd_con_pag_pai cd_con_pag
+                      FROM dbamv.tip_detcon_pag t,
+                           dbamv.con_pag c
+                    WHERE t.cd_con_pag_pai = c.cd_con_pag
+                    UNION
+                    SELECT
+                        sum(round(dbamv.prc_fnfi_calc_prev_imp_pgto( cp.cd_fornecedor, it.cd_itcon_pag, sysdate ,Nvl(vl_duplicata,0) - Nvl(vl_soma_pago,0), cp.cd_multi_empresa),2)) vl_detalhamento ,
+                         cp.cd_con_pag cd_con_pag
+                FROM     dbamv.itcon_pag it,
+                         dbamv.con_pag cp
+                WHERE    it.cd_con_pag = cp.cd_con_pag
+                AND      'S' = :CAMPO_PSN_IMP_PAG
+                GROUP BY cp.cd_con_pag) WHERE vl_detalhamento is NOT NULL AND VL_DETALHAMENTO <> 0) qtd_tipdet
+from
+    dbamv.con_pag       c,
+    dbamv.USUARIO_MULTI_EMPRESA UME
+where  c.cd_previsao is null
+and c.cd_con_pag not in (select cd_con_pag_filho
+                         from dbamv.tip_detcon_pag)
+and ((select count(cd_itcon_pag) from dbamv.itcon_pag where cd_con_pag = c.cd_con_pag
+and nr_parcela = decode(nvl(RTrim(LTrim(:CAMPO_NR_PARCELA)),nr_parcela),'%',nr_parcela,:CAMPO_NR_PARCELA)
+) > 0 )
+AND c.cd_multi_empresa = UME.cd_multi_empresa
+AND ume.cd_id_usuario = user
+)
+ORDER BY CD_MULTI_EMPRESA,cd_con_pag

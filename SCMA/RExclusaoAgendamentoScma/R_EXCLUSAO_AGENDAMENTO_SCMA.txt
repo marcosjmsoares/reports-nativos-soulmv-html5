@@ -1,0 +1,44 @@
+/*----------------------------------------------------------------------------*/
+--R_EXCLUSAO_AGENDAMENTO_SCMA
+SELECT * FROM (
+select log_opera_agenda_central.dt_opera_agenda
+      ,log_opera_agenda_central.cd_agenda_central
+      ,log_opera_agenda_central.cd_usuario
+      ,log_opera_agenda_central.ds_motivo
+      ,log_opera_agenda_central.cd_grupo_agenda
+      ,grupo_agenda.ds_grupo_agenda
+      ,log_opera_agenda_central.cd_item_agendamento
+      ,item_agendamento.ds_item_agendamento
+      ,log_opera_agenda_central.cd_recurso_central
+      ,recurso_central.ds_recurso_central
+      ,log_opera_agenda_central.cd_prestador
+      ,prestador.nm_prestador
+      ,log_opera_agenda_central.cd_setor
+      ,setor.nm_setor
+      ,log_opera_agenda_central.cd_paciente
+      ,log_opera_agenda_central.nm_paciente
+      ,(SELECT PA.NM_SOCIAL_PACIENTE
+        FROM DBAMV.PACIENTE PA
+        WHERE PA.CD_PACIENTE = log_opera_agenda_central.CD_PACIENTE
+          AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE
+      ,log_opera_agenda_central.dt_agenda
+      ,log_opera_agenda_central.cd_it_agenda_central
+      ,to_char(log_opera_agenda_central.hr_agenda,'HH24') hr_agenda
+from dbamv.log_opera_agenda_central
+    ,dbamv.item_agendamento
+    ,dbamv.recurso_central
+    ,dbamv.prestador
+    ,dbamv.grupo_agenda
+    ,dbamv.setor
+where log_opera_agenda_central.cd_item_agendamento = item_agendamento.cd_item_agendamento(+)
+  and log_opera_agenda_central.cd_recurso_central = recurso_central.cd_recurso_central(+)
+  and log_opera_agenda_central.cd_prestador = prestador.cd_prestador(+)
+  and log_opera_agenda_central.cd_grupo_agenda = grupo_agenda.cd_grupo_agenda(+)
+  and log_opera_agenda_central.cd_setor = setor.cd_setor(+)
+  and log_opera_agenda_central.tp_operacao = 'H'
+  and log_opera_agenda_central.dt_agenda between :CAMPO_DT_INICIAL order by prestador.nm_prestador
+             ,recurso_central.ds_recurso_central
+             ,trunc(log_opera_agenda_central.dt_agenda)
+             ,to_date(to_char(log_opera_agenda_central.hr_agenda,'hh24'),'hh24')
+)
+ORDER BY CD_PRESTADOR,NM_PRESTADOR,CD_RECURSO_CENTRAL,DS_RECURSO_CENTRAL,DT_AGENDA

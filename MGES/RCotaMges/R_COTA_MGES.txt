@@ -1,0 +1,26 @@
+/*----------------------------------------------------------------------------*/
+--R_COTA_MGES
+SELECT * FROM (
+SELECT
+	Cons_Cota.Cd_Produto		Cd_Produto
+	,Cons_Cota.Cd_Setor		Cd_Setor
+	,Verif_Ds_Unid_Prod( Cons_Cota.Cd_Produto ) Unidade
+	,Produto.Ds_Produto		Ds_Produto
+	,Ceil( Cons_Cota.Qt_Cota )		Qt_Cota
+  FROM	Dbamv.Produto
+,( Select
+	Cota_Setor.Cd_Produto	Cd_Produto
+	,Cota_Setor.Cd_Setor	Cd_Setor
+	,Ceil( (Cota_Setor.Qt_Cota / Cota_Setor.Nr_Dias * :CAMPO_PROJECAO)
+	 * Uni_Pro.Vl_Fator / Verif_Vl_Fator_Prod( Cota_Setor.Cd_Produto ) )		Qt_Cota
+    From Dbamv.Uni_Pro
+	,Dbamv.V_Cota_Setor	Cota_Setor
+ Where Uni_Pro.Cd_Uni_Pro	= Cota_Setor.Cd_Uni_Pro
+  AND Cota_Setor.Nr_Dias > 0 
+)  Cons_Cota
+WHERE Produto.Cd_Produto	= Cons_Cota.Cd_Produto
+   AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+   :CAMPO_CF_P_DETALHES
+)
+ORDER BY CD_PRODUTO,DS_PRODUTO,UNIDADE,
+CD_SETOR

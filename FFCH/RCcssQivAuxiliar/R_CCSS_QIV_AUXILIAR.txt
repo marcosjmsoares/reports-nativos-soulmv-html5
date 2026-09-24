@@ -1,0 +1,63 @@
+/*----------------------------------------------------------------------------*/
+--R_CCSS_QIV_AUXILIAR
+select cd_ccss, cd_ccss||' - '||nm_ccss ds_ccss
+  from dbamv.ffch_ccss
+where ffch_ccss.cd_multi_empresa = pkg_mv2000.le_empresa
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CCSS_QIV_AUXILIAR_subreport1
+SELECT * FROM (
+SELECT   setor.cd_setor  cd_setor_nut
+        ,setor.nm_setor  nm_setor_nut
+        ,ffch_setor_ccss.cd_ccss
+        ,avg (nvl ( custo_final.vl_custo_evento, 0 ) + nvl ( custo_final.vl_custo_genericos, 0 ) + nvl ( custo_final.vl_custo_especificos, 0 )) vl_custo_total
+        ,CUSTO_UNIT_NUT
+        ,QTD_TOT_FATOR_NUT
+    FROM dbamv.setor
+        ,dbamv.custo_final
+        ,dbamv.ffch_setor_ccss
+        , ( SELECT add_months ( TO_DATE ('', 'dd/mm/yyyy' ), rownum - 1 ) dt_comp
+             FROM dbamv.setor
+            WHERE rownum <= 3 ) meses
+        ,(SELECT cd_setor_nut_item,
+                 SUM(qtd_tot_fator_nut * fator_nut) qtd_tot_fator_nut,
+		 SUM(qtd_tot_fator_nut * fator_nut) custo_unit_nut
+            FROM (
+                          SELECT   setor.cd_setor cd_setor_nut_item
+                                  ,AVG (nvl ( v_prod_centro.total, 1 ) * nvl ( item_producao.fator, 1 )) qtd_tot_fator_nut
+                                  ,AVG ( nvl ( item_producao.fator, 1 )) fator_nut
+                                  ,AVG (nvl ( vl_primario, 0 ) + nvl ( vl_especificos, 0 ) + nvl ( vl_genericos, 0 ) + nvl ( vl_matmed, 0 )) vl_custo_unitario_nut
+                              FROM dbamv.v_prod_centro
+                                  ,dbamv.item_producao
+                                  ,dbamv.setor
+                                  ,dbamv.custo_unitario
+                                  , ( SELECT add_months ( TO_DATE ( '', 'dd/mm/yyyy' ), rownum - 1 ) dt_comp
+                                      FROM dbamv.setor
+                                      WHERE rownum <= 3 ) meses
+                            WHERE to_char ( v_prod_centro.dt_competencia, 'mm/yyyy' ) = to_char ( meses.dt_comp, 'mm/yyyy' )
+                              AND v_prod_centro.cd_item_producao = item_producao.cd_item_producao
+                              AND setor.cd_setor = v_prod_centro.cd_setor_origem
+                              AND custo_unitario.cd_item_producao = v_prod_centro.cd_item_producao
+                              AND to_char ( custo_unitario.dt_competencia, 'mm/yyyy' ) = to_char ( meses.dt_comp, 'mm/yyyy' )
+                              AND setor.cd_multi_empresa = pkg_mv2000.le_empresa
+                          GROUP BY setor.cd_setor
+                                  ,setor.nm_setor
+                                  ,item_producao.ds_item_producao
+                          )
+           GROUP BY cd_setor_nut_item
+          ) item_nut
+   WHERE setor.cd_setor = custo_final.cd_setor
+     AND setor.cd_multi_empresa = pkg_mv2000.le_empresa
+     AND to_char ( custo_final.dt_competencia, 'mm/yyyy' ) = to_char ( meses.dt_comp, 'mm/yyyy' )
+     AND ffch_setor_ccss.cd_setor = setor.cd_setor
+     AND ffch_setor_ccss.tp_config_q4 = 1
+     AND item_nut.cd_setor_nut_item = setor.cd_setor
+GROUP BY setor.cd_setor
+        ,setor.nm_setor
+        ,ffch_setor_ccss.cd_ccss
+        ,CUSTO_UNIT_NUT
+        ,QTD_TOT_FATOR_NUT
+)
+WHERE CD_CCSS = :CAMPO_CD_CCSS

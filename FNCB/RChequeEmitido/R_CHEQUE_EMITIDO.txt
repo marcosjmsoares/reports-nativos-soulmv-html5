@@ -1,0 +1,99 @@
+/*----------------------------------------------------------------------------*/
+--R_CHEQUE_EMITIDO
+SELECT   *
+    FROM (SELECT DISTINCT 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+                                                                                  empresa,
+                          e.cd_multi_empresa cd_multi_empresa,
+                          e.cd_multi_empresa || ' - ' || e.ds_multi_empresa empresa_o,
+                          TRUNC (cheque.dt_emissao) dt_emissao,
+                          con_cor.cd_con_cor cd_con_cor,
+                          con_cor.ds_con_cor ds_con_cor,
+                          con_cor.nr_conta nr_conta,
+                          con_cor.cd_banco cd_banco,
+                          banco.nm_banco nm_banco,
+                          con_cor.cd_agencia cd_agencia,
+                          con_cor.ds_agencia ds_agencia,
+                          cheque.nr_cheque nr_cheque,
+			  cheque.cd_cheque,
+                          cheque.ds_nome_impresso ds_nome_impresso,
+                          cheque.vl_cheque vl_cheque,
+                          portador.ds_portador ds_portador,
+                          NVL (con_pag.nr_documento, mcc.nr_documento_identificacao)
+                                                                             nr_documento,
+                          pagcon_pag.cd_pagcon_pag,
+                          NVL (NVL (pagcon_pag.vl_pago, mcx.vl_movimentacao),
+                               cheque.vl_cheque
+                              ) vl_pago,
+                          NVL (con_pag.ds_fornecedor, mcc.ds_movimentacao) ds_fornecedor,
+                          Decode(pagcon_pag.dt_estorno,NULL,NULL,'(E)') ds_status
+                     FROM dbamv.cheque cheque,
+                          dbamv.talao talao,
+                          dbamv.con_cor con_cor,
+                          dbamv.banco banco,
+                          dbamv.pagcon_pag pagcon_pag,
+                          dbamv.itcon_pag itcon_pag,
+                          dbamv.con_pag con_pag,
+                          dbamv.portador portador,
+                          dbamv.multi_empresas e,
+                          dbamv.mov_caixa mcx,
+                          dbamv.mov_concor mcc
+                    WHERE con_cor.cd_multi_empresa = e.cd_multi_empresa
+                      AND talao.cd_talao = cheque.cd_talao
+                      AND talao.cd_con_cor = con_cor.cd_con_cor
+                      AND banco.cd_banco = con_cor.cd_banco
+                      AND cheque.cd_cheque = pagcon_pag.cd_cheque(+)
+                      AND pagcon_pag.cd_itcon_pag = itcon_pag.cd_itcon_pag(+)
+                      AND itcon_pag.cd_con_pag = con_pag.cd_con_pag(+)
+                      AND itcon_pag.cd_con_pag_agrup IS NULL
+                      AND con_pag.cd_portador = portador.cd_portador(+)
+                      AND cheque.cd_cheque = mcc.cd_cheque(+)
+                      AND mcc.cd_mov_caixa = mcx.cd_mov_caixa(+)
+                      AND mcx.tp_origem_mov(+) = 'RF'
+                      AND Trunc(cheque.dt_emissao) BETWEEN :CAMPO_DATA_INICIAL AND 
+                      AND ((NVL (cheque.sn_cancelado, 'N') = 'N' AND pagcon_pag.dt_estorno IS NULL)
+                          OR (:CAMPO_CH_ESTORNO = 1 AND NVL (cheque.sn_cancelado, 'N') = 'S' AND pagcon_pag.dt_estorno IS NOT NULL)
+                          OR (:CAMPO_CH_ESTORNO = 1 AND NVL (cheque.sn_cancelado, 'N') = 'N' AND pagcon_pag.dt_estorno IS NOT NULL))
+                      AND (Nvl(:CAMPO_CH_COMPENSADO,0) = 1
+                            AND (Trunc(cheque.dt_compensacao) NOT BETWEEN :CAMPO_DATA_INICIAL
+                                                                      AND 
+                                                                       OR cheque.dt_compensacao IS NULL)
+                             OR NVL(:CAMPO_CH_COMPENSADO,0) = 0)
+                 GROUP BY 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa,
+                          e.cd_multi_empresa,
+                          e.cd_multi_empresa || ' - ' || e.ds_multi_empresa,
+                          TRUNC (cheque.dt_emissao),
+                          con_cor.cd_con_cor,
+                          con_cor.ds_con_cor,
+                          con_cor.nr_conta,
+                          con_cor.cd_banco,
+                          banco.nm_banco,
+                          con_cor.cd_agencia,
+                          con_cor.ds_agencia,
+                          cheque.nr_cheque,
+			  cheque.cd_cheque,
+                          cheque.ds_nome_impresso,
+                          cheque.vl_cheque,
+                          portador.ds_portador,
+                          nr_documento,
+                          pagcon_pag.vl_pago,
+                          pagcon_pag.cd_pagcon_pag,
+                          con_pag.ds_fornecedor,
+                          mcx.vl_movimentacao,
+                          mcc.nr_documento_identificacao,
+                          mcc.ds_movimentacao,
+                          Decode(pagcon_pag.dt_estorno,NULL,NULL,'(E)')
+                 ORDER BY nr_cheque, dt_emissao DESC, nr_documento)
+ORDER BY cd_multi_empresa,
+         empresa,
+         empresa_o,
+         nr_conta,
+         cd_con_cor,
+         ds_con_cor,
+         cd_banco,
+         nm_banco,
+         cd_agencia,
+         ds_agencia,
+         dt_emissao,
+         nr_cheque,
+         ds_nome_impresso,
+         vl_cheque

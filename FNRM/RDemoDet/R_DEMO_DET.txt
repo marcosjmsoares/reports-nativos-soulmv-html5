@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_DEMO_DET
+SELECT * FROM (
+SELECT	DECODE (:CAMPO_SN_QUEBRA, 'S', cd_prestador, 1) cond_quebra
+		  ,cd_prestador
+		  ,nm_prestador
+		  ,cd_detalhamento
+		  ,ds_detalhamento
+		  , (SUM (vl_detalhamento) * -1) vl_detalhamento
+		  ,mes
+		  ,tipo
+	 FROM (SELECT DISTINCT NVL (grupo.cd_prestador, prestador.cd_prestador) cd_prestador
+								 ,NVL (grupo.nm_prestador, prestador.nm_prestador) nm_prestador
+								 ,repasse_prestador.cd_con_pag cd_con_pag
+								 ,tip_detalhe.cd_detalhamento cd_detalhamento
+								 ,tip_detalhe.ds_detalhamento ds_detalhamento
+								 ,tip_detalhe.vl_percentual vl_percentual
+								 ,NVL (tip_detcon_pag.vl_detalhamento, 0) vl_detalhamento
+								 ,TO_CHAR (repasse.dt_competencia, 'MM') mes
+								 ,DECODE (grupo.nm_prestador, NULL, 'N', 'S') tipo
+							FROM dbamv.tip_detalhe
+								 ,dbamv.tip_detcon_pag
+								 ,dbamv.repasse_prestador
+								 ,dbamv.prestador
+								 ,dbamv.repasse
+								 ,dbamv.prestador grupo
+						  WHERE tip_detcon_pag.cd_detalhamento = tip_detalhe.cd_detalhamento
+							 AND tip_detcon_pag.cd_con_pag_pai = repasse_prestador.cd_con_pag
+							 AND repasse_prestador.cd_prestador = prestador.cd_prestador
+							 AND repasse_prestador.cd_repasse = repasse.cd_repasse
+							 AND TO_CHAR (repasse.dt_competencia, 'YYYY') = :CAMPO_ANO
+							 AND repasse_prestador.cd_prestador_repasse = grupo.cd_prestador
+:CAMPO_CF_COND_DETALHAMENTO
+			)
+GROUP BY cd_prestador
+		  ,nm_prestador
+		  ,cd_detalhamento
+		  ,ds_detalhamento
+		  ,mes
+		  ,tipo
+ORDER BY mes
+)
+ORDER BY COND_QUEBRA,
+TIPO,
+NM_PRESTADOR,CD_PRESTADOR,
+CD_DETALHAMENTO,DS_DETALHAMENTO,
+MES

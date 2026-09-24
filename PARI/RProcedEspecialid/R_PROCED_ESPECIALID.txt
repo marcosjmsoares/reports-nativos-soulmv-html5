@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_PROCED_ESPECIALID
+SELECT ATENDIME.CD_ESPECIALID   CD_ESPECIALID,
+       ESPECIALID.DS_ESPECIALID DS_ESPECIALID,
+          decode( convenio.tp_convenio, 'A', PROCEDIMENTO_SUS.cd_procedimento
+                                        , 'H', PROCEDIMENTO_SUS.cd_procedimento
+                                        , 'C', PRO_FAT.CD_PRO_FAT
+                                        , 'P', PRO_FAT.CD_PRO_FAT
+                                        ) CD_PRO_INT,
+         nvl(decode( convenio.tp_convenio, 'A', PROCEDIMENTO_SUS.DS_procedimento
+                                        , 'H', PROCEDIMENTO_SUS.DS_procedimento
+                                        , 'C', PRO_FAT.DS_PRO_FAT
+                                        , 'P', PRO_FAT.DS_PRO_FAT, 'Procedimento não informado'
+                                        ),'<Procedimento não informado>') DS_PROCEDIMENTO,
+       ATENDIME.TP_ATENDIMENTO,
+       COUNT(*)QTD
+  FROM DBAMV.ATENDIME
+       ,DBAMV.ESPECIALID
+       ,DBAMV.CONVENIO
+       ,DBAMV.PRO_FAT
+       ,DBAMV.PROCEDIMENTO_SUS
+ WHERE TRUNC(ATENDIME.DT_ATENDIMENTO) BETWEEN :CAMPO_DT_INICIAL AND 
+   AND ATENDIME.CD_ESPECIALID  =  ESPECIALID.CD_ESPECIALID(+)
+   AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+   AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND (TP_ATENDIMENTO IN ('I','H') AND CD_ATENDIMENTO_PAI IS NULL OR TP_ATENDIMENTO NOT IN ('I','H'))
+   AND ATENDIME.CD_PRO_INT  =  PRO_FAT.CD_PRO_FAT(+)
+  AND ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)
+ GROUP BY ATENDIME.CD_ESPECIALID
+          ,ESPECIALID.DS_ESPECIALID
+          ,decode( convenio.tp_convenio, 'A', PROCEDIMENTO_SUS.cd_procedimento
+                                        , 'H', PROCEDIMENTO_SUS.cd_procedimento
+                                        , 'C', PRO_FAT.CD_PRO_FAT
+                                        , 'P', PRO_FAT.CD_PRO_FAT
+                                        ),
+         nvl(decode( convenio.tp_convenio, 'A', PROCEDIMENTO_SUS.DS_procedimento
+                                        , 'H', PROCEDIMENTO_SUS.DS_procedimento
+                                        , 'C', PRO_FAT.DS_PRO_FAT
+                                        , 'P', PRO_FAT.DS_PRO_FAT, 'Procedimento não informado'
+                                        ),'<Procedimento não informado>')
+          ,ATENDIME.TP_ATENDIMENTO
+ ORDER BY DS_ESPECIALID
+        , CD_PRO_INT

@@ -1,0 +1,83 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_APAG
+SELECT * FROM (
+select trunc(decode(:CAMPO_TP_PERIODO,'1',itcon_pag.dt_vencimento,'2',con_pag.dt_emissao,'3',itcon_pag.dt_vencimento,'4',itcon_pag.dt_prevista_pag,'5',titulo_bancario.data_importacao_arquivo))  dt_base
+     , trunc(con_pag.dt_emissao)                dt_emissao
+     , trunc(con_pag.dt_lancamento)             dt_lancamento
+     , trunc(itcon_pag.dt_vencimento)           dt_vencimento
+     , trunc(itcon_pag.dt_prevista_pag)         dt_prevista_pag
+     , decode(con_pag.cd_fornecedor, null, con_pag.cd_fornecedor, fornecedor.cd_fornecedor)      cd_fornecedor
+     , decode(con_pag.cd_fornecedor, null, con_pag.ds_fornecedor, fornecedor.nm_fantasia)       nm_fantasia
+     , con_pag.ds_con_pag                       ds_con_pag
+     , con_pag.cd_con_pag                       cd_con_pag
+     , con_pag.nr_documento || '/' || to_char(itcon_pag.nr_parcela,'000')     nr_documento
+     , dbamv.qtd_itens_con_pag(1,con_pag.cd_con_pag)      qtd_itens_con_pag
+     , nvl(itcon_pag.vl_duplicata,0)           vl_duplicata
+     , nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + (nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) ) )     vl_devido
+     , portador.ds_portador                     ds_portador
+     , tip_detalhe.cd_detalhamento              cd_detalhamento
+     , tip_detalhe.ds_detalhamento              ds_detalhamento
+     , tip_detcon_pag.cd_con_pag_filho          cd_con_pag_filho
+     , con_pag.cd_previsao                      cd_previsao
+     , ITCON_PAG.CD_MOEDA                CD_MOEDA
+     , ITCON_PAG.VL_MOEDA                 VL_MOEDA
+     , itcon_pag.tp_quitacao                       tp_quitacao
+     , con_pag.cd_multi_empresa                    cd_multi_empresa
+from dbamv.con_pag
+   , dbamv.itcon_pag
+   , (select *
+        from dbamv.pagcon_pag
+       where nvl(pagcon_pag.sn_estorno,'N') = 'N'
+       :CAMPO_CF_DT_BASE_02
+      ) pagcon_pag
+   , dbamv.fornecedor
+   , dbamv.portador
+   , dbamv.tip_detalhe
+   , dbamv.tip_detcon_pag
+   , dbamv.titulo_bancario
+   , dbamv.USUARIO_MULTI_EMPRESA UME
+   , dbamv.multi_empresas
+where con_pag.cd_con_pag                = itcon_pag.cd_con_pag
+  and con_pag.cd_fornecedor             = fornecedor.cd_fornecedor(+)
+  and con_pag.cd_portador               = portador.cd_portador (+)
+  and con_pag.cd_con_pag                = tip_detcon_pag.cd_con_pag_filho(+)
+  and tip_detcon_pag.cd_detalhamento    = tip_detalhe.cd_detalhamento(+)
+  and itcon_pag.cd_itcon_pag            = pagcon_pag.cd_itcon_pag(+)
+  AND itcon_pag.cd_itcon_pag            = titulo_bancario.cd_itcon_pag(+)
+  AND con_pag.cd_multi_empresa			= multi_empresas.cd_multi_empresa
+  AND con_pag.cd_multi_empresa			= UME.cd_multi_empresa
+  AND ume.cd_id_usuario 				= user
+  AND DBAMV.PKG_TRANSACAO_ENTRE_EMPRESAS.IsFilialOuMesmaEmpresa(multi_empresas.cd_multi_empresa, DBAMV.PKG_MV2000.LE_EMPRESA) = 1
+  and con_pag.cd_con_pag_dev        is null
+  and nvl(con_pag.vl_bruto_conta,0)     > 0
+  and itcon_pag.cd_con_pag_agrup    is null
+  and nvl(itcon_pag.vl_duplicata,0)     > 0
+  AND ( (pagcon_pag.dt_baixa IS NULL OR ITCON_PAG.TP_QUITACAO <> 'Q') OR
+        (:CAMPO_DATA_BASE is not NULL AND pagcon_pag.dt_baixa IS NOT NULL AND (:CAMPO_DATA_BASE < pagcon_pag.dt_baixa OR ITCON_PAG.TP_QUITACAO <> 'Q'))
+      )
+group by trunc(decode(:CAMPO_TP_PERIODO,'1',itcon_pag.dt_vencimento,'2',con_pag.dt_emissao,'3',itcon_pag.dt_vencimento,'4',itcon_pag.dt_prevista_pag,'5',titulo_bancario.data_importacao_arquivo))
+     , trunc(con_pag.dt_emissao)
+     , trunc(con_pag.dt_lancamento)
+     , trunc(itcon_pag.dt_vencimento)
+     , trunc(itcon_pag.dt_prevista_pag)
+     , decode(con_pag.cd_fornecedor, null, con_pag.cd_fornecedor, fornecedor.cd_fornecedor)
+     , decode(con_pag.cd_fornecedor, null, con_pag.ds_fornecedor, fornecedor.nm_fantasia)
+     , con_pag.ds_con_pag
+     , con_pag.cd_con_pag
+     , con_pag.nr_documento || '/' || to_char(itcon_pag.nr_parcela,'000')
+     , dbamv.qtd_itens_con_pag(1,con_pag.cd_con_pag)
+     , nvl(itcon_pag.vl_duplicata,0)
+     , portador.ds_portador
+     , tip_detalhe.cd_detalhamento
+     , tip_detalhe.ds_detalhamento
+     , tip_detcon_pag.cd_con_pag_filho
+     , con_pag.cd_previsao
+     , ITCON_PAG.CD_MOEDA
+     , ITCON_PAG.VL_MOEDA
+     , itcon_pag.tp_quitacao
+     , con_pag.cd_multi_empresa
+having nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + (nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) ) ) > 0
+order by  NM_FANTASIA,  DT_VENCIMENTO
+)
+ORDER BY NM_FANTASIA,CD_FORNECEDOR,
+DT_BASE

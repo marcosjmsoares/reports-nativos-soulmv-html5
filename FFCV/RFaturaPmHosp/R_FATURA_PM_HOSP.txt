@@ -1,0 +1,755 @@
+/*----------------------------------------------------------------------------*/
+--R_FATURA_PM_HOSP
+select reg_fat.cd_reg_fat  cd_conta,
+       reg_fat.cd_atendimento,
+       hospital.cd_cgc,
+       hospital.ds_razao,
+       paciente.nm_paciente,
+       atendime.cd_paciente,
+       reg_fat.cd_convenio,
+       reg_fat.cd_con_pla,
+       TRUNC(reg_fat.dt_inicio) dt_admissao,
+       nvl(trunc(guia.dt_autorizacao),trunc(atendime.dt_atendimento)) dt_atendimento,
+       atendime.cd_cid,
+       trunc(reg_fat.dt_final) dt_alta,
+       NVL((select meio_mag.CD_MOT_ALT_MEIO_MAG
+              from dbamv.reg_fat
+                  ,dbamv.atendime
+                  ,dbamv.empresa_convenio empresa
+                  ,dbamv.MOT_ALT_MEIO_MAG Meio_mag
+             where reg_fat.cd_atendimento=atendime.cd_atendimento
+               AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               and reg_fat.cd_reg_fat= :CAMPO_CD_REG_FAT
+               and  trunc(reg_fat.dt_final)=trunc(atendime.dt_alta)
+               and empresa.cd_convenio = reg_fat.cd_convenio
+               and empresa.cd_multi_empresa = reg_fat.cd_multi_empresa
+               and Meio_mag.cd_apr_conta_meio_mag= empresa.cd_apr_conta_meio_mag
+               and atendime.cd_mot_alt=meio_mag.cd_mot_alt),'04') cd_mot_alt,
+      nvl( (select cod_pro.ds_codigo_cobranca
+              from dbamv.cod_pro
+             where cod_pro.cd_pro_fat = reg_fat.cd_pro_fat_solicitado
+               and cod_pro.cd_convenio = atendime.cd_convenio
+               and cod_pro.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA),reg_fat.cd_pro_fat_solicitado) cd_pro_fat_solicitado
+    	, '00' cd_especialid
+  from dbamv.reg_fat,
+       dbamv.hospital,
+       dbamv.paciente,
+       dbamv.atendime,
+       dbamv.empresa_convenio empresa,
+       dbamv.tip_int_meio_mag,
+       dbamv.guia
+ where reg_fat.cd_reg_fat       = :CAMPO_CD_REG_FAT
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and reg_fat.cd_atendimento   = :CAMPO_CD_ATENDIMENTO
+   and atendime.cd_atendimento = guia.cd_atendimento(+)
+   and hospital.hospital_id     = 1
+   and hospital.cd_multi_empresa = reg_fat.cd_multi_empresa
+   and atendime.cd_atendimento  = reg_fat.cd_atendimento
+   and paciente.cd_paciente     = atendime.cd_paciente
+   and empresa.cd_convenio      = reg_fat.cd_convenio
+   and empresa.cd_multi_empresa = reg_fat.cd_multi_empresa
+   and tip_int_meio_mag.cd_apr_conta_meio_mag(+) = empresa.cd_apr_conta_meio_mag
+   and nvl(tip_int_meio_mag.cd_tipo_internacao,atendime.cd_tipo_internacao) = atendime.cd_tipo_internacao
+   and nvl(guia.tp_guia,'I')  = 'I'
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_PM_HOSP_SHOSP
+select conta.cd_conta cd_conta2,
+       conta.cd_atendimento cd_atendimento2,
+       conta.tp_unidade tp_unidade2,
+       conta.vl_total_conta vl_total_conta2,
+       conta. qt_lancamento qt_lancamento2,
+       datas.dt_lancamento dt_lancamento2,
+       ' ' VL_BRANCO2
+from
+(select reg_fat.cd_reg_fat cd_conta,
+       reg_fat.cd_atendimento,
+       tp.tp_unidade,
+       sum(nvl(itreg_fat.vl_total_conta,0)) vl_total_conta,
+       sum(nvl(itreg_fat.qt_lancamento,0)) qt_lancamento
+  from dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.empresa_convenio convenio,
+       dbamv.tp_pro_fat_meio_mag tp,
+      dbamv.gru_fat
+ where itreg_fat.cd_reg_fat   = reg_fat.cd_reg_fat
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and reg_fat.cd_atendimento =:CAMPO_CD_ATENDIMENTO
+   and reg_fat.cd_reg_fat     =:CAMPO_CD_REG_FAT
+   and convenio.cd_convenio   = reg_fat.cd_convenio
+        and convenio.cd_multi_empresa = reg_fat.cd_multi_empresa
+   and tp.cd_apr_conta_meio_mag = convenio.cd_apr_conta_meio_mag
+   and tp.cd_pro_fat          = itreg_fat.cd_pro_fat
+   and gru_fat.cd_gru_fat = itreg_fat.cd_gru_fat
+  and gru_fat.tp_gru_fat = 'SH'
+  and nvl(itreg_fat.sn_pertence_pacote, 'N') = 'N'
+ group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,tp.tp_unidade) conta,
+( select tp_unidade,
+        min(trunc(itreg_fat.dt_lancamento)) dt_lancamento
+  from dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.empresa_convenio convenio,
+       dbamv.tp_pro_fat_meio_mag tp
+  where itreg_fat.cd_reg_fat   = reg_fat.cd_reg_fat
+        AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+        and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+        and reg_fat.cd_reg_fat     = :CAMPO_CD_REG_FAT
+        and convenio.cd_convenio   = reg_fat.cd_convenio
+        and convenio.cd_multi_empresa = reg_fat.cd_multi_empresa
+        and tp.cd_apr_conta_meio_mag = convenio.cd_apr_conta_meio_mag
+        and tp.cd_pro_fat          = itreg_fat.cd_pro_fat
+        AND Nvl(itreg_fat.sn_pertence_pacote, 'N') = 'N'
+    group by tp.tp_unidade
+   order by 1,2
+   ) datas
+where conta.tp_unidade=datas.tp_unidade
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_PM_HOSP_SPROF
+select rownum seq5,
+       servicos.cd_conta cd_conta5,
+       servicos.cd_atendimento cd_atendimento5,
+       servicos.cd_pro_fat cd_pro_fat5,
+       lpad(servicos.cd_ati_med,2,'0')  cd_ati_med5,
+       '1' cd_tp_conta5,
+       servicos.nr_cpf_cgc nr_cpf_cgc5,
+       servicos.dt_lancamento dt_lancamento5,
+       servicos.qt_lancamento qt_lancamento5,
+       servicos.qt_ch_unitario qt_ch_unitario5,
+       servicos.vl_total_conta vl_total_conta5,
+       servicos.cd_gru_pro cd_gru_pro5,
+       servicos.cd_prestador cd_prestador5,
+       ' ' VL_BRANCO,
+	   dbamv.fnc_ffcv_cod_atualiz(servicos.CD_PRESTADOR, servicos.CD_PRO_FAT, servicos.cd_convenio, servicos.CD_COD_CIRURGIA) TP_ESPECIALIDADE_MEIO_MAG
+from
+(select conta.cd_conta  cd_conta,
+       conta.cd_atendimento cd_atendimento,
+       conta.codigo,
+       conta.cd_pro_fat cd_pro_fat,
+       min((select min(dt_lancamento)
+         from dbamv.itreg_fat
+         where itreg_fat.cd_reg_fat= :CAMPO_CD_REG_FAT
+         and itreg_fat.cd_pro_fat=conta.codigo)) dt_lancamento,
+       min((select min(qt_ch_unitario)
+         from  dbamv.itreg_fat
+         where itreg_fat.cd_reg_fat= :CAMPO_CD_REG_FAT
+         and itreg_fat.cd_pro_fat=conta.codigo)*(conta.vl_percentual_pago/100)) qt_ch_unitario,
+       nvl(conta.cd_ati_med,'07') cd_ati_med,
+       conta.cd_tp_conta cd_tp_conta,
+       conta.nr_cpf_cgc nr_cpf_cgc,
+       sum(conta.qt_lancamento) qt_lancamento,
+       sum(conta.vl_total_conta) vl_total_conta,
+       conta.cd_gru_pro  cd_gru_pro,
+       nvl(vl_percentual_pago,100) vl_percentual_pago,
+       conta.cd_prestador,
+	   conta.cd_convenio,
+	   conta.CD_COD_CIRURGIA
+from
+(
+ select reg_fat.cd_reg_fat cd_conta,
+       reg_fat.cd_atendimento,
+       itreg_fat.cd_pro_fat codigo,
+       nvl(cod_pro.ds_codigo_cobranca,itreg_fat.cd_pro_fat) cd_pro_fat,
+       ati_med_meio_mag.tp_ati_med_meio_mag cd_ati_med,
+       decode(nvl(nvl(cpfcgc_e.cd_prestador_conveniado,cpfcgc.cd_prestador_conveniado),'999'),'999','0','2') cd_tp_conta,
+	   cpfprest.nr_cpf_cgc nr_cpf_cgc,
+       nvl(cpfcgc_e.vl_percentual_pago,100) vl_percentual_pago,
+       trunc(itreg_fat.dt_lancamento) dt_lancamento,
+       sum(nvl(itreg_fat.qt_lancamento,0)) qt_lancamento,
+       sum(nvl(itreg_fat.qt_ch_unitario,0)) qt_ch_unitario,
+       sum(nvl(Nvl( itlan_med.vl_ato*itreg_fat.qt_lancamento, itreg_fat.vl_total_conta ),0)) vl_total_conta,
+       pro_fat.cd_gru_pro,
+       Nvl(To_Number(Substr(itlan_med.cd_prestador,1,12)),To_Number(Substr(itreg_fat.cd_prestador,1,12)))  cd_prestador, 
+	   empresa.cd_convenio,
+	   NVL(itlan_med.cd_ati_med, itREG_FAT.cd_ati_med) CD_COD_CIRURGIA
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.gru_pro,
+       dbamv.pro_fat,
+       dbamv.hospital,
+       dbamv.ati_med_meio_mag,
+       dbamv.empresa_convenio empresa,
+       dbamv.itlan_med,
+       dbamv.prestador cpfprest,
+       (select distinct cod_pro.cd_pro_fat,
+               cod_pro.ds_nome_cobranca,
+               cod_pro.ds_codigo_cobranca
+          from dbamv.reg_fat
+              ,dbamv.cod_pro
+              ,dbamv.atendime
+              ,dbamv.itreg_fat
+         where  Cod_Pro.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+	       and reg_fat.cd_reg_fat = :CAMPO_CD_REG_FAT
+           and reg_fat.cd_atendimento =  :CAMPO_CD_ATENDIMENTO
+           AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+           and cod_pro.cd_convenio = reg_fat.cd_convenio
+           and itreg_fat.cd_pro_fat = cod_pro.cd_pro_fat
+           and atendime.cd_atendimento = reg_fat.cd_atendimento
+           and (atendime.tp_atendimento = cod_pro.tp_atendimento
+                    or cod_pro.tp_atendimento = 'T')) cod_pro,
+       (select distinct To_Number(Substr(pres_con.cd_prestador,1,12)) Cd_Prestador, 
+               pres_con.cd_convenio,
+               pres_con.cd_prestador_conveniado
+          from dbamv.reg_fat
+              ,dbamv.itreg_fat
+              ,dbamv.pres_con
+         where reg_fat.cd_reg_fat =  :CAMPO_CD_REG_FAT
+           and pres_con.sn_paga_pelo_convenio = 'S' 
+           AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+           and reg_fat.cd_atendimento =  :CAMPO_CD_ATENDIMENTO
+           and itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+           and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null) 
+			AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+			AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+			AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+			AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+           and pres_con.cd_prestador = itreg_fat.cd_prestador
+           and pres_con.cd_convenio = reg_fat.cd_convenio) cpfcgc,
+       (select distinct To_Number(Substr(pres_con.cd_prestador,1,12)) Cd_Prestador, 
+               pres_con.cd_convenio,
+               pres_con.cd_prestador_conveniado,
+               ati_med.cd_ati_med,
+               itreg_fat.cd_pro_fat,
+               itlan_med.cd_lancamento,
+               ati_med.vl_percentual_pago
+          from dbamv.reg_fat
+              ,dbamv.itreg_fat
+              ,dbamv.pres_con
+              ,dbamv.itlan_med
+              ,dbamv.ati_med
+         where reg_fat.cd_reg_fat =  :CAMPO_CD_REG_FAT
+           AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+           and pres_con.sn_paga_pelo_convenio = 'S' 
+           and reg_fat.cd_atendimento =  :CAMPO_CD_ATENDIMENTO
+           and itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+           and itlan_med.cd_reg_fat = reg_fat.cd_reg_fat
+           and itlan_med.cd_lancamento = itreg_fat.cd_lancamento
+           and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null) 
+			AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+			AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+			AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+			AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+           and itlan_med.cd_ati_med    =ati_med.cd_ati_med
+           and pres_con.cd_prestador = itlan_med.cd_prestador
+           and pres_con.cd_convenio = reg_fat.cd_convenio ) cpfcgc_e
+ where reg_fat.cd_reg_fat =  :CAMPO_CD_REG_FAT
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and reg_fat.cd_atendimento =  :CAMPO_CD_ATENDIMENTO
+   and hospital.hospital_id = 1
+   and hospital.cd_multi_empresa = reg_fat.cd_multi_empresa
+   and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+   and nvl(itreg_fat.sn_pertence_pacote, 'N') = 'N'
+   and pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat
+   and gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+   and cod_pro.cd_pro_fat(+) = itreg_fat.cd_pro_fat
+   and gru_pro.tp_gru_pro = 'SP'
+   and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+   and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+   and cpfcgc.cd_prestador(+) = itreg_fat.cd_prestador
+   and cpfcgc_e.cd_prestador (+) = itlan_med.cd_prestador
+   and cpfcgc_e.cd_lancamento(+) = itlan_med.cd_lancamento
+   AND Nvl(ITLAN_MED.cd_prestador, ITREG_FAT.cd_prestador) = cpfprest.cd_prestador
+   and empresa.cd_multi_empresa  = reg_fat.cd_multi_empresa
+   and empresa.cd_convenio       = reg_fat.cd_convenio
+   and ati_med_meio_mag.cd_apr_conta_meio_mag(+) = empresa.cd_apr_conta_meio_mag
+   and ( ( nvl(ati_med_meio_mag.cd_ati_med, itlan_med.cd_ati_med) = itlan_med.cd_ati_med )
+        or ( nvl(ati_med_meio_mag.cd_ati_med, itreg_fat.cd_ati_med) = itreg_fat.cd_ati_med )       )
+ group by reg_fat.cd_reg_fat,
+       reg_fat.cd_atendimento,
+       itreg_fat.cd_pro_fat,
+       nvl(cod_pro.ds_codigo_cobranca,itreg_fat.cd_pro_fat),
+       ati_med_meio_mag.tp_ati_med_meio_mag,
+       nvl(cpfcgc_e.cd_prestador_conveniado,cpfcgc.cd_prestador_conveniado),
+       nr_cpf_cgc,
+       nvl(cpfcgc_e.vl_percentual_pago,100),
+       trunc(itreg_fat.dt_lancamento),
+       pro_fat.cd_gru_pro,
+       Nvl(To_Number(Substr(itlan_med.cd_prestador,1,12)),To_Number(Substr(itreg_fat.cd_prestador,1,12))), 
+	   empresa.cd_convenio,
+	   NVL(itlan_med.cd_ati_med, itREG_FAT.cd_ati_med)
+ order by 3,7
+ ) conta
+group by cd_conta,
+        cd_atendimento,
+        codigo,
+        cd_pro_fat,
+        cd_ati_med,
+        cd_tp_conta,
+        nr_cpf_cgc,
+        cd_gru_pro,
+        vl_percentual_pago,
+        cd_prestador,
+        cd_convenio,
+        cd_cod_cirurgia
+) servicos
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_PM_HOSP_TX_EXAME
+select seq3,
+       cd_conta3,
+       cd_atendimento3,
+       descricao,
+       ' ' vl_branco3,
+       vl_total_conta3
+  from (
+select seq3,
+       cd_conta3,
+       cd_atendimento3,
+       descricao,
+       ' ' vl_branco3,
+       SUM(vl_total_conta3) vl_total_conta3
+  from (
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '06' seq3,
+       'TAXAS DE SALA' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '06')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '06',
+          'TAXAS DE SALA'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '15' seq3,
+       'OUTROS' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '15')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '15',
+          'OUTROS'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '07' seq3,
+       'MATERIAL MED.SALA' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '07')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '07',
+          'MATERIAL MED.SALA'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '08' seq3,
+       'MATERIAL MED.ENF' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '08')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '08',
+          'MATERIAL MED.ENF'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '09' seq3,
+       'BANCO DE SANGUE' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '09')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '09',
+          'BANCO DE SANGUE'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '12' seq3,
+       'RADIOLOGIA' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '12')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '12',
+          'RADIOLOGIA'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '13' seq3,
+       'ECG' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '13')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '13',
+          'ECG'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '14' seq3,
+       'FISIOTERAPIA' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '14')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '14',
+          'FISIOTERAPIA'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '10' seq3,
+       'GASOTERAPIA' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '10')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '10',
+          'GASOTERAPIA'
+UNION ALL
+select reg_fat.cd_reg_fat cd_conta3,
+       reg_fat.cd_atendimento cd_atendimento3,
+       '11' seq3,
+       'PATOLOGIA CLINICA' descricao,
+       sum(itreg_fat.vl_total_conta) vl_total_conta3
+  from dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.gru_fat
+    where itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+    and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+    and   gru_pro.cd_gru_fat = gru_fat.cd_gru_fat
+    and   nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+    and   gru_pro.cd_gru_pro in (select
+                                    distinct cod_gru_pro.cd_gru_pro
+                                    from dbamv.reg_fat,
+                                         dbamv.itreg_fat,
+                                         dbamv.pro_fat,
+                                         dbamv.gru_pro,
+                                         dbamv.cod_gru_pro
+                                    where reg_fat.cd_reg_fat =  itreg_fat.cd_reg_fat
+                                    and   itreg_fat.cd_pro_fat =  pro_fat.cd_pro_fat
+                                    and   pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                                    and   gru_pro.cd_gru_pro = cod_gru_pro.cd_gru_pro
+                                    and   reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                    and   itreg_fat.cd_reg_fat=:CAMPO_CD_REG_FAT
+                                    and   cod_gru_pro.ds_codigo_cobranca = '11')
+    and REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  group by reg_fat.cd_reg_fat,
+          reg_fat.cd_atendimento,
+          '11',
+          'PATOLOGIA CLINICA'
+          )
+ where substr(seq3,1,1) in ('0','1')
+ group by seq3,
+       cd_conta3,
+       cd_atendimento3,
+       descricao
+ order by 1
+ )
+ UNION
+ select To_Char(NULL) seq3,
+       To_Number(NULL) cd_conta3,
+       To_Number(NULL) cd_atendimento3,
+       To_Char(NULL) descricao,
+       ' ' vl_branco3,
+       To_Number(NULL) vl_total_conta3
+  FROM sys.dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_PM_HOSP_TX_SALA
+select rownum  seq4,
+       cd_conta4,
+       cd_atendimento4,
+       dt_realizacao4,
+       cd_ato4,
+       Nvl(cd_por_ane4, Decode(cd_ato4, '70030073','0', '70030081','1', '70030090','2', '70030103','3',  '70030111','4', '70030120','5', '70030138', '6', '70030146','7', '0')) cd_por_ane4,
+       ' ' vl_branco4
+  from (
+select distinct reg_fat.cd_reg_fat cd_conta4,
+       reg_fat.cd_atendimento cd_atendimento4,
+       itreg_fat.dt_lancamento dt_realizacao4,
+       nvl(cod_pro.ds_codigo_cobranca, itreg_fat.cd_pro_fat) cd_ato4,
+       pro_fat.cd_por_ane cd_por_ane4
+  from dbamv.reg_fat,
+       dbamv.pro_fat,
+       dbamv.itreg_fat,
+	   (select distinct cod_pro.cd_pro_fat,
+                       cod_pro.ds_nome_cobranca,
+                       cod_pro.ds_codigo_cobranca
+                  from dbamv.reg_fat
+                      ,dbamv.cod_pro
+                      ,dbamv.atendime
+                      ,dbamv.itreg_fat
+                 where ( Cod_Pro.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa or Cod_Pro.Cd_Multi_Empresa Is Null )
+           	       and reg_fat.cd_reg_fat       = :CAMPO_CD_REG_FAT
+                   and cod_pro.cd_convenio      = reg_fat.cd_convenio
+         	       and itreg_fat.cd_pro_fat     = cod_pro.cd_pro_fat
+                   and atendime.cd_atendimento  = reg_fat.cd_atendimento
+                   and (atendime.tp_atendimento = cod_pro.tp_atendimento
+                      or cod_pro.tp_atendimento = 'T')) cod_pro
+  where reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and reg_fat.cd_reg_fat     =  :CAMPO_CD_REG_FAT
+   and itreg_fat.cd_reg_fat=reg_fat.cd_reg_fat
+   and nvl(itreg_fat.sn_pertence_pacote, 'N') = 'N'
+   and itreg_fat.cd_pro_fat=pro_fat.cd_pro_fat
+   and   cod_pro.cd_pro_fat(+) = itreg_fat.cd_pro_fat
+   and (dbamv.pkg_mv2000.le_cliente = 2027 and  cod_pro.ds_codigo_cobranca in ('70030073', '70030081', '70030090', '70030103', '70030111', '70030120', '70030138', '70030146')
+   		or
+   		(dbamv.pkg_mv2000.le_cliente <> 2027 and  pro_fat.cd_por_ane> 0)
+   		)
+  order by cd_ato4
+ )
+UNION
+select To_Number(NULL) seq4,
+       To_Number(NULL) cd_conta4,
+       To_Number(NULL) cd_atendimento4,
+       To_Date(NULL) dt_realizacao4,
+       ' ' cd_ato4,
+       To_Number(NULL) cd_por_ane4,
+       ' ' vl_branco4
+  FROM sys.dual

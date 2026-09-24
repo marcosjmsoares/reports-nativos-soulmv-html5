@@ -1,0 +1,52 @@
+/*----------------------------------------------------------------------------*/
+--R_IMP_FFCV_FNFI
+select c.dt_lancamento               dt_importacao
+     , r.dt_entrega_da_fatura        dt_emissao
+     , min(i.dt_vencimento)          dt_prevista_para_pgto
+     , min(r.nr_remessa_convenio)    nr_remessa_convenio
+     , c.cd_fornecedor               cd_cliente
+     , c.nm_cliente                  nm_cliente
+     , c.vl_previsto                 vl_remessa
+     , c.nr_documento                nr_documento
+from   dbamv.con_rec             c
+     , dbamv.itcon_rec           i
+     , dbamv.remessa_fatura      r
+where c.cd_multi_empresa      = :CAMPO_CD_MULTI_EMPRESA
+  and c.cd_con_rec            = i.cd_con_rec
+  and c.cd_remessa            = r.cd_remessa
+  and trunc(c.dt_lancamento)  between :CAMPO_DT_INICIO and 
+  and c.tp_con_rec            = 'C'
+  and c.cd_previsao is null
+group by c.dt_lancamento
+       , r.dt_entrega_da_fatura
+       , c.cd_fornecedor
+       , c.nm_cliente
+       , c.vl_previsto
+       , c.nr_documento
+union
+select c.dt_lancamento               dt_importacao
+     , n.dt_emissao                  dt_emissao
+     , min(i.dt_vencimento)          dt_prevista_para_pgto
+     , min(r.nr_remessa_convenio)    nr_remessa_convenio
+     , c.cd_fornecedor               cd_cliente
+     , c.nm_cliente                  nm_cliente
+     , c.vl_previsto                 vl_remessa
+     , c.nr_documento                nr_documento
+  from dbamv.con_rec             c
+     , dbamv.itcon_rec           i
+     , dbamv.nota_fiscal         n
+     , dbamv.itfat_nota_fiscal   itfat
+     , dbamv.remessa_fatura      r
+ where n.cd_nota_fiscal       = c.cd_nota_fiscal
+   and n.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+   and c.cd_con_rec           = i.cd_con_rec
+   and n.cd_nota_fiscal       = itfat.cd_nota_fiscal
+   and itfat.cd_remessa       = r.cd_remessa
+   and trunc(c.dt_lancamento) between :CAMPO_DT_INICIO and 
+   and c.tp_con_rec           = 'C'
+ group by c.dt_lancamento
+     , n.dt_emissao
+     , c.cd_fornecedor
+     , c.nm_cliente
+     , c.vl_previsto
+     , c.nr_documento

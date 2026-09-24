@@ -1,0 +1,340 @@
+/*----------------------------------------------------------------------------*/
+--R_AUDITORIA
+SELECT * FROM (
+SELECT P.CD_PACIENTE ||' - '|| dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(P.CD_PACIENTE, 1)   CD_PACIENTE,
+               R.CD_REG_FAT,
+               R.NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) DT_INTERN,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) DT_ALTA,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    CD_LEITO,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL     CD_CONVENIO,
+               R.DT_INICIO,
+               R.DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               Decode ( instr(nvl(dbamv.pkg_mv2000.Le_Configuracao('FFCV', 'SN_QT_NEGATIVO_AUDIT'),'X')
+                                                  ,ltrim( RTrim(SubStr( LPad(R.CD_CONVENIO,3,'0') ||' - '|| C.NM_RAZAO_SOCIAL,1,3),'000'))),0,
+                      decode(NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 ),0,
+                        NVL( AC.VL_PERCENTUAL_MULTIPLA_ANT/100,0) -NVL( AC.VL_PERCENTUAL_MULTIPLA/100, 0 ),
+                        NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 )), 
+                      (decode(NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 ),0,
+                        NVL( AC.VL_PERCENTUAL_MULTIPLA_ANT/100,0) -NVL( AC.VL_PERCENTUAL_MULTIPLA/100, 0 ),
+                        NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 ))*(-1)) 
+               )QT_LANCAMENTO_ITEM,                                                                    
+                Decode ( instr(nvl(dbamv.pkg_mv2000.Le_Configuracao('FFCV', 'SN_VALOR_NEGATIVO_AUDIT'),'X')
+                                                  ,ltrim( RTrim(SubStr( LPad(R.CD_CONVENIO,3,'0') ||' - '|| C.NM_RAZAO_SOCIAL,1,3),'000'))),0,
+		                    DECODE((NVL(AC.VL_TOTAL_CONTA_ANT,0) -  NVL(AC.VL_TOTAL_CONTA,0)), 0, DECODE(AC.QT_LANCAMENTO,
+                                  0,AC.VL_TOTAL_CONTA_ANT - AC.VL_ACRESCIMO + AC.VL_DESCONTO,0),
+                                  (NVL(AC.VL_TOTAL_CONTA_ANT,0) - NVL(AC.VL_ACRESCIMO_ANT,0) + NVL(AC.VL_DESCONTO_ANT,0))  -
+                                  (NVL(AC.VL_TOTAL_CONTA,0) - NVL(AC.VL_ACRESCIMO,0) + NVL(AC.VL_DESCONTO,0))),
+                        (DECODE((NVL(AC.VL_TOTAL_CONTA_ANT,0) -  NVL(AC.VL_TOTAL_CONTA,0)), 0, DECODE(AC.QT_LANCAMENTO,
+                                  0,AC.VL_TOTAL_CONTA_ANT - AC.VL_ACRESCIMO + AC.VL_DESCONTO,0),
+                                  (NVL(AC.VL_TOTAL_CONTA_ANT,0) - NVL(AC.VL_ACRESCIMO_ANT,0) + NVL(AC.VL_DESCONTO_ANT,0))  -
+                                  (NVL(AC.VL_TOTAL_CONTA,0) - NVL(AC.VL_ACRESCIMO,0) + NVL(AC.VL_DESCONTO,0)))*(-1))             
+                )VL_TOTAL_ITEM,
+               NVL(AC.SN_ACORDO, 'N') SN_ACORDO,
+               NVL(AC.SN_PACIENTE_PAGA, 'N') SN_PACIENTE_PAGA
+               ,null cd_lancamento_fat
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_FAT R,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.CONVENIO C,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.PRO_FAT PR,
+              DBAMV.ITREG_FAT I,
+	      dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = C.Cd_Convenio
+  And Empresa_Convenio.Cd_Multi_Empresa = R.CD_MULTI_EMPRESA
+  AND  A.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  AND A.CD_ATENDIMENTO = :CAMPO_ATENDIMENTO
+  and A.CD_ATENDIMENTO = R.CD_ATENDIMENTO
+  AND A.Cd_Multi_Empresa = R.CD_MULTI_EMPRESA
+  AND L.CD_LEITO(+)                 = A.CD_LEITO
+  AND C.CD_CONVENIO        = R.CD_CONVENIO
+  AND R.CD_REG_FAT          = :CAMPO_CONTA
+  AND AC.CD_REG_FAT                 = R.CD_REG_FAT
+  AND AC.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+  AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+  AND P.CD_PACIENTE  = A.CD_PACIENTE
+  AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+  AND I.CD_REG_FAT(+)                      = AC.CD_REG_FAT
+  AND I.CD_LANCAMENTO (+)             = AC.CD_LANCAMENTO_FAT
+  AND AC.DT_CANCELOU IS NULL
+  AND dbamv.pkg_mv2000.le_cliente  <> 267
+UNION ALL
+SELECT  P.CD_PACIENTE ||' - '|| dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(P.CD_PACIENTE, 1)    CD_PACIENTE,
+               R.CD_REG_AMB        CD_REG_FAT,
+               ''    NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) DT_INTERN,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) DT_ALTA,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    CD_LEITO,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL     CD_CONVENIO,
+               R.DT_LANCAMENTO                      DT_INICIO,
+               R.DT_LANCAMENTO_FINAL          DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+              Decode ( instr(nvl(dbamv.pkg_mv2000.Le_Configuracao('FFCV', 'SN_QT_NEGATIVO_AUDIT'),'X')
+                                                  ,ltrim( RTrim(SubStr( LPad(R.CD_CONVENIO,3,'0') ||' - '|| C.NM_RAZAO_SOCIAL,1,3),'000'))),0,
+                      decode(NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 ),0,
+                        NVL( AC.VL_PERCENTUAL_MULTIPLA_ANT/100,0) -NVL( AC.VL_PERCENTUAL_MULTIPLA/100, 0 ),
+                        NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 )), 
+                      (decode(NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 ),0,
+                        NVL( AC.VL_PERCENTUAL_MULTIPLA_ANT/100,0) -NVL( AC.VL_PERCENTUAL_MULTIPLA/100, 0 ),
+                        NVL( AC.QT_LANCAMENTO_ANT,0) -NVL( AC.QT_LANCAMENTO, 0 ))*(-1)) 
+               )QT_LANCAMENTO_ITEM,                                                                    
+              Decode ( instr(nvl(dbamv.pkg_mv2000.Le_Configuracao('FFCV', 'SN_VALOR_NEGATIVO_AUDIT'),'X')
+                                                  ,ltrim( RTrim(SubStr( LPad(R.CD_CONVENIO,3,'0') ||' - '|| C.NM_RAZAO_SOCIAL,1,3),'000'))),0,
+		                  DECODE((NVL(AC.VL_TOTAL_CONTA_ANT,0) -  NVL(AC.VL_TOTAL_CONTA,0)), 0, DECODE(AC.QT_LANCAMENTO,
+                                0,AC.VL_TOTAL_CONTA_ANT - AC.VL_ACRESCIMO + AC.VL_DESCONTO,0),
+                                (NVL(AC.VL_TOTAL_CONTA_ANT,0) - NVL(AC.VL_ACRESCIMO_ANT,0) + NVL(AC.VL_DESCONTO_ANT,0))  -
+                                (NVL(AC.VL_TOTAL_CONTA,0) - NVL(AC.VL_ACRESCIMO,0) + NVL(AC.VL_DESCONTO,0))), 
+                      	  (DECODE((NVL(AC.VL_TOTAL_CONTA_ANT,0) -  NVL(AC.VL_TOTAL_CONTA,0)), 0, DECODE(AC.QT_LANCAMENTO,
+                                0,AC.VL_TOTAL_CONTA_ANT - AC.VL_ACRESCIMO + AC.VL_DESCONTO,0),
+                                (NVL(AC.VL_TOTAL_CONTA_ANT,0) - NVL(AC.VL_ACRESCIMO_ANT,0) + NVL(AC.VL_DESCONTO_ANT,0))  -
+                                (NVL(AC.VL_TOTAL_CONTA,0) - NVL(AC.VL_ACRESCIMO,0) + NVL(AC.VL_DESCONTO,0)))*(-1))           
+              )VL_TOTAL_ITEM,
+               nvl(AC.SN_ACORDO, 'N') SN_ACORDO,
+               nvl(AC.SN_PACIENTE_PAGA, 'N') SN_PACIENTE_PAGA
+              ,null cd_lancamento_fat
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_AMB R,
+              DBAMV.ITREG_AMB I,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.CONVENIO C,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.PRO_FAT PR,
+	      dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = C.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND  A.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+and A.CD_ATENDIMENTO = AC.CD_ATENDIMENTO
+AND R.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND L.CD_LEITO(+)                 = A.CD_LEITO
+      AND AC.CD_CONVENIO = C.CD_CONVENIO
+      AND AC.CD_REG_AMB    = R.CD_REG_AMB
+      AND I.CD_REG_AMB(+)  = AC.CD_REG_AMB
+      AND AC.CD_REG_AMB   = :CAMPO_CONTA
+      AND A.CD_ATENDIMENTO = :CAMPO_ATENDIMENTO
+      AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+      AND P.CD_PACIENTE  = A.CD_PACIENTE
+      AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+      AND I.CD_LANCAMENTO(+)              = AC.CD_LANCAMENTO_AMB
+      AND AC.DT_CANCELOU IS NULL
+      AND dbamv.pkg_mv2000.le_cliente  <> 267
+UNION ALL
+SELECT P.CD_PACIENTE ||' - '|| dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(P.CD_PACIENTE, 1)   CD_PACIENTE,
+               R.CD_REG_FAT,
+               R.NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) DT_INTERN,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) DT_ALTA,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    CD_LEITO,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL     CD_CONVENIO,
+               R.DT_INICIO,
+               R.DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               max(AC.CD_MOTIVO_AUDITORIA) CD_MOTIVO_AUDITORIA ,
+               M.DS_MOTIVO_AUDITORIA ,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               sum (decode( NVL( AC.QT_LANCAMENTO, 0 ) - NVL( AC.QT_LANCAMENTO_ANT,0)  ,0
+                        ,NVL( AC.QT_LANCAMENTO, 0 )
+                        ,NVL( AC.QT_LANCAMENTO, 0 ) - NVL( AC.QT_LANCAMENTO_ANT,0))) QT_LANCAMENTO_ITEM,
+               SUM(DECODE((NVL(AC.VL_TOTAL_CONTA_ANT,0) -  NVL(AC.VL_TOTAL_CONTA,0)), 0, DECODE(AC.QT_LANCAMENTO,
+                          0,AC.VL_TOTAL_CONTA_ANT - AC.VL_ACRESCIMO + AC.VL_DESCONTO,0),
+                          (NVL(AC.VL_TOTAL_CONTA_ANT,0) - NVL(AC.VL_ACRESCIMO_ANT,0) + NVL(AC.VL_DESCONTO_ANT,0))  -
+                          (NVL(AC.VL_TOTAL_CONTA,0) - NVL(AC.VL_ACRESCIMO,0) + NVL(AC.VL_DESCONTO,0)))) VL_TOTAL_ITEM,
+              AC.SN_ACORDO,
+               AC.SN_PACIENTE_PAGA
+             ,AC.CD_LANCAMENTO_FAT cd_lancamento_fat
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_FAT R,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.CONVENIO C,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.PRO_FAT PR,
+              DBAMV.ITREG_FAT I,
+              dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = C.Cd_Convenio
+       And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       and  a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       and A.CD_ATENDIMENTO = R.CD_ATENDIMENTO
+      AND R.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND L.CD_LEITO(+)                 = A.CD_LEITO
+      AND C.CD_CONVENIO        = R.CD_CONVENIO
+      AND R.CD_REG_FAT          = :CAMPO_CONTA
+      AND AC.CD_REG_FAT                 = R.CD_REG_FAT
+      AND AC.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+      AND A.CD_ATENDIMENTO = :CAMPO_ATENDIMENTO
+      AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+      AND P.CD_PACIENTE  = A.CD_PACIENTE
+      AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+      AND I.CD_REG_FAT(+)                      = AC.CD_REG_FAT
+      AND I.CD_LANCAMENTO (+)             = AC.CD_LANCAMENTO_FAT
+      AND AC.DT_CANCELOU IS NULL
+      AND dbamv.pkg_mv2000.le_cliente  = 267
+group by P.CD_PACIENTE ||' - '|| dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(P.CD_PACIENTE, 1)   ,
+               R.CD_REG_FAT,
+               R.NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) ,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) ,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    ,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL     ,
+               R.DT_INICIO,
+               R.DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               AC.SN_ACORDO,
+               AC.SN_PACIENTE_PAGA,
+			   AC.CD_LANCAMENTO_FAT 
+UNION ALL
+SELECT  P.CD_PACIENTE ||' - '|| dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(P.CD_PACIENTE, 1)    CD_PACIENTE,
+               R.CD_REG_AMB        CD_REG_FAT,
+               ''    NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) DT_INTERN,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) DT_ALTA,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    CD_LEITO,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL     CD_CONVENIO,
+               R.DT_LANCAMENTO                      DT_INICIO,
+               R.DT_LANCAMENTO_FINAL          DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               max(AC.CD_MOTIVO_AUDITORIA) CD_MOTIVO_AUDITORIA ,
+               M.DS_MOTIVO_AUDITORIA ,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               SUM ( decode( NVL( AC.QT_LANCAMENTO, 0 ) - NVL( AC.QT_LANCAMENTO_ANT,0)  ,0
+                                      ,NVL( AC.QT_LANCAMENTO, 0 )
+                                      ,NVL( AC.QT_LANCAMENTO, 0 ) - NVL( AC.QT_LANCAMENTO_ANT,0))) QT_LANCAMENTO_ITEM,
+              SUM(DECODE((NVL(AC.VL_TOTAL_CONTA_ANT,0) -  NVL(AC.VL_TOTAL_CONTA,0)), 0, DECODE(AC.QT_LANCAMENTO,
+                0,AC.VL_TOTAL_CONTA_ANT - AC.VL_ACRESCIMO + AC.VL_DESCONTO,0),
+                (NVL(AC.VL_TOTAL_CONTA_ANT,0) - NVL(AC.VL_ACRESCIMO_ANT,0) + NVL(AC.VL_DESCONTO_ANT,0))  -
+                (NVL(AC.VL_TOTAL_CONTA,0) - NVL(AC.VL_ACRESCIMO,0) + NVL(AC.VL_DESCONTO,0))))VL_TOTAL_ITEM,
+               AC.SN_ACORDO,
+               AC.SN_PACIENTE_PAGA
+               ,NULL cd_lancamento_fat
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_AMB R,
+              DBAMV.ITREG_AMB I,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.CONVENIO C,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.PRO_FAT PR,
+              dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = C.Cd_Convenio
+       And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       and  a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       and A.CD_ATENDIMENTO = AC.CD_ATENDIMENTO
+       AND R.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       AND L.CD_LEITO(+)                 = A.CD_LEITO
+      AND AC.CD_CONVENIO = C.CD_CONVENIO
+      AND AC.CD_REG_AMB    = R.CD_REG_AMB
+      AND I.CD_REG_AMB(+)  = AC.CD_REG_AMB
+      AND AC.CD_REG_AMB   = :CAMPO_CONTA
+      AND A.CD_ATENDIMENTO = :CAMPO_ATENDIMENTO
+      AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+      AND P.CD_PACIENTE  = A.CD_PACIENTE
+      AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+      AND I.CD_LANCAMENTO(+)              = AC.CD_LANCAMENTO_AMB
+      AND AC.DT_CANCELOU IS NULL
+      AND dbamv.pkg_mv2000.le_cliente  = 267
+AND ac.cd_auditoria_conta in (SELECT Max(cd_auditoria_conta)
+                                    FROM dbamv.auditoria_conta
+                                    WHERE cd_pro_fat = ac.cd_pro_fat)
+group by P.CD_PACIENTE ||' - '|| dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(P.CD_PACIENTE, 1)   ,
+               R.CD_REG_AMB       ,
+               ''    ,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) ,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) ,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    ,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL   ,
+               R.DT_LANCAMENTO                     ,
+               R.DT_LANCAMENTO_FINAL          ,
+               R.VL_TOTAL_CONTA,
+               AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               AC.SN_ACORDO,
+               AC.SN_PACIENTE_PAGA ,
+              ac.cd_lancamento_fat
+)
+ORDER BY CD_PACIENTE,CD_REG_FAT,NR_GUIA,DT_INTERN,DT_ALTA,CD_LEITO,CD_CONVENIO,DT_INICIO,DT_FINAL,VL_TOTAL_CONTA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_AUDITORIA_R_MOTIVO_AUDITORIA_Q_MOTIVO_AUDITORIA
+SELECT distinct AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_FAT R,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.CONVENIO C,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.PRO_FAT PR,
+              DBAMV.ITREG_FAT I,
+              dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = C.Cd_Convenio
+     and Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND  A.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     and A.CD_ATENDIMENTO = R.CD_ATENDIMENTO
+      AND A.CD_MULTI_EMPRESA = R.Cd_Multi_Empresa
+      AND L.CD_LEITO                 = A.CD_LEITO
+      AND C.CD_CONVENIO        = R.CD_CONVENIO
+      AND R.CD_REG_FAT          = :CAMPO_CONTA
+      AND AC.CD_REG_FAT                 = R.CD_REG_FAT
+      AND AC.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+      AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+      AND P.CD_PACIENTE  = A.CD_PACIENTE
+      AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+      AND I.CD_REG_FAT(+)                     = AC.CD_REG_FAT
+      AND I.CD_LANCAMENTO(+)             = AC.CD_LANCAMENTO_FAT
+      AND AC.DT_CANCELOU IS NULL
+UNION
+SELECT  distinct AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_AMB R,
+              DBAMV.ITREG_AMB I,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.CONVENIO C,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.PRO_FAT PR,
+              dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = C.Cd_Convenio
+      and Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND  A.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      and  A.CD_ATENDIMENTO = I.CD_ATENDIMENTO
+      AND R.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND L.CD_LEITO                 = A.CD_LEITO
+      AND C.CD_CONVENIO        = I.CD_CONVENIO
+      AND I.CD_REG_AMB           = R.CD_REG_AMB
+      AND R.CD_REG_AMB          = :CAMPO_CONTA
+      AND A.CD_ATENDIMENTO = :CAMPO_ATENDIMENTO
+      AND AC.CD_REG_AMB                   = R.CD_REG_AMB
+      AND AC.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+      AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+      AND P.CD_PACIENTE  = A.CD_PACIENTE
+      AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+      AND I.CD_REG_AMB(+)                     = AC.CD_REG_AMB
+      AND I.CD_LANCAMENTO(+)              = AC.CD_LANCAMENTO_AMB
+      AND AC.DT_CANCELOU IS NULL

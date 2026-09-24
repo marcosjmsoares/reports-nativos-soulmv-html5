@@ -1,0 +1,80 @@
+/*----------------------------------------------------------------------------*/
+--R_RES_LEITO
+SELECT * FROM (
+SELECT  RES_LEI.DT_PREV_INTERNACAO DT_PREV_INTERNACAO
+               ,RES_LEI.CD_RES_LEI CD_RES_LEI
+               ,RES_LEI.CD_PACIENTE
+               ,RES_LEI.NM_PACIENTE NM_PACIENTE
+               ,RES_LEI.TP_SEXO TP_SEXO
+               ,RES_LEI.NR_FONE NR_FONE
+               ,RES_LEI.DT_RESERVA DT_RESERVA
+               ,RES_LEI.DT_PREV_ALTA DT_PREV_ALTA
+               ,CONVENIO.NM_CONVENIO NM_CONVENIO
+               ,PRESTADOR.NM_PRESTADOR NM_PRESTADOR
+               ,SERVICO.DS_SERVICO DS_SERVICO
+               ,TIP_ACOM.DS_TIP_ACOM DS_TIP_ACOM
+               ,RES_LEI.DS_TRATAMENTO DS_TRATAMENTO
+               ,RES_LEI.DS_OBSERVACAO
+               , DECODE(RES_LEI.CD_PACIENTE,NULL,DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,IDENTIDADE_GENERO.DS_IDENTIDADE_GENERO,
+                         NULL),DECODE(PACIENTE.SN_UTIL_IDENTIDADE_GENERO,
+                      'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,(SELECT MAX(ID_GENERO.DS_IDENTIDADE_GENERO) FROM DBAMV.IDENTIDADE_GENERO ID_GENERO WHERE PACIENTE.CD_IDENTIDADE_GENERO = ID_GENERO.CD_IDENTIDADE_GENERO),
+                         NULL),
+                    NULL)) AS IDENTIDADE_GENERO ,             
+                    DECODE(RES_LEI.CD_PACIENTE,NULL,DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,ORIENTACAO_SEXUAL.DS_ORIENTACAO_SEXUAL,
+                         NULL), DECODE(PACIENTE.SN_UTIL_ORIENTACAO_SEXUAL,
+                      'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,(SELECT MAX(ORI_SEXUAL.DS_ORIENTACAO_SEXUAL) FROM DBAMV.ORIENTACAO_SEXUAL ORI_SEXUAL  WHERE PACIENTE.CD_ORIENTACAO_SEXUAL = ORI_SEXUAL.CD_ORIENTACAO_SEXUAL),
+                         NULL),
+                    NULL)) AS ORIENTACAO_SEXUAL
+FROM     DBAMV.RES_LEI RES_LEI
+              ,DBAMV.CONVENIO CONVENIO
+              ,DBAMV.PRESTADOR PRESTADOR
+              ,DBAMV.SERVICO SERVICO
+              ,DBAMV.TIP_ACOM TIP_ACOM
+              ,DBAMV.PACIENTE PACIENTE 
+              ,DBAMV.ORIENTACAO_SEXUAL
+              ,DBAMV.IDENTIDADE_GENERO
+WHERE     TRUNC(RES_LEI.DT_PREV_INTERNACAO)   BETWEEN   :CAMPO_DATAINICIO  AND  
+AND           CONVENIO.CD_CONVENIO(+)    = RES_LEI.CD_CONVENIO
+AND           TIP_ACOM.CD_TIP_ACOM(+)    = RES_LEI.CD_TIP_ACOM
+AND           SERVICO.CD_SERVICO(+)      = RES_LEI.CD_SERVICO
+AND           PRESTADOR.CD_PRESTADOR(+)  = RES_LEI.CD_PRESTADOR
+AND           RES_LEI.SN_ATIVO           = 'S'
+AND           PACIENTE.CD_PACIENTE(+)    = RES_LEI.CD_PACIENTE
+AND            RES_LEI.CD_IDENTIDADE_GENERO = IDENTIDADE_GENERO.CD_IDENTIDADE_GENERO(+)
+AND           RES_LEI.CD_ORIENTACAO_SEXUAL =  ORIENTACAO_SEXUAL.CD_ORIENTACAO_SEXUAL (+)
+ORDER BY    RES_LEI.DT_PREV_INTERNACAO,
+                       RES_LEI.NM_PACIENTE
+)
+ORDER BY DT_PREV_INTERNACAO

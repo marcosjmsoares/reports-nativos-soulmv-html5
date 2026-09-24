@@ -1,0 +1,69 @@
+/*----------------------------------------------------------------------------*/
+--R_SAI_CLAS_SETOR_SINT
+SELECT * FROM (
+SELECT
+           estoque.cd_estoque
+          ,estoque.ds_Estoque
+          ,especie.cd_especie                                   cd_especie
+          ,especie.ds_especie                                   ds_especie
+          ,classe.cd_classe                                     cd_classe
+          ,classe.ds_classe                                     ds_classe
+          ,sub_clas.cd_sub_cla                                  cd_sub_cla
+          ,sub_clas.ds_sub_cla                                  ds_sub_cla
+          ,itmvto_estoque.cd_produto                            cd_produto
+          ,itmvto_estoque.cd_produto||' - '||produto.ds_produto ds_produto
+          ,verif_ds_unid_prod(itmvto_estoque.cd_produto)        ds_unidade
+          ,setor.cd_setor                                       cd_setor
+          ,setor.nm_setor                                       nm_setor
+          ,atendime.cd_atendimento                              cd_atendimento
+          ,paciente.nm_paciente                                 nm_paciente
+          ,sum(((itmvto_estoque.qt_movimentacao*uni_pro.vl_fator)/verif_vl_fator_prod(itmvto_estoque.cd_produto)) * decode( mvto_estoque.tp_mvto_estoque, 'D', -1, 'C', -1,'N',-1, 1  ) ) qt_movimento          ,sum(round(itmvto_estoque.qt_movimentacao * uni_pro.vl_fator * decode( mvto_estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1  ) * verif_vl_custo_medio(itmvto_estoque.cd_produto,mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO,produto.vl_custo_medio,Mvto_Estoque.Hr_Mvto_Estoque),2)) vl_total
+FROM       dbamv.mvto_estoque
+         , dbamv.itmvto_estoque
+         , dbamv.produto
+         , dbamv.setor
+         , dbamv.especie
+         , dbamv.classe
+         , dbamv.sub_clas
+         , dbamv.paciente
+         , dbamv.atendime
+         , dbamv.uni_pro
+         , dbamv.estoque
+WHERE     trunc(mvto_estoque.dt_mvto_estoque) BETWEEN :CAMPO_DTINIC  AND 
+AND        mvto_estoque.cd_mvto_estoque        = itmvto_estoque.cd_mvto_estoque
+AND        produto.cd_produto                  = itmvto_estoque.cd_produto
+AND        mvto_estoque.cd_setor               = setor.cd_setor
+AND        produto.cd_especie                  = especie.cd_especie
+AND        produto.cd_classe                   = classe.cd_classe
+AND        produto.cd_sub_cla                  = sub_clas.cd_sub_cla
+AND        classe.cd_especie                   = especie.cd_especie
+AND        sub_clas.cd_especie                 = especie.cd_especie
+AND        classe.cd_classe                    = sub_clas.cd_classe
+AND        atendime.cd_paciente             = paciente.cd_paciente (+)
+AND        atendime.cd_atendimento      (+)  = mvto_estoque.cd_atendimento
+AND        uni_pro.cd_uni_pro                  = itmvto_estoque.cd_uni_pro
+AND        estoque.cd_estoque                = mvto_estoque.cd_Estoque
+AND        estoque.cd_multi_empresa      = :CAMPO_CD_MULTI_EMPRESA
+AND        atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+GROUP BY   especie.cd_especie,
+           especie.ds_especie,
+           classe.cd_classe,
+           classe.ds_classe,
+           sub_clas.cd_sub_cla,
+           sub_clas.ds_sub_cla,
+           itmvto_estoque.cd_produto,
+           produto.ds_produto,
+           setor.cd_setor,
+           setor.nm_setor,
+           atendime.cd_atendimento,
+           paciente.nm_paciente,
+           estoque.cd_estoque,
+           estoque.ds_Estoque
+ORDER BY   atendime.cd_atendimento,
+           paciente.nm_paciente
+)
+ORDER BY DS_ESTOQUE,CD_ESTOQUE,
+DS_ESPECIE,
+DS_CLASSE,
+DS_SUB_CLA,
+DS_PRODUTO,nm_paciente

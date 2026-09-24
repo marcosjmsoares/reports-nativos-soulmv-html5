@@ -1,0 +1,123 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCETE_GE_C
+SELECT A.cd_contabil       CD_CONTABIL,
+       A.ds_conta          DS_CONTA,
+       A.cd_grau           CD_GRAU,
+       A.tp_conta          TP_CONTA,
+       SUM(A.vl_saldo_ant) VL_SALDO_ANT,
+       SUM(A.vl_debito)    VL_DEBITO,
+       SUM(A.vl_credito)   VL_CREDITO,
+       SUM(A.vl_saldo_atu) VL_SALDO_ATU,
+       Max(A.dt_saldo_mes) DT_SALDO_MES
+FROM   (SELECT pc.cd_contabil                            cd_contabil,
+               pc.ds_conta                               ds_conta,
+               pc.cd_grau_da_conta                       cd_grau,
+               pc.tp_conta                               tp_conta,
+               sm.cd_reduzido,
+               (SELECT Nvl(vl_saldo_mes, 0)
+                FROM   dbamv.saldo_mensal SM
+                WHERE  SM.dt_saldo_mes = (SELECT Max(SML.dt_saldo_mes)
+                                          FROM   dbamv.saldo_mensal SML
+                                          WHERE
+                       SML.cd_reduzido = SM.cd_reduzido
+                       AND SML.dt_saldo_mes < To_Date(:CAMPO_DT_INICIO,'DD/MM/YYYY')
+                                         )
+                       AND SM.cd_reduzido = GC.comp_ana) vl_saldo_ant,
+               Nvl (sm.vl_debito, 0)                     vl_debito,
+               Nvl (sm.vl_credito, 0)                    vl_credito,
+               sm.vl_saldo_mes                           vl_saldo_atu,
+               sm.dt_saldo_mes                           dt_saldo_mes
+        FROM   dbamv.plano_contas_gerencial pc,
+               dbamv.saldo_mensal sm,
+               (SELECT PG.cd_reduzido       SINT,
+                       GC.cd_reduzido       ANA,
+                       PGC.cd_reduzido_comp COMP_ANA,
+                       PG.tp_conta
+                FROM   dbamv.plano_contas_gerencial PG
+                       inner join dbamv.plano_contas_gerencial GC
+                               ON GC.dt_ano = PG.dt_ano
+                                  AND GC.cd_contabil LIKE PG.cd_contabil
+                                                          ||'%'
+                                  AND GC.tp_conta = 'A'
+                       inner join dbamv.plano_contas_gerencial_comp PGC
+                               ON PGC.dt_ano = GC.dt_ano
+                                  AND GC.cd_reduzido = PGC.cd_reduzido
+                WHERE  PG.tp_conta = 'S'
+                       AND To_char(pg.dt_ano, 'yyyy') = :CAMPO_EXERCICIO
+                UNION ALL
+                SELECT PG.cd_reduzido SINT,
+                       PG.cd_reduzido ANA,
+                       PGC.cd_reduzido_comp,
+                       PG.tp_conta
+                FROM   dbamv.plano_contas_gerencial PG
+                       inner join dbamv.plano_contas_gerencial_comp PGC
+                               ON PGC.dt_ano = PG.dt_ano
+                                  AND PG.cd_reduzido = PGC.cd_reduzido
+                WHERE  To_char(pg.dt_ano, 'yyyy') = :CAMPO_EXERCICIO
+                       AND PG.tp_conta = 'A') GC
+        WHERE  pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND To_char(pc.dt_ano, 'yyyy') = :CAMPO_EXERCICIO
+               AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+               AND PC.cd_reduzido = GC.sint
+               AND GC.comp_ana = sm.cd_reduzido(+)
+	       AND '' = 'S'
+	   UNION
+SELECT pc.cd_contabil                            cd_contabil,
+               pc.ds_conta                               ds_conta,
+               pc.cd_grau_da_conta                       cd_grau,
+               pc.tp_conta                               tp_conta,
+               sm.cd_reduzido,
+               (SELECT Nvl(vl_saldo_mes, 0)
+                FROM   dbamv.saldo_mensal SM
+                WHERE  SM.dt_saldo_mes = (SELECT Max(SML.dt_saldo_mes)
+                                          FROM   dbamv.saldo_mensal SML
+                                          WHERE
+                       SML.cd_reduzido = SM.cd_reduzido
+                       AND SML.dt_saldo_mes < To_Date(:CAMPO_DT_INICIO,'DD/MM/YYYY')
+                                         )
+                       AND SM.cd_reduzido = GC.comp_ana) vl_saldo_ant,
+               Nvl (sm.vl_debito, 0)                     vl_debito,
+               Nvl (sm.vl_credito, 0)                    vl_credito,
+               sm.vl_saldo_mes                           vl_saldo_atu,
+               sm.dt_saldo_mes                           dt_saldo_mes
+        FROM   dbamv.plano_contas_gerencial pc,
+               dbamv.saldo_mes_sem_apuracao sm,
+               (SELECT PG.cd_reduzido       SINT,
+                       GC.cd_reduzido       ANA,
+                       PGC.cd_reduzido_comp COMP_ANA,
+                       PG.tp_conta
+                FROM   dbamv.plano_contas_gerencial PG
+                       inner join dbamv.plano_contas_gerencial GC
+                               ON GC.dt_ano = PG.dt_ano
+                                  AND GC.cd_contabil LIKE PG.cd_contabil
+                                                          ||'%'
+                                  AND GC.tp_conta = 'A'
+                       inner join dbamv.plano_contas_gerencial_comp PGC
+                               ON PGC.dt_ano = GC.dt_ano
+                                  AND GC.cd_reduzido = PGC.cd_reduzido
+                WHERE  PG.tp_conta = 'S'
+                       AND To_char(pg.dt_ano, 'yyyy') = :CAMPO_EXERCICIO
+                UNION ALL
+                SELECT PG.cd_reduzido SINT,
+                       PG.cd_reduzido ANA,
+                       PGC.cd_reduzido_comp,
+                       PG.tp_conta
+                FROM   dbamv.plano_contas_gerencial PG
+                       inner join dbamv.plano_contas_gerencial_comp PGC
+                               ON PGC.dt_ano = PG.dt_ano
+                                  AND PG.cd_reduzido = PGC.cd_reduzido
+                WHERE  To_char(pg.dt_ano, 'yyyy') = :CAMPO_EXERCICIO
+                       AND PG.tp_conta = 'A') GC
+        WHERE  pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND To_char(pc.dt_ano, 'yyyy') = :CAMPO_EXERCICIO
+               AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+               AND PC.cd_reduzido = GC.sint
+	       AND '' = 'N'
+               AND GC.comp_ana = sm.cd_reduzido(+)
+       :CAMPO_CF_VISAO
+       ) A
+GROUP  BY A.cd_contabil,
+          A.ds_conta,
+          A.cd_grau,
+          A.tp_conta
+ORDER  BY A.cd_contabil

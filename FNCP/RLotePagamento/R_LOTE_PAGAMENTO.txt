@@ -1,0 +1,50 @@
+/*----------------------------------------------------------------------------*/
+--R_LOTE_PAGAMENTO
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_LOTE_PAGAMENTO_R_G_CD_LOTE_PGTO_Q_1
+SELECT * FROM (
+SELECT
+              lp.cd_lote_pgto                                                               cd_lote_pgto
+             ,lp.ds_lote_pgto                                                                ds_lote_pgto
+             ,lp.dt_lote_pgto                                                                 dt_lote_pgto
+             ,lp.nr_nivel_autorizacao                                                    nr_nivel_autorizacao
+             ,log.cd_usuario                                                                 cd_usuario
+             ,usu.nm_usuario                                                               nm_usuario
+            ,cp.cd_con_pag                                                               cd_con_pag
+            ,cp.cd_fornecedor                                                            cd_fornecedor
+            ,DECODE(cp.cd_fornecedor,NULL,cp.ds_fornecedor
+                                                                   ,forn.nm_fornecedor)  nm_fornecedor
+            ,cp.nr_documento                                                             nr_documento
+            ,itcp.nr_parcela                                                                 nr_parcela
+            ,itcp.dt_vencimento                                                          dt_vencimento
+            ,itcp.dt_prevista_pag                                                        dt_prevista_pag
+            ,itcp.cd_moeda                                                                cd_moeda
+            ,itcp.vl_duplicata                                                              vl_duplicata
+            ,(nvl(itcp.vl_duplicata,0) - nvl( itcp.vl_soma_pago, 0 ))-Nvl(dbamv.FNC_FIEA_VALOR_DEVOLUCAO(itcp.cd_itcon_pag),0)       vl_pendente
+  FROM dbamv.lote_pgto                    lp
+            ,dbamv.lote_pgto_itcon_pag  lpip
+            ,dbamv.itcon_pag                   itcp
+            ,dbamv.con_pag                     cp
+            ,dbamv.fornecedor                  forn
+            ,dbasgu.usuarios                     usu
+            ,(SELECT lote_pgto_log.cd_lote_pgto
+                            ,lote_pgto_log.cd_usuario
+             FROM ( SELECT cd_lote_pgto, MAX(cd_lote_pgto_log) cd_ultimo_log
+                             FROM dbamv.lote_pgto_log
+                     GROUP BY cd_lote_pgto) lote_pgto_log_ultimo
+                     ,dbamv.lote_pgto_log
+             WHERE lote_pgto_log.cd_lote_pgto_log = lote_pgto_log_ultimo.cd_ultimo_log)  log
+ WHERE lp.cd_lote_pgto       =  lpip.cd_lote_pgto(+)
+      AND lpip.cd_itcon_pag     =  itcp.cd_itcon_pag(+)
+      AND itcp.cd_con_pag      =  cp.cd_con_pag(+)
+      AND cp.cd_fornecedor     =  forn.cd_fornecedor(+)
+      AND lp.cd_lote_pgto         =  log.cd_lote_pgto
+      AND log.cd_usuario          =  usu.cd_usuario
+ORDER BY  dt_vencimento
+                    ,nm_fornecedor
+)
+ORDER BY CD_LOTE_PGTO,DS_LOTE_PGTO,DT_LOTE_PGTO,NR_NIVEL_AUTORIZACAO,CD_USUARIO,NM_USUARIO,nm_fornecedor,dt_vencimento

@@ -1,0 +1,89 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_FATURADO
+select nvl(servico.cd_servico,0) cd_servico
+     , nvl(servico.ds_servico,'SEM SERVIÇO') ds_servico
+     , faturado.cd_pro_fat
+     , faturado.ds_pro_fat
+     , produto.cd_produto
+     , produto.ds_produto
+     , uni_pro.ds_unidade
+     , sum(itmvto_estoque.qt_movimentacao) qt_faturada
+     , uni_pro.vl_fator * dbamv.verif_vl_custo_medio( itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque, 'H', produto.vl_custo_medio, Mvto_Estoque.Hr_Mvto_Estoque ) vl_unitario
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.mvto_estoque,
+       dbamv.atendime,
+       dbamv.servico,
+       dbamv.itmvto_estoque,
+		(select ITREG_FAT.CD_MVTO
+			  ,ITREG_FAT.CD_ITMVTO
+			  ,pro_fat.cd_pro_fat
+			  ,pro_fat.ds_pro_fat
+                          ,pro_fat.ds_unidade
+			  ,TO_CHAR(remessa_fatura.dt_entrega_da_fatura, 'MM/YYYY')  DT_COMPETENCIA
+			  ,itreg_fat.qt_lancamento   qt_faturada
+			  ,itreg_fat.vl_total_conta vl_faturada
+		  from dbamv.pro_fat,
+			   dbamv.itreg_fat,
+			   dbamv.reg_fat,
+			   dbamv.remessa_fatura
+		 where trunc(remessa_fatura.dt_entrega_da_fatura) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+		   and nvl(reg_fat.sn_diagno, 'N') = 'N'
+		   and itreg_fat.cd_pro_fat               = pro_fat.cd_pro_fat
+		   and itreg_fat.cd_reg_fat                = reg_fat.cd_reg_fat
+		   and reg_fat.cd_remessa                = remessa_fatura.cd_remessa
+		   and reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+		   AND UPPER(ITREG_FAT.TP_MVTO) = 'PRODUTO'
+		   and exists ( select cd_pro_fat
+						  from dbamv.produto
+						 where produto.cd_pro_fat = pro_fat.cd_pro_fat
+						   And Exists ( Select Empresa_Produto.Cd_Produto
+											 From Dbamv.Empresa_Produto
+										   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+												and Empresa_Produto.Cd_Produto = Produto.Cd_Produto ))
+		union all
+		select ITREG_AMB.CD_MVTO
+			  ,ITREG_AMB.CD_ITMVTO
+			  ,pro_fat.cd_pro_fat
+			  ,pro_fat.ds_pro_fat
+                          ,pro_fat.ds_unidade
+			  ,TO_CHAR( remessa_fatura.dt_entrega_da_fatura, 'MM/YYYY')  DT_COMPETENCIA
+			  , itreg_amb.qt_lancamento  qt_faturada
+			  , itreg_amb.vl_total_conta vl_faturada
+		  from dbamv.pro_fat,
+			   dbamv.itreg_amb,
+			   dbamv.reg_amb,
+			   dbamv.remessa_fatura
+		 where trunc(remessa_fatura.dt_entrega_da_fatura) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+		   and nvl(reg_amb.sn_diagno,'N') = 'N'
+		   and reg_amb.cd_remessa     = remessa_fatura.cd_remessa
+		   and itreg_amb.cd_pro_Fat     = pro_fat.cd_pro_fat
+		   and itreg_amb.cd_reg_amb   = reg_amb.cd_reg_amb
+		   AND UPPER(ITREG_AMB.TP_MVTO) = 'PRODUTO'
+		   and reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+		   and exists ( select cd_pro_fat
+						  from dbamv.produto
+						 where produto.cd_pro_fat = pro_fat.cd_pro_fat
+						   And Exists ( Select Empresa_Produto.Cd_Produto
+											 From Dbamv.Empresa_Produto
+										   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+												and Empresa_Produto.Cd_Produto = Produto.Cd_Produto ))) faturado
+ where faturado.cd_mvto               = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+   and faturado.cd_itmvto             = ITMVTO_ESTOQUE.CD_ITMVTO_ESTOQUE
+   and itmvto_estoque.cd_produto      = produto.cd_produto
+   and itmvto_estoque.cd_uni_pro      = uni_pro.cd_uni_pro
+   and produto.cd_pro_fat             = pro_fat.cd_pro_fat
+   and produto.sn_mestre              = 'N'
+   AND mvto_estoque.cd_mvto_estoque   = itmvto_estoque.cd_mvto_estoque
+   AND atendime.cd_atendimento        = mvto_estoque.cd_atendimento
+   AND atendime.cd_servico            = servico.cd_servico(+)
+GROUP BY nvl(servico.cd_servico,0)
+     , nvl(servico.ds_servico,'SEM SERVIÇO')
+     , faturado.cd_pro_fat
+     , faturado.ds_pro_fat
+     , produto.cd_produto
+     , produto.ds_produto
+     , uni_pro.ds_unidade
+     , uni_pro.vl_fator * dbamv.verif_vl_custo_medio( itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque, 'H', produto.vl_custo_medio, Mvto_Estoque.Hr_Mvto_Estoque )
+order by nvl(servico.cd_servico,0), faturado.cd_pro_fat, produto.ds_produto

@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_DEV_PACSET_RELAT
+SELECT * FROM (
+SELECT
+       MVTO_ESTOQUE.CD_ESTOQUE                        CD_ESTOQUE_ME,
+       ESTOQUE.DS_ESTOQUE                                     DS_ESTOQUE_ME,
+       ATENDIME.CD_ATENDIMENTO                CD_ATENDIMENTO_ME,
+       MVTO_ESTOQUE.CD_UNID_INT                         CD_UNID_INT_ME,
+       UNID_INT.DS_UNID_INT                                      DS_UNID_INT_ME,
+       MVTO_ESTOQUE.CD_SETOR                              CD_SETOR_ME,
+       SETOR.NM_SETOR                                               NM_SETOR_ME,
+       LEITO.CD_LEITO                                                   CD_LEITO_ME,
+       LEITO.DS_LEITO                                                   DS_LEITO_ME,
+       TO_CHAR(MVTO_ESTOQUE.DT_MVTO_ESTOQUE, 'DD/MM/YYYY') || ' ' ||
+       TO_CHAR(MVTO_ESTOQUE.HR_MVTO_ESTOQUE,'HH24') DT_HR_MVTO_ESTOQUE_ME,
+       MOT_DEV.DS_MOT_DEV,
+       ITMVTO_ESTOQUE.CD_PRODUTO                      CD_PRODUTO_IE,
+       PRODUTO.DS_PRODUTO                                     DS_PRODUTO_IE,
+       Verif_Ds_Unid_Prod( ItMvto_Estoque.Cd_Produto, 'C')			DS_UNIDADE_IE,
+       sum(  ITMVTO_ESTOQUE.QT_MOVIMENTACAO)            QT_MOVIMENTACAO,
+       VERIF_VL_CUSTO_MEDIO(ITMVTO_ESTOQUE.CD_PRODUTO,MVTO_ESTOQUE.DT_MVTO_ESTOQUE,'R',NULL,MVTO_ESTOQUE.HR_MVTO_ESTOQUE) * Verif_Vl_Fator_Prod(ItMvto_Estoque.Cd_Produto, 'C')  VL_UNITARIO,
+       SUM(decode(TP_MVTO_ESTOQUE, 'D', ((itmvto_estoque.qt_movimentacao * uni_pro.vl_fator) /
+                                              verif_vl_fator_prod(itmvto_estoque.cd_produto, 'C')),
+                                       'C', ((itmvto_estoque.qt_movimentacao * uni_pro.vl_fator) /
+                                              verif_vl_fator_prod(itmvto_estoque.cd_produto, 'C')), 0 ))  QT_DEVOLVIDA
+FROM   dbamv.MVTO_ESTOQUE                                  MVTO_ESTOQUE,
+             dbamv.ITMVTO_ESTOQUE                               ITMVTO_ESTOQUE,
+             dbamv.ESTOQUE                                               ESTOQUE,
+             dbamv.PRESTADOR                                          PRESTADOR,
+             dbamv.UNID_INT                                               UNID_INT,
+             dbamv.SETOR                                                    SETOR,
+             dbamv.ATENDIME                                              ATENDIME,
+             dbamv.PACIENTE                                               PACIENTE,
+             dbamv.LEITO                                                       LEITO,
+             dbamv.CONVENIO                                              CONVENIO,
+             dbamv.UNI_PRO                                                 UNI_PRO,
+             dbamv.PRODUTO                                               PRODUTO,
+             dbamv.MOT_DEV                                                MOT_DEV
+WHERE MVTO_ESTOQUE.TP_MVTO_ESTOQUE  =   :CAMPO_TP_MVTO_ESTOQUE
+AND       MVTO_ESTOQUE.CD_MVTO_ESTOQUE =   ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE(+)
+AND        MVTO_ESTOQUE.CD_ESTOQUE             =   ESTOQUE.CD_ESTOQUE
+AND        MVTO_ESTOQUE.CD_PRESTADOR        =   PRESTADOR.CD_PRESTADOR(+)
+AND        MVTO_ESTOQUE.CD_UNID_INT             =   UNID_INT.CD_UNID_INT(+)
+AND        MVTO_ESTOQUE.CD_SETOR                  =   SETOR.CD_SETOR(+)
+AND        MVTO_ESTOQUE.CD_ATENDIMENTO    =    ATENDIME.CD_ATENDIMENTO(+)
+AND        ATENDIME.CD_PACIENTE                        =   PACIENTE.CD_PACIENTE(+)
+AND        ATENDIME.CD_LEITO                               =   LEITO.CD_LEITO(+)
+AND        ATENDIME.CD_CONVENIO                       =   CONVENIO.CD_CONVENIO(+)
+AND        ITMVTO_ESTOQUE.CD_UNI_PRO           =   UNI_PRO.CD_UNI_PRO(+)
+AND        ITMVTO_ESTOQUE.CD_PRODUTO         =   PRODUTO.CD_PRODUTO(+)
+AND        MVTO_ESTOQUE.CD_MOT_DEV             =   MOT_DEV.CD_MOT_DEV
+AND        TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN TO_DATE(:CAMPO_DTINIC, 'DD/MM/YYYY')
+                                                                                              AND TO_DATE(:CAMPO_DTFIM , 'DD/MM/YYYY')
+AND       ESTOQUE.CD_MULTI_EMPRESA             = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY MVTO_ESTOQUE.CD_ESTOQUE,
+       ESTOQUE.DS_ESTOQUE,
+       ATENDIME.CD_ATENDIMENTO,
+       MVTO_ESTOQUE.CD_UNID_INT,
+       UNID_INT.DS_UNID_INT,
+       MVTO_ESTOQUE.CD_SETOR,
+       SETOR.NM_SETOR,
+       LEITO.CD_LEITO,
+       LEITO.DS_LEITO,
+       TO_CHAR(MVTO_ESTOQUE.DT_MVTO_ESTOQUE, 'DD/MM/YYYY') || ' ' ||
+       TO_CHAR(MVTO_ESTOQUE.HR_MVTO_ESTOQUE,'HH24') ,
+       MOT_DEV.DS_MOT_DEV,
+       ITMVTO_ESTOQUE.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       VERIF_VL_CUSTO_MEDIO(ITMVTO_ESTOQUE.CD_PRODUTO,MVTO_ESTOQUE.DT_MVTO_ESTOQUE,'R',NULL,MVTO_ESTOQUE.HR_MVTO_ESTOQUE) * Verif_Vl_Fator_Prod(ItMvto_Estoque.Cd_Produto, 'C')
+)
+ORDER BY DT_HR_MVTO_ESTOQUE_ME,CD_ATENDIMENTO_ME,CD_ESTOQUE_ME,DS_ESTOQUE_ME,CD_UNID_INT_ME,DS_UNID_INT_ME,NM_SETOR_ME,CD_SETOR_ME,CD_LEITO_ME,DS_LEITO_ME

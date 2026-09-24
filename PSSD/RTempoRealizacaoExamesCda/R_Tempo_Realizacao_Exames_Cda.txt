@@ -1,0 +1,78 @@
+/*----------------------------------------------------------------------------*/
+--R_Tempo_Realizacao_Exames_Cda
+SELECT CD_EXA_LAB,
+         NM_MNEMONICO,
+         NM_EXA_LAB,
+         AVG(TEMPO_CONFIRMACAO_SETOR) TEMPO_CONFIRMACAO_SETOR,
+         AVG(TEMPO_CDA) TEMPO_CDA,
+         AVG(TEMPO_CONFIRMACAO_LAB_CDA) TEMPO_CONFIRMACAO_LAB_CDA,
+         AVG(TEMPO_CONFIRMACAO_LABORATORIO) TEMPO_CONFIRMACAO_LABORATORIO,
+         AVG(TEMPO_ASSINADO) TEMPO_ASSINADO,
+         NVL(AVG(TEMPO_CONFIRMACAO_SETOR),0) + AVG(TEMPO_CONFIRMACAO_LABORATORIO) + AVG(TEMPO_ASSINADO)   TOTAL
+      FROM (SELECT EXA_LAB.CD_EXA_LAB
+       , EXA_LAB.NM_MNEMONICO
+       , EXA_LAB.NM_EXA_LAB
+       , CASE
+           WHEN  AMOSTRA.DT_COLETA_SETOR IS NOT NULL  THEN  ROUND (
+                  (
+                    (
+                      (TRUNC(AMOSTRA.DT_COLETA_SETOR) + (HR_COLETA_SETOR - TRUNC(HR_COLETA_SETOR)))
+                      -   (TRUNC(PED_LAB.DT_PEDIDO) + (HR_PED_LAB - TRUNC(HR_PED_LAB)))
+                     ) * 1440
+                  )
+                ) ELSE TO_NUMBER(NULL) END  TEMPO_CONFIRMACAO_SETOR
+        ,
+ROUND (((AMOSTRA.DH_RECEPCAO_CDA -
+                        CASE
+                        WHEN AMOSTRA.DT_COLETA_SETOR IS NOT NULL THEN
+                          TRUNC(AMOSTRA.DT_COLETA_SETOR) + (HR_COLETA_SETOR - TRUNC(HR_COLETA_SETOR))
+                        END
+                        ) * 1440))
+                        TEMPO_CDA,
+   ROUND (
+                  (
+                    (
+                      (TRUNC(AMOSTRA.DT_CONFIRMA_LAB) + (HR_CONFIRMA_LAB - TRUNC(HR_CONFIRMA_LAB)))
+                      -  CASE WHEN AMOSTRA.DT_COLETA_SETOR IS NOT NULL THEN  (TRUNC(AMOSTRA.DT_COLETA_SETOR) +
+(TRUNC(HR_COLETA_SETOR,'MI') - TRUNC(HR_COLETA_SETOR))) ELSE  (TRUNC(PED_LAB.DT_PEDIDO) + (HR_PED_LAB -
+TRUNC(HR_PED_LAB))) END
+                     ) * 1440
+                  ))
+                TEMPO_CONFIRMACAO_LABORATORIO
+       ,
+   ROUND (
+                  (
+                    (
+                      (TRUNC(AMOSTRA.DT_CONFIRMA_LAB) + (HR_CONFIRMA_LAB - TRUNC(HR_CONFIRMA_LAB)))
+                      -  AMOSTRA.DH_RECEPCAO_CDA
+                     ) * 1440
+                  ))
+                TEMPO_CONFIRMACAO_LAB_CDA
+       ,   ROUND (
+                  (
+                    (
+                      ITPED_LAB.DT_ASSINADO
+                      -  (TRUNC(AMOSTRA.DT_CONFIRMA_LAB) + (HR_CONFIRMA_LAB - TRUNC(HR_CONFIRMA_LAB)))
+                     ) * 1440
+                  ))
+            TEMPO_ASSINADO
+    FROM DBAMV.PED_LAB,
+         DBAMV.ATENDIME,
+         DBAMV.ITPED_LAB,
+         DBAMV.EXA_LAB,
+         DBAMV.AMOSTRA,
+         DBAMV.AMOSTRA_EXA_LAB
+  WHERE PED_LAB.CD_PED_LAB  = ITPED_LAB.CD_PED_LAB
+      AND PED_LAB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+    AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    AND AMOSTRA_EXA_LAB.CD_ITPED_LAB  = ITPED_LAB.CD_ITPED_LAB
+    AND AMOSTRA_EXA_LAB.CD_AMOSTRA = AMOSTRA.CD_AMOSTRA
+    AND EXA_LAB.CD_EXA_LAB  = ITPED_LAB.CD_EXA_LAB
+    AND SN_REALIZADO ='S'
+    AND SN_ASSINADO='S'
+    AND ITPED_LAB.DT_ASSINADO IS NOT NULL
+:CAMPO_COND_PERIODO
+)
+GROUP BY  CD_EXA_LAB,
+         NM_MNEMONICO,
+         NM_EXA_LAB

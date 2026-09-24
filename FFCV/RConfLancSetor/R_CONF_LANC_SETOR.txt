@@ -1,0 +1,272 @@
+/*----------------------------------------------------------------------------*/
+--R_CONF_LANC_SETOR
+SELECT * FROM (
+SELECT  PRO_FAT.CD_PRO_FAT                            CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                              DS_PRO_FAT
+              ,trunc(ITREG_FAT.DT_LANCAMENTO)          DT_LANCAMENTO
+              ,ATENDIME.CD_ATENDIMENTO                   CD_ATENDIMENTO
+              ,REG_FAT.CD_REG_FAT                              CONTA
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)                           NM_PACIENTE
+              ,sum(ITREG_FAT.QT_LANCAMENTO)         QT_LANCAMENTO
+              ,ITREG_FAT.VL_UNITARIO                 VL_UNITARIO
+              ,sum(ITREG_FAT.VL_TOTAL_CONTA)         VALOR_TOTAL
+              ,CONVENIO.NM_CONVENIO                NM_CONVENIO
+              ,NVL(ITREG_FAT.VL_BASE_REPASSADO,0) VL_BASE
+              ,PRO_FAT.CD_GRU_PRO GRUPO
+              ,ITREG_FAT.CD_SETOR CD_SETOR
+              ,setor.nm_setor nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_FAT.TP_MVTO,'Relacionado') tp_mvto
+FROM    DBAMV.REG_FAT               REG_FAT
+             ,DBAMV.CONVENIO                   CONVENIO
+             ,DBAMV.ITREG_FAT                  ITREG_FAT
+             ,DBAMV.PRO_FAT                     PRO_FAT
+             ,DBAMV.GRU_PRO                    GRU_PRO
+             ,DBAMV.ATENDIME                   ATENDIME
+             ,DBAMV.PACIENTE                    PACIENTE
+             ,DBAMV.REMESSA_FATURA   REMESSA
+             ,DBAMV.FATURA                      FATURA
+             ,dbamv.setor                 setor
+		,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT         = ITREG_FAT.CD_REG_FAT
+AND    REG_FAT.CD_ATENDIMENTO   = ATENDIME.CD_ATENDIMENTO
+AND    ATENDIME.CD_PACIENTE         = PACIENTE.CD_PACIENTE
+AND    REG_FAT.CD_CONVENIO          = CONVENIO.CD_CONVENIO
+AND    ITREG_FAT.CD_PRO_FAT         = PRO_FAT.CD_PRO_FAT
+AND    PRO_FAT.CD_GRU_PRO           = GRU_PRO.CD_GRU_PRO
+AND   REG_FAT.CD_REMESSA            = REMESSA.CD_REMESSA(+)
+AND  REMESSA.CD_FATURA               = FATURA.CD_FATURA(+)
+AND    NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND    ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+AND   NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+and setor.cd_setor = itreg_fat.cd_setor
+AND   CONVENIO.TP_CONVENIO NOT IN ('H','A')
+AND   itreg_fat.cd_lancamento NOT IN (SELECT cd_lancamento
+                                          FROM dbamv.reg_fat r,
+                                              dbamv.itreg_fat i
+                                          WHERE r.cd_reg_fat = i.cd_reg_Fat
+                                            AND r.cd_reg_fat = REG_FAT.cd_reg_fat
+                                            AND r.tp_mvto IN ('fDistribui','fQuebraDis')
+                                            AND i.cd_reg_fat_pai IS NOT null
+                                            )
+GROUP BY PRO_FAT.CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT
+              ,trunc(ITREG_FAT.DT_LANCAMENTO)
+              ,ATENDIME.CD_ATENDIMENTO
+              ,REG_FAT.CD_REG_FAT
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)
+              ,ITREG_FAT.VL_UNITARIO
+              ,CONVENIO.NM_CONVENIO
+              ,NVL(ITREG_FAT.VL_BASE_REPASSADO,0)
+              ,PRO_FAT.CD_GRU_PRO
+              ,ITREG_FAT.CD_SETOR
+              ,setor.nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_FAT.TP_MVTO,'Relacionado')
+UNION ALL
+SELECT  PRO_FAT.CD_PRO_FAT                   CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                    DS_PRO_FAT
+              ,trunc(ATENDIME.DT_ATENDIMENTO)           DT_LANCAMENTO
+              ,ATENDIME.CD_ATENDIMENTO        CD_ATENDIMENTO
+              ,REG_AMB.CD_REG_AMB                  CONTA
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)                 NM_PACIENTE
+              ,sum(ITREG_AMB.QT_LANCAMENTO)       QT_LANCAMENTO
+              ,ITREG_AMB.VL_UNITARIO                VL_UNITARIO
+              ,sum(ITREG_AMB.VL_TOTAL_CONTA)       VALOR_TOTAL
+              ,CONVENIO.NM_CONVENIO                NM_CONVENIO
+              ,NVL(ITREG_AMB.VL_BASE_REPASSADO,0) VL_BASE
+              ,PRO_FAT.CD_GRU_PRO GRUPO
+              ,ITREG_AMB.CD_SETOR
+              ,setor.nm_setor nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_amb.TP_MVTO,'Relacionado') tp_mvto
+FROM    DBAMV.REG_AMB                     REG_AMB
+             ,DBAMV.CONVENIO                    CONVENIO
+             ,DBAMV.ITREG_AMB                  ITREG_AMB
+             ,DBAMV.PRO_FAT                      PRO_FAT
+             ,DBAMV.GRU_PRO                    GRU_PRO
+             ,DBAMV.ATENDIME                    ATENDIME
+             ,DBAMV.PACIENTE                     PACIENTE
+             ,DBAMV.REMESSA_FATURA     REMESSA
+             ,DBAMV.FATURA                         FATURA
+             ,dbamv.setor                 setor
+		,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_AMB.CD_REG_AMB           = ITREG_AMB.CD_REG_AMB
+AND    ITREG_AMB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+AND    ATENDIME.CD_PACIENTE             = PACIENTE.CD_PACIENTE
+AND    ITREG_AMB.CD_CONVENIO          = CONVENIO.CD_CONVENIO
+AND    ITREG_AMB.CD_PRO_FAT             = PRO_FAT.CD_PRO_FAT
+AND    PRO_FAT.CD_GRU_PRO           = GRU_PRO.CD_GRU_PRO
+AND    REG_AMB.CD_REMESSA           =  REMESSA.CD_REMESSA(+)
+AND    REMESSA.CD_FATURA              = FATURA.CD_FATURA(+)
+AND    NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND    ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND    NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+and setor.cd_setor = itreg_amb.cd_setor
+AND   CONVENIO.TP_CONVENIO NOT IN ('H','A')
+AND   itreg_amb.cd_lancamento NOT IN (SELECT cd_lancamento
+                                          FROM dbamv.reg_amb r,
+                                              dbamv.itreg_amb i
+                                          WHERE r.cd_reg_amb = i.cd_reg_amb
+                                            AND r.cd_reg_amb = REG_AMB.cd_reg_amb
+                                            AND i.tp_mvto_desconto IN ('fDistribui','fQuebraDis')
+                                            AND i.cd_reg_amb_pai IS NOT null
+                                            )
+GROUP BY PRO_FAT.CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT
+              ,trunc(ATENDIME.DT_ATENDIMENTO)
+              ,ATENDIME.CD_ATENDIMENTO
+              ,REG_AMB.CD_REG_AMB
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)
+              ,ITREG_AMB.VL_UNITARIO
+              ,CONVENIO.NM_CONVENIO
+              ,NVL(ITREG_AMB.VL_BASE_REPASSADO,0)
+              ,PRO_FAT.CD_GRU_PRO
+              ,ITREG_AMB.CD_SETOR
+              ,setor.nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_amb.TP_MVTO,'Relacionado')
+union all
+SELECT  PRO_FAT.CD_PRO_FAT              CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                      DS_PRO_FAT
+              ,trunc(ITREG_FAT.DT_LANCAMENTO)          DT_LANCAMENTO
+              ,ATENDIME.CD_ATENDIMENTO         CD_ATENDIMENTO
+              ,REG_FAT.CD_REG_FAT                     CONTA
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)                  NM_PACIENTE
+              ,sum(ITREG_FAT.QT_LANCAMENTO)         QT_LANCAMENTO
+              ,ITREG_FAT.VL_UNITARIO                 VL_UNITARIO
+              ,sum(ITREG_FAT.VL_TOTAL_CONTA)         VALOR_TOTAL
+              ,CONVENIO.NM_CONVENIO                NM_CONVENIO
+              ,NVL(ITREG_FAT.VL_BASE_REPASSADO,0) VL_BASE
+              ,PRO_FAT.CD_GRU_PRO GRUPO
+              ,ITREG_FAT.CD_SETOR
+              ,setor.nm_setor nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_FAT.TP_MVTO,'Relacionado') tp_mvto
+FROM    DBAMV.REG_FAT               REG_FAT
+             ,DBAMV.CONVENIO                   CONVENIO
+             ,DBAMV.ITREG_FAT                  ITREG_FAT
+             ,DBAMV.PRO_FAT                     PRO_FAT
+             ,DBAMV.GRU_PRO                    GRU_PRO
+             ,DBAMV.ATENDIME                   ATENDIME
+             ,DBAMV.PACIENTE                    PACIENTE
+             ,DBAMV.REMESSA_FATURA    REMESSA
+             ,DBAMV.FATURA                        FATURA
+            ,dbamv.setor                 setor
+		,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT         = ITREG_FAT.CD_REG_FAT
+AND    REG_FAT.CD_ATENDIMENTO   = ATENDIME.CD_ATENDIMENTO
+AND    ATENDIME.CD_PACIENTE         = PACIENTE.CD_PACIENTE
+AND    REG_FAT.CD_CONVENIO          = CONVENIO.CD_CONVENIO
+AND    ITREG_FAT.CD_PRO_FAT         = PRO_FAT.CD_PRO_FAT
+AND    PRO_FAT.CD_GRU_PRO           = GRU_PRO.CD_GRU_PRO
+AND    REG_FAT.CD_REMESSA            = REMESSA.CD_REMESSA(+)
+AND    REMESSA.CD_FATURA              = FATURA.CD_FATURA(+)
+AND    NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND    PRO_FAT.SN_PACOTE = 'N'
+and setor.cd_setor = itreg_fat.cd_setor
+AND   CONVENIO.TP_CONVENIO NOT IN ('H','A')
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   itreg_fat.cd_lancamento NOT IN (SELECT cd_lancamento
+                                          FROM dbamv.reg_fat r,
+                                              dbamv.itreg_fat i
+                                          WHERE r.cd_reg_fat = i.cd_reg_Fat
+                                            AND r.cd_reg_fat = REG_FAT.cd_reg_fat
+                                            AND r.tp_mvto IN ('fDistribui','fQuebraDis')
+                                            AND i.cd_reg_fat_pai IS NOT null
+                                            )
+GROUP BY PRO_FAT.CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT
+              ,trunc(ITREG_FAT.DT_LANCAMENTO)
+              ,ATENDIME.CD_ATENDIMENTO
+              ,REG_FAT.CD_REG_FAT
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)
+              ,ITREG_FAT.VL_UNITARIO
+              ,CONVENIO.NM_CONVENIO
+              ,NVL(ITREG_FAT.VL_BASE_REPASSADO,0)
+              ,PRO_FAT.CD_GRU_PRO
+              ,ITREG_FAT.CD_SETOR
+              ,setor.nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_FAT.TP_MVTO,'Relacionado')
+UNION ALL
+SELECT  PRO_FAT.CD_PRO_FAT                   CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                    DS_PRO_FAT
+              ,trunc(ATENDIME.DT_ATENDIMENTO)           DT_LANCAMENTO
+              ,ATENDIME.CD_ATENDIMENTO        CD_ATENDIMENTO
+              ,REG_AMB.CD_REG_AMB                  CONTA
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)                 NM_PACIENTE
+              ,sum(ITREG_AMB.QT_LANCAMENTO)       QT_LANCAMENTO
+              ,ITREG_AMB.VL_UNITARIO                VL_UNITARIO
+              ,sum(ITREG_AMB.VL_TOTAL_CONTA)       VALOR_TOTAL
+              ,CONVENIO.NM_CONVENIO                NM_CONVENIO
+              ,NVL(ITREG_AMB.VL_BASE_REPASSADO,0) VL_BASE
+              ,PRO_FAT.CD_GRU_PRO GRUPO
+              ,ITREG_AMB.CD_SETOR
+              ,setor.nm_setor nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_amb.TP_MVTO,'Relacionado') tp_mvto
+FROM    DBAMV.REG_AMB                     REG_AMB
+             ,DBAMV.CONVENIO                    CONVENIO
+             ,DBAMV.ITREG_AMB                  ITREG_AMB
+             ,DBAMV.PRO_FAT                      PRO_FAT
+             ,DBAMV.GRU_PRO                    GRU_PRO
+             ,DBAMV.ATENDIME                    ATENDIME
+             ,DBAMV.PACIENTE                     PACIENTE
+             ,DBAMV.REMESSA_FATURA     REMESSA
+             ,DBAMV.FATURA                         FATURA
+            ,dbamv.setor                 setor
+		,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_AMB.CD_REG_AMB           = ITREG_AMB.CD_REG_AMB
+AND    ITREG_AMB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+AND    ATENDIME.CD_PACIENTE             = PACIENTE.CD_PACIENTE
+AND    ITREG_AMB.CD_CONVENIO          = CONVENIO.CD_CONVENIO
+AND    ITREG_AMB.CD_PRO_FAT             = PRO_FAT.CD_PRO_FAT
+AND    PRO_FAT.CD_GRU_PRO           = GRU_PRO.CD_GRU_PRO
+AND    REG_AMB.CD_REMESSA           = REMESSA.CD_REMESSA(+)
+AND    REMESSA.CD_FATURA              = FATURA.CD_FATURA(+)
+AND    NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND    PRO_FAT.SN_PACOTE = 'N'
+and setor.cd_setor = itreg_amb.cd_setor
+AND   CONVENIO.TP_CONVENIO NOT IN ('H','A')
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   itreg_amb.cd_lancamento NOT IN (SELECT cd_lancamento
+                                          FROM dbamv.reg_amb r,
+                                              dbamv.itreg_amb i
+                                          WHERE r.cd_reg_amb = i.cd_reg_amb
+                                            AND r.cd_reg_amb = REG_AMB.cd_reg_amb
+                                            AND i.tp_mvto_desconto IN ('fDistribui','fQuebraDis')
+                                            AND i.cd_reg_amb_pai IS NOT null
+                                            )
+GROUP BY PRO_FAT.CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT
+              ,trunc(ATENDIME.DT_ATENDIMENTO)
+              ,ATENDIME.CD_ATENDIMENTO
+              ,REG_AMB.CD_REG_AMB
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)
+              ,ITREG_AMB.VL_UNITARIO
+              ,CONVENIO.NM_CONVENIO
+              ,NVL(ITREG_AMB.VL_BASE_REPASSADO,0)
+              ,PRO_FAT.CD_GRU_PRO
+              ,ITREG_AMB.CD_SETOR
+              ,setor.nm_setor
+              ,GRU_PRO.DS_GRU_PRO
+              ,nvl(ITREG_amb.TP_MVTO,'Relacionado')
+:CAMPO_CF_ORDEM
+)
+ORDER BY NM_CONVENIO,
+CD_ATENDIMENTO,NM_PACIENTE,
+CONTA,
+DT_LANCAMENTO,
+CD_SETOR,NM_SETOR,
+GRUPO,DS_GRU_PRO, DS_PRO_FAT ASC

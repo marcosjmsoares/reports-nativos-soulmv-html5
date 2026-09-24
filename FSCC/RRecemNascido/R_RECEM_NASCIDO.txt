@@ -1,0 +1,63 @@
+/*----------------------------------------------------------------------------*/
+--R_RECEM_NASCIDO
+SELECT nvl(atend_filho.cd_atendimento,atend_mae.cd_atendimento) cd_atendimento,
+       admissao_co.cd_admissao_co,
+       recem_nascido.cd_declaracao_nascido_vivo,
+       recem_nascido.nr_pulseira,
+       recem_nascido.nm_recem_nascido,
+       DECODE(recem_nascido.cd_tip_morte_rn,NULL,'NASCIDO VIVO','NASCIDO MORTO') tipo_nascimento,
+       Decode(recem_nascido.tp_sexo,'F','Feminino','M','Masculino','Ambos') Tp_Sexo,
+       atend_filho.cd_convenio,
+       to_char(admissao_co.dt_parto,'dd/mm/yyyy') || ' ' || to_char(recem_nascido.hr_nascimento,'HH24') dt_parto,
+       DECODE(recem_nascido.cd_atendimento,NULL,leito_mae.ds_resumo,leito_filho.ds_resumo) Destino,
+       tip_parto.ds_tip_parto,
+       tip_anest.ds_tip_anest,
+       convenio.nm_convenio,
+       cirurgiao.nm_prestador cirurgiao,
+       pediatra.nm_prestador  pediatra,
+       recem_nascido.vl_peso,
+       decode(recem_nascido.vl_apgar_1minuto,NULL,NULL,to_char(recem_nascido.vl_apgar_1minuto) || ' - ' ) || recem_nascido.vl_apgar_5minuto apgar,
+       cirurgia_aviso.cd_cirurgia_aviso,
+       nvl(atend_filho.nm_usuario,atend_mae.nm_usuario) nm_usuario,
+       NVL(cirurgiao.nm_prestador,'Cirurgião não informado') || ' / ' || NVL(pediatra.nm_prestador,'Pediatra não informado') cirurgia_pediatra
+FROM   dbamv.atendime           atend_filho,
+       dbamv.atendime           atend_mae,
+       dbamv.admissao_co,
+       dbamv.recem_nascido,
+       dbamv.convenio,
+       dbamv.tip_parto,
+       dbamv.tip_anest,
+       dbamv.leito              leito_filho,
+       dbamv.leito              leito_mae,
+       dbamv.aviso_cirurgia,
+       dbamv.cirurgia_aviso,
+       (select * from dbamv.prestador_aviso where sn_principal = 'S')    prest_cirur,
+       dbamv.prestador          cirurgiao,
+       dbamv.prestador          pediatra,
+       dbamv.ati_med            ati_cirur,
+       Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio          = Convenio.Cd_Convenio
+  And atend_mae.Cd_Multi_Empresa     = :CAMPO_CD_MULTI_EMPRESA
+  And atend_mae.Cd_Multi_Empresa            = empresa_convenio.cd_multi_empresa
+  And atend_mae.cd_atendimento              = admissao_co.cd_atendimento
+  AND atend_mae.cd_leito                    = leito_mae.cd_leito(+)
+  AND admissao_co.cd_admissao_co            = recem_nascido.cd_admissao_co
+  AND recem_nascido.cd_atendimento          = atend_filho.cd_atendimento(+)
+  AND recem_nascido.cd_prestador            = pediatra.cd_prestador(+)
+  AND atend_filho.cd_leito                  = leito_filho.cd_leito(+)
+  AND admissao_co.cd_tip_parto              = tip_parto.cd_tip_parto(+)
+  AND admissao_co.cd_tip_anest              = tip_anest.cd_tip_anest(+)
+  AND atend_mae.cd_convenio                 = convenio.cd_convenio
+  AND atend_mae.cd_atendimento              = aviso_cirurgia.cd_atendimento(+)
+  AND aviso_cirurgia.cd_aviso_cirurgia      = cirurgia_aviso.cd_aviso_cirurgia(+)
+  AND cirurgia_aviso.cd_cirurgia_aviso      = prest_cirur.cd_cirurgia_aviso(+)
+  AND nvl(aviso_cirurgia.cd_aviso_cirurgia,0) = (SELECT nvl(Min(avi.cd_aviso_cirurgia),0)
+                                                  FROM   dbamv.aviso_cirurgia avi
+                                                  WHERE  avi.cd_atendimento = atend_mae.cd_atendimento)
+  AND nvl(cirurgia_aviso.cd_cirurgia_aviso,0) = (SELECT nvl(Min(cir.cd_cirurgia_aviso),0)
+                                                  FROM   dbamv.cirurgia_aviso cir
+                                                  WHERE  cir.cd_aviso_cirurgia = aviso_cirurgia.cd_aviso_cirurgia)
+  AND prest_cirur.cd_prestador              = cirurgiao.cd_prestador(+)
+  AND prest_cirur.cd_ati_med                = ati_cirur.cd_ati_med(+)
+  AND nvl(ati_cirur.tp_funcao,'C')          = 'C'
+  AND trunc(admissao_co.dt_parto) between :CAMPO_DT_INICIAL ORDER BY nvl(atend_filho.cd_atendimento,atend_mae.cd_atendimento)

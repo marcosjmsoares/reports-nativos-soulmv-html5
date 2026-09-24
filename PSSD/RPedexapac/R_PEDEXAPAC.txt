@@ -1,0 +1,94 @@
+/*----------------------------------------------------------------------------*/
+--R_PEDEXAPAC
+SELECT * FROM (
+SELECT   PED_LAB.CD_PRESTADOR            CD_SOLICITA
+                ,DECODE(PED_LAB.CD_PRESTADOR, NULL, PED_LAB.NM_PRESTADOR, PRESTADOR.NM_PRESTADOR)     SOLICITANTE
+                ,TRUNC( PED_LAB.DT_PEDIDO)     DT_PEDIDO
+                ,PED_LAB.CD_PED_LAB                  CD_PED_LAB2
+                ,PED_LAB.CD_ATENDIMENTO        CD_ATENDIMENTO
+                ,PED_LAB.CD_SETOR                      CD_SETOR
+                ,SETOR.NM_SETOR                         NM_SETOR
+                ,ATENDIME.CD_PACIENTE              CD_PACIENTE
+                ,PACIENTE.NM_PACIENTE              NM_PACIENTE
+                ,(SELECT Pac.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE PAC WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND atendime.CD_PACIENTE = PAC.CD_PACIENTE) NM_SOCIAL_PACIENTE
+                ,ATENDIME.CD_CONVENIO             CD_CONVENIO
+                ,CONVENIO.NM_CONVENIO            NM_CONVENIO
+                ,ATENDIME.CD_ORI_ATE                ORIGEM
+                ,ORI_ATE.DS_ORI_ATE                    DS_ORI_ATE
+FROM   DBAMV.PED_LAB
+            ,DBAMV.PRESTADOR
+            ,DBAMV.ATENDIME
+            ,DBAMV.CONVENIO
+            ,DBAMV.PACIENTE
+            ,DBAMV.ORI_ATE
+            ,DBAMV.ITPED_LAB
+            ,DBAMV.LABORATORIO
+            ,DBAMV.SETOR
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And TRUNC(PED_LAB.DT_PEDIDO)  BETWEEN  :CAMPO_DTINI  AND  
+AND        PRESTADOR.CD_PRESTADOR(+)  =  PED_LAB.CD_PRESTADOR
+AND EXISTS (SELECT 1
+                       FROM DBAMV.USUARIOS_SET_EXA
+                       WHERE USUARIOS_SET_EXA.CD_SET_EXA = ITPED_LAB.CD_SET_EXA
+                       AND   USUARIOS_SET_EXA.NM_USUARIO = USER)
+AND        PED_LAB.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+AND        PED_LAB.CD_PED_LAB  =  ITPED_LAB.CD_PED_LAB
+AND        ITPED_LAB.CD_LABORATORIO  =  LABORATORIO.CD_LABORATORIO
+AND        PED_LAB.CD_SETOR  =  SETOR.CD_SETOR
+AND       ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+GROUP BY   PED_LAB.CD_PRESTADOR
+                     ,DECODE(PED_LAB.CD_PRESTADOR, NULL, PED_LAB.NM_PRESTADOR, PRESTADOR.NM_PRESTADOR)
+                     ,PED_LAB.DT_PEDIDO
+                     ,PED_LAB.CD_PED_LAB
+                     ,PED_LAB.CD_ATENDIMENTO
+                     ,PED_LAB.CD_SETOR
+                     ,SETOR.NM_SETOR
+                     ,ATENDIME.CD_PACIENTE
+                     ,PACIENTE.NM_PACIENTE
+                     ,ATENDIME.CD_CONVENIO
+                     ,CONVENIO.NM_CONVENIO
+                     ,ATENDIME.CD_ORI_ATE
+                     ,ORI_ATE.DS_ORI_ATE
+)
+ORDER BY DT_PEDIDO, CD_PED_LAB2,CD_ATENDIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PEDEXAPAC_R_CG__G_ITPED_LAB8_CG__Q_ITPED_LAB8
+SELECT * FROM (
+SELECT  ITPED_LAB8.CD_PED_LAB             CD_PED_LAB
+               ,ITPED_LAB8.CD_EXA_LAB             CD_EXA_LAB
+               ,ITPED_LAB8.CD_ITPED_LAB         CD_ITPED_LAB
+               ,DECODE(EXA_LAB7.NM_MNEMONICO, NULL, EXA_LAB7.NM_EXA_LAB
+                                                                                 , EXA_LAB7.NM_MNEMONICO || ' - ' || EXA_LAB7.NM_EXA_LAB)     NM_EXA_LAB
+               ,ITPED_LAB8.CD_LABORATORIO   CD_LABORATORIO
+               ,LABORATO.DS_LABORATORIO     DS_LABORATORIO
+               ,DECODE(CONVENIO.TP_CONVENIO, 'A', EXA_LAB7.CD_Procedimento_SIA, 'H', EXA_LAB7.CD_PROCEDIMENTO_SIH, EXA_LAB7.CD_PRO_FAT)  CD_PRO_FAT
+FROM     dbamv.PED_LAB
+              ,dbamv.CONVENIO
+              ,dbamv.ITPED_LAB          ITPED_LAB8
+              ,dbamv.EXA_LAB              EXA_LAB7
+              ,dbamv.LABORATORIO    LABORATO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And PED_LAB.CD_CONVENIO =  CONVENIO.CD_CONVENIO
+AND        PED_LAB.CD_PED_LAB = ITPED_LAB8.CD_PED_LAB
+AND        ITPED_LAB8.CD_EXA_LAB  =  EXA_LAB7.CD_EXA_LAB
+AND        ITPED_LAB8.CD_LABORATORIO  =  LABORATO.CD_LABORATORIO
+GROUP BY ITPED_LAB8.CD_PED_LAB
+                   ,ITPED_LAB8.CD_EXA_LAB
+                   ,ITPED_LAB8.CD_ITPED_LAB
+                   ,DECODE(EXA_LAB7.NM_MNEMONICO, NULL, EXA_LAB7.NM_EXA_LAB
+                                                                                                , EXA_LAB7.NM_MNEMONICO || ' - ' || EXA_LAB7.NM_EXA_LAB)
+                    ,ITPED_LAB8.CD_LABORATORIO
+                    ,LABORATO.DS_LABORATORIO
+                    ,DECODE(CONVENIO.TP_CONVENIO, 'A', EXA_LAB7.CD_PROCEDIMENTO_SIA, 'H', EXA_LAB7.CD_PROCEDIMENTO_SIH, EXA_LAB7.CD_PRO_FAT)
+)
+WHERE CD_PED_LAB = :CAMPO_CD_PED_LAB2

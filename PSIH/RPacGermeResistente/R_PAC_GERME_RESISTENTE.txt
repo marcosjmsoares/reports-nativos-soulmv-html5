@@ -1,0 +1,94 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_GERME_RESISTENTE
+SELECT cd_atendimento,
+       nm_paciente,
+       nm_social_paciente
+FROM
+  (SELECT atendime.cd_atendimento,
+          paciente.nm_paciente,
+         (SELECT p.nm_social_paciente FROM dbamv.paciente p WHERE nvl(sn_utiliza_nome_social, 'N') = 'S' AND paciente.cd_paciente = p.cd_paciente ) nm_social_paciente
+   FROM dbamv.atendime,
+        dbamv.paciente
+   WHERE atendime.cd_paciente = paciente.cd_paciente 
+  AND ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIAL AND 
+    :CAMPO_CF_CULTURA
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PAC_GERME_RESISTENTE_CULTURA
+SELECT cd_exa_lab, nm_exa_lab, cd_reg_inf, dt_laudo, ds_germe, nm_antimicrob, 'Multi-resistente' perfil_resistencia, tp_cultura
+  FROM
+    (SELECT exa_lab.cd_exa_lab,
+            exa_lab.nm_exa_lab,
+            cultura.cd_reg_inf,
+            itped_lab.dt_laudo,
+            germes.ds_germe,
+            antimicrob.nm_antimicrob,
+            'Cultura' tp_cultura
+       FROM dbamv.exa_lab,
+            dbamv.cultura,
+            dbamv.germes,
+            dbamv.antimicrob,
+            dbamv.itcultura,
+            dbamv.ped_lab,
+            dbamv.itped_lab,
+            dbamv.germes_cultura
+       WHERE ped_lab.cd_atendimento = :CAMPO_CD_ATENDIME
+         AND itped_lab.cd_ped_lab = ped_lab.cd_ped_lab
+         AND cultura.cd_itped_lab = itped_lab.cd_itped_lab
+         AND cultura.cd_exa_lab = exa_lab.cd_exa_lab
+         AND cultura.cd_ped_lab = ped_lab.cd_ped_lab
+         AND germes_cultura.cd_germes = germes.cd_germes
+         AND antimicrob.cd_antimicrob = itcultura.cd_antimicrob
+         AND itcultura.cd_ped_lab = ped_lab.cd_ped_lab
+         AND itcultura.cd_itped_lab = itped_lab.cd_itped_lab
+         AND germes_cultura.cd_germes = itcultura.cd_germes
+         AND germes_cultura.cd_itped_lab = itped_lab.cd_itped_lab
+         AND germes_cultura.sn_multi_resistente = 'S'
+         AND :CAMPO_TP_CULTURA IN ('C', 'T')
+   UNION ALL
+      SELECT exa_lab.cd_exa_lab,
+             exa_lab.nm_exa_lab,
+             cultura_manual.cd_reg_inf,
+             cultura_manual.dt_exame dt_laudo,
+             germes.ds_germe,
+             antimicrob.nm_antimicrob,
+             'Cultura Manual' tp_cultura
+        FROM dbamv.exa_lab,
+             dbamv.cultura_manual,
+             dbamv.germes,
+             dbamv.antimicrob,
+             dbamv.itcultura_manual,
+             dbamv.germes_cult_manual
+       WHERE cultura_manual.cd_atendimento = :CAMPO_CD_ATENDIME
+         AND cultura_manual.cd_cultura_manual = germes_cult_manual.cd_cultura_manual
+         AND cultura_manual.cd_cultura_manual = itcultura_manual.cd_cultura_manual
+         AND germes_cult_manual.cd_germes = germes.cd_germes
+         AND itcultura_manual.cd_incidencia_cultura = germes_cult_manual.cd_incidencia_cultura
+         AND antimicrob.cd_antimicrob = itcultura_manual.cd_antimicrob
+         AND exa_lab.cd_exa_lab = cultura_manual.cd_exa_lab
+         AND germes_cult_manual.sn_multi_resistente = 'S'
+         AND :CAMPO_TP_CULTURA IN ('M', 'T')
+   UNION ALL
+      SELECT exa_lab.cd_exa_lab,
+             exa_lab.nm_exa_lab,
+             cultura_manual.cd_reg_inf,
+             cultura_manual.dt_exame dt_laudo,
+             germes.ds_germe,
+             'Não Informado',
+             'Cultura Manual' tp_cultura
+        FROM dbamv.exa_lab,
+             dbamv.cultura_manual,
+             dbamv.germes,
+             dbamv.germes_cult_manual
+       WHERE cultura_manual.cd_atendimento = :CAMPO_CD_ATENDIME
+         AND cultura_manual.cd_cultura_manual = germes_cult_manual.cd_cultura_manual
+         AND germes_cult_manual.cd_germes = germes.cd_germes
+         AND exa_lab.cd_exa_lab = cultura_manual.cd_exa_lab
+         AND germes_cult_manual.sn_multi_resistente = 'S'
+         AND NOT EXISTS (SELECT 1 FROM DBAMV.ITCULTURA_MANUAL WHERE DBAMV.ITCULTURA_MANUAL.CD_CULTURA_MANUAL = 	CULTURA_MANUAL.CD_CULTURA_MANUAL)
+         AND :CAMPO_TP_CULTURA IN ('M', 'T')
+         :CAMPO_CF_GERME_CULTURA_MANUAL
+    )

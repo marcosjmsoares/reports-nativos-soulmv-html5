@@ -1,0 +1,264 @@
+/*----------------------------------------------------------------------------*/
+--R_LIVRO_REG_ESPECIFICO
+Select CD_PRODUTO,
+       DS_PRODUTO,
+       DS_UNIDADE,
+       CD_DCB,
+       QUANTIDADE,
+       DATA,
+       HORA,
+       DOCUMENTO,
+       DS_DESTINO,
+       OPERACAO,
+       CD_ESTOQUE,
+       DS_ESTOQUE,
+       VL_FATOR,
+       RESPONSAVEL,
+       SN_CONSIGNADO,
+       CD_PRODUTO_TEM,
+       NR_PRONTUARIO
+  From (Select ITCONTAGEM.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               DBAMV.Verif_Ds_Unid_Prod(ITCONTAGEM.CD_PRODUTO) As DS_UNIDADE,
+               PRODUTO.CD_DCB,
+               Sum((Nvl(ITCONTAGEM.QT_ESTOQUE,
+                        0) + Nvl(ITCONTAGEM.QT_ESTOQUE_DOADO,
+                                 0) + Nvl(ITCONTAGEM.QT_KIT,
+                                          0)) * UNI_PRO.VL_FATOR) / DBAMV.Verif_Vl_Fator_Prod(ITCONTAGEM.CD_PRODUTO) As QUANTIDADE,
+               Trunc(CONTAGEM.DT_GERACAO) As DATA,
+               To_Char(CONTAGEM.HR_GERACAO,
+                       'HH24') As HORA,
+               To_Char(CONTAGEM.CD_CONTAGEM) As DOCUMENTO,
+               'Contagem - ' || ESTOQUE.DS_ESTOQUE As DS_DESTINO,
+               'Contagem' As OPERACAO,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.CD_ESTOQUE) As CD_ESTOQUE,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.DS_ESTOQUE) As DS_ESTOQUE,
+               DBAMV.Verif_Vl_Fator_Prod(ITCONTAGEM.CD_PRODUTO) As VL_FATOR,
+               Null As RESPONSAVEL,
+               'N' As SN_CONSIGNADO,
+               PRODUTO.CD_PRODUTO_TEM,
+               To_Number(Null) As NR_PRONTUARIO
+          From DBAMV.CONTAGEM
+    Inner Join DBAMV.ITCONTAGEM On
+               ITCONTAGEM.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+    Inner Join DBAMV.ESTOQUE On
+               ESTOQUE.CD_ESTOQUE = CONTAGEM.CD_ESTOQUE
+           And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    Inner Join DBAMV.PRODUTO On
+               PRODUTO.CD_PRODUTO = ITCONTAGEM.CD_PRODUTO
+    Inner Join DBAMV.UNI_PRO On
+               UNI_PRO.CD_UNI_PRO = ITCONTAGEM.CD_UNI_PRO
+         Where CONTAGEM.DT_GERACAO Between Trunc(:CAMPO_DTINIC)
+                                       And Trunc(:CAMPO_DTFIM) + 0.99999
+           And Exists (Select 1
+                         From DBAMV.ITPORTARIA
+                        Where ITPORTARIA.CD_PRODUTO = PRODUTO.CD_PRODUTO
+                          :CAMPO_CF_PORTARIA)
+      Group By ITCONTAGEM.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               PRODUTO.CD_DCB,
+               CONTAGEM.DT_GERACAO,
+               CONTAGEM.HR_GERACAO,
+               CONTAGEM.CD_CONTAGEM,
+               ESTOQUE.DS_ESTOQUE,
+               ESTOQUE.CD_ESTOQUE,
+               PRODUTO.CD_PRODUTO_TEM
+     Union All
+        Select ITMVTO_ESTOQUE.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE,
+               PRODUTO.CD_DCB,
+               ITMVTO_ESTOQUE.QT_MOVIMENTACAO * Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                                                       'D',
+                                                       1,
+                                                       'C',
+                                                       1,
+                                                       'N',
+                                                       1,
+                                                       -1) As QUANTIDADE,
+               Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) As DATA,
+               To_Char(MVTO_ESTOQUE.HR_MVTO_ESTOQUE,
+                       'HH24') As HORA,
+               To_Char(MVTO_ESTOQUE.CD_MVTO_ESTOQUE) As DOCUMENTO,
+               InitCap(Nvl(PACIENTE.NM_PACIENTE,
+                           Nvl(MVTO_PACIENTE.NM_PACIENTE,
+                               Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                                      'E',
+                                      FORNECEDOR.NM_FORNECEDOR,
+                                      SETOR.NM_SETOR)))) As DS_DESTINO,
+               Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                      'X',
+                      'Baixa De Produtos',
+                      'S',
+                      Decode(MVTO_PACIENTE.NM_PACIENTE,
+                             Null,
+                             'Saída Setor',
+                             'Saída Paciente'),
+                      'P',
+                      'Saída Paciente',
+                      'D',
+                      'Devol. de Setor',
+                      'C',
+                      'Devol. de Paciente',
+                      'M',
+                      'Manipul. Produtos',
+                      'O',
+                      'Doação Produtos',
+                      'E',
+                      'Saída de Empréstimo',
+                      'V',
+                      'Venda de Produtos',
+                      'R',
+                      'Transf. Empresa',
+                      'N',
+                      'Devol. de Vendas',
+                      'Não Mapeada') As OPERACAO,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.CD_ESTOQUE) As CD_ESTOQUE,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.DS_ESTOQUE) As DS_ESTOQUE,
+               UNI_PRO.VL_FATOR,
+               Nvl(PRESTADOR_PACIENTE.DS_CODIGO_CONSELHO,
+                   PRESTADOR_ESTOQUE.DS_CODIGO_CONSELHO) || ' - ' || Nvl(PRESTADOR_PACIENTE.NM_PRESTADOR,
+                                                                         PRESTADOR_ESTOQUE.NM_PRESTADOR) As RESPONSAVEL,
+               'N' As SN_CONSIGNADO,
+               PRODUTO.CD_PRODUTO_TEM,
+               PACIENTE.CD_PACIENTE As NR_PRONTUARIO
+          From DBAMV.MVTO_ESTOQUE
+    Inner Join DBAMV.ITMVTO_ESTOQUE On
+               ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+    Inner Join DBAMV.ESTOQUE On
+               ESTOQUE.CD_ESTOQUE = MVTO_ESTOQUE.CD_ESTOQUE
+           And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    Inner Join DBAMV.PRODUTO On
+               PRODUTO.CD_PRODUTO = ITMVTO_ESTOQUE.CD_PRODUTO
+    Inner Join DBAMV.UNI_PRO On
+               UNI_PRO.CD_UNI_PRO = ITMVTO_ESTOQUE.CD_UNI_PRO
+     Left Join DBAMV.MVTO_PACIENTE On
+               MVTO_PACIENTE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+     Left Join DBAMV.ATENDIME ATENDIMENTO On
+               ATENDIMENTO.CD_ATENDIMENTO = MVTO_ESTOQUE.CD_ATENDIMENTO
+           And ATENDIMENTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     Left Join DBAMV.PACIENTE On
+               PACIENTE.CD_PACIENTE = ATENDIMENTO.CD_PACIENTE
+     Left Join DBAMV.SETOR On
+               SETOR.CD_SETOR = MVTO_ESTOQUE.CD_SETOR
+     Left Join DBAMV.PRESTADOR PRESTADOR_ESTOQUE On
+               PRESTADOR_ESTOQUE.CD_PRESTADOR = MVTO_ESTOQUE.CD_PRESTADOR
+     Left Join DBAMV.PRESTADOR PRESTADOR_PACIENTE On
+               PRESTADOR_PACIENTE.CD_PRESTADOR = MVTO_PACIENTE.CD_PRESTADOR
+     Left Join DBAMV.FORNECEDOR On
+               FORNECEDOR.CD_FORNECEDOR = MVTO_ESTOQUE.CD_FORNECEDOR
+         Where MVTO_ESTOQUE.DT_MVTO_ESTOQUE Between Trunc(:CAMPO_DTINIC)
+                                                And Trunc(:CAMPO_DTFIM) + 0.99999
+           And MVTO_ESTOQUE.TP_MVTO_ESTOQUE <> 'T'
+           And Exists (Select 1
+                         From DBAMV.ITPORTARIA
+                        Where ITPORTARIA.CD_PRODUTO = PRODUTO.CD_PRODUTO
+                          :CAMPO_CF_PORTARIA)
+     Union All
+        Select ITENT_PRO.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE,
+               PRODUTO.CD_DCB,
+               ITENT_PRO.QT_ENTRADA As QUANTIDADE,
+               Trunc(ENT_PRO.DT_ENTRADA) As DATA,
+               To_Char(ENT_PRO.HR_ENTRADA,
+                       'HH24') As HORA,
+               ENT_PRO.NR_DOCUMENTO As DOCUMENTO,
+               InitCap(FORNEC.NM_FORNECEDOR) As DS_DESTINO,
+               InitCap(TIP_DOC.DS_TIP_DOC) As OPERACAO,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.CD_ESTOQUE) As CD_ESTOQUE,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.DS_ESTOQUE) As DS_ESTOQUE,
+               UNI_PRO.VL_FATOR,
+               Null As RESPONSAVEL,
+               ENT_PRO.SN_CONSIGNADO,
+               PRODUTO.CD_PRODUTO_TEM,
+               To_Number(Null) As NR_PRONTUARIO
+          From DBAMV.ENT_PRO
+    Inner Join DBAMV.ITENT_PRO On
+               ITENT_PRO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO
+    Inner Join DBAMV.ESTOQUE On
+               ESTOQUE.CD_ESTOQUE = ENT_PRO.CD_ESTOQUE
+           And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    Inner Join DBAMV.TIP_DOC On
+               TIP_DOC.CD_TIP_DOC = ENT_PRO.CD_TIP_DOC
+    Inner Join DBAMV.PRODUTO On
+               PRODUTO.CD_PRODUTO = ITENT_PRO.CD_PRODUTO
+    Inner Join DBAMV.UNI_PRO On
+               UNI_PRO.CD_UNI_PRO = ITENT_PRO.CD_UNI_PRO
+     Left Join DBAMV.FORNECEDOR FORNEC On
+               FORNEC.CD_FORNECEDOR = ENT_PRO.CD_FORNECEDOR
+         Where ENT_PRO.DT_ENTRADA Between Trunc(:CAMPO_DTINIC)
+                                      And Trunc(:CAMPO_DTFIM) + 0.99999
+           And Exists (Select 1
+                         From DBAMV.ITPORTARIA
+                        Where ITPORTARIA.CD_PRODUTO = PRODUTO.CD_PRODUTO
+                          :CAMPO_CF_PORTARIA)
+     Union All
+        Select ITDEV_FOR.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE,
+               PRODUTO.CD_DCB,
+               ITDEV_FOR.QT_DEVOLVIDA * -1 As QUANTIDADE,
+               Trunc(DEV_FOR.DT_DEVOLUCAO) As DATA,
+               To_Char(DEV_FOR.HR_DEVOLUCAO,
+                       'HH24') As HORA,
+               To_Char(DEV_FOR.CD_DEVOLUCAO) As DOCUMENTO,
+               InitCap(FORNECEDOR.NM_FORNECEDOR) As DS_DESTINO,
+               'Dev. P/ Fornecedor' As OPERACAO,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.CD_ESTOQUE) As CD_ESTOQUE,
+               Decode(:CAMPO_ESTOQUE,
+                      '%',
+                      Null,
+                      ESTOQUE.DS_ESTOQUE) As DS_ESTOQUE,
+               UNI_PRO.VL_FATOR,
+               Null As RESPONSAVEL,
+               'N' As SN_CONSIGNADO,
+               PRODUTO.CD_PRODUTO_TEM,
+               To_Number(Null) As NR_PRONTUARIO
+          From DBAMV.DEV_FOR
+    Inner Join DBAMV.ITDEV_FOR On
+               ITDEV_FOR.CD_DEVOLUCAO = DEV_FOR.CD_DEVOLUCAO
+    Inner Join DBAMV.ENT_PRO On
+               ENT_PRO.CD_ENT_PRO = DEV_FOR.CD_ENT_PRO
+    Inner Join DBAMV.PRODUTO On
+               PRODUTO.CD_PRODUTO = ITDEV_FOR.CD_PRODUTO
+    Inner Join DBAMV.UNI_PRO On
+               UNI_PRO.CD_UNI_PRO = ITDEV_FOR.CD_UNI_PRO
+    Inner Join DBAMV.ESTOQUE On
+               ESTOQUE.CD_ESTOQUE = ENT_PRO.CD_ESTOQUE
+           And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    Inner Join DBAMV.FORNECEDOR On
+               FORNECEDOR.CD_FORNECEDOR = ENT_PRO.CD_FORNECEDOR
+         Where DEV_FOR.DT_DEVOLUCAO Between Trunc(:CAMPO_DTINIC)
+                                        And Trunc(:CAMPO_DTFIM) + 0.99999
+           And Exists (Select 1
+                         From DBAMV.ITPORTARIA
+                        Where ITPORTARIA.CD_PRODUTO = PRODUTO.CD_PRODUTO
+                          :CAMPO_CF_PORTARIA))
+Order By 2,
+       1,
+       12,
+       11,
+       6,
+       7

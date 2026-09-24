@@ -1,0 +1,44 @@
+/*----------------------------------------------------------------------------*/
+--R_BALPATR
+SELECT    A.CD_CONTABIL
+         ,A.DS_CONTA
+         ,A.CD_GRAU
+         ,SUM(A.VL_CREDITO ) VL_CREDITO
+         ,SUM(A.VL_DEBITO ) VL_DEBITO
+         ,SUM(A.VL_SALDO_MES ) VL_SALDO_MES
+FROM (
+SELECT  PC.CD_CONTABIL                        CD_CONTABIL
+       ,PC.DS_CONTA                           DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA                   CD_GRAU
+       ,nvl(SM.VL_CREDITO,0)                  VL_CREDITO
+       ,nvl(SM.VL_DEBITO,0)                   VL_DEBITO
+       ,nvl(SM.VL_SALDO_MES,0)                VL_SALDO_MES
+FROM    DBAMV.PLANO_CONTAS    PC
+       ,DBAMV.SALDO_MENSAL    SM
+       ,DBAMV.MULTI_EMPRESAS  ME
+WHERE   PC.CD_MULTI_EMPRESA     =  :CAMPO_CD_MULTI_EMP
+AND     PC.CD_GRAU_DA_CONTA     <= :CAMPO_CD_GRAU_CONTA
+AND     ME.CD_MULTI_EMPRESA     =  PC.CD_MULTI_EMPRESA
+AND     ( SUBSTR( PC.CD_CONTABIL, 1, 1 ) = ME.CD_ATIVO OR SUBSTR( PC.CD_CONTABIL, 1, 1 ) = ME.CD_PASSIVO )
+AND     PC.SN_IMPRIME		IN		('S',:CAMPO_SN_IMPRIME)
+AND     PC.CD_REDUZIDO          =  SM.CD_REDUZIDO
+UNION ALL
+SELECT  PC.CD_CONTABIL                          CD_CONTABIL
+       ,PC.DS_CONTA                             DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA                     CD_GRAU
+       ,0                                       VL_CREDITO
+       ,0                                       VL_DEBITO
+       ,0                                       VL_SALDO_MES
+FROM    DBAMV.PLANO_CONTAS   PC
+       ,DBAMV.MULTI_EMPRESAS  ME
+WHERE   PC.CD_MULTI_EMPRESA  =  :CAMPO_CD_MULTI_EMP
+AND     PC.CD_GRAU_DA_CONTA  <= :CAMPO_CD_GRAU_CONTA
+AND     ME.CD_MULTI_EMPRESA  =  PC.CD_MULTI_EMPRESA
+AND     ( SUBSTR( PC.CD_CONTABIL, 1, 1 ) = ME.CD_ATIVO OR SUBSTR( PC.CD_CONTABIL, 1, 1 ) = ME.CD_PASSIVO )
+AND     PC.SN_IMPRIME		IN		('S',:CAMPO_SN_IMPRIME)
+:CAMPO_CF_VISAO
+) A
+GROUP BY  A.CD_CONTABIL
+         ,A.DS_CONTA
+         ,A.CD_GRAU
+ORDER BY  A.CD_CONTABIL

@@ -1,0 +1,108 @@
+/*----------------------------------------------------------------------------*/
+--R_ETIQ_DIETA_ENTERAL
+SELECT  'UNIDADE....:'   ATENDIMENTO,
+       unid_int.cd_unid_int,
+       unid_int.ds_unid_int,
+       leito.ds_leito,
+       leito.ds_enfermaria,
+       atendime.cd_atendimento,
+       dbamv.fnc_get_pac_nome(atendime.cd_atendimento, 'AP')  nm_paciente,
+       RTRIM(dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,SysDate),' ')  nr_idade,
+       paciente.tp_sexo,
+       itpre_med.ds_itpre_med observacao,
+       '24 Horas' Validade,
+       for_apl.ds_for_apl,
+       itpre_med.qt_itpre_med || ' ' || substr(uni_pro.ds_unidade,1,9) || decode(itpre_med.tp_tempo,NULL,'','/' || itpre_med.tp_tempo) volume,
+       itpre_med.qt_infusao || ' ' || uni_pro_inf.ds_unidade || decode(itpre_med.tp_tempo,NULL,'','/' || itpre_med.tp_tempo) infusao,
+       tip_fre.ds_tip_fre,
+       tip_presc.ds_tip_presc,
+       itpre_med.cd_itpre_med,
+       TO_CHAR(hritpre_med.dh_medicacao,'HH24') hora,
+       hritpre_med.dh_medicacao,
+       trunc(pre_med.dt_pre_med) data,
+       usuarios.nm_usuario responsavel,
+       PRE_MED.CD_PRE_MED CD_PRE_MED
+FROM   dbamv.atendime,
+       dbamv.leito,
+       dbamv.paciente,
+       dbamv.unid_int,
+       dbamv.itpre_med,
+       dbamv.pre_med,
+       dbamv.for_apl,
+       dbamv.tip_fre,
+       dbamv.tip_presc,
+       dbamv.uni_pro,
+       dbamv.uni_pro uni_pro_inf,
+       dbamv.hritpre_med,
+       dbasgu.usuarios
+WHERE  atendime.tp_atendimento = 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_leito = leito.cd_leito
+AND    leito.cd_unid_int = unid_int.cd_unid_int
+AND    atendime.cd_atendimento = pre_med.cd_atendimento
+AND    pre_med.cd_pre_med = itpre_med.cd_pre_med
+AND    pre_med.nm_usuario = usuarios.cd_usuario
+AND    itpre_med.cd_tip_presc = tip_presc.cd_tip_presc
+AND    itpre_med.cd_tip_esq = tip_presc.cd_tip_esq
+AND    itpre_med.cd_for_apl = for_apl.cd_for_apl(+)
+AND    itpre_med.cd_tip_fre = tip_fre.cd_tip_fre(+)
+AND    itpre_med.cd_uni_pro = uni_pro.cd_uni_pro(+)
+AND    itpre_med.cd_uni_pro_inf = uni_pro_inf.cd_uni_pro(+)
+AND    itpre_med.cd_itpre_med = hritpre_med.cd_itpre_med(+)
+AND    trunc(pre_med.dt_pre_med) = :CAMPO_DATA
+AND    Nvl(itpre_med.sn_cancelado, 'N') = 'N'
+UNION
+SELECT 'AMBUL./URG.:'   ATENDIMENTO,
+       0,
+       ori_ate.ds_ori_ate,
+       '',
+       '',
+       atendime.cd_atendimento CD_ATENDIMENTO ,
+       paciente.cd_paciente || ' - ' || paciente.nm_paciente nm_paciente,
+       RTRIM(dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,SysDate),' ')  nr_idade,
+       paciente.tp_sexo,
+       itpre_med.ds_itpre_med observacao,
+       '24 Horas' Validade,
+       for_apl.ds_for_apl,
+       itpre_med.qt_itpre_med || ' ' || substr(uni_pro.ds_unidade,1,9) || decode(itpre_med.tp_tempo,NULL,'','/' || itpre_med.tp_tempo) volume,
+       itpre_med.qt_infusao || ' ' || uni_pro_inf.ds_unidade || decode(itpre_med.tp_tempo,NULL,'','/' || itpre_med.tp_tempo) infusao,
+       tip_fre.ds_tip_fre,
+       tip_presc.ds_tip_presc,
+       itpre_med.cd_itpre_med,
+       TO_CHAR(hritpre_med.dh_medicacao,'HH24') hora,
+       hritpre_med.dh_medicacao,
+       trunc(pre_med.dt_pre_med) data,
+       usuarios.nm_usuario responsavel,
+       PRE_MED.CD_PRE_MED CD_PRE_MED
+FROM   dbamv.atendime,
+       dbamv.paciente,
+       dbamv.itpre_med,
+       dbamv.pre_med,
+       dbamv.for_apl,
+       dbamv.tip_fre,
+       dbamv.tip_presc,
+       dbamv.uni_pro,
+       dbamv.uni_pro uni_pro_inf,
+       dbamv.hritpre_med,
+       dbasgu.usuarios,
+       dbamv.ori_ate
+WHERE  atendime.tp_atendimento <> 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_atendimento = pre_med.cd_atendimento
+AND    pre_med.cd_pre_med = itpre_med.cd_pre_med
+AND    pre_med.nm_usuario = usuarios.cd_usuario
+AND    itpre_med.cd_tip_presc = tip_presc.cd_tip_presc
+AND    itpre_med.cd_tip_esq = tip_presc.cd_tip_esq
+AND    itpre_med.cd_for_apl = for_apl.cd_for_apl(+)
+AND    itpre_med.cd_tip_fre = tip_fre.cd_tip_fre(+)
+AND    itpre_med.cd_uni_pro = uni_pro.cd_uni_pro(+)
+AND    itpre_med.cd_uni_pro_inf = uni_pro_inf.cd_uni_pro(+)
+AND    itpre_med.cd_itpre_med = hritpre_med.cd_itpre_med(+)
+AND    atendime.cd_ori_ate = ori_ate.cd_ori_ate
+AND    ori_ate.cd_multi_empresa = nvl(dbamv.pkg_mv2000.le_empresa, ori_ate.cd_multi_empresa)
+AND    trunc(pre_med.dt_pre_med) = :CAMPO_DATA
+AND    Nvl(itpre_med.sn_cancelado, 'N') = 'N'
+ORDER BY cd_pre_med, cd_atendimento, dh_medicacao

@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_TIPI
+SELECT * FROM (
+Select       atendime.cd_convenio
+           , convenio.nm_convenio
+           , itmvto_estoque.cd_produto
+           , produto.ds_produto
+           ,Verif_Ds_Unid_Prod( Produto.Cd_Produto ) Ds_Unidade
+           ,produto_incidencia_ipi.cd_incidencia_ipi
+           ,produto_incidencia_ipi.vl_aliquota
+          , SUM(DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                    'P', itmvto_estoque.qt_movimentacao * uni_pro.vl_fator /verif_vl_fator_prod(itmvto_estoque.cd_produto),
+                    'C', (itmvto_estoque.qt_movimentacao * uni_pro.vl_fator /verif_vl_fator_prod(itmvto_estoque.cd_produto)* -1 )))  qt_movimentacao
+      , DECODE (DBAMV.PKG_MGES_CONSIGNADO.FNC_SN_PROD_PROCESSO_CONSIG( ITMVTO_ESTOQUE.CD_PRODUTO), 'S',0,
+        SUM(  DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                 'P', itmvto_estoque.qt_movimentacao * uni_pro.vl_fator * verif_vl_custo_medio(itmvto_estoque.cd_produto,mvto_estoque.dt_mvto_estoque, :CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio,Mvto_Estoque.Hr_Mvto_Estoque ) ,
+                 'C', (itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *  verif_vl_custo_medio(itmvto_estoque.cd_produto,mvto_estoque.dt_mvto_estoque, :CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio,Mvto_Estoque.Hr_Mvto_Estoque )) * -1 )   ) )   VL_TOTAL
+From
+       dbamv.estoque
+     , dbamv.mvto_estoque
+     , dbamv.itmvto_estoque
+     , dbamv.produto
+     , dbamv.uni_pro
+     , dbamv.atendime
+     , dbamv.convenio
+     , dbamv.produto_incidencia_ipi
+ Where
+         estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and   estoque.cd_estoque = mvto_estoque.cd_estoque
+   and   mvto_estoque.tp_mvto_estoque in ('P', 'C')
+   and   atendime.cd_atendimento        = mvto_estoque.cd_atendimento
+   and   itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and   produto.cd_produto             = itmvto_estoque.cd_produto
+   and   uni_pro.cd_uni_pro             = itmvto_estoque.cd_uni_pro
+   and   atendime.cd_convenio  = convenio.cd_convenio
+   and   produto_incidencia_ipi.cd_produto_incidencia_ipi = dbamv.fnc_mges_retorna_ipi_vigente(produto.cd_produto, mvto_estoque.dt_mvto_estoque)
+   and   mvto_estoque.dt_mvto_estoque BETWEEN  :CAMPO_DTINIC    AND  
+   and   atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY     atendime.cd_convenio
+           , convenio.nm_convenio
+           , itmvto_estoque.cd_produto
+           , produto.ds_produto
+           ,Verif_Ds_Unid_Prod( Produto.Cd_Produto )
+           , produto_incidencia_ipi.cd_incidencia_ipi
+           ,produto_incidencia_ipi.vl_aliquota
+           , Trunc(mvto_estoque.dt_mvto_estoque,'MM')
+:CAMPO_CF_ORDEM
+)
+ORDER BY CD_CONVENIO,NM_CONVENIO

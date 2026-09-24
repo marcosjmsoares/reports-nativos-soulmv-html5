@@ -1,0 +1,74 @@
+/*----------------------------------------------------------------------------*/
+--R_RAT_AUDIT
+select con_pag_rat.cd_con_pag        cd_conta
+     , con_pag_rat.dt_emissao        dt_emissao
+     , con_pag_rat.nm_fornecedor     nm_fornecedor
+     , con_pag_rat.nr_documento      nr_documento
+     , con_pag_rat.nr_serie          nr_serie
+     , con_pag_rat.vl_conta          vl_conta
+     , con_pag_rat.vl_rateio         vl_rateio
+     , itcon_pag.dt_vencimento       dt_vencimento
+     , 'CONTAS A PAGAR  '            tp_conta
+from dbamv.itcon_pag
+   ,(select con_pag.cd_con_pag              cd_con_pag
+          , con_pag.dt_emissao              dt_emissao
+          , decode(con_pag.cd_fornecedor,NULL,con_pag.ds_fornecedor,fornecedor.nm_fantasia)  nm_fornecedor
+          , con_pag.nr_documento            nr_documento
+          , con_pag.nr_serie                nr_serie
+          , (nvl(con_pag.vl_bruto_conta,0)+(nvl(con_pag.vl_desconto,0)-nvl(con_pag.vl_acrescimo,0)))          vl_conta
+          , sum(ratcon_pag_sel.vl_rateio)   vl_rateio
+       from dbamv.con_pag
+          , dbamv.fornecedor
+          , ( select ratcon_pag.cd_con_pag    cd_con_pag
+                   , ratcon_pag.cd_setor      cd_setor
+                   , ratcon_pag.cd_item_res   cd_item_res
+                   , ratcon_pag.cd_reduzido   cd_reduzido
+                   , ratcon_pag.vl_rateio     vl_rateio
+                from dbamv.ratcon_pag
+                :CAMPO_CF_COMP) ratcon_pag_sel
+      where con_pag.cd_con_pag    = ratcon_pag_sel.cd_con_pag(+)
+        and con_pag.cd_fornecedor = fornecedor.cd_fornecedor(+)
+        and con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+        and con_pag.cd_con_pag_dev is null
+        and not exists (select itcon_pag_agrup.cd_con_pag
+                                  from dbamv.itcon_pag  itcon_pag_agrup
+                               where itcon_pag_agrup.cd_con_pag_agrup =  con_pag.cd_con_pag)
+      group by con_pag.cd_con_pag
+             , con_pag.dt_emissao
+             , decode(con_pag.cd_fornecedor,NULL,con_pag.ds_fornecedor,fornecedor.nm_fantasia)
+             , con_pag.nr_documento
+             , con_pag.nr_serie
+             , (nvl(con_pag.vl_bruto_conta,0)+(nvl(con_pag.vl_desconto,0)-nvl(con_pag.vl_acrescimo,0)))
+     having (nvl(con_pag.vl_bruto_conta,0)+(nvl(con_pag.vl_desconto,0)-nvl(con_pag.vl_acrescimo,0))) <> nvl(sum(ratcon_pag_sel.vl_rateio),0) ) con_pag_rat
+ where con_pag_rat.cd_con_pag     = itcon_pag.cd_con_pag
+union
+select con_rec.cd_con_rec             cd_conta
+     , con_rec.dt_emissao             dt_emissao
+     , decode(con_rec.cd_fornecedor,null,con_rec.nm_cliente,fornecedor.nm_fantasia)  nm_fornecedor
+     , con_rec.nr_documento           nr_documento
+     , con_rec.nr_serie               nr_serie
+     , con_rec.vl_previsto            vl_conta
+     , sum(ratcon_rec_sel.vl_rateio)  vl_rateio
+     , con_rec.dt_prevista_pagamento  dt_vencimento
+     , 'CONTAS A RECEBER'             tp_conta
+  from dbamv.con_rec
+     , dbamv.fornecedor
+     , ( select rat_conrec.cd_con_rec    cd_con_rec
+              , rat_conrec.cd_setor      cd_setor
+              , rat_conrec.cd_item_res   cd_item_res
+              , rat_conrec.cd_reduzido   cd_reduzido
+              , rat_conrec.vl_rateio     vl_rateio
+           from dbamv.rat_conrec
+          :CAMPO_CF_COMP) ratcon_rec_sel
+ where con_rec.cd_con_rec    = ratcon_rec_sel.cd_con_rec(+)
+   and con_rec.cd_fornecedor = fornecedor.cd_fornecedor(+)
+   and con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ group by con_rec.cd_con_rec
+     , con_rec.dt_emissao
+     , decode(con_rec.cd_fornecedor,null,con_rec.nm_cliente,fornecedor.nm_fantasia)
+     , con_rec.nr_documento
+     , con_rec.nr_serie
+     , con_rec.vl_previsto
+     , con_rec.dt_prevista_pagamento
+     , 'CONTAS A RECEBER'
+     having NVL(con_rec.vl_previsto,0) <> NVL(sum(ratcon_rec_sel.vl_rateio),0)

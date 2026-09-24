@@ -1,0 +1,114 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_REEMBOLSO
+SELECT A.CD_ATENDIMENTO CD_ATENDIMENTO,  A.CONTA CONTA, A.CD_CONVENIO || ' - '|| A.NM_CONVENIO CONVENIO, A.CD_PRO_FAT CD_PRO_FAT, A.DS_PRO_FAT, A.DT_LANCAMENTO, A.VALOR VALOR, A.CD_PRESTADOR || ' - '|| A.NM_PRESTADOR PRESTADOR,A.CD_ATI_MED || ' - '|| A.DS_ATI_MED DS_ATI_MED FROM (
+SELECT PRO_FAT.CD_PRO_FAT              CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT              DS_PRO_FAT
+      ,ITREG_FAT.DT_LANCAMENTO         DT_LANCAMENTO
+      ,ATENDIME.CD_ATENDIMENTO         CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT              CONTA
+      ,ITREG_FAT.VL_TOTAL_CONTA        VALOR
+      ,ITREG_FAT.CD_LANCAMENTO         CD_LANCAMENTO
+      ,ITREG_FAT.CD_ATI_MED
+      ,ATI_MED.ds_ati_med
+      ,CONVENIO.cd_convenio
+      ,CONVENIO.NM_CONVENIO
+      ,prestador.cd_prestador
+      ,prestador.nm_prestador
+ FROM  DBAMV.REG_FAT                    REG_FAT
+      ,DBAMV.CONVENIO                   CONVENIO
+      ,DBAMV.ITREG_FAT                  ITREG_FAT
+      ,DBAMV.PRO_FAT                    PRO_FAT
+      ,DBAMV.ATENDIME                   ATENDIME
+      ,DBAMV.REMESSA_FATURA             REMESSA
+      ,DBAMV.FATURA                     FATURA
+	  ,DBAMV.EMPRESA_CONVENIO
+	  ,DBAMV.ITLAN_MED
+      ,DBAMV.ati_med
+      ,DBAMV.prestador
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+  And Empresa_Convenio.Cd_Multi_Empresa = pkg_mv2000.le_empresa
+  and REG_FAT.CD_REG_FAT         		= ITREG_FAT.CD_REG_FAT
+  AND REG_FAT.CD_ATENDIMENTO     		= ATENDIME.CD_ATENDIMENTO
+  AND REG_FAT.CD_CONVENIO        		= CONVENIO.CD_CONVENIO
+  AND ITREG_FAT.CD_PRO_FAT       		= PRO_FAT.CD_PRO_FAT
+  AND REG_FAT.CD_MULTI_EMPRESA    		= pkg_mv2000.le_empresa
+  AND CONVENIO.TP_CONVENIO NOT IN ('H','A')
+  AND ITREG_FAT.cd_ati_med              = ati_med.cd_ati_med
+  AND ITREG_FAT.SN_PACIENTE_PAGA        = 'S'
+  AND ITREG_FAT.TP_PAGAMENTO            = 'C'
+  AND prestador.cd_prestador            = atendime.cd_prestador
+  AND prestador.cd_prestador            = itlan_med.cd_prestador
+  AND ITREG_FAT.CD_REG_FAT              = itlan_med.cd_reg_fat (+)
+  AND ITREG_FAT.CD_LANCAMENTO           = itlan_med.CD_LANCAMENTO (+)
+  AND REG_FAT.CD_REMESSA                =  REMESSA.CD_REMESSA(+)
+  AND REMESSA.CD_FATURA                 = FATURA.CD_FATURA(+)
+  AND itreg_fat.cd_lancamento NOT IN (SELECT cd_lancamento
+                                        FROM dbamv.reg_fat r, dbamv.itreg_fat i
+                                       WHERE r.cd_reg_fat = i.cd_reg_Fat
+                                         AND r.cd_reg_fat = REG_FAT.cd_reg_fat
+                                         AND r.tp_mvto IN ('fDistribui','fQuebraDis')
+                                         AND i.cd_reg_fat_pai IS NOT null )
+GROUP BY PRO_FAT.CD_PRO_FAT
+        ,PRO_FAT.DS_PRO_FAT
+        ,ITREG_FAT.DT_LANCAMENTO
+        ,ATENDIME.CD_ATENDIMENTO
+        ,REG_FAT.CD_REG_FAT
+        ,ITREG_FAT.VL_TOTAL_CONTA
+        ,itreg_fat.cd_reg_fat
+        ,itreg_fat.cd_lancamento
+        ,ITREG_FAT.CD_ATI_MED
+        ,ati_med.ds_ati_med
+        ,CONVENIO.cd_convenio
+        ,CONVENIO.NM_CONVENIO
+        ,prestador.cd_prestador
+        ,prestador.nm_prestador
+UNION ALL
+SELECT PRO_FAT.CD_PRO_FAT            CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT            DS_PRO_FAT
+      ,ATENDIME.DT_ATENDIMENTO       DT_LANCAMENTO
+      ,ATENDIME.CD_ATENDIMENTO       CD_ATENDIMENTO
+      ,REG_AMB.CD_REG_AMB            CONTA
+      ,ITREG_AMB.VL_TOTAL_CONTA         VL_TOTAL_CONTA
+      ,0         CD_LANCAMENTO
+      ,ITREG_AMB.CD_ATI_MED
+      ,ATI_MED.ds_ati_med
+      ,CONVENIO.cd_convenio
+      ,CONVENIO.NM_CONVENIO
+      ,prestador.cd_prestador
+      ,prestador.nm_prestador
+FROM   DBAMV.REG_AMB           REG_AMB
+      ,DBAMV.CONVENIO          CONVENIO
+      ,DBAMV.ITREG_AMB         ITREG_AMB
+      ,DBAMV.PRO_FAT           PRO_FAT
+      ,DBAMV.ATENDIME          ATENDIME
+      ,DBAMV.REMESSA_FATURA    REMESSA
+      ,DBAMV.FATURA            FATURA
+	    ,dbamv.empresa_convenio
+      ,dbamv.ati_med
+      ,dbamv.prestador
+Where Empresa_Convenio.Cd_Convenio      = Convenio.Cd_Convenio
+  And Empresa_Convenio.Cd_Multi_Empresa = pkg_mv2000.le_empresa
+  and REG_AMB.CD_REG_AMB                = ITREG_AMB.CD_REG_AMB
+  AND ITREG_AMB.CD_ATENDIMENTO          = ATENDIME.CD_ATENDIMENTO
+  AND ITREG_AMB.CD_CONVENIO             = CONVENIO.CD_CONVENIO
+  AND ITREG_AMB.CD_PRO_FAT              = PRO_FAT.CD_PRO_FAT
+  AND REG_AMB.CD_MULTI_EMPRESA          = pkg_mv2000.le_empresa
+  AND CONVENIO.TP_CONVENIO NOT IN ('H','A')
+  AND ITREG_amb.cd_ati_med              = ati_med.cd_ati_med
+  AND ITREG_AMB.TP_PAGAMENTO            = 'C'
+  AND ITREG_AMB.SN_PACIENTE_PAGA        = 'S'
+  AND prestador.cd_prestador            = atendime.cd_prestador
+  AND REG_AMB.CD_REMESSA                = REMESSA.CD_REMESSA(+)
+  AND REMESSA.CD_FATURA                 = FATURA.CD_FATURA(+)
+  AND itreg_amb.cd_lancamento NOT IN (SELECT cd_lancamento
+                                        FROM dbamv.reg_amb r,
+                                             dbamv.itreg_amb i
+                                       WHERE r.cd_reg_amb = i.cd_reg_amb
+                                         AND r.cd_reg_amb = REG_AMB.cd_reg_amb
+                                         AND i.tp_mvto_desconto IN ('fDistribui','fQuebraDis')
+                                         AND i.cd_reg_amb_pai IS NOT null  )
+) a
+where a.cd_convenio is not null
+GROUP BY a.cd_atendimento ,  a.Conta, a.cd_convenio, a.NM_CONVENIO ,a.cd_pro_fat, a.ds_pro_fat , a.dt_lancamento, a.valor, a.cd_prestador , a.nm_prestador , a.cd_ati_med ,
+a.ds_ati_med
+ORDER BY a.ds_pro_fat, a.dt_lancamento ASC

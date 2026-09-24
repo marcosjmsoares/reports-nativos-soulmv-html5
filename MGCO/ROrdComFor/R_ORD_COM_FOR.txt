@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_ORD_COM_FOR
+SELECT * FROM (
+SELECT ORD_COM.CD_ORD_COM                  CD_ORD_COM
+              ,ORD_COM.TP_SITUACAO                  TP_SITUACAO
+              ,ESTOQUE.CD_ESTOQUE                   CD_ESTOQUE
+              ,ESTOQUE.DS_ESTOQUE                   DS_ESTOQUE
+              ,FORNECEDOR.CD_FORNECEDOR    CD_FORNECEDOR
+              ,FORNECEDOR.NM_FANTASIA           NM_FANTASIA
+              ,ORD_COM.DT_ORD_COM                  DT_ORD_COM
+              ,ORD_COM.DT_PREV_ENTREGA       DT_PREV_ENTREGA
+              ,CONDICOES_PAGAMENTO.DS_CONDICAO_PAGAMENTO  DS_CONDICAO_PAGAMENTO
+              ,dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ORD_COM.VL_TOTAL,ORD_COM_MOEDA.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM) VL_TOTAL
+              ,ORD_COM.DS_ORDEM_DE_COMPRA
+			  ,(    SELECT Decode( o.TP_SITUACAO, 'T', GREATEST(Trunc(Max(e.dt_entrada)- o.dt_prev_entrega),0), GREATEST(Trunc(SYSDATE - o.dt_prev_entrega),0)) qt_dias_atraso       
+					  FROM dbamv.ent_pro e, dbamv.ord_com o
+					 WHERE e.cd_ord_com(+) = o.cd_ord_com
+					   AND o.cd_ord_com = ORD_COM.CD_ORD_COM
+			      GROUP BY o.dt_prev_entrega
+						  ,o.TP_SITUACAO  ) DIAS_ATRASO
+FROM     DBAMV.ORD_COM                    ORD_COM
+              ,DBAMV.FORNECEDOR             FORNECEDOR
+              ,DBAMV.ESTOQUE                     ESTOQUE
+              ,DBAMV.CONDICOES_PAGAMENTO   CONDICOES_PAGAMENTO
+              ,DBAMV.ORD_COM_MOEDA
+WHERE  ORD_COM.CD_FORNECEDOR    =  FORNECEDOR.CD_FORNECEDOR
+AND        FORNECEDOR.TP_CLIENTE_FORN IN ( 'F', 'A', 'R', 'T' )
+AND        ORD_COM.CD_ESTOQUE   =  ESTOQUE.CD_ESTOQUE
+AND	ESTOQUE.CD_MULTI_EMPRESA    = :CAMPO_CD_MULTI_EMPRESA
+AND        ORD_COM.CD_CONDICAO_PAGAMENTO  = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+AND        ORD_COM.DT_ORD_COM  >= TRUNC(:CAMPO_DT_INIC)
+AND        ORD_COM.DT_ORD_COM  < TRUNC(:CAMPO_DT_FINAL) +1
+AND ord_com.cd_ord_com = ord_com_moeda.cd_ord_com(+)
+And (:CAMPO_PS_CD_COTADOR = '%' Or Exists (Select 1 From DBAMV.SOL_COM SC Where SC.CD_SOL_COM = ORD_COM.CD_SOL_COM And
+Nvl(SC.CD_COTADOR, -1) = Decode(:CAMPO_PS_CD_COTADOR, '%', Nvl(SC.CD_COTADOR, -1), :CAMPO_PS_CD_COTADOR)))
+And ((:CAMPO_PS_CD_ESPECIE = '%' And :CAMPO_PS_CD_CLASSE = '%' And :CAMPO_PS_CD_SUBCLASSE = '%') Or Exists (Select 1 From DBAMV.PRODUTO P,
+DBAMV.ITORD_PRO IOP Where IOP.CD_ORD_COM = ORD_COM.CD_ORD_COM And IOP.CD_PRODUTO = P.CD_PRODUTO And
+P.CD_ESPECIE = Decode(:CAMPO_PS_CD_ESPECIE, '%', P.CD_ESPECIE, :CAMPO_PS_CD_ESPECIE) And
+P.CD_CLASSE = Decode(:CAMPO_PS_CD_CLASSE, '%', P.CD_CLASSE, :CAMPO_PS_CD_CLASSE) And
+P.CD_SUB_CLA = Decode(:CAMPO_PS_CD_SUBCLASSE, '%', P.CD_SUB_CLA, :CAMPO_PS_CD_SUBCLASSE)))
+:CAMPO_CF_SITUACAO
+)
+ORDER BY DS_ESTOQUE, CD_ESTOQUE, DT_ORD_COM , CD_ORD_COM

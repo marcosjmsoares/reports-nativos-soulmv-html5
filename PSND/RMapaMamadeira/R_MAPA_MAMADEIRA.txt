@@ -1,0 +1,69 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_MAMADEIRA
+SELECT * FROM (
+SELECT
+       leito.cd_copa                   cd_copa,
+       copa.ds_copa                    ds_copa,
+       leito.cd_unid_int               cd_unid_int,
+       leito.ds_enfermaria             ds_enfermaria,
+       leito.ds_resumo                 ds_leito,
+       unid_int.ds_unid_int            ds_unid_int,
+       paciente.cd_paciente            cd_paciente,
+       paciente.cd_paciente || ' - ' ||dbamv.fnc_get_pac_nome(atendime.cd_atendimento)  nm_paciente,
+       atendime.cd_atendimento         cd_atendimento,
+       RTRIM(dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,SysDate),' ')  nr_idade,
+       cid.ds_cid                      ds_cid,
+       mov_cardapio.cd_tipo_refeicao cd_tipo_refeicao,
+       tipo_refeicao.ds_tipo_refeicao  ds_tipo_refeicao,
+       mov_cardapio.obs_nutricao    ds_observacao,
+       paciente.tp_sexo                tp_sexo,
+       tipo_dieta.cd_tipo_dieta     cd_tipo_dieta,
+       tipo_dieta.ds_tipo_dieta      ds_tipo_dieta,
+       itmov_lactario.cd_prato cd_prato,
+       prato.ds_prato ds_prato,
+       itmov_lactario.cd_bico_mamadeira cd_bico_mamadeira,
+       bico_mamadeira.ds_bico_mamadeira ds_bico_mamadeira,
+       itmov_lactario.cd_manipulador cd_manipulador,
+       manipulador.ds_manipulador,
+       itmov_lactario.nr_volume nr_volume,
+       itmov_lactario.ds_validade ds_validade
+FROM   dbamv.atendime,
+       dbamv.paciente,
+       dbamv.leito,
+       dbamv.cid,
+       dbamv.unid_int,
+       dbamv.copa,
+       dbamv.tipo_refeicao,
+       dbamv.mov_cardapio,
+       dbamv.tipo_dieta,
+       dbamv.itmov_lactario,
+       dbamv.prato,
+       dbamv.bico_mamadeira,
+       dbamv.manipulador
+WHERE  atendime.tp_atendimento = 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.Cd_Multi_Empresa = nvl(dbamv.pkg_mv2000.le_empresa, atendime.Cd_Multi_Empresa)
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_cid = cid.cd_cid(+)
+AND    atendime.cd_leito = leito.cd_leito
+AND    leito.cd_unid_int = unid_int.cd_unid_int
+AND    unid_int.sn_ativo = 'S'
+AND    leito.cd_copa = copa.cd_copa(+)
+AND    atendime.cd_atendimento = mov_cardapio.cd_atendimento
+AND    mov_cardapio.cd_tipo_refeicao = tipo_refeicao.cd_tipo_refeicao(+)
+AND    mov_cardapio.cd_mov_cardapio = itmov_lactario.cd_mov_cardapio(+)
+AND    itmov_lactario.cd_prato = prato.cd_prato(+)
+AND    itmov_lactario.cd_bico_mamadeira = bico_mamadeira.cd_bico_mamadeira(+)
+AND    itmov_lactario.cd_manipulador = manipulador.cd_manipulador(+)
+AND    mov_cardapio.tp_movimentacao = 'M'
+AND    mov_cardapio.cd_tipo_dieta = tipo_dieta.cd_tipo_dieta(+)
+    and    mov_cardapio.cd_mov_cardapio in
+    (select cd_mov_cardapio
+     from   dbamv.mov_cardapio mov, dbamv.atendime, dbamv.tipo_refeicao
+     where  mov.cd_atendimento = atendime.cd_atendimento
+     and    mov.cd_tipo_refeicao = tipo_refeicao.cd_tipo_refeicao
+     and    mov.dt_mov_cardapio >= :CAMPO_DATA)
+Order By ds_leito
+)
+ORDER BY CD_COPA,DS_COPA,
+DS_UNID_INT,CD_UNID_INT

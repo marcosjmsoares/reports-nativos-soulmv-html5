@@ -1,0 +1,80 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_SET_SINT
+SELECT * FROM (
+Select mvto_estoque.dt_mvto_estoque
+         , itmvto_estoque.cd_produto
+         , produto.ds_produto
+         , itmvto_estoque.cd_lote
+         , uni_pro.ds_unidade
+         , itmvto_estoque.dt_validade
+         , sum(itmvto_estoque.qt_movimentacao) qt_movimentacao
+         , ROUND( ( verif_vl_custo_medio(itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque,'R',NULL,mvto_estoque.hr_mvto_estoque)
+* uni_pro.vl_fator ), 8 )  vl_unitario
+         , setor.cd_setor
+         , setor.nm_setor
+  From dbamv.mvto_estoque
+        , dbamv.itmvto_estoQue
+        , dbamv.setor
+        , dbamv.produto
+        , dbamv.uni_pro
+	, DBAMV.ESTOQUE
+Where
+    mvto_estoque.tp_mvto_estoque      = 'S'
+    AND setor.cd_multi_empresa        = :CAMPO_CD_MULTI_EMPRESA
+    AND  trunc(mvto_estoque.dt_mvto_estoque) BETWEEN trunc(:CAMPO_DTINIC)  AND trunc(:CAMPO_DTFIM)
+    AND  mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+    AND  mvto_estoque.cd_setor        = setor.cd_setor
+    AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+    AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    AND  produto.cd_produto           = itmvto_estoque.cd_produto
+    AND  uni_pro.cd_uni_pro           = itmvto_estoque.cd_uni_pro
+ Group by mvto_estoque.dt_mvto_estoque
+         , itmvto_estoque.cd_produto
+         , produto.ds_produto
+         , itmvto_estoque.cd_lote
+         , uni_pro.ds_unidade
+         , itmvto_estoque.dt_validade
+         , ROUND( ( verif_vl_custo_medio(itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque,'R',NULL,mvto_estoque.hr_mvto_estoque)
+* uni_pro.vl_fator ), 8 )
+         , setor.cd_setor
+         , setor.nm_setor
+ Order by dt_mvto_estoque, cd_produto
+)
+ORDER BY CD_SETOR,NM_SETOR,DT_MVTO_ESTOQUE,CD_PRODUTO, DS_PRODUTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONS_SET_SINT_TOMBAMENTO
+Select mvto_estoque.dt_mvto_estoque    dt_mvto_estoque_tomb
+         , itmvto_estoque.cd_produto           cd_produto_tomb
+         , produto.ds_produto                        ds_produto_tomb
+         , bens.cd_setor
+         , setor.nm_setor
+         , uni_pro.ds_unidade                         ds_unidade_tomb
+         , sum(itmvto_estoque.qt_movimentacao) qt_movimentacao_tomb
+         , ROUND( ( verif_vl_custo_medio(itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque,'R',NULL,mvto_estoque.hr_mvto_estoque)  * uni_pro.vl_fator ), 8 )  vl_unitario_tomb
+  FROM    dbamv.mvto_estoque
+        , dbamv.itmvto_estoque
+        , dbamv.produto
+        , dbamv.uni_pro
+        , DBAMV.ESTOQUE
+        , dbamv.bens
+        , dbamv.setor
+Where   mvto_estoque.tp_mvto_estoque  = 'B'
+    AND bens.cd_bem                   = mvto_estoque.cd_bem_tombamento
+    AND setor.cd_setor                = bens.cd_setor
+    AND  trunc(mvto_estoque.dt_mvto_estoque) BETWEEN trunc(:CAMPO_DTINIC)  AND trunc(:CAMPO_DTFIM)
+    AND mvto_estoque.cd_mvto_estoque  = itmvto_estoque.cd_mvto_estoque
+    AND MVTO_ESTOQUE.CD_ESTOQUE       = ESTOQUE.CD_ESTOQUE
+    AND ESTOQUE.CD_MULTI_EMPRESA      = :CAMPO_CD_MULTI_EMPRESA
+    AND produto.cd_produto            = itmvto_estoque.cd_produto
+    AND uni_pro.cd_uni_pro            = itmvto_estoque.cd_uni_pro
+ Group by mvto_estoque.dt_mvto_estoque
+         , itmvto_estoque.cd_produto
+         , produto.ds_produto
+         , uni_pro.ds_unidade
+         , ROUND( ( verif_vl_custo_medio(itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque,'R',NULL,mvto_estoque.hr_mvto_estoque) * uni_pro.vl_fator ), 8 )
+         , bens.cd_setor
+         , setor.nm_setor
+ Order by dt_mvto_estoque_tomb, cd_produto_tomb

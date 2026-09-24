@@ -1,0 +1,28 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_APAG_PREVISTA
+SELECT * FROM (
+SELECT   TRUNC( ICP.DT_VENCIMENTO )                             DT_VENCIMENTO
+        ,CP.NR_DOCUMENTO || '  /  ' || ICP.NR_PARCELA  || '-' || TO_CHAR( DBAMV.QTD_ITENS_CON_PAG( 1, CP.CD_CON_PAG ) )  NR_DOCUMETNO
+        ,DECODE( CP.CD_FORNECEDOR, '', CP.DS_FORNECEDOR, FORNEC.NM_FANTASIA )   NM_FORNECEDOR
+        ,CP.CD_CON_PAG                                                          CD_CON_PAG
+        ,CP.DT_EMISSAO                                                          DT_EMISSAO
+        ,ICP.VL_DUPLICATA                                                       VL_DUPLICATA
+        , ICP.VL_MOEDA                VL_MOEDA
+       ,decode  ( :CAMPO_CONVERTE, 1 , :CAMPO_CD_MOEDA , ICP.CD_MOEDA  )	CD_MOEDA
+FROM     DBAMV.CON_PAG       CP
+        ,DBAMV.ITCON_PAG     ICP
+        ,DBAMV.FORNECEDOR    FORNEC
+        ,DBAMV.TIP_DOC
+WHERE    CP.CD_CON_PAG       	= ICP.CD_CON_PAG
+AND      CP.CD_FORNECEDOR    	= FORNEC.CD_FORNECEDOR(+)
+AND      ICP.TP_QUITACAO    	<> 'Q'
+AND      CP.CD_MULTI_EMPRESA 	= :CAMPO_CD_MULTI_EMPRESA
+AND      CP.CD_PREVISAO 		IS NOT NULL
+AND      ICP.CD_CON_PAG_AGRUP 	IS NULL
+AND      NVL(ICP.VL_DUPLICATA,0) > 0
+AND      CP.CD_TIP_DOC          	=  TIP_DOC.CD_TIP_DOC
+AND      CP.VL_BRUTO_CONTA 		   > 0
+ORDER BY TRUNC( DT_VENCIMENTO ) , NM_FORNECEDOR
+)
+ORDER BY CD_MOEDA,
+DT_VENCIMENTO

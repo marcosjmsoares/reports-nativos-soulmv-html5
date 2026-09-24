@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_INFEC_TOPOGRAFIA
+SELECT ds_topografia
+              ,SUM (Qtde) Qtde
+              ,TP_CATEGORIA
+FROM    (
+SELECT ds_topografia
+              ,COUNT(reg_inf.cd_atendimento) Qtde
+							,decode(topografia.tp_categoria, null, ' ', Classificacao_Iras.Cd_Sigla_Iras_Apres) TP_CATEGORIA
+   FROM dbamv.reg_inf
+             ,dbamv.topografia
+            ,dbamv.unid_int
+            ,dbamv.atendime
+            ,dbamv.leito
+            ,Dbamv.Classificacao_Iras
+ WHERE reg_inf.cd_atendimento      = atendime.cd_atendimento
+   AND atendime.cd_multi_empresa   = :CAMPO_CD_MULTI_EMPRESA
+   AND reg_inf.cd_topografia             = topografia.cd_topografia
+   AND reg_inf.cd_leito                       = leito.cd_leito
+   AND leito.cd_unid_int                     = unid_int.cd_unid_int
+   AND reg_inf.tp_infec                      = 'H'
+   And Reg_Inf.Tp_Sit                        = 'C'
+      AND TOPOGRAFIA.TP_CATEGORIA = Classificacao_Iras.Cd_Sigla_Iras(+)
+GROUP BY ds_topografia, decode(topografia.tp_categoria, null, ' ', Classificacao_Iras.Cd_Sigla_Iras_Apres)
+UNION
+SELECT ds_topografia
+              ,COUNT(reg_inf.cd_atendimento) Qtde
+							,decode(topografia.tp_categoria, null, ' ', Classificacao_Iras.Cd_Sigla_Iras_Apres) TP_CATEGORIA
+   FROM dbamv.reg_inf
+             ,dbamv.topografia
+             ,dbamv.atendime
+             ,dbamv.Classificacao_Iras
+WHERE reg_inf.cd_topografia             = topografia.cd_topografia
+       and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+       and  reg_inf.cd_atendimento         = atendime.cd_atendimento
+       and  reg_inf.cd_aviso_cirurgia      Is Not Null
+       and  topografia.Tp_Categoria       = Classificacao_Iras.Cd_Sigla_Iras(+)
+       AND reg_inf.tp_infec                      = 'H'
+       And Reg_Inf.Tp_Sit                        = 'C'
+GROUP BY ds_topografia, decode(topografia.tp_categoria, null, ' ', Classificacao_Iras.Cd_Sigla_Iras_Apres)
+    )
+GROUP BY ds_topografia
+              ,TP_CATEGORIA

@@ -1,0 +1,116 @@
+/*----------------------------------------------------------------------------*/
+--R_REG_BASE_CALC
+SELECT * FROM (
+Select cd_sus,
+       ds_pro_fat,
+       qt_pontos,
+       vl_sp,
+       vl_sh,
+       vl_sd,
+       vl_ato,
+       dt_lancamento,
+        tipo
+From ( Select a.cd_sus,
+       a.ds_pro_fat,
+       a.qt_pontos,
+       a.vl_sp,
+       a.vl_sh,
+       a.vl_sd,
+       a.vl_ato,
+       a.dt_lancamento,
+       'H' tipo
+From (select itreg_fat.cd_sus,
+       pro_fat.ds_pro_fat,
+       decode(nvl(itreg_fat.qt_pontos,0),0,'N','S') qt_pontos,
+       decode(nvl(itreg_fat.vl_sp,0),0,'N','S') vl_sp,
+       decode(nvl(itreg_fat.vl_sh,0),0,'N','S') vl_sh,
+       decode(nvl(itreg_fat.vl_sd,0),0,'N','S') vl_sd,
+       decode(nvl(itreg_fat.vl_ato,0),0,'N','S') vl_ato,
+      MAX(itreg_fat.dt_lancamento) dt_lancamento
+ From  dbamv.itreg_fat, dbamv.pro_fat
+ Where itreg_fat.cd_sus = pro_fat.cd_sus
+   and itreg_fat.dt_lancamento between :CAMPO_DT_INICIAL and 
+   and itreg_fat.cd_sus is not null
+  Group by  itreg_fat.cd_sus,
+            pro_fat.ds_pro_fat,
+            decode(nvl(itreg_fat.qt_pontos,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_sp,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_sh,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_sd,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_ato,0),0,'N','S')  ) a,
+( select cd_sus,count(*) from
+  (select itreg_fat.cd_sus,
+       pro_fat.ds_pro_fat,
+       decode(nvl(itreg_fat.qt_pontos,0),0,'N','S') qt_pontos,
+       decode(nvl(itreg_fat.vl_sp,0),0,'N','S') vl_sp,
+       decode(nvl(itreg_fat.vl_sh,0),0,'N','S') vl_sh,
+       decode(nvl(itreg_fat.vl_sd,0),0,'N','S') vl_sd,
+       decode(nvl(itreg_fat.vl_ato,0),0,'N','S') vl_ato,
+      MAX(itreg_fat.dt_lancamento) dt_lancamento
+ From  dbamv.itreg_fat, dbamv.pro_fat
+ Where itreg_fat.cd_sus = pro_fat.cd_sus
+   and itreg_fat.dt_lancamento between :CAMPO_DT_INICIAL and 
+   and itreg_fat.cd_sus is not null
+  Group by  itreg_fat.cd_sus,
+            pro_fat.ds_pro_fat,
+            decode(nvl(itreg_fat.qt_pontos,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_sp,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_sh,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_sd,0),0,'N','S'),
+            decode(nvl(itreg_fat.vl_ato,0),0,'N','S'))
+  group by cd_sus
+  having count(*) > 1 ) b
+where a.cd_sus = b.cd_sus
+Union all
+Select a.cd_sus,
+       a.ds_pro_fat,
+       a.qt_pontos,
+       a.vl_sp,
+       a.vl_sh,
+       a.vl_sd,
+       a.vl_ato,
+       a.dt_lancamento,
+       'A'  TIPO
+From (select val_tab_siasus.cd_ssm cd_sus,
+       tab_siasus.ds_titulo ds_pro_fat,
+       decode(nvl(val_tab_siasus.vl_auxiliar,0),0,'N','S') qt_pontos,
+       decode(nvl(val_tab_siasus.vl_outros,0),0,'N','S') vl_sp,
+       'N' vl_sh,
+       'N' vl_sd,
+       'N' vl_ato,
+      MAX(val_tab_siasus.dt_vigencia) dt_lancamento
+ From  dbamv.val_tab_siasus, dbamv.tab_siasus
+ Where val_tab_siasus.cd_ssm = tab_siasus.cd_ssm
+   and val_tab_siasus.dt_vigencia between :CAMPO_DT_INICIAL Group by  val_tab_siasus.cd_ssm,
+            tab_siasus.ds_titulo,
+            decode(nvl(val_tab_siasus.vl_auxiliar,0),0,'N','S'),
+            decode(nvl(val_tab_siasus.vl_outros,0),0,'N','S'),
+            'N',
+            'N',
+            'N' ) a,
+( select cd_sus,count(*) from
+  (select val_tab_siasus.cd_ssm cd_sus,
+       tab_siasus.ds_titulo ds_pro_fat,
+       decode(nvl(val_tab_siasus.vl_auxiliar,0),0,'N','S') qt_pontos,
+       decode(nvl(val_tab_siasus.vl_outros,0),0,'N','S') vl_sp,
+       'N' vl_sh,
+       'N' vl_sd,
+       'N' vl_ato,
+      MAX(val_tab_siasus.dt_vigencia) dt_lancamento
+ From  dbamv.val_tab_siasus, dbamv.tab_siasus
+ Where val_tab_siasus.cd_ssm = tab_siasus.cd_ssm
+   and val_tab_siasus.dt_vigencia between :CAMPO_DT_INICIAL Group by  val_tab_siasus.cd_ssm,
+            tab_siasus.ds_titulo,
+            decode(nvl(val_tab_siasus.vl_auxiliar,0),0,'N','S'),
+            decode(nvl(val_tab_siasus.vl_outros,0),0,'N','S'),
+            'N',
+            'N',
+            'N' )
+  group by cd_sus
+  having count(*) > 1   ) b
+where a.cd_sus = b.cd_sus  )
+where tipo = decode(:CAMPO_TP_TIPO,'T',tipo,:CAMPO_TP_TIPO)
+Order by tipo, cd_sus, dt_lancamento
+)
+ORDER BY TIPO,
+CD_SUS,DS_PRO_FAT

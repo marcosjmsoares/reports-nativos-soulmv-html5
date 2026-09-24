@@ -1,0 +1,191 @@
+/*----------------------------------------------------------------------------*/
+--R_SUGESTAO_COM
+SELECT   *
+FROM     (
+                  SELECT ITSOL_COM.CD_SOL_COM      CD_SOL_COM,
+                                ITCOL_PRO.VL_UNITARIO VL_UNITARIO,
+                                PRODUTO.CD_PRODUTO CD_PRODUTO,
+                                PRODUTO.DS_PRODUTO || DECODE(PRODUTO.DS_COMPLEMENTO, NULL,NULL,' ') || PRODUTO.DS_COMPLEMENTO || DECODE(PRODUTO.NR_REFERENCIA, NULL,NULL,' ') || PRODUTO.NR_REFERENCIA DS_PRODUTO,
+                                FORNECEDOR.NM_FORNECEDOR NM_FORNECEDOR,
+                                FORNECEDOR.NM_FANTASIA NM_FANTASIA,
+                                FORNECEDOR.TP_CLIENTE_FORN TP_CLIENTE_FORN,
+                                ITCOL_PRO.VL_UNITARIO  VALOR_PROD,
+                                NVL( ITCOL_PRO.VL_REAL, ITCOL_PRO.VL_UNITARIO) VL_REAL,
+                                ITCOL_PRO.VL_TOTAL VL_TOTAL,
+                                ITCOL_PRO.DS_MARCA DS_MARCA,
+                                COLETA.NR_DIAS_ENTREGA   NR_DIAS_ENTREGA,
+                                CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO CD_CONDICAO_PAGAMENTO,
+                                CONDICOES_PAGAMENTO.NR_ORDEM_PREFERENCIA NR_ORDEM_PREFERENCIA,
+                                CONDICOES_PAGAMENTO.DS_CONDICAO_PAGAMENTO   DS_COND_PAGTO,
+                                COLETA.DT_VALIDADE DT_VALIDADE,
+                                COLETA.TP_FRETE TP_FRETE,
+                                COLETA.VL_FRETE VL_FRETE,
+                                COLETA.VL_DESCONTO VL_DESC_COLETA,
+                                COLETA.VL_PERC_DESCONTO PC_DESC_COLETA,
+                                COLETA.VL_TOTAL_COLETA VL_TOTAL_COLETA,
+                                (ITCOL_PRO.VL_TOTAL+ITCOL_PRO.VL_IMPOSTO) VALOR_IPI,
+                                ITCOL_PRO.QT_COTADA QT_COTADA,
+                                UNI_PRO.DS_UNIDADE DS_UNIDADE,
+                                ITCOL_PRO.VL_UNITARIO / UNI_PRO.VL_FATOR VL_UNITARIO_UNID_UNITARIO,
+                                (  ITCOL_PRO.QT_COTADA  * ITCOL_PRO.VL_UNITARIO )  VL_COTA_UNIT,
+                                SETOR.CD_SETOR CD_SETOR,
+                                SETOR.NM_SETOR NM_SETOR,
+                                SOL_COM.DT_MAXIMA DT_MAXIMA,
+                                SOL_COM.DT_SOL_COM DT_SOL_COM,
+                                SOL_COM.NM_SOLICITANTE  SOLICITANTE,
+                                  UNI_PRO.VL_FATOR   FATOR
+                  FROM    DBAMV.PRODUTO,
+                                DBAMV.ITSOL_COM,
+                                DBAMV.COLETA,
+                                DBAMV.FORNECEDOR,
+                                DBAMV.ITCOL_PRO,
+                                DBAMV.CONDICOES_PAGAMENTO,
+                                DBAMV.UNI_PRO,
+                                DBAMV.SOL_COM,
+                                DBAMV.SETOR,
+	                              DBAMV.ESTOQUE
+                  WHERE      PRODUTO.CD_PRODUTO                          = ITSOL_COM.CD_PRODUTO
+                  AND        ITSOL_COM.CD_SOL_COM                        = COLETA.CD_SOL_COM(+)
+                  AND        COLETA.CD_FORNECEDOR                        = FORNECEDOR.CD_FORNECEDOR(+)
+                  AND        COLETA.CD_COLETA                            = ITCOL_PRO.CD_COLETA(+)
+                  AND        ITCOL_PRO.CD_PRODUTO                        = PRODUTO.CD_PRODUTO
+                  AND        COLETA.CD_CONDICAO_PAGAMENTO                = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+                  AND        ITCOL_PRO.CD_UNI_PRO                        = UNI_PRO.CD_UNI_PRO
+                  AND        ITSOL_COM.CD_SOL_COM                        = :CAMPO_CD_SOLIC
+                  AND        SOL_COM.CD_SOL_COM                          = COLETA.CD_SOL_COM
+                  AND        SOL_COM.CD_SETOR                            = SETOR.CD_SETOR
+                  AND        ITSOL_COM.CD_MOT_CANCEL IS NULL
+                  AND        ESTOQUE.CD_ESTOQUE                          = SOL_COM.CD_ESTOQUE
+                  AND        ESTOQUE.CD_MULTI_EMPRESA                    = :CAMPO_CD_MULTI_EMPRESA
+                  AND        'N'                                         = DECODE (:CAMPO_VENCEDOR, 'Sim','S','N')
+                  AND        FORNECEDOR.STATUS_FORNECEDOR = 'A'
+                  AND        FORNECEDOR.CD_FORNECEDOR NOT IN (SELECT CD_FORNECEDOR FROM DBAMV.FORNEC_DOC_COMPRAS WHERE DT_VALIDADE < SYSDATE)
+                  UNION ALL
+                  SELECT DISTINCT ORD_COM.CD_SOL_COM,
+                         ITORD_PRO.VL_UNITARIO,
+                         ITORD_PRO.CD_PRODUTO,
+                         PRODUTO.DS_PRODUTO
+                                    || DECODE(PRODUTO.DS_COMPLEMENTO, NULL,NULL,' ')
+                                    || PRODUTO.DS_COMPLEMENTO
+                                    || DECODE(PRODUTO.NR_REFERENCIA, NULL,NULL,' ')
+                                    || PRODUTO.NR_REFERENCIA               DS_PRODUTO,
+                         FORNECEDOR.NM_FORNECEDOR                        NM_FORNECEDOR,
+                         FORNECEDOR.NM_FANTASIA                          NM_FANTASIA,
+                         FORNECEDOR.TP_CLIENTE_FORN                      TP_CLIENTE_FORN,
+                         ITORD_PRO.VL_UNITARIO                           VALOR_PROD,
+                         NVL( ITORD_PRO.VL_CUSTO_REAL, ITORD_PRO.VL_UNITARIO)  VL_REAL,
+                         ITORD_PRO.VL_TOTAL                              VL_TOTAL,
+                         ITORD_PRO.DS_MARCA                              DS_MARCA,
+                         COLETA.NR_DIAS_ENTREGA                          NR_DIAS_ENTREGA,
+                         CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO       CD_CONDICAO_PAGAMENTO,
+                         CONDICOES_PAGAMENTO.NR_ORDEM_PREFERENCIA        NR_ORDEM_PREFERENCIA,
+                         CONDICOES_PAGAMENTO.DS_CONDICAO_PAGAMENTO       DS_COND_PAGTO,
+                         COLETA.DT_VALIDADE                              DT_VALIDADE,
+                         COLETA.TP_FRETE                                 TP_FRETE,
+                         COLETA.VL_FRETE                                 VL_FRETE,
+                         COLETA.VL_DESCONTO                              VL_DESC_COLETA,
+                         COLETA.VL_PERC_DESCONTO                         PC_DESC_COLETA,
+                         ITORD_PRO.VL_TOTAL                              VL_TOTAL_COLETA,
+                         (ITORD_PRO.VL_TOTAL + ITORD_PRO.VL_IMPOSTO)     VALOR_IPI,
+                         ITORD_PRO.QT_COMPRADA                           QT_COTADA,
+                         UNI_PRO.DS_UNIDADE                              DS_UNIDADE,
+                         ITORD_PRO.VL_UNITARIO / UNI_PRO.VL_FATOR        VL_UNITARIO_UNID_UNITARIO,
+                         NULL    VL_COTA_UNIT,
+                         SETOR.CD_SETOR                                  CD_SETOR,
+                         SETOR.NM_SETOR                                  NM_SETOR,
+                         SOL_COM.DT_MAXIMA                               DT_MAXIMA,
+                         SOL_COM.DT_SOL_COM                              DT_SOL_COM,
+                         SOL_COM.NM_SOLICITANTE                          SOLICITANTE,
+                         UNI_PRO.VL_FATOR                                FATOR
+                  FROM  DBAMV.ORD_COM,
+                        DBAMV.ITORD_PRO,
+                        DBAMV.PRODUTO,
+                        DBAMV.FORNECEDOR,
+                        DBAMV.UNI_PRO,
+                        DBAMV.SETOR,
+                        DBAMV.SOL_COM ,
+                        DBAMV.COLETA,
+                        DBAMV.CONDICOES_PAGAMENTO,
+                        DBAMV.ESTOQUE
+                  WHERE ORD_COM.CD_SOL_COM         =  :CAMPO_CD_SOLIC
+                  AND ORD_COM.CD_ORD_COM           =  ITORD_PRO.CD_ORD_COM
+                  AND ITORD_PRO.CD_PRODUTO         =  PRODUTO.CD_PRODUTO
+                  AND FORNECEDOR.CD_FORNECEDOR     =  ORD_COM.CD_FORNECEDOR
+                  AND ITORD_PRO.CD_UNI_PRO         =  UNI_PRO.CD_UNI_PRO
+                  AND SOL_COM.CD_SETOR             =  SETOR.CD_SETOR
+                  AND ORD_COM.CD_SOL_COM           =  SOL_COM.CD_SOL_COM
+                  AND COLETA.CD_SOL_COM            =  SOL_COM.CD_SOL_COM
+                  AND COLETA.CD_CONDICAO_PAGAMENTO =  CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+                  AND ESTOQUE.CD_ESTOQUE           =  SOL_COM.CD_ESTOQUE
+                  AND ESTOQUE.CD_MULTI_EMPRESA     =  :CAMPO_CD_MULTI_EMPRESA
+                  AND 'S'                          = DECODE (:CAMPO_VENCEDOR, 'Sim','S','N')
+                  AND        FORNECEDOR.STATUS_FORNECEDOR = 'A'
+                  AND        FORNECEDOR.CD_FORNECEDOR NOT IN (SELECT CD_FORNECEDOR FROM DBAMV.FORNEC_DOC_COMPRAS WHERE DT_VALIDADE < SYSDATE)
+)
+ORDER BY DS_UNIDADE,
+         DT_SOL_COM,
+         CD_SOL_COM,
+         DT_MAXIMA,
+         NM_SETOR,
+         CD_SETOR,
+         SOLICITANTE,
+         NM_FANTASIA,
+         NM_FORNECEDOR,
+         TP_CLIENTE_FORN,
+         DS_COND_PAGTO,
+         DT_VALIDADE,
+         VL_DESC_COLETA,
+         PC_DESC_COLETA,
+         VL_FRETE,
+         TP_FRETE,
+         NR_DIAS_ENTREGA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SUGESTAO_COM_R_2_Q_1
+SELECT * FROM (
+Select produto.cd_produto cd_produto1,
+       itsol_com.cd_sol_com cd_sol_com2,
+       Produto.ds_produto || DECODE(Produto.ds_complemento, null,null,' ') || Produto.ds_complemento || DECODE(Produto.nr_referencia, null,null,' ') || Produto.nr_referencia ds_produto1,
+       uni_pro.vl_fator vl_fator,
+       uni_pro.ds_unidade ds_unidade1,
+       itsol_com.qt_solic qt_solic
+from   dbamv.produto,
+       dbamv.itsol_com,
+       dbamv.sol_com,
+       dbamv.uni_pro,
+       dbamv.estoque
+where  produto.cd_produto   = itsol_com.cd_produto
+  and  sol_com.cd_sol_com  = itsol_com.cd_sol_com
+  and  uni_pro.cd_uni_pro     = itsol_com.cd_uni_pro
+  and  sol_com.cd_sol_com  = :CAMPO_CD_SOLIC
+  and  itsol_com.cd_mot_cancel is null
+  and Estoque.Cd_Estoque         =  Sol_Com.Cd_Estoque
+  and Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  produto.cd_produto not in
+(SELECT PRODUTO.CD_PRODUTO
+FROM    DBAMV.PRODUTO,
+              DBAMV.ITSOL_COM,
+              DBAMV.COLETA,
+              DBAMV.FORNECEDOR,
+              DBAMV.ITCOL_PRO,
+              DBAMV.CONDICOES_PAGAMENTO,
+              DBAMV.UNI_PRO,
+              DBAMV.SOL_COM,
+              DBAMV.SETOR,
+	      DBAMV.ESTOQUE
+WHERE  PRODUTO.CD_PRODUTO                       = ITSOL_COM.CD_PRODUTO
+AND        ITSOL_COM.CD_SOL_COM                      = COLETA.CD_SOL_COM(+)
+AND        COLETA.CD_FORNECEDOR                    = FORNECEDOR.CD_FORNECEDOR(+)
+AND        COLETA.CD_COLETA                               = ITCOL_PRO.CD_COLETA(+)
+AND        ITCOL_PRO.CD_PRODUTO                     = PRODUTO.CD_PRODUTO
+AND        COLETA.CD_CONDICAO_PAGAMENTO  = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+AND        ITCOL_PRO.CD_UNI_PRO                        = UNI_PRO.CD_UNI_PRO
+AND        ITSOL_COM.CD_SOL_COM                      = :CAMPO_CD_SOLIC
+AND        SOL_COM.CD_SOL_COM                         = COLETA.CD_SOL_COM
+AND        SOL_COM.CD_SETOR                              = SETOR.CD_SETOR
+AND        ESTOQUE.CD_ESTOQUE                         =  SOL_COM.CD_ESTOQUE
+AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA)
+)
+WHERE CD_SOL_COM2 = :CAMPO_CD_SOL_COM

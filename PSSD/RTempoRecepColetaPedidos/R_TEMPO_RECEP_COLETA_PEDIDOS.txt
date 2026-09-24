@@ -1,0 +1,27 @@
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_RECEP_COLETA_PEDIDOS
+SELECT * FROM (
+SELECT TO_CHAR(ped_lab.dt_envio_coleta,'dd/mm/yyyy') data,
+       TO_CHAR(coleta_material.hr_solicitacao,'HH24') inicio,
+       TO_CHAR(ped_lab.dt_envio_coleta,'HH24') fim,
+       usuarios.nm_usuario Tecnico,
+       recep.nm_usuario Recepcao,
+       paciente.nm_paciente,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+ped_lab.dt_envio_coleta - To_date(To_Char(coleta_material.dt_solicitacao,'dd/mm/yyyy') || ' ' || To_Char(coleta_material.hr_solicitacao,'hh24'),'dd/mm/yyyy hh24') media
+FROM   dbamv.ped_lab,
+       dbamv.coleta_material,
+       dbasgu.usuarios,
+       dbasgu.usuarios recep,
+       dbamv.paciente,
+       dbamv.atendime
+WHERE ped_lab.cd_ped_lab = coleta_material.cd_ped_lab
+AND   ped_lab.dt_envio_coleta IS NOT NULL
+AND   coleta_material.nm_usuario = usuarios.cd_usuario
+AND   recep.cd_usuario = ped_lab.nm_usuario
+and     atendime.cd_atendimento = ped_lab.cd_atendimento
+and     atendime.cd_paciente = paciente.cd_paciente
+AND   TRUNC(COLETA_MATERIAL.DT_SOLICITACAO)  BETWEEN  :CAMPO_DT_INI  AND 
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+)
+ORDER BY DATA

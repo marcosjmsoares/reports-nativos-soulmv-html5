@@ -1,0 +1,113 @@
+/*----------------------------------------------------------------------------*/
+--R_RESUMO_COLETA
+select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RESUMO_COLETA_R_G_CD_PRODUTO1_Q_1
+WITH PROD_ULTIMAS_COMPRAS AS (
+   SELECT PUC.DT_ENTRADA,
+          PUC.CD_PRODUTO,
+         Nvl(PUC.VL_CUSTO_REAL,PUC.VL_UNITARIO) AS VL_UNITARIO 
+   FROM DBAMV.PRODUTO_ULTIMAS_COMPRAS PUC,
+        DBAMV.ITSOL_COM I                            
+   WHERE PUC.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+   AND PUC.CD_PRODUTO = I.CD_PRODUTO
+   AND I.CD_SOL_COM =  :CAMPO_CD_SOLIC
+              AND (trunc(PUC.DT_ENTRADA) + (PUC.HR_ENTRADA - Trunc(PUC.HR_ENTRADA)),PUC.CD_PRODUTO) IN ( SELECT Max(trunc(PUC.DT_ENTRADA) + (PUC.HR_ENTRADA - Trunc(PUC.HR_ENTRADA))),
+                                                                PUC.CD_PRODUTO
+                                                        FROM DBAMV.PRODUTO_ULTIMAS_COMPRAS PUC,
+                                                             DBAMV.ITSOL_COM I                            
+                                                        WHERE PUC.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+                                                         AND PUC.CD_PRODUTO = I.CD_PRODUTO
+                                                         AND I.CD_SOL_COM = :CAMPO_CD_SOLIC 
+                                                        GROUP BY PUC.CD_PRODUTO
+                                                        ))
+SELECT * FROM (
+			SELECT   PRODUTO.CD_PRODUTO,
+			         Produto.ds_produto || DECODE(Produto.ds_complemento, null,null,' ') || Produto.ds_complemento || DECODE(Produto.nr_referencia, null,null,' ') || Produto.nr_referencia DS_PRODUTO,
+			         PUC.DT_ENTRADA DT_ULTIMA_ENTRADA,
+			         UNI_PRO.DS_UNIDADE UNI_SOL,
+			         UNI_PRO.VL_FATOR,
+			         ITSOL_COM.QT_SOLIC,
+			         FORNECEDOR.NM_FANTASIA,
+			         FORNECEDOR.CD_FORNECEDOR,
+			         ITCOL_PRO.DS_MARCA,
+			         ITCOL_PRO.QT_COTADA,
+			         dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),Itcol_pro.vl_unitario,Itcol_pro.vl_unitario_moeda,:CAMPO_CD_MOEDA,coleta_moeda.cd_moeda_indice,coleta_moeda.SN_CAMBIO_SUGERIDO,Nvl(coleta_moeda.dt_indice_moeda,coleta.dt_coleta) ,coleta_moeda.VL_INDICE_COLETA)	VL_UNITARIO,
+			         Itcol_pro.vl_real	VL_REAL,
+			         UNI_PRO_COL.DS_UNIDADE  UNI_COL,
+			         nvl((dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),PUC.VL_UNITARIO,PUC.VL_UNITARIO,:CAMPO_CD_MOEDA,coleta_moeda.cd_moeda_indice,coleta_moeda.SN_CAMBIO_SUGERIDO,Nvl(coleta_moeda.dt_indice_moeda,coleta.dt_coleta) ,coleta_moeda.VL_INDICE_COLETA) * UNI_PRO_COL.VL_FATOR),0)  VL_ULTIMA_ENTRADA,
+			         PRODUTO.CD_PRO_FAT,
+			         PRODUTO.VL_FATOR_PRO_FAT,
+			     '' DS_SER_SOL,
+			     '' DS_SERVICO
+			        ,COLETA.DT_COLETA DT_LANCAMENTO
+                    ,nvl(coleta_moeda.dt_indice_moeda,coleta.dt_coleta) dt_coleta
+			FROM     DBAMV.PRODUTO,
+			         DBAMV.ITSOL_COM,
+			         DBAMV.COLETA,
+			         DBAMV.COLETA_MOEDA,
+			         DBAMV.FORNECEDOR,
+			         DBAMV.ITCOL_PRO,
+			         DBAMV.UNI_PRO,
+			         DBAMV.UNI_PRO  UNI_PRO_COL,
+			         PROD_ULTIMAS_COMPRAS PUC
+			WHERE    PRODUTO.CD_PRODUTO   = ITSOL_COM.CD_PRODUTO
+			  AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+			  AND    ITSOL_COM.CD_SOL_COM = :CAMPO_CD_SOLIC
+			  AND    ITSOL_COM.CD_PRODUTO = PUC.CD_PRODUTO(+)
+			  AND    ITSOL_COM.CD_SOL_COM = COLETA.CD_SOL_COM(+)
+			  AND    COLETA.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR(+)
+			  AND    COLETA.CD_COLETA     = ITCOL_PRO.CD_COLETA(+)
+			  AND    COLETA.CD_COLETA     = COLETA_MOEDA.CD_COLETA(+)
+			  AND    ITCOL_PRO.CD_PRODUTO = ITSOL_COM.CD_PRODUTO
+			  AND    UNI_PRO.CD_UNI_PRO   = ITSOL_COM.CD_UNI_PRO
+			  AND    UNI_PRO_COL.CD_UNI_PRO = ITCOL_PRO.CD_UNI_PRO
+			    AND (    (:CAMPO_SN_COTADO = 'T')
+			          OR (:CAMPO_SN_COTADO = 'C' AND COLETA.VL_TOTAL_COLETA > 0)
+			          OR (:CAMPO_SN_COTADO = 'N' AND COLETA.VL_TOTAL_COLETA < 0)
+			         )
+			UNION
+			SELECT   manu_serv.cd_servico CD_PRODUTO,
+			         manu_serv.nm_servico DS_PRODUTO,
+			         sysdate DT_ULTIMA_ENTRADA,
+			         '' UNI_SOL,
+			         0 VL_FATOR,
+			         1 QT_SOLIC,
+			         FORNECEDOR.NM_FANTASIA,
+			         FORNECEDOR.CD_FORNECEDOR,
+			         '' DS_MARCA,
+			         1 QT_COTADA,
+			         dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITCOL_SER.VL_TOTAL,ITCOL_SER.VL_TOTAL_moeda,:CAMPO_CD_MOEDA,coleta_moeda.cd_moeda_indice,coleta_moeda.SN_CAMBIO_SUGERIDO,Nvl(coleta_moeda.dt_indice_moeda,coleta.dt_coleta) ,coleta_moeda.VL_INDICE_COLETA) 	VL_UNITARIO,
+			         ITCOL_SER.VL_TOTAL	VL_REAL,
+			         '' UNI_COL,
+			         0  VL_ULTIMA_ENTRADA,
+			         '' CD_PRO_FAT,
+			         0 VL_FATOR_PRO_FAT,
+			          '' DS_SER_SOL,
+			          ITCOL_SER.DS_SERVICO
+			        ,COLETA.DT_COLETA DT_LANCAMENTO
+                   ,nvl(coleta_moeda.dt_indice_moeda,coleta.dt_coleta) dt_coleta
+			FROM     DBAMV.manu_serv,
+			         DBAMV.ITORD_SER,
+			         DBAMV.COLETA,
+			         DBAMV.COLETA_MOEDA,
+			         DBAMV.FORNECEDOR,
+			         DBAMV.ITCOL_SER,
+			         DBAMV.ITSOL_SER
+			WHERE    manu_serv.cd_servico = ITSOL_SER.CD_SER_SOL
+			  AND    ITSOL_SER.CD_SOL_COM = :CAMPO_CD_SOLIC
+			  AND    ITSOL_SER.CD_SOL_COM = COLETA.CD_SOL_COM(+)
+			  AND    COLETA.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR(+)
+			  AND    COLETA.CD_COLETA     = ITCOL_SER.CD_COLETA(+)
+					  AND    COLETA.CD_COLETA     = COLETA_MOEDA.CD_COLETA(+)
+			  AND    ITCOL_SER.CD_SER_SOL = ITSOL_SER.CD_SER_SOL
+			    AND (    (:CAMPO_SN_COTADO = 'T')
+			          OR (:CAMPO_SN_COTADO = 'C' AND COLETA.VL_TOTAL_COLETA > 0)
+			          OR (:CAMPO_SN_COTADO = 'N' AND COLETA.VL_TOTAL_COLETA < 0)
+			         )
+			:CAMPO_CF_INFOR
+			)
+			:CAMPO_CF_ORDEM2, NM_FANTASIA,QT_SOLIC,UNI_SOL,VL_ULTIMA_ENTRADA,CD_PRO_FAT,VL_FATOR_PRO_FAT,VL_FATOR,DS_SER_SOL,DS_SERVICO,DT_ULTIMA_ENTRADA

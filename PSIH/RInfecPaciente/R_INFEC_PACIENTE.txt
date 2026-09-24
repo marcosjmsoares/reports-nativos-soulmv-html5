@@ -1,0 +1,164 @@
+/*----------------------------------------------------------------------------*/
+--R_INFEC_PACIENTE
+select
+       cd_servico
+      ,tp_infec
+      ,cd_especialid
+      ,cd_prestador
+      ,tp_sit
+       ,cd_unid_int
+      ,ds_unid_int
+      ,CD_REG_INF
+      ,cd_paciente
+      ,cd_atendimento
+      ,nm_paciente
+      ,nm_social_paciente
+      ,dt_atendimento
+      ,dt_alta
+      ,dt_reg_inf
+      ,sn_colonizacao
+      ,cd_topografia
+      ,ds_topografia
+      ,cd_setor
+      ,ds_leito
+      ,cd_leito
+      ,ds_germe
+      ,fnc_retorna_matricula_same(cd_atendimento, cd_ori_ate, cd_paciente) NR_CAD_SAME
+      ,cd_ori_ate
+from (
+select distinct
+       atendime.cd_servico
+      ,reg_inf.tp_infec
+      ,atendime.cd_especialid cd_especialid
+      ,atendime.cd_prestador cd_prestador
+      ,reg_inf.tp_sit tp_sit
+       ,DECODE( reg_inf.tp_localizacao , 'C' , '**'               , 'U' , REG_INF.CD_UNID_INT )                       cd_unid_int
+      ,DECODE( reg_inf.tp_localizacao , 'C' , CEN_CIR.DS_CEN_CIR , 'U' , UNID_INT.DS_UNID_INT ) ds_unid_int
+      ,REG_INF.CD_REG_INF cd_reg_inf
+      ,paciente.cd_paciente cd_paciente
+      ,atendime.cd_atendimento cd_atendimento
+      ,paciente.nm_paciente nm_paciente
+      ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND P.CD_PACIENTE = paciente.cd_paciente) nm_social_paciente
+      ,atendime.dt_atendimento dt_atendimento
+      ,atendime.dt_alta dt_alta
+      ,reg_inf.dt_reg_inf dt_reg_inf
+      ,reg_inf.sn_colonizacao
+      ,topografia.cd_topografia cd_topografia
+      ,topografia.ds_topografia ds_topografia
+      ,reg_inf.cd_setor cd_setor
+      ,Decode ( reg_inf.tp_localizacao, 'U' , leito.ds_leito ,
+                (select leito.ds_leito
+                from dbamv.unid_int
+                      ,dbamv.mov_int
+                      ,dbamv.leito
+              where unid_int.cd_unid_int = leito.cd_unid_int
+                 and leito.cd_leito              = mov_int.cd_leito
+                 and mov_int.cd_mov_int  =  (
+                                            select Max (mov_int.cd_mov_int )
+                                              from dbamv.mov_int
+                                                    ,dbamv.unid_int
+                                                    ,dbamv.leito
+          where mov_int.cd_atendimento = atendime.cd_atendimento
+                                                                          and leito.cd_leito                  = mov_int.cd_leito
+                                                                          and unid_int.cd_unid_int      = leito.cd_unid_int
+                                                                          and reg_inf.dt_reg_inf between mov_int.dt_mov_int and nvl( mov_int.dt_lib_mov, sysdate )
+                                                                                          )
+                         )
+                   ) ds_leito
+      , leito.cd_leito cd_leito
+      , upper(germes.ds_germe) ds_germe
+      , atendime.cd_ori_ate cd_ori_ate
+ from dbamv.reg_inf
+     ,dbamv.atendime
+     ,dbamv.paciente
+     ,dbamv.leito
+     ,dbamv.unid_int
+     ,dbamv.topografia
+     ,dbamv.aviso_cirurgia
+     ,dbamv.cen_cir
+	 ,(select germes.ds_germe, germes_reg_inf.cd_reg_inf
+                  from dbamv.germes
+                  join dbamv.germes_reg_inf
+                    on germes.cd_germes = germes_reg_inf.cd_germes_reg_inf) germes
+where reg_inf.cd_atendimento       = atendime.cd_atendimento
+  and atendime.cd_paciente         = paciente.cd_paciente
+  and reg_inf.cd_leito             = leito.cd_leito(+)
+  and leito.cd_unid_int            = unid_int.cd_unid_int(+)
+  and reg_inf.cd_aviso_cirurgia    = aviso_cirurgia.cd_aviso_cirurgia(+)
+  AND aviso_cirurgia.cd_cen_cir    = cen_cir.cd_cen_cir(+)
+  and reg_inf.cd_topografia        = topografia.cd_topografia(+) 
+  and reg_inf.cd_reg_inf 		   = germes.cd_reg_inf(+)
+  AND ATENDIME.CD_MULTI_EMPRESA    = :CAMPO_CD_MULTI_EMPRESA
+  and not exists (select 'x'
+                    from dbamv.v_psih_cultura_germe v
+                   where atendime.cd_atendimento = v.CD_ATENDIMENTO
+                     and v.cd_reg_inf = reg_inf.cd_reg_inf
+                     and v.tp_resultado = 'P') 
+union
+select distinct
+       atendime.cd_servico
+       ,reg_inf.tp_infec
+      ,atendime.cd_especialid cd_especialid
+      ,atendime.cd_prestador cd_prestador
+      ,reg_inf.tp_sit tp_sit
+       ,DECODE( reg_inf.tp_localizacao , 'C' , '**'               , 'U' , REG_INF.CD_UNID_INT )                       cd_unid_int
+      ,DECODE( reg_inf.tp_localizacao , 'C' , CEN_CIR.DS_CEN_CIR , 'U' , UNID_INT.DS_UNID_INT ) ds_unid_int
+      ,REG_INF.CD_REG_INF cd_reg_inf
+      ,paciente.cd_paciente cd_paciente
+      ,atendime.cd_atendimento cd_atendimento
+      ,paciente.nm_paciente nm_paciente
+      ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND P.CD_PACIENTE = paciente.cd_paciente) nm_social_paciente
+      ,atendime.dt_atendimento dt_atendimento
+      ,atendime.dt_alta dt_alta
+      ,reg_inf.dt_reg_inf dt_reg_inf
+      ,reg_inf.sn_colonizacao
+      ,topografia.cd_topografia cd_topografia
+      ,topografia.ds_topografia ds_topografia
+      ,reg_inf.cd_setor cd_setor
+      ,Decode ( reg_inf.tp_localizacao, 'U' , leito.ds_leito ,
+                (select leito.ds_leito
+                from dbamv.unid_int
+                      ,dbamv.mov_int
+                      ,dbamv.leito
+              where unid_int.cd_unid_int = leito.cd_unid_int
+                 and leito.cd_leito              = mov_int.cd_leito
+                 and mov_int.cd_mov_int  =  (
+                                            select Max ( mov_int.cd_mov_int )
+                                              from dbamv.mov_int
+                                                    ,dbamv.unid_int
+                                                    ,dbamv.leito
+          where mov_int.cd_atendimento = atendime.cd_atendimento
+                                                                          and leito.cd_leito                  = mov_int.cd_leito
+                                                                          and unid_int.cd_unid_int      = leito.cd_unid_int
+                                                                          and reg_inf.dt_reg_inf between mov_int.dt_mov_int and nvl( mov_int.dt_lib_mov, sysdate )
+                                                                                          )
+                         )
+                   ) ds_leito
+      , leito.cd_leito cd_leito
+      , upper(nvl(v.ds_germe, germes.ds_germe)) ds_germe
+      , atendime.cd_ori_ate cd_ori_ate
+ from dbamv.reg_inf
+     ,dbamv.atendime
+     ,dbamv.paciente
+     ,dbamv.leito
+     ,dbamv.unid_int
+     ,dbamv.topografia
+     ,dbamv.aviso_cirurgia
+     ,dbamv.cen_cir
+     ,dbamv.v_psih_cultura_germe v
+     ,(select germes.ds_germe, germes_reg_inf.cd_reg_inf
+                  from dbamv.germes
+                  join dbamv.germes_reg_inf
+                    on germes.cd_germes = germes_reg_inf.cd_germes_reg_inf) germes
+where reg_inf.cd_atendimento       = atendime.cd_atendimento
+  and atendime.cd_paciente         = paciente.cd_paciente
+  and reg_inf.cd_leito             = leito.cd_leito(+)
+  and leito.cd_unid_int            = unid_int.cd_unid_int(+)
+  and reg_inf.cd_aviso_cirurgia    = aviso_cirurgia.cd_aviso_cirurgia(+)
+  AND aviso_cirurgia.cd_cen_cir    = cen_cir.cd_cen_cir(+)
+  and reg_inf.cd_topografia        = topografia.cd_topografia(+) 
+  and reg_inf.cd_reg_inf 		   = germes.cd_reg_inf(+)
+  AND ATENDIME.CD_MULTI_EMPRESA    = :CAMPO_CD_MULTI_EMPRESA
+  and reg_inf.cd_reg_inf = v.cd_reg_inf(+))  query
+where cd_reg_inf is not null
+order by ds_unid_int, dt_atendimento, ds_topografia

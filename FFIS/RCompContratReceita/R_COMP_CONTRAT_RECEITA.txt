@@ -1,0 +1,235 @@
+/*----------------------------------------------------------------------------*/
+--R_COMP_CONTRAT_RECEITA
+select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COMP_CONTRAT_RECEITA_R_GRPAMB_GRUPO_Q_GRPAMB
+SELECT ICS.CD_GRUPO_CONTRATO_SUS,        GCS.DS_GRUPO_CONTRATO_SUS
+     , ICS.QT_AMBULATORIAL_CONTRATO           QT_GRPAMB_CONTRATO,             ICS.VL_AMBULATORIAL_CONTRATO              VL_GRPAMB_CONTRATO
+     , ICS.QT_AMBULATORIAL_META_HOSPITAL  QT_GRPAMB_META_HOSPITAL,   ICS.VL_AMBULATORIAL_META_HOSPITAL     VL_GRPAMB_META_HOSPITAL
+     , TAB_RECEITA_FFAS.qtd                                  QT_GRPAMB_RECEITA,                 TAB_RECEITA_FFAS.tot_vl                                 VL_GRPAMB_RECEITA
+  FROM DBAMV.ITEM_CONTRATO_SUS  ics
+     , DBAMV.GRUPO_CONTRATO_SUS gcs
+       ,(
+         SELECT igcs.cd_grupo_contrato_sus
+                     , Sum(vffg.qt_lancada) QTD
+                     , Sum(vffg.vl_total_ambulatorial) TOT_VL
+           FROM dbamv.V_FFAS_FAT_GLOBAL_P321  vffg
+              , dbamv.ITEM_GRUPO_CONTRATO_SUS igcs
+              , dbamv.ITEM_CONTRATO_SUS       ics2
+          WHERE vffg.cd_procedimento       = igcs.cd_procedimento
+            AND igcs.cd_grupo_contrato_sus = ics2.cd_grupo_contrato_sus
+            AND ics2.cd_contrato_sus = :CAMPO_CD_CONTRATO
+            AND ((vffg.tipo_fatura = 'APAC' AND vffg.cd_remessa IN
+                             (SELECT apac.cd_remessa
+                                 FROM dbamv.remessa_apac apac
+                                          , dbamv.fat_sia      fts
+                             WHERE apac.cd_fat_sia = fts.cd_fat_sia
+                                   AND To_Char(apac.dt_competencia_apresentacao, 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+                                   AND fts.cd_multi_empresa  = Dbamv.Pkg_Mv2000.Le_Empresa
+                             )
+                       )
+                OR
+                       (vffg.tipo_fatura = 'BPA' AND vffg.cd_remessa_bpa IN
+                             (SELECT bpa.cd_remessa
+                                  FROM dbamv.remessa_bpa bpa
+                                           , dbamv.fat_sia     fts
+                               WHERE bpa.cd_fat_sia = fts.cd_fat_sia
+                                     AND To_Char(bpa.dt_competencia_apresentacao, 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+                                     AND fts.cd_multi_empresa  = Dbamv.Pkg_Mv2000.Le_Empresa
+                             )
+                       )
+                OR (vffg.tipo_fatura IN ('SISM', 'SISC') AND vffg.cd_fat_sia IN
+                             (SELECT fts.cd_fat_sia
+                                 FROM dbamv.fat_sia     fts
+                                          , dbamv.config_ffas cfg
+                             WHERE cfg.cd_multi_empresa = fts.cd_multi_empresa
+                                   AND fts.cd_multi_empresa = Dbamv.Pkg_Mv2000.Le_Empresa
+                                   AND fts.tipo_fatura      = vffg.tipo_fatura
+                                   AND To_Char(Decode(cfg.tp_entrega_comp, 'I', fts.dt_periodo_inicial, fts.dt_periodo_final), 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+                             )
+                       ))
+         GROUP BY igcs.cd_grupo_contrato_sus
+        ) TAB_RECEITA_FFAS
+WHERE ICS.CD_GRUPO_CONTRATO_SUS     = GCS.CD_GRUPO_CONTRATO_SUS
+      AND ICS.CD_GRUPO_CONTRATO_SUS = TAB_RECEITA_FFAS.CD_GRUPO_CONTRATO_SUS(+)
+      AND ICS.CD_CONTRATO_SUS       = :CAMPO_CD_CONTRATO
+      AND ICS.CD_GRUPO_CONTRATO_SUS IS NOT NULL
+      AND (   ICS.QT_AMBULATORIAL_CONTRATO      IS NOT NULL  OR ICS.VL_AMBULATORIAL_CONTRATO      IS NOT NULL
+           OR ICS.QT_AMBULATORIAL_META_HOSPITAL IS NOT NULL  OR ICS.VL_AMBULATORIAL_META_HOSPITAL IS NOT NULL
+          )
+ORDER BY ICS.CD_GRUPO_CONTRATO_SUS
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COMP_CONTRAT_RECEITA_R_GRPINT_GRUPO_Q_GRPINT
+SELECT ICS.CD_GRUPO_CONTRATO_SUS,        GCS.DS_GRUPO_CONTRATO_SUS
+             , ICS.QT_INTERNACAO_CONTRATO QT_GRPINT_CONTRATO,              ICS.VL_INTERNACAO_CONTRATO VL_GRPINT_CONTRATO
+             , ICS.QT_INTERNACAO_META_HOSPITAL QT_GRPINT_META_HOSPITAL,     ICS.VL_INTERNACAO_META_HOSPITAL VL_GRPINT_META_HOSPITAL
+             , TAB_RECEITA_FFIS.qtd QT_GRPINT_RECEITA,   TAB_RECEITA_FFIS.tot_vl VL_GRPINT_RECEITA
+   FROM DBAMV.ITEM_CONTRATO_SUS ics
+            , DBAMV.GRUPO_CONTRATO_SUS gcs
+      , (
+    SELECT igcs.cd_grupo_contrato_sus
+                , Sum(Nvl(itm.qt_lancamento, 0)) QTD
+                , Sum(Nvl(itm.qt_lancamento, 0) * (Nvl(psv.vl_servico_hospitalar, 0) + Nvl(psv.vl_servico_profissional, 0))) TOT_VL
+       FROM DBAMV.FATURA         fat
+         , DBAMV.REMESSA_FATURA rms
+         , DBAMV.REG_FAT        rft
+         , DBAMV.ITREG_FAT      itm
+         , DBAMV.PROCEDIMENTO_SUS_VALOR psv
+         , DBAMV.SETOR          setor
+         , dbamv.ITEM_GRUPO_CONTRATO_SUS igcs
+         , dbamv.ITEM_CONTRATO_SUS       ics2
+     WHERE fat.cd_fatura          = rms.cd_fatura
+       AND rms.cd_remessa         = rft.cd_remessa
+       AND rft.cd_convenio        = fat.cd_convenio
+       AND rft.cd_reg_fat         = itm.cd_reg_fat
+       AND itm.cd_procedimento    = psv.cd_procedimento
+       AND itm.cd_procedimento    = igcs.cd_procedimento
+       AND igcs.cd_grupo_contrato_sus = ics2.cd_grupo_contrato_sus
+       AND ics2.cd_contrato_sus = :CAMPO_CD_CONTRATO
+       AND psv.dt_vigencia  = (
+                           SELECT Max(psv2.dt_vigencia)
+                             FROM DBAMV.PROCEDIMENTO_SUS_VALOR psv2
+                            WHERE psv2.cd_procedimento  = itm.cd_procedimento
+                              AND TRUNC(psv2.dt_vigencia, 'MM') <= fat.dt_competencia
+                              )
+       AND rft.cd_multi_empresa   = Dbamv.Pkg_Mv2000.Le_Empresa
+       AND rft.cd_convenio        = Dbamv.Pkt_CONFIG_FFIS.Retorna_Campo('CD_CONVENIO')
+       AND itm.sn_pertence_pacote = 'N'
+       AND TO_CHAR(fat.dt_competencia, 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+       AND itm.cd_setor_produziu = setor.cd_setor(+)
+     GROUP BY igcs.cd_grupo_contrato_sus
+       ) TAB_RECEITA_FFIS
+WHERE ICS.CD_GRUPO_CONTRATO_SUS     = GCS.CD_GRUPO_CONTRATO_SUS
+      AND ICS.CD_GRUPO_CONTRATO_SUS = TAB_RECEITA_FFIS.cd_grupo_contrato_sus(+)
+      AND ICS.CD_CONTRATO_SUS = :CAMPO_CD_CONTRATO
+      AND ICS.CD_GRUPO_CONTRATO_SUS IS NOT NULL
+ORDER BY ICS.CD_GRUPO_CONTRATO_SUS
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COMP_CONTRAT_RECEITA_R_PROAMB_GRP_Q_PROAMB
+SELECT * FROM (
+SELECT PRS.CD_GRUPO_PROCEDIMENTO, PRS.CD_SUB_GRUPO_PROCEDIMENTO, PRS.DS_PROCEDIMENTO
+     , ICS.CD_PROCEDIMENTO
+     , ICS.QT_AMBULATORIAL_CONTRATO,        ICS.VL_AMBULATORIAL_CONTRATO
+     , ICS.QT_AMBULATORIAL_META_HOSPITAL,   ICS.VL_AMBULATORIAL_META_HOSPITAL
+     , TAB_RECEITA_FFAS.qtd QT_AMB_RECEITA, TAB_RECEITA_FFAS.tot_vl VL_AMB_RECEITA
+   FROM DBAMV.ITEM_CONTRATO_SUS ics
+            , DBAMV.PROCEDIMENTO_SUS  prs
+       ,(
+         SELECT vffg.cd_procedimento
+                     , Sum(vffg.qt_lancada) QTD
+                     , Sum(vffg.vl_total_ambulatorial) TOT_VL
+           FROM dbamv.V_FFAS_FAT_GLOBAL_P321 vffg
+        WHERE ((vffg.tipo_fatura = 'APAC' AND vffg.cd_remessa IN
+                             (SELECT apac.cd_remessa
+                                 FROM dbamv.remessa_apac apac
+                                          , dbamv.fat_sia      fts
+                             WHERE apac.cd_fat_sia = fts.cd_fat_sia
+                                   AND To_Char(apac.dt_competencia_apresentacao, 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+                                   AND fts.cd_multi_empresa  = Dbamv.Pkg_Mv2000.Le_Empresa
+                             )
+                       )
+                OR
+                       (vffg.tipo_fatura = 'BPA' AND vffg.cd_remessa_bpa IN
+                             (SELECT bpa.cd_remessa
+                                  FROM dbamv.remessa_bpa bpa
+                                           , dbamv.fat_sia     fts
+                               WHERE bpa.cd_fat_sia = fts.cd_fat_sia
+                                     AND To_Char(bpa.dt_competencia_apresentacao, 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+                                     AND fts.cd_multi_empresa  = Dbamv.Pkg_Mv2000.Le_Empresa
+                             )
+                       )
+                 OR (vffg.tipo_fatura IN ('SISM', 'SISC') AND vffg.cd_fat_sia IN
+                             (SELECT fts.cd_fat_sia
+                                 FROM dbamv.fat_sia     fts
+                                          , dbamv.config_ffas cfg
+                             WHERE cfg.cd_multi_empresa = fts.cd_multi_empresa
+                                   AND fts.cd_multi_empresa = Dbamv.Pkg_Mv2000.Le_Empresa
+                                   AND fts.tipo_fatura      = vffg.tipo_fatura
+                                   AND To_Char(Decode(cfg.tp_entrega_comp, 'I', fts.dt_periodo_inicial, fts.dt_periodo_final), 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+                             )
+                       ))
+                 AND vffg.cd_procedimento IN (SELECT ics2.cd_procedimento
+                                                                      FROM dbamv.item_contrato_sus ics2
+                                                                   WHERE ics2.cd_contrato_sus = :CAMPO_CD_CONTRATO
+                                                                         AND ics2.cd_procedimento IS NOT NULL
+                                                                         AND (       ics2.qt_ambulatorial_contrato         IS NOT NULL  OR ics2.vl_ambulatorial_contrato          IS NOT NULL
+                                                                                   OR ics2.qt_ambulatorial_meta_hospital IS NOT NULL  OR ics2.vl_ambulatorial_meta_hospital IS NOT NULL
+                                                                                  ))
+         GROUP BY vffg.cd_procedimento
+        ) TAB_RECEITA_FFAS
+WHERE ICS.CD_PROCEDIMENTO = PRS.CD_PROCEDIMENTO
+      AND ICS.CD_PROCEDIMENTO = TAB_RECEITA_FFAS.CD_PROCEDIMENTO(+)
+      AND ICS.CD_CONTRATO_SUS = :CAMPO_CD_CONTRATO
+      AND ICS.CD_PROCEDIMENTO IS NOT NULL
+      AND (   ICS.QT_AMBULATORIAL_CONTRATO      IS NOT NULL  OR ICS.VL_AMBULATORIAL_CONTRATO      IS NOT NULL
+            OR ICS.QT_AMBULATORIAL_META_HOSPITAL IS NOT NULL  OR ICS.VL_AMBULATORIAL_META_HOSPITAL IS NOT NULL
+          )
+ORDER BY PRS.CD_GRUPO_PROCEDIMENTO
+    , PRS.CD_SUB_GRUPO_PROCEDIMENTO
+    , ICS.CD_PROCEDIMENTO
+)
+ORDER BY CD_GRUPO_PROCEDIMENTO,
+CD_SUB_GRUPO_PROCEDIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COMP_CONTRAT_RECEITA_R_PROINT_GRP_Q_PROINT
+SELECT * FROM (
+SELECT PRS.CD_GRUPO_PROCEDIMENTO, PRS.CD_SUB_GRUPO_PROCEDIMENTO, PRS.DS_PROCEDIMENTO
+             , ICS.CD_PROCEDIMENTO
+             , ICS.QT_INTERNACAO_CONTRATO,              ICS.VL_INTERNACAO_CONTRATO
+             , ICS.QT_INTERNACAO_META_HOSPITAL,     ICS.VL_INTERNACAO_META_HOSPITAL
+             , TAB_RECEITA_FFIS.qtd QT_INT_RECEITA,   TAB_RECEITA_FFIS.tot_vl VL_INT_RECEITA
+   FROM DBAMV.ITEM_CONTRATO_SUS ics
+            , DBAMV.PROCEDIMENTO_SUS  prs
+      , (
+    SELECT itm.cd_procedimento
+                , Sum(Nvl(itm.qt_lancamento, 0)) QTD
+                , Sum(Nvl(itm.qt_lancamento, 0) * (Nvl(psv.vl_servico_hospitalar, 0) + Nvl(psv.vl_servico_profissional, 0))) TOT_VL
+       FROM DBAMV.FATURA         fat
+         , DBAMV.REMESSA_FATURA rms
+         , DBAMV.REG_FAT        rft
+         , DBAMV.ITREG_FAT      itm
+         , DBAMV.PROCEDIMENTO_SUS_VALOR psv
+         , DBAMV.SETOR          setor
+     WHERE fat.cd_fatura          = rms.cd_fatura
+       AND rms.cd_remessa         = rft.cd_remessa
+       AND rft.cd_convenio        = fat.cd_convenio
+       AND rft.cd_reg_fat         = itm.cd_reg_fat
+       AND itm.cd_procedimento    = psv.cd_procedimento
+       AND psv.dt_vigencia  = (
+                           SELECT Max(psv2.dt_vigencia)
+                             FROM DBAMV.PROCEDIMENTO_SUS_VALOR psv2
+                            WHERE psv2.cd_procedimento  = itm.cd_procedimento
+                              AND TRUNC(psv2.dt_vigencia, 'MM') <= fat.dt_competencia
+                              )
+       AND rft.cd_multi_empresa   = Dbamv.Pkg_Mv2000.Le_Empresa
+       AND rft.cd_convenio        = Dbamv.Pkt_CONFIG_FFIS.Retorna_Campo('CD_CONVENIO')
+       AND itm.sn_pertence_pacote = 'N'
+       AND TO_CHAR(fat.dt_competencia, 'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+       AND itm.cd_setor_produziu = setor.cd_setor(+)
+     GROUP BY itm.cd_procedimento
+       ) TAB_RECEITA_FFIS
+WHERE ICS.CD_PROCEDIMENTO = PRS.CD_PROCEDIMENTO
+      AND ICS.CD_PROCEDIMENTO = TAB_RECEITA_FFIS.CD_PROCEDIMENTO(+)
+      AND ICS.CD_CONTRATO_SUS = :CAMPO_CD_CONTRATO
+      AND ICS.CD_PROCEDIMENTO IS NOT NULL
+      AND (      ICS.QT_INTERNACAO_CONTRATO           IS NOT NULL  OR ICS.VL_INTERNACAO_CONTRATO            IS NOT NULL
+               OR ICS.QT_INTERNACAO_META_HOSPITAL  IS NOT NULL  OR ICS.VL_INTERNACAO_META_HOSPITAL  IS NOT NULL
+          )
+ORDER BY PRS.CD_GRUPO_PROCEDIMENTO
+                 , PRS.CD_SUB_GRUPO_PROCEDIMENTO
+                 , ICS.CD_PROCEDIMENTO
+)
+ORDER BY CD_GRUPO_PROCEDIMENTO,
+CD_SUB_GRUPO_PROCEDIMENTO

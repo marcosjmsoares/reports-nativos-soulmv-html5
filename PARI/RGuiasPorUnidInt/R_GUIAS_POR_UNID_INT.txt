@@ -1,0 +1,73 @@
+/*----------------------------------------------------------------------------*/
+--R_GUIAS_POR_UNID_INT
+SELECT * FROM
+  (SELECT unid_int.cd_unid_int ,
+          unid_int.ds_unid_int ,
+          unid_int.cd_setor ,
+          guia.cd_atendimento ,
+          paciente.cd_paciente ,
+          Substr(paciente.nm_paciente, 1, 30) nm_paciente ,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          to_char(atendime.dt_atendimento, 'dd/mm/yyyy ') dt_atendimento ,
+          leito.cd_leito ,
+          leito.ds_leito ,
+          to_char(atendime.dt_alta, 'dd/mm/yyyy ') || to_char(atendime.hr_alta, 'hh24') dt_alta ,
+          guia.cd_convenio ,
+          Substr(convenio.nm_convenio, 1, 60) || ' / ' ||Substr(con_pla.ds_con_pla, 1, 60) nm_conv_pla ,
+          count(guia.cd_guia) qtd_guia ,
+          Sum(Nvl(guia2.qt_n_autoriz, 0)) qt_n_autoriz ,
+          Sum(Nvl(guia3.qt_autoriz, 0)) qt_autoriz ,
+          nvl(Trunc(atendime.dt_alta), Trunc(sysdate)) - Nvl(Trunc(atendime.dt_atendimento), Trunc(sysdate)) nr_permanencia ,
+          Sum(Nvl(guia.nr_dias_autorizados, 0)) nr_dias_autorizados
+   FROM dbamv.guia ,
+        dbamv.convenio ,
+        dbamv.atendime ,
+        dbamv.paciente ,
+        dbamv.leito ,
+        dbamv.unid_int ,
+        dbamv.con_pla ,
+     (SELECT guia2.cd_guia ,
+             count(guia2.cd_guia) qt_n_autoriz
+      FROM dbamv.guia guia2
+      WHERE guia2.dt_autorizacao IS NULL
+      GROUP BY guia2.cd_guia) guia2 ,
+     (SELECT guia3.cd_guia ,
+             count(guia3.cd_guia) qt_autoriz
+      FROM dbamv.guia guia3
+      WHERE guia3.dt_autorizacao IS NOT NULL
+      GROUP BY guia3.cd_guia) guia3,
+        Dbamv.Empresa_Con_Pla
+   WHERE Empresa_Con_Pla.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+     AND Empresa_Con_Pla.Cd_Convenio = Con_Pla.Cd_Convenio
+     AND Empresa_Con_Pla.Cd_Con_Pla = Con_Pla.Cd_Con_Pla
+     AND  atendime.cd_paciente = paciente.cd_paciente
+     AND atendime.cd_atendimento = guia.cd_atendimento
+     AND atendime.cd_convenio = convenio.cd_convenio
+     AND atendime.tp_atendimento = 'I'
+     AND Guia.tp_guia In ('I',
+                          'R',
+                          'P')
+     AND atendime.cd_convenio = guia.cd_convenio
+     AND con_pla.cd_convenio = convenio.cd_convenio
+     AND con_pla.cd_con_pla(+) = atendime.cd_con_pla
+     AND leito.cd_leito = atendime.cd_leito
+     AND unid_int.cd_unid_int = leito.cd_unid_int
+     AND guia2.cd_guia(+) = guia.cd_guia
+     AND guia3.cd_guia(+) = guia.cd_guia    
+   GROUP BY unid_int.cd_unid_int ,
+            unid_int.ds_unid_int ,
+            unid_int.cd_setor ,
+            guia.cd_atendimento ,
+            paciente.cd_paciente ,
+            Substr(paciente.nm_paciente, 1, 30) ,
+            NM_SOCIAL_PACIENTE ,
+            to_char(atendime.dt_atendimento, 'dd/mm/yyyy ') ,
+            leito.cd_leito ,
+            leito.ds_leito ,
+            to_char(atendime.dt_alta, 'dd/mm/yyyy ') || to_char(atendime.hr_alta, 'hh24') ,
+            guia.cd_convenio ,
+            Substr(convenio.nm_convenio, 1, 60) || ' / ' ||Substr(con_pla.ds_con_pla, 1, 60) ,
+            nvl(Trunc(atendime.dt_alta), Trunc(sysdate)) - Nvl(Trunc(atendime.dt_atendimento), Trunc(sysdate)))
+ORDER BY CD_UNID_INT,
+         DS_UNID_INT

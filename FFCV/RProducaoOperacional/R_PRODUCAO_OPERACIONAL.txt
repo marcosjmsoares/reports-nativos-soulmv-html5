@@ -1,0 +1,134 @@
+/*----------------------------------------------------------------------------*/
+--R_PRODUCAO_OPERACIONAL
+SELECT * FROM (
+select semana semana,
+       dt_fechamento, 
+       sum(vl_rn_hospital) vl_rn_hospital,
+       sum(qt_rn_hospital) qt_rn_hospital,
+       sum(vl_rn_vanguarda) vl_rn_vanguarda,
+       sum(qt_rn_vanguarda) qt_rn_vanguarda,
+       sum(vl_maternidade) vl_maternidade,
+       sum(qt_maternidade) qt_maternidade,
+       sum(vl_clinico) vl_clinico,
+       sum(qt_clinico) qt_clinico,
+       sum(vl_cirurgia) vl_cirurgia,
+       sum(qt_cirurgia) qt_cirurgia,
+       sum(vl_sana) vl_sana,
+       sum(qt_sana) qt_sana,
+       sum(vl_vanguarda) vl_vanguarda,
+       sum(qt_vanguarda) qt_vanguarda,
+       sum(vl_externo) vl_externo,
+       sum(qt_externo) qt_externo,
+       sum(vl_cdiag) vl_cdiag,
+       sum(qt_cdiag) qt_cdiag
+from (
+select 
+       to_char(dt_fechamento,'YYYY') || '_' || to_char(dt_fechamento,'WW') semana,
+       trunc(dt_fechamento) dt_fechamento, 
+       sum(vl_rn_hosp)                  vl_rn_hospital,
+       count(distinct conta_rn_hosp)    qt_rn_hospital,
+       0                  vl_rn_vanguarda,
+       0     qt_rn_vanguarda,
+       sum(vl_matern)                   vl_maternidade,
+       count(distinct conta_matern)     qt_maternidade,
+       sum(vl_clinic)                   vl_clinico,
+       count(distinct conta_clinic)     qt_clinico,
+       sum(vl_cirurg)                   vl_cirurgia,
+       count(distinct conta_cirurg)     qt_cirurgia,
+       0                     vl_sana,
+       0       qt_sana,
+       0                 vl_vanguarda,
+       0       qt_vanguarda,
+       sum(vl_ext)                      vl_externo,
+       count(distinct conta_ext)        qt_externo,
+       sum(vl_cd)                       vl_cdiag,
+       count(distinct conta_cd)         qt_cdiag
+ from ( 
+   SELECT * FROM dbamv.VDIC_PRODUCAO_OPERACIONAL_1 
+         WHERE (cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or
+                 (:CAMPO_CD_MULTI_EMPRESA = 1 and cd_multi_empresa = 3))
+         :CAMPO_CF_COND_TP_CONVENIO   
+)
+group by   to_char(dt_fechamento,'YYYY') || '_' || to_char(dt_fechamento,'WW'),
+                 trunc(dt_fechamento)
+union all
+select 
+       to_char(dt_fechamento,'YYYY') || '_' || to_char(dt_fechamento,'WW') semana,
+       trunc(dt_fechamento) dt_fechamento, 
+       0    vl_rn_hospital,
+       0    qt_rn_hospital,
+       sum(vl_rn_van)                   vl_rn_vanguarda,
+       count(distinct conta_rn_van)     qt_rn_vanguarda,
+       0     vl_maternidade,
+       0     qt_maternidade,
+       0     vl_clinico,
+       0     qt_clinico,
+       0     vl_cirurgia,
+       0     qt_cirurgia,
+       sum(vl_san)                      vl_sana,
+       count(distinct conta_san)        qt_sana,
+       sum(vl_van)                      vl_vanguarda,
+       count(distinct conta_van)        qt_vanguarda,
+       0     vl_externo,
+       0     qt_externo,
+       0     vl_cdiag,
+       0     qt_cdiag
+ from (
+ SELECT * FROM dbamv.VDIC_PRODUCAO_OPERACIONAL_2
+         WHERE (cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or
+                 (:CAMPO_CD_MULTI_EMPRESA = 1 and cd_multi_empresa = 3))
+         :CAMPO_CF_COND_TP_CONVENIO
+ )
+group by   to_char(dt_fechamento,'YYYY') || '_' || to_char(dt_fechamento,'WW'),
+                 trunc(dt_fechamento)       )
+group by   semana,
+       dt_fechamento      
+order by   semana,
+       dt_fechamento                   
+)
+ORDER BY SEMANA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PRODUCAO_OPERACIONAL_R_4_Q_ANA
+SELECT 
+	 SEMANA,
+     DT_FECHAMENTO,
+     DT_INICIO,
+     DT_FINAL,
+     CD_ATENDIMENTO,
+     CD_PACIENTE,
+     NM_PACIENTE,
+     CONTA,
+     TP_ATENDIMENTO,
+     NM_USUARIO_FECHOU,
+     CD_MULTI_EMPRESA_ATENDIMENTO,
+     CD_MULTI_EMPRESA_CONTA,
+     DS_MULTI_EMPRESA_CONTA,
+     CD_CONVENIO,
+     NM_CONVENIO,
+     sum(VL_TOTAL_CONTA) VL_TOTAL_CONTA,
+     CD_PRO_INT,
+     DS_PRO_FAT
+FROM dbamv.VDIC_PROD_OPERAC_ANA
+WHERE (cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or
+                 (:CAMPO_CD_MULTI_EMPRESA = 1 and cd_multi_empresa = 3))
+group BY semana, 
+        dt_fechamento,
+        dt_inicio,
+        dt_final,
+       cd_atendimento,
+       cd_paciente,   
+       nm_paciente,   
+       conta,
+       tp_atendimento,
+       nm_usuario_fechou,
+       cd_multi_empresa_atendimento,
+       cd_multi_empresa_conta,
+       ds_multi_empresa_conta,
+       cd_convenio,
+       nm_convenio,
+      cd_pro_int,
+      ds_pro_fat
+order by semana

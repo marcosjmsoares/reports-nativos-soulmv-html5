@@ -1,0 +1,64 @@
+/*----------------------------------------------------------------------------*/
+--R_EXTRATO_CONTA
+SELECT * FROM (
+SELECT  BANCO.NM_BANCO                                       NM_BANCO
+       ,BANCO.CD_BANCO                                       CD_BANCO
+       ,MOV_CONCOR.CD_LAN_CONCOR                             CD_LAN_CONCOR
+       ,MOV_CONCOR.DT_MOVIMENTACAO                           DT_MOVIMENTACAO
+       ,MOV_CONCOR.NR_DOCUMENTO_IDENTIFICACAO                NR_DOCUMENTO_IDENTIFICACAO
+       ,MOV_CONCOR.CD_MOV_CONCOR                             CD_MOV_CONCOR
+       ,MOV_CONCOR.CD_CON_COR                                CD_CON_COR
+       ,CON_COR.CD_AGENCIA || ' - ' || CON_COR.DS_AGENCIA    DS_AGENCIA
+       ,CON_COR.NR_CONTA                                     NR_CONTA
+       ,MOV_CONCOR.DS_MOVIMENTACAO                           DS_MOVIMENTACAO
+       ,MOV_CONCOR.VL_MOVIMENTACAO                           VL_MOVIMENTACAO
+       ,LAN_CONCOR.TP_APARECE_NO_EXTRATO                     TP_APARECE_NO_EXTRATO
+       ,LAN_CONCOR.TP_OPERACAO_SALDO_CONTA                   TP_OPERACAO_SALDO_CONTA
+       ,LAN_CONCOR.SN_TRANSFERENCIA                          SN_TRANSFERENCIA
+       ,CON_COR.VL_SALDO_ATUAL                               VL_SALDO_ATUAL
+       ,CON_COR.VL_CHEQUES_DEPOSITADOS_NAO_COM               VL_CHEQUES_DEPOSITADOS_NAO
+       ,CON_COR.VL_CHEQUES_EMITIDOS_NAO_COMPEN               VL_CHEQUES_EMITIDOS_NAO_COM
+FROM    dbamv.CON_COR                                     CON_COR
+             ,dbamv.BANCO                                          BANCO
+             ,dbamv.MOV_CONCOR                             MOV_CONCOR
+             ,dbamv.LAN_CONCOR                              LAN_CONCOR
+WHERE  CON_COR.CD_MULTI_EMPRESA                           =    :CAMPO_CD_MULTI_EMPRESA 
+AND     TRUNC( MOV_CONCOR.DT_MOVIMENTACAO )    BETWEEN TRUNC( :CAMPO_DATA_INIC ) AND TRUNC( :CAMPO_DATA_FIM )
+AND     CON_COR.CD_BANCO                                             =    BANCO.CD_BANCO
+AND     MOV_CONCOR.CD_CON_COR                                =    CON_COR.CD_CON_COR
+AND     LAN_CONCOR.CD_LAN_CONCOR                          =    MOV_CONCOR.CD_LAN_CONCOR
+AND    NVL(  LAN_CONCOR.TP_OPERACAO_SALDO_CONTA, '0' )   <>  '0'
+AND     MOV_CONCOR.CD_MOV_CONCOR_TRANSFERENCIA IS NULL
+UNION
+SELECT  BANCO.NM_BANCO                                       NM_BANCO
+       ,BANCO.CD_BANCO                                       CD_BANCO
+       ,MOV_CONCOR.CD_LAN_CONCOR                             CD_LAN_CONCOR
+       ,MOV_CONCOR.DT_MOVIMENTACAO                           DT_MOVIMENTACAO
+       ,MOV_CONCOR.NR_DOCUMENTO_IDENTIFICACAO                NR_DOCUMENTO_IDENTIFICACAO
+       ,MOV_CONCOR.CD_MOV_CONCOR                             CD_MOV_CONCOR
+       ,MOV_CONCOR.CD_CON_COR_TRANSFERENCIA                  CD_CON_COR
+       ,CON_COR.CD_AGENCIA || ' - ' || CON_COR.DS_AGENCIA    DS_AGENCIA
+       ,CON_COR.NR_CONTA                                     NR_CONTA
+       ,MOV_CONCOR.DS_MOVIMENTACAO                           DS_MOVIMENTACAO
+       ,MOV_CONCOR.VL_MOVIMENTACAO                           VL_MOVIMENTACAO
+       ,LAN_CONCOR.TP_APARECE_NO_EXTRATO                     TP_APARECE_NO_EXTRATO
+       ,'+'                                                  TP_OPERACAO_SALDO_CONTA
+       ,LAN_CONCOR.SN_TRANSFERENCIA                          SN_TRANSFERENCIA
+       ,CON_COR.VL_SALDO_ATUAL                               VL_SALDO_ATUAL
+       ,CON_COR.VL_CHEQUES_DEPOSITADOS_NAO_COM               VL_CHEQUES_DEPOSITADOS_NAO
+       ,CON_COR.VL_CHEQUES_EMITIDOS_NAO_COMPEN               VL_CHEQUES_EMITIDOS_NAO_COM
+FROM    dbamv.CON_COR                                            CON_COR
+             ,dbamv.BANCO                                                 BANCO
+            ,dbamv.MOV_CONCOR                                     MOV_CONCOR
+            ,dbamv.LAN_CONCOR                                      LAN_CONCOR
+WHERE  CON_COR.CD_MULTI_EMPRESA                            =    :CAMPO_CD_MULTI_EMPRESA 
+AND     TRUNC( MOV_CONCOR.DT_MOVIMENTACAO )        BETWEEN TRUNC( :CAMPO_DATA_INIC ) AND TRUNC( :CAMPO_DATA_FIM )
+AND     CON_COR.CD_BANCO                                                 =    BANCO.CD_BANCO
+AND     MOV_CONCOR.CD_CON_COR_TRANSFERENCIA    =    CON_COR.CD_CON_COR
+AND     LAN_CONCOR.CD_LAN_CONCOR                              =    MOV_CONCOR.CD_LAN_CONCOR
+AND    NVL(  LAN_CONCOR.TP_OPERACAO_SALDO_CONTA, '0' )   <>  '0'
+AND     MOV_CONCOR.CD_CON_COR_TRANSFERENCIA    IS NOT NULL
+ORDER BY NM_BANCO, NR_CONTA, DT_MOVIMENTACAO
+)
+ORDER BY NM_BANCO,CD_BANCO,NR_CONTA,CD_CON_COR,DS_AGENCIA,VL_CHEQUES_EMITIDOS_NAO_COM,VL_CHEQUES_DEPOSITADOS_NAO,
+DT_MOVIMENTACAO

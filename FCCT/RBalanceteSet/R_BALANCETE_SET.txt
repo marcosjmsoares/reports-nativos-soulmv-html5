@@ -1,0 +1,194 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCETE_SET
+SELECT    A.CD_CONTABIL CD_CONTABIL
+		, A.CD_SETOR CD_SETOR
+		, Decode(A.NM_SETOR, Null, '', 'Centro de Custo : '|| A.CD_SETOR || ' - ' || A.NM_SETOR) NM_SETOR
+		, A.DS_CONTA DS_CONTA
+		, A.CD_GRAU CD_GRAU
+		, A.TP_CONTA TP_CONTA
+		, SUM( A.VL_SALDO_ANT ) VL_SALDO_ANT
+		, SUM( A.VL_DEBITO ) VL_DEBITO
+		, SUM( A.VL_CREDITO ) VL_CREDITO
+		, SUM( A.VL_SALDO_ATU ) VL_SALDO_ATU
+        , A.TP_NATUREZA
+        , Decode(A.CD_MULTI_EMPRESA_ORIGEM, Null, '', 'Empresa: ' || A.CD_MULTI_EMPRESA_ORIGEM) CD_MULTI_EMPRESA_ORIGEM
+FROM (
+  SELECT  PC.CD_CONTABIL cd_contabil
+		, SM.CD_SETOR cd_setor
+		, S.NM_SETOR nm_setor
+		, PC.DS_CONTA ds_conta
+		, PC.CD_GRAU_DA_CONTA cd_grau
+		, PC.TP_CONTA tp_conta
+		, DBAMV.FCCT_SALDO_CONTA_SETOR( :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, '@'||:CAMPO_DT_ANO_ANT, :CAMPO_DT_MES_ANT, PC.CD_CONTABIL, SM.CD_SETOR, '' ) vl_saldo_ant
+	    , nvl( SM.VL_DEBITO, 0 ) vl_debito
+	    , nvl( SM.VL_CREDITO, 0 ) vl_credito
+	    , DBAMV.FCCT_SALDO_CONTA_SETOR(  :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, :CAMPO_DT_ANO, :CAMPO_DT_MES, PC.CD_CONTABIL, SM.CD_SETOR, '' ) vl_saldo_atu
+        , PC.TP_NATUREZA
+        , SM.CD_MULTI_EMPRESA_ORIGEM
+  FROM    DBAMV.V_NATUREZA_PLANO_CONTAS PC
+		, (
+			SELECT
+					dt_saldo_mes dt_saldo_mes
+				  , cd_reduzido cd_reduzido
+				  , SUM(vl_saldo_mes) vl_saldo_mes
+				  , SUM(vl_credito) vl_credito
+				  , SUM(vl_debito) vl_debito
+				  , cd_setor
+                  , CD_MULTI_EMPRESA_ORIGEM
+			FROM dbamv.saldo_mensal_setor_emp
+			WHERE TRUNC(dt_saldo_mes, 'MM')  = TO_DATE('01/'|| '' || '/' || '')
+				  AND '' = 'S'
+				  AND CD_MULTI_EMPRESA_ORIGEM IN (:CAMPO_CF_COND_EMPRESA)
+		    Group by dt_saldo_mes, cd_reduzido, cd_setor, CD_MULTI_EMPRESA_ORIGEM
+		   UNION ALL
+			SELECT
+					dt_saldo_mes dt_saldo_mes
+				  , cd_reduzido cd_reduzido
+				  , vl_saldo_mes vl_saldo_mes
+				  , vl_credito
+				  , vl_debito
+				  , cd_setor
+                  , CD_MULTI_EMPRESA_ORIGEM
+			FROM dbamv.saldo_mes_setor_empre_sem_apur
+			WHERE TRUNC(dt_saldo_mes, 'MM')  =  TO_DATE('01/'|| '' || '/' || '')
+				  AND '' = 'N'
+		  ) SM
+        , DBAMV.SETOR S
+  WHERE       PC.CD_GRAU_DA_CONTA      <= :CAMPO_CD_GRAU_CONTA
+  AND         PC.CD_REDUZIDO            =  SM.CD_REDUZIDO
+  AND         PC.SN_IMPRIME		IN ('S','')
+  AND         S.cd_setor         = SM.cd_setor
+   AND ( '' = 'N' or '' = 'S'
+   AND EXISTS
+		( SELECT CD_REDUZIDO
+		  FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+		  WHERE PU.CD_REDUZIDO = PC.CD_REDUZIDO
+		  AND PU.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+		  AND PU.CD_ID_USUARIO = USER ) )
+   UNION ALL
+    SELECT   pc.cd_contabil cd_contabil
+           , sm.cd_setor cd_setor
+           , s.nm_setor nm_setor
+           , pc.ds_conta ds_conta
+           , pc.cd_grau_da_conta cd_grau
+           , pc.tp_conta tp_conta
+           , sm.vl_saldo_mes vl_saldo_ant
+           , 0 vl_debito
+           , 0 vl_credito
+           , sm.vl_saldo_mes vl_saldo_atu
+           , PC.TP_NATUREZA
+           , TO_NUMBER(NULL) CD_MULTI_EMPRESA_ORIGEM
+    FROM (
+			 SELECT DISTINCT cd_reduzido, cd_setor
+			 FROM  dbamv.saldo_mensal_setor_emp
+			 WHERE  TRUNC(dt_saldo_mes, 'MM')  <= TO_DATE('01/'|| '' || '/' || '')
+					And  TO_CHAR(dt_saldo_mes,'YYYY')  = ''
+					AND '' = 'S'
+					AND CD_MULTI_EMPRESA_ORIGEM IN (:CAMPO_CF_COND_EMPRESA)
+			UNION ALL
+			 SELECT DISTINCT cd_reduzido, cd_setor
+			 FROM  dbamv.saldo_mes_setor_empre_sem_apur
+			 WHERE TRUNC(dt_saldo_mes, 'MM')  <= TO_DATE('01/'|| '' || '/' || '')
+				   And TO_CHAR(dt_saldo_mes,'YYYY')  = ''
+				   AND '' = 'N'
+		   MINUS
+			SELECT DISTINCT cd_reduzido, cd_setor
+			FROM  dbamv.saldo_mensal_setor_emp
+			WHERE TRUNC(dt_saldo_mes, 'MM') = TO_DATE('01/'|| '' || '/' || '')
+				  AND '' = 'S'
+				  AND CD_MULTI_EMPRESA_ORIGEM IN (:CAMPO_CF_COND_EMPRESA)
+		   UNION ALL
+			SELECT DISTINCT cd_reduzido, cd_setor
+			FROM dbamv.saldo_mes_setor_empre_sem_apur
+			WHERE TRUNC(dt_saldo_mes, 'MM') = TO_DATE('01/'|| '' || '/' || '')
+				  AND '' = 'N'
+		 )  difer
+		 , (
+			SELECT   sm_aux.dt_saldo_mes  dt_saldo_mes
+					, sm_aux.cd_setor cd_setor
+					, sm_aux.cd_reduzido cd_reduzido
+					, sm_aux.vl_saldo_mes vl_saldo_mes
+			FROM dbamv.saldo_mensal_setor_emp sm_aux
+				, ( SELECT MAX (sm_max.dt_saldo_mes) dt_saldo_mes, sm_max.cd_setor, sm_max.cd_reduzido
+					FROM dbamv.saldo_mensal_setor_emp sm_max
+					WHERE TRUNC(sm_max.dt_saldo_mes, 'MM') <=  TO_DATE('01/'|| '' || '/' || '')
+						  And TO_CHAR (sm_max.dt_saldo_mes, 'YYYY') =  ''
+						  AND sm_max.CD_MULTI_EMPRESA_ORIGEM IN (:CAMPO_CF_COND_EMPRESA)
+					GROUP BY sm_max.cd_setor, sm_max.cd_reduzido ) ult_sm
+			WHERE TRUNC(sm_aux.dt_saldo_mes, 'MM')  <=  TO_DATE('01/'|| '' || '/' || '')
+				  And TO_CHAR (sm_aux.dt_saldo_mes, 'YYYY')  =  ''
+				  AND sm_aux.dt_saldo_mes = ult_sm.dt_saldo_mes
+				  AND sm_aux.cd_reduzido = ult_sm.cd_reduzido
+				  AND sm_aux.cd_setor = ult_sm.cd_setor
+				  AND '' = 'S'
+				  AND sm_aux.CD_MULTI_EMPRESA_ORIGEM IN (:CAMPO_CF_COND_EMPRESA)
+		   UNION ALL
+			  SELECT   sm_aux.dt_saldo_mes dt_saldo_mes
+					 , sm_aux.cd_setor cd_setor
+					 , sm_aux.cd_reduzido cd_reduzido
+					 , sm_aux.vl_saldo_mes vl_saldo_mes
+			  FROM dbamv.saldo_mes_setor_empre_sem_apur sm_aux
+					, ( SELECT MAX (sm_max.dt_saldo_mes) dt_saldo_mes, sm_max.cd_setor, sm_max.cd_reduzido
+						FROM dbamv.saldo_mes_setor_empre_sem_apur sm_max
+						WHERE TRUNC(sm_max.dt_saldo_mes, 'MM') <= TO_DATE('01/'|| '' || '/' || '')
+							  And TO_CHAR (sm_max.dt_saldo_mes, 'YYYY') = ''
+						GROUP BY sm_max.cd_setor, sm_max.cd_reduzido ) ult_sm
+			 WHERE TRUNC(sm_aux.dt_saldo_mes, 'MM')  <= TO_DATE('01/'|| '' || '/' || '')
+				   And TO_CHAR (sm_aux.dt_saldo_mes, 'YYYY')  = ''
+				   AND sm_aux.dt_saldo_mes = ult_sm.dt_saldo_mes
+				   AND sm_aux.cd_reduzido = ult_sm.cd_reduzido
+				   AND sm_aux.cd_setor = ult_sm.cd_setor
+				   AND '' = 'N'
+		   ) SM
+         , dbamv.V_NATUREZA_plano_contas pc
+         , dbamv.setor s
+   WHERE 	 IS NOT NULL
+			AND  difer.cd_reduzido = sm.cd_reduzido
+			AND  difer.cd_setor = sm.cd_setor
+			AND  s.cd_setor = sm.cd_setor
+			AND  sm.cd_reduzido =  pc.cd_reduzido
+			AND  pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+			AND  pc.sn_imprime IN ('S','')
+			AND sm.vl_saldo_mes <> 0
+		    AND ( '' = 'N' or '' = 'S'
+			   AND EXISTS
+					( SELECT CD_REDUZIDO
+					  FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+					  WHERE PU.CD_REDUZIDO = PC.CD_REDUZIDO
+					  AND PU.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+					  AND PU.CD_ID_USUARIO = USER ) )
+  UNION ALL
+  SELECT   PC.CD_CONTABIL cd_contabil
+          , TO_NUMBER(null) cd_setor
+          , '' nm_setor
+          , PC.DS_CONTA ds_conta
+          , PC.CD_GRAU_DA_CONTA cd_grau
+          , PC.TP_CONTA tp_conta
+          , 0 vl_saldo_ant
+          , 0 vl_credito
+          , 0 vl_debito
+          , 0 vl_saldo_atu
+          , PC.TP_NATUREZA
+          , TO_NUMBER(NULL) CD_MULTI_EMPRESA_ORIGEM
+  FROM    DBAMV.V_NATUREZA_PLANO_CONTAS PC
+ WHERE  pc.cd_multi_empresa = (SELECT DECODE(NVL(SN_PL_CONTAS_EMP_CONSOL, 'N'), 'S', NVL(CD_MULTI_EMPRESA_CONSOL, CD_MULTI_EMPRESA), CD_MULTI_EMPRESA) FROM DBAMV.MULTI_EMPRESAS WHERE CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA)
+  AND     PC.CD_GRAU_DA_CONTA  <= :CAMPO_CD_GRAU_CONTA
+  AND     PC.SN_IMPRIME		IN ('S','')
+	AND ( '' = 'N' or '' = 'S'
+	   AND EXISTS
+			( SELECT CD_REDUZIDO
+			  FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+			  WHERE PU.CD_REDUZIDO = PC.CD_REDUZIDO
+			  AND PU.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+			  AND PU.CD_ID_USUARIO = USER ) )
+  :CAMPO_COND_CONTA_CONTABIL
+) A
+GROUP BY  A.CD_SETOR
+		, A.NM_SETOR
+		, A.CD_CONTABIL
+		, A.DS_CONTA
+		, A.CD_GRAU
+		, A.TP_CONTA
+        , A.TP_NATUREZA
+        , A.CD_MULTI_EMPRESA_ORIGEM
+ORDER BY  CD_SETOR, CD_CONTABIL

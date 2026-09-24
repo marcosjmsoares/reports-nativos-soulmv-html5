@@ -1,0 +1,174 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_TESOURARIA_TERCEIRO
+SELECT '1' VIA
+       ,'1ª VIA CLIENTE' DS_VIA
+       ,(SELECT 'Este recibo só terá valor de quitação após compensação bancária do cheque mencionado neste documento.' TEXTO
+           FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+          WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+            AND IT.CD_CON_REC = CR.CD_CON_REC
+            AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+            AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+            AND REC.DT_ESTORNO IS NULL
+            AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+            AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND REC.TP_RECEBIMENTO = '1'
+            AND ROWNUM = 1) TEXTO
+       ,NM_CLIENTE NOME
+       ,RPS RPS
+       ,DT_EMISSAO DT_EMISSAO
+       ,VL_DUPLICATA VL_TITULO
+       ,(VL_DUPLICATA - VL_RECEBIDO - VL_DESCONTO ) SALDO
+       ,VL_RECEBIDO VL_RECEBIDO_CAB
+       ,VL_RECEBIDO VL_RECEBIDO_CAB1
+       ,VL_ACRESCIMO
+       ,VL_DESCONTO
+       ,dbamv.PACK_FNCP.EXTENSOS((SELECT Sum(Nvl(REC.VL_RECEBIDO,0))
+                                    FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+                                   WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+                                     AND IT.CD_CON_REC = CR.CD_CON_REC
+                                     AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+                                     AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+                                     AND REC.DT_ESTORNO IS NULL
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) EXTENSO
+       ,(SELECT Sum(Nvl(REC.VL_RECEBIDO,0))
+                                    FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+                                   WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+                                     AND IT.CD_CON_REC = CR.CD_CON_REC
+                                     AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+                                     AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+                                     AND REC.DT_ESTORNO IS NULL
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))) VL_TOTAL
+FROM (SELECT CR.NM_CLIENTE
+             ,NF.NR_ID_NOTA_FISCAL RPS
+             ,CR.DT_EMISSAO
+             ,(SELECT Sum(VL_DUPLICATA) FROM (SELECT DISTINCT IT.CD_CON_REC, IT.CD_ITCON_REC, Nvl(IT.VL_DUPLICATA,0) VL_DUPLICATA
+                                   FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR, DBAMV.RECCON_REC REC
+                                  WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+                                    AND IT.CD_CON_REC = CR.CD_CON_REC
+                                    AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+                                    AND REC.DT_ESTORNO IS NULL
+                                    AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                    AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) VL_DUPLICATA
+             ,Sum(Nvl(REC.VL_RECEBIDO,0)) VL_RECEBIDO
+             ,Sum(NVL(REC.VL_ACRESCIMO,0)) VL_ACRESCIMO
+             ,Sum(NVL(REC.VL_DESCONTO,0)) VL_DESCONTO
+        FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+       WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+         AND IT.CD_CON_REC = CR.CD_CON_REC
+         AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+         AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+         AND REC.DT_ESTORNO IS NULL
+         AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+         AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+       GROUP BY CR.NM_CLIENTE
+                ,NF.NR_ID_NOTA_FISCAL
+                ,CR.DT_EMISSAO
+                ,IT.VL_DUPLICATA)
+UNION ALL
+SELECT '2' VIA
+       ,'2ª VIA FINANCEIRO' DS_VIA
+       ,(SELECT 'Este recibo só terá valor de quitação após compensação bancária do cheque mencionado neste documento.' TEXTO
+           FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+          WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+            AND IT.CD_CON_REC = CR.CD_CON_REC
+            AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+            AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+            AND REC.DT_ESTORNO IS NULL
+            AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+            AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND REC.TP_RECEBIMENTO = '1'
+            AND ROWNUM = 1) TEXTO
+       ,NM_CLIENTE NOME
+       ,RPS RPS
+       ,DT_EMISSAO DT_EMISSAO
+       ,VL_DUPLICATA VL_TITULO
+       ,(VL_DUPLICATA - VL_RECEBIDO - VL_DESCONTO ) SALDO
+       ,VL_RECEBIDO VL_RECEBIDO_CAB
+       ,VL_RECEBIDO VL_RECEBIDO_CAB1
+       ,VL_ACRESCIMO
+       ,VL_DESCONTO
+       ,dbamv.PACK_FNCP.EXTENSOS((SELECT Sum(Nvl(REC.VL_RECEBIDO,0))
+                                    FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+                                   WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+                                     AND IT.CD_CON_REC = CR.CD_CON_REC
+                                     AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+                                     AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+                                     AND REC.DT_ESTORNO IS NULL
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) EXTENSO
+       ,(SELECT Sum(Nvl(REC.VL_RECEBIDO,0))
+                                    FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+                                   WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+                                     AND IT.CD_CON_REC = CR.CD_CON_REC
+                                     AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+                                     AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+                                     AND REC.DT_ESTORNO IS NULL
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))) VL_TOTAL
+FROM (SELECT CR.NM_CLIENTE
+             ,NF.NR_ID_NOTA_FISCAL RPS
+             ,CR.DT_EMISSAO
+             ,(SELECT Sum(VL_DUPLICATA) FROM (SELECT DISTINCT IT.CD_CON_REC, IT.CD_ITCON_REC, Nvl(IT.VL_DUPLICATA,0) VL_DUPLICATA
+                                   FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR, DBAMV.RECCON_REC REC
+                                  WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+                                    AND IT.CD_CON_REC = CR.CD_CON_REC
+                                    AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+                                    AND REC.DT_ESTORNO IS NULL
+                                    AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                    AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) VL_DUPLICATA
+             ,Sum(Nvl(REC.VL_RECEBIDO,0)) VL_RECEBIDO
+             ,Sum(NVL(REC.VL_ACRESCIMO,0)) VL_ACRESCIMO
+             ,Sum(NVL(REC.VL_DESCONTO,0)) VL_DESCONTO
+        FROM DBAMV.ITCON_REC IT, DBAMV.CON_REC CR , DBAMV.NOTA_FISCAL NF , DBAMV.RECCON_REC REC
+       WHERE IT.CD_CON_REC = :CAMPO_CD_CON_REC
+         AND IT.CD_CON_REC = CR.CD_CON_REC
+         AND CR.CD_NOTA_FISCAL = NF.CD_NOTA_FISCAL ( + )
+         AND IT.CD_ITCON_REC   = REC.CD_ITCON_REC
+         AND REC.DT_ESTORNO IS NULL
+         AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR REC.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+         AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR IT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+       GROUP BY CR.NM_CLIENTE
+                ,NF.NR_ID_NOTA_FISCAL
+                ,CR.DT_EMISSAO
+                ,IT.VL_DUPLICATA)
+ORDER BY VIA, DT_EMISSAO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_TESOURARIA_TERCEIRO_DET
+SELECT  NR_DOCUMENTO_RECEB
+        ,NR_PARCELA
+        ,DT_VENCIMENTO
+        ,VL_RECEBIDO_DET
+FROM (SELECT  NR_DOCUMENTO_RECEB
+        ,ROWNUM NR_PARCELA
+        ,DT_VENCIMENTO
+        ,VL_RECEBIDO_DET
+  FROM ( SELECT VRT.CD_CON_REC
+                ,DECODE(VRT.CD_TIPO_RECEB,'2',VRT.CD_RECCON_REC,NULL)
+                ,Nvl(VRT.NR_DOCUMENTO_RECEB, VRT.DS_TIPO_RECEB) NR_DOCUMENTO_RECEB
+                ,TO_CHAR(DECODE(VRT.CD_TIPO_RECEB,'2',DECODE(RCR.CD_CAIXA,NULL,MC.DT_MOVIMENTACAO,DC.DT_VENCIMENTO),NVL(VRT.DT_RECEBIMENTO,VRT.DT_CHEQUE)),'DD/MM/YYYY') DT_VENCIMENTO
+                ,Sum(Nvl(VRT.VL_RECEBIDO,0)) VL_RECEBIDO_DET
+           FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+                ,DBAMV.RECCON_REC RCR
+                ,DBAMV.DOC_CAIXA DC
+                ,DBAMV.REC_MOV_CON RMC
+                ,DBAMV.MOV_CONCOR MC
+          WHERE RCR.CD_RECCON_REC = VRT.CD_RECCON_REC
+            AND RCR.CD_DOC_CAIXA = DC.CD_DOC_CAIXA (+)
+            AND RCR.CD_RECCON_REC = RMC.CD_RECCON_REC (+)
+            AND RMC.CD_MOV_CONCOR = MC.CD_MOV_CONCOR (+)
+            AND VRT.CD_CON_REC = :CAMPO_CD_CON_REC
+            AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR VRT.CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+            AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR VRT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND VRT.VL_RECEBIDO > 0
+          GROUP BY VRT.CD_CON_REC
+                   ,DECODE(VRT.CD_TIPO_RECEB,'2',VRT.CD_RECCON_REC,NULL)
+                   ,Nvl(VRT.NR_DOCUMENTO_RECEB, VRT.DS_TIPO_RECEB)
+                   ,TO_CHAR(DECODE(VRT.CD_TIPO_RECEB,'2',DECODE(RCR.CD_CAIXA,NULL,MC.DT_MOVIMENTACAO,DC.DT_VENCIMENTO),NVL(VRT.DT_RECEBIMENTO,VRT.DT_CHEQUE)),'DD/MM/YYYY')
+          ORDER BY DT_VENCIMENTO
+) ORDER BY ROWNUM)
+WHERE

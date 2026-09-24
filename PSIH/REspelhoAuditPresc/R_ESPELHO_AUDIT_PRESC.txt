@@ -1,0 +1,48 @@
+/*----------------------------------------------------------------------------*/
+--R_ESPELHO_AUDIT_PRESC
+SELECT e.cd_atendimento,
+       e.cd_produto,
+       e.ds_produto,
+       e.nm_antimicrob,
+       e.ds_tip_presc || '  ***  '|| 
+       decode(nr_tipo, 1, 'Prescrito e atendido pela farmácia ***' , 
+                       2, 'Prescrito e não atendido pela farmácia ***' , 
+                       3, 'Acrescentado ou Substituído na solicitação ***' , 
+                       4, 'Saída direta para o paciente ***', NULL) || ' / ' || it.ds_justificativa ds_tip_presc,
+       e.cd_leito,
+       e.cd_unid_int,
+       u.ds_unid_int,
+       e.cd_convenio,
+       e.cd_paciente,
+       e.dt_hr_pre_med,
+       e.cd_antimicrob,
+       e.cd_prestador,
+       e.nm_prestador,
+       e.nm_paciente,
+(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND e.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+       e.cd_solsai_pro,
+       e.cd_pre_med,
+       e.cd_itpre_med,
+       fp.ds_for_apl,
+       tip.ds_tip_fre,
+       e.cd_itpre_med_justificativa,
+       e.qt_dias,
+       e.nr_dias,
+       e.nr_dose,
+       e.dt_pre_med,
+       e.hr_pre_med,
+       e.cd_tip_presc,
+       e.cd_mvto_estoque,
+       e.cd_itmvto_estoque,
+       e.nr_dias ||'  / '|| e.qt_dias AS nrqtdias
+FROM dbamv.espelho_auditoria_prescricao e,
+     dbamv.unid_int u,
+     dbamv.for_apl fp,
+     dbamv.tip_fre tip,
+     dbamv.itpre_med it
+WHERE e.cd_unid_int = u.cd_unid_int
+  AND e.cd_itpre_med = it.cd_itpre_med(+)
+  AND it.cd_tip_fre = tip.cd_tip_fre(+)
+  AND it.cd_for_apl = fp.cd_for_apl(+)
+  AND e.cd_usuario = :CAMPO_CD_USUARIO
+  AND E.NR_ID = :CAMPO_NR_SEQ

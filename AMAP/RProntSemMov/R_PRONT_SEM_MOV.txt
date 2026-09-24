@@ -1,0 +1,40 @@
+/*----------------------------------------------------------------------------*/
+--R_PRONT_SEM_MOV
+SELECT * FROM (
+SELECT DISTINCT SAME.CD_PACIENTE                                                      CD_PACIENTE
+              ,MAX(PROTOCOLOS.DT_SAIDA)         DT_SAIDA
+              ,SUBSTR(SAME.NR_MATRICULA_SAME,-2,1)                                 DIGITO
+              ,SAME.NR_MATRICULA_SAME                                                         MATRICULA
+              ,SAME.NR_VOLUME                                                                           VOLUME
+              ,PACIENTE.NM_PACIENTE                                                                NM_PACIENTE
+              ,CAD_SAME.DS_CAD_SAME                                                             DS_CAD_SAME
+  FROM DBAMV.SAME
+      ,DBAMV.PACIENTE
+      ,DBAMV.CAD_SAME
+      ,DBAMV.PROTOCOLOS
+      ,DBAMV.IT_SAME_PROTOCOLOS
+      ,DBAMV.ARMARIO_SAME
+ WHERE PACIENTE.CD_PACIENTE                                         = SAME.CD_PACIENTE
+   AND     SAME.CD_CAD_SAME                                               = CAD_SAME.CD_CAD_SAME
+   AND     PROTOCOLOS.CD_PROTOCOLO                             = IT_SAME_PROTOCOLOS.CD_PROTOCOLO
+   AND     SAME.CD_CAD_SAME                                               = IT_SAME_PROTOCOLOS.CD_CAD_SAME
+   AND     IT_SAME_PROTOCOLOS.NR_MATRICULA_SAME = SAME.NR_MATRICULA_SAME
+   AND     IT_SAME_PROTOCOLOS.NR_VOLUME                   = SAME.NR_VOLUME
+   AND     SAME.CD_ARMARIO_SAME                                     = ARMARIO_SAME.CD_ARMARIO_SAME(+)
+   AND     PACIENTE.CD_MULTI_EMPRESA                            = :CAMPO_CD_MULTI_EMPRESA
+  AND 0 = ( select count(*)
+                   from dual
+                   where exists (select dt_saida
+                                        from dbamv.protocolos,dbamv.IT_SAME_PROTOCOLOS
+                                        where dt_saida > :CAMPO_PDT_PERIODO
+                                        and PROTOCOLOS.CD_PROTOCOLO = IT_SAME_PROTOCOLOS.CD_PROTOCOLO
+                                        and IT_SAME_PROTOCOLOS.nr_matricula_same = SAME.NR_MATRICULA_SAME
+                                        and IT_SAME_PROTOCOLOS.nr_volume = SAME.NR_VOLUME))
+ GROUP BY SAME.CD_PACIENTE
+              ,SUBSTR(SAME.NR_MATRICULA_SAME,-2,1)
+              ,SAME.NR_MATRICULA_SAME
+              ,SAME.NR_VOLUME
+              ,PACIENTE.NM_PACIENTE
+             ,CAD_SAME.DS_CAD_SAME
+  :CAMPO_CF_COND_ORDENACAO
+)

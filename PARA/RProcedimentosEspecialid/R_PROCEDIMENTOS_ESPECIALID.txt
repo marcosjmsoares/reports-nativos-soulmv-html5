@@ -1,0 +1,31 @@
+/*----------------------------------------------------------------------------*/
+--R_PROCEDIMENTOS_ESPECIALID
+SELECT * FROM (
+SELECT  ATENDIME.CD_ESPECIALID
+               ,nvl(ESPECIALID.DS_ESPECIALID,'Não informada') DS_ESPECIALID
+               ,E.cd_procedimento                CD_SSM
+               ,procedimento_sus.DS_PROCEDIMENTO          DS_TITULO
+               ,COUNT(*)                                    QTD
+               ,PROCEDIMENTO_SUS_VALOR.vl_total_ambulatorial VL_UNITARIO
+FROM      DBAMV.ATENDIME
+               ,DBAMV.PROCEDIMENTO_SUS
+               ,DBAMV.EVE_SIASUS E
+               ,DBAMV.PROCEDIMENTO_SUS_VALOR
+               ,DBAMV.ESPECIALID
+WHERE     ATENDIME.DT_ATENDIMENTO   >= TO_DATE( TO_CHAR( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND           ATENDIME.DT_ATENDIMENTO   <= TO_DATE( TO_CHAR( :CAMPO_DT_FINAL  , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+AND           E.CD_PROCEDIMENTO  =  procedimento_sus.CD_procedimento
+AND           E.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+AND           ATENDIME.CD_ESPECIALID  =  ESPECIALID.CD_ESPECIALID(+)
+AND           PROCEDIMENTO_SUS_VALOR.cd_procedimento = E.CD_PROCEDIMENTO
+AND           PROCEDIMENTO_SUS_VALOR.DT_VIGENCIA  =   (SELECT MAX(VAL.DT_VIGENCIA)
+                                                        FROM DBAMV.PROCEDIMENTO_SUS_VALOR  VAL
+                                                        WHERE VAL.cd_procedimento = PROCEDIMENTO_SUS.CD_procedimento
+                                                        AND VAL.DT_VIGENCIA <=  ATENDIME.DT_ATENDIMENTO )
+GROUP BY   ATENDIME.CD_ESPECIALID
+               ,DS_ESPECIALID
+               ,E.CD_PROCEDIMENTO
+               ,DS_PROCEDIMENTO
+               ,PROCEDIMENTO_SUS_VALOR.vl_total_ambulatorial
+)
+ORDER BY DS_ESPECIALID,CD_ESPECIALID, CD_SSM

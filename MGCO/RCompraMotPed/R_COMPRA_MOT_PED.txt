@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_COMPRA_MOT_PED
+SELECT DATA
+     , COMPETENCIA
+     , CD_MOT_PED
+     , DS_MOT_PED
+     , NVL(SUM(QTD_CD_MOT_PED),0) QTD_CD_MOT_PED
+     , SUM(VL_TOTAL) VL_TOTAL
+  FROM (SELECT decode('', 'C',  TO_CHAR(ORD_COM.DT_ORD_COM,'MM/YYYY'), 'Período de ' || :CAMPO_COMP_INI || ' até ' || :CAMPO_COMP_FIM)  DATA
+             , decode('', 'C',  TO_CHAR(ORD_COM.DT_ORD_COM,'YYYYMM'), 'Período de ' || :CAMPO_COMP_INI || ' até ' || :CAMPO_COMP_FIM)   COMPETENCIA
+             , DECODE(MOT_PED.CD_MOT_PED, '', 0, MOT_PED.CD_MOT_PED)  CD_MOT_PED
+             , DECODE(MOT_PED.DS_MOT_PED, '', 'ORDEM DE COMPRA SEM SOLICITAÇÃO', MOT_PED.DS_MOT_PED)  DS_MOT_PED
+             , NVL(COUNT (NVL( PRODUTO.CD_PRODUTO, 0) ), 0)  QTD_CD_MOT_PED
+             , ord_com.cd_ord_com
+             , SUM(	NVL(dbamv.converte_moeda_entrada( nvl(:CAMPO_CONVERTE,'0')
+             										,itord_pro.vl_total
+             										,itord_pro.vl_total_moeda
+             										,:CAMPO_CD_MOEDA
+             										,ord_com_moeda.cd_moeda_indice
+             										,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO
+             										,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com)
+             										,ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0) +
+             		NVL(dbamv.converte_moeda_entrada( nvl(:CAMPO_CONVERTE,'0')
+                                                   , itord_pro.vl_imposto
+                                                   , itord_pro.vl_imposto_moeda
+                                                   , :CAMPO_CD_MOEDA
+                                                   , ord_com_moeda.cd_moeda_indice
+                                                   , ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO
+                                                   , Nvl( ord_com_moeda.dt_indice_moeda
+                                                        , ord_com.dt_ord_com)
+                                                   , ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0) -
+                   NVL(dbamv.converte_moeda_entrada( nvl(:CAMPO_CONVERTE,'0')
+                                                   , itord_pro.vl_desconto
+                                                   , itord_pro.vl_desconto_moeda
+                                                   , :CAMPO_CD_MOEDA
+                                                   , ord_com_moeda.cd_moeda_indice
+                                                   , ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO
+                                                   , Nvl( ord_com_moeda.dt_indice_moeda
+                                                        , ord_com.dt_ord_com)
+                                                   , ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)
+                  )  VL_TOTAL
+          FROM DBAMV.ORD_COM
+             , DBAMV.ITORD_PRO
+             , DBAMV.PRODUTO
+             , DBAMV.MOT_PED
+             , DBAMV.SOL_COM
+             , DBAMV.ORD_COM_MOEDA
+		         , DBAMV.ESTOQUE
+         WHERE ORD_COM.CD_ORD_COM            = ITORD_PRO.CD_ORD_COM
+           AND ITORD_PRO.CD_PRODUTO          = PRODUTO.CD_PRODUTO
+           AND ORD_COM.TP_SITUACAO           NOT IN ('N','C')
+           AND TO_DATE(TO_CHAR(ORD_COM.DT_ORD_COM,'DD/MM/YYYY'), 'DD/MM/YYYY') BETWEEN DECODE(:CAMPO_TP_AGRUPAMENTO, 'C', TO_DATE(:CAMPO_COMP_INI, 'DD/MM/YYYY')
+                                                                                                                       , TO_DATE(:CAMPO_COMP_INI, 'DD/MM/YYYY'))
+                                                                                   AND TO_DATE(:CAMPO_COMP_FIM, 'DD/MM/YYYY')
+           AND ESTOQUE.CD_ESTOQUE            = ORD_COM.CD_ESTOQUE
+           AND ESTOQUE.CD_MULTI_EMPRESA      = :CAMPO_CD_MULTI_EMPRESA
+           AND ORD_COM.CD_ORD_COM            = ORD_COM_MOEDA.CD_ORD_COM(+)
+           AND NVL(ORD_COM.TP_CONTRATO, 'O') = 'O'
+         GROUP BY TO_CHAR(ORD_COM.DT_ORD_COM,'MM/YYYY')
+             , TO_CHAR(ORD_COM.DT_ORD_COM,'YYYYMM')
+             , DECODE(MOT_PED.CD_MOT_PED, '', 0, MOT_PED.CD_MOT_PED)
+             , DECODE(MOT_PED.DS_MOT_PED, '', 'ORDEM DE COMPRA SEM SOLICITAÇÃO', MOT_PED.DS_MOT_PED)
+             , ord_com.cd_ord_com
+             )
+ GROUP BY DATA
+     , COMPETENCIA
+     , CD_MOT_PED
+     , DS_MOT_PED
+ ORDER BY COMPETENCIA
+     , DATA
+     , VL_TOTAL DESC

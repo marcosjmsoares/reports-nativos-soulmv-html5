@@ -1,0 +1,607 @@
+/*----------------------------------------------------------------------------*/
+--R_SITUACAO_DOCUMENTO
+select dbamv.pkg_mv2000.le_empresa CD_MULTI_EMPRESA from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SITUACAO_DOCUMENTO_R_1_Q_PROTOCOLO
+SELECT * FROM (
+Select Distinct *
+From (select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,decode('', 'N', protocolo_doc.dt_envio, null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.cd_atendimento cd_atendimento
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,Nvl(it_protocolo_doc.cd_reg_fat, it_protocolo_doc.cd_reg_amb) cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,it_protocolo_doc.nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_atendimento = atendime.cd_atendimento
+  and  paciente.cd_paciente = atendime.cd_paciente
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  protocolo_doc.cd_setor = setor.cd_setor
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  atendime.cd_convenio   = convenio.cd_convenio
+  and  it_protocolo_doc.dt_recebimento is null
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and it_protocolo_doc.cd_protocolo_doc = Decode(documento_prot.sn_informa_conta, 'S' ,  ( Select max(i.cd_protocolo_doc) cd_protocolo_doc
+                                               From dbamv.it_protocolo_doc i
+                                               Where i.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+                                                 and i.cd_atendimento    = it_protocolo_doc.cd_atendimento
+                                                 and nvl(i.cd_reg_amb,i.cd_reg_fat) = nvl(it_protocolo_doc.cd_reg_amb,it_protocolo_doc.cd_reg_fat)), it_protocolo_doc.cd_protocolo_doc )
+Union
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor_destino cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,decode('', 'N', protocolo_doc.dt_envio, null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.cd_atendimento cd_atendimento
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,Nvl(it_protocolo_doc.cd_reg_fat, it_protocolo_doc.cd_reg_amb) cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,it_protocolo_doc.nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_atendimento = atendime.cd_atendimento
+  and  paciente.cd_paciente = atendime.cd_paciente
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  protocolo_doc.cd_setor_destino = setor.cd_setor
+  and  atendime.cd_convenio   = convenio.cd_convenio
+  and  it_protocolo_doc.dt_recebimento is not null
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and it_protocolo_doc.cd_protocolo_doc = Decode(documento_prot.sn_informa_conta, 'S' ,  ( Select max(i.cd_protocolo_doc) cd_protocolo_doc
+                                               From dbamv.it_protocolo_doc i
+                                               Where i.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+                                                 and i.cd_atendimento    = it_protocolo_doc.cd_atendimento
+                                                 and nvl(i.cd_reg_amb,i.cd_reg_fat) = nvl(it_protocolo_doc.cd_reg_amb,it_protocolo_doc.cd_reg_fat)), it_protocolo_doc.cd_protocolo_doc )
+union
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,to_number(null) cd_protocolo_doc
+      ,setor.cd_setor cd_setor
+      ,to_date(null) dt_envio
+      ,to_date(null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,to_number(null) cd_it_protocolo_doc
+      ,reg_fat.cd_atendimento cd_atendimento
+      ,to_date(null) dt_realizacao
+      ,to_date(null) hr_realizacao
+      ,to_date(null) dt_recebimento
+      ,to_date(null) dt_devolucao
+      ,reg_fat.cd_reg_fat cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,null nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.mov_int mov_int
+      ,dbamv.reg_fat reg_fat
+      ,dbamv.leito leito
+      ,dbamv.unid_int unid_int
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio convenio
+Where  paciente.cd_paciente = atendime.cd_paciente
+  and  reg_fat.cd_convenio   = convenio.cd_convenio
+  and  reg_fat.cd_atendimento = atendime.cd_atendimento
+  and  unid_int.cd_setor = setor.cd_setor
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  mov_int.cd_mov_int in (select max(mv.cd_mov_int)
+                              from dbamv.mov_int mv
+                              where mv.cd_atendimento = atendime.cd_atendimento)
+  and  unid_int.cd_unid_int = leito.cd_unid_int
+  and  leito.cd_leito = mov_int.cd_leito
+  and  atendime.tp_atendimento = 'I'
+  and  atendime.dt_alta is not null
+  and  :CAMPO_SN_SEM_PROTOCOLO = 'S'
+  and  1 = (select count(*) from dbamv.documento_prot where sn_informa_conta = 'S')
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and  not exists (Select 'x'
+                         From dbamv.it_protocolo_doc
+                        Where it_protocolo_doc.cd_reg_fat = reg_fat.cd_reg_fat
+                          and it_protocolo_doc.cd_lancamento_fat is null
+:CAMPO_CF_CD_REMESSA)
+AND (:CAMPO_CD_CONTA IS NULL or :CAMPO_CD_CONTA = '%' ) AND (:CAMPO_CD_ATENDE IS NULL or  :CAMPO_CD_ATENDE = '%' )
+union
+select distinct documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,to_number(null) cd_protocolo_doc
+      ,setor.cd_setor cd_setor
+      ,to_date(null) dt_envio
+      ,to_date(null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,to_number(null) cd_it_protocolo_doc
+      ,itreg_amb.cd_atendimento cd_atendimento
+      ,to_date(null) dt_realizacao
+      ,to_date(null) hr_realizacao
+      ,to_date(null) dt_recebimento
+      ,to_date(null) dt_devolucao
+      ,reg_amb.cd_reg_amb cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,null nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.reg_amb reg_amb
+      ,dbamv.itreg_amb itreg_amb
+      ,dbamv.ori_ate
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio convenio
+Where  paciente.cd_paciente = atendime.cd_paciente
+  and  reg_amb.cd_convenio   = convenio.cd_convenio
+  and  itreg_amb.cd_atendimento = atendime.cd_atendimento
+  and  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+  and  ori_ate.cd_setor = setor.cd_setor
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  atendime.cd_ori_ate = ori_ate.cd_ori_ate
+  and  atendime.tp_atendimento in ('U','A','E')
+  and  atendime.dt_atendimento < sysdate
+  and  :CAMPO_SN_SEM_PROTOCOLO = 'S'
+  and  1 = (select count(*) from dbamv.documento_prot where sn_informa_conta = 'S')
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and  not exists (Select 'x'
+                          From dbamv.it_protocolo_doc
+                        Where it_protocolo_doc.cd_reg_fat = reg_amb.cd_reg_amb
+                          and it_protocolo_doc.cd_lancamento_amb is null
+:CAMPO_CF_CD_REMESSA)
+AND (:CAMPO_CD_CONTA IS NULL or :CAMPO_CD_CONTA = '%' ) AND (:CAMPO_CD_ATENDE IS NULL or  :CAMPO_CD_ATENDE = '%' )
+:CAMPO_CF_PERIODO_2)
+order by 6
+)
+ORDER BY CD_DOCUMENTO_PROT, CD_SETOR, CD_CONVENIO, SN_INFORMA_CONTA,CD_PROTOCOLO_DOC, DT_ENVIO1
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SITUACAO_DOCUMENTO_R_6_Q_PROTOCOLO
+SELECT * FROM (
+Select Distinct *
+From (select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,decode('', 'N', protocolo_doc.dt_envio, null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.cd_atendimento cd_atendimento
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,Nvl(it_protocolo_doc.cd_reg_fat, it_protocolo_doc.cd_reg_amb) cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,it_protocolo_doc.nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_atendimento = atendime.cd_atendimento
+  and  paciente.cd_paciente = atendime.cd_paciente
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  protocolo_doc.cd_setor = setor.cd_setor
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  atendime.cd_convenio   = convenio.cd_convenio
+  and  it_protocolo_doc.dt_recebimento is null
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and it_protocolo_doc.cd_protocolo_doc = Decode(documento_prot.sn_informa_conta, 'S' ,  ( Select max(i.cd_protocolo_doc) cd_protocolo_doc
+                                               From dbamv.it_protocolo_doc i
+                                               Where i.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+                                                 and i.cd_atendimento    = it_protocolo_doc.cd_atendimento
+                                                 and nvl(i.cd_reg_amb,i.cd_reg_fat) = nvl(it_protocolo_doc.cd_reg_amb,it_protocolo_doc.cd_reg_fat)), it_protocolo_doc.cd_protocolo_doc )
+Union
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor_destino cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,decode('', 'N', protocolo_doc.dt_envio, null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.cd_atendimento cd_atendimento
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,Nvl(it_protocolo_doc.cd_reg_fat, it_protocolo_doc.cd_reg_amb) cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,it_protocolo_doc.nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_atendimento = atendime.cd_atendimento
+  and  paciente.cd_paciente = atendime.cd_paciente
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  protocolo_doc.cd_setor_destino = setor.cd_setor
+  and  atendime.cd_convenio   = convenio.cd_convenio
+  and  it_protocolo_doc.dt_recebimento is not null
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and it_protocolo_doc.cd_protocolo_doc = Decode(documento_prot.sn_informa_conta, 'S' ,  ( Select max(i.cd_protocolo_doc) cd_protocolo_doc
+                                               From dbamv.it_protocolo_doc i
+                                               Where i.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+                                                 and i.cd_atendimento    = it_protocolo_doc.cd_atendimento
+                                                 and nvl(i.cd_reg_amb,i.cd_reg_fat) = nvl(it_protocolo_doc.cd_reg_amb,it_protocolo_doc.cd_reg_fat)), it_protocolo_doc.cd_protocolo_doc )
+union
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,to_number(null) cd_protocolo_doc
+      ,setor.cd_setor cd_setor
+      ,to_date(null) dt_envio
+      ,to_date(null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,to_number(null) cd_it_protocolo_doc
+      ,reg_fat.cd_atendimento cd_atendimento
+      ,to_date(null) dt_realizacao
+      ,to_date(null) hr_realizacao
+      ,to_date(null) dt_recebimento
+      ,to_date(null) dt_devolucao
+      ,reg_fat.cd_reg_fat cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,null nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.mov_int mov_int
+      ,dbamv.reg_fat reg_fat
+      ,dbamv.leito leito
+      ,dbamv.unid_int unid_int
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio convenio
+Where  paciente.cd_paciente = atendime.cd_paciente
+  and  reg_fat.cd_convenio   = convenio.cd_convenio
+  and  reg_fat.cd_atendimento = atendime.cd_atendimento
+  and  unid_int.cd_setor = setor.cd_setor
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  mov_int.cd_mov_int in (select max(mv.cd_mov_int)
+                              from dbamv.mov_int mv
+                              where mv.cd_atendimento = atendime.cd_atendimento)
+  and  unid_int.cd_unid_int = leito.cd_unid_int
+  and  leito.cd_leito = mov_int.cd_leito
+  and  atendime.tp_atendimento = 'I'
+  and  atendime.dt_alta is not null
+  and  :CAMPO_SN_SEM_PROTOCOLO = 'S'
+  and  1 = (select count(*) from dbamv.documento_prot where sn_informa_conta = 'S')
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and  not exists (Select 'x'
+                         From dbamv.it_protocolo_doc
+                        Where it_protocolo_doc.cd_reg_fat = reg_fat.cd_reg_fat
+                          and it_protocolo_doc.cd_lancamento_fat is null
+:CAMPO_CF_CD_REMESSA)
+AND (:CAMPO_CD_CONTA IS NULL or :CAMPO_CD_CONTA = '%' ) AND (:CAMPO_CD_ATENDE IS NULL or  :CAMPO_CD_ATENDE = '%' )
+union
+select distinct documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,to_number(null) cd_protocolo_doc
+      ,setor.cd_setor cd_setor
+      ,to_date(null) dt_envio
+      ,to_date(null) dt_envio1
+      ,setor.nm_setor nm_setor
+      ,to_number(null) cd_it_protocolo_doc
+      ,itreg_amb.cd_atendimento cd_atendimento
+      ,to_date(null) dt_realizacao
+      ,to_date(null) hr_realizacao
+      ,to_date(null) dt_recebimento
+      ,to_date(null) dt_devolucao
+      ,reg_amb.cd_reg_amb cd_conta
+      ,atendime.cd_paciente cd_paciente
+      ,atendime.tp_atendimento tp_atendimento
+      ,atendime.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,paciente.nm_paciente
+      ,null nm_usuario_recebimento
+From   dbamv.documento_prot documento_prot
+      ,dbamv.reg_amb reg_amb
+      ,dbamv.itreg_amb itreg_amb
+      ,dbamv.ori_ate
+      ,dbamv.atendime atendime
+      ,dbamv.paciente paciente
+      ,dbamv.setor setor
+      ,dbamv.convenio convenio
+Where  paciente.cd_paciente = atendime.cd_paciente
+  and  reg_amb.cd_convenio   = convenio.cd_convenio
+  and  itreg_amb.cd_atendimento = atendime.cd_atendimento
+  and  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+  and  ori_ate.cd_setor = setor.cd_setor
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  atendime.cd_ori_ate = ori_ate.cd_ori_ate
+  and  atendime.tp_atendimento in ('U','A','E')
+  and  atendime.dt_atendimento < sysdate
+  and  :CAMPO_SN_SEM_PROTOCOLO = 'S'
+  and  1 = (select count(*) from dbamv.documento_prot where sn_informa_conta = 'S')
+  and decode('','T','T', decode(atendime.tp_atendimento, 'A', 'A', 'E', 'A', 'U', 'A', 'H', 'H', 'I', 'H')) = :CAMPO_TP_CONTA
+  and  not exists (Select 'x'
+                          From dbamv.it_protocolo_doc
+                        Where it_protocolo_doc.cd_reg_fat = reg_amb.cd_reg_amb
+                          and it_protocolo_doc.cd_lancamento_amb is null
+:CAMPO_CF_CD_REMESSA)
+AND (:CAMPO_CD_CONTA IS NULL or :CAMPO_CD_CONTA = '%' ) AND (:CAMPO_CD_ATENDE IS NULL or  :CAMPO_CD_ATENDE = '%' )
+:CAMPO_CF_PERIODO_2)
+order by 6
+)
+ORDER BY CD_DOCUMENTO_PROT, CD_SETOR, CD_CONVENIO, SN_INFORMA_CONTA,CD_PROTOCOLO_DOC, DT_ENVIO1
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SITUACAO_DOCUMENTO_R_DOCUMENTO_REMESSA_3_Q_PROTOCOLO_REMESSA
+SELECT * FROM (
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,dbamv.remessa_fatura.dt_fechamento
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,it_protocolo_doc.cd_remessa cd_remessa
+      ,convenio.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,agrupamento.ds_agrupamento
+      ,decode(it_protocolo_doc.dt_recebimento,null,decode(it_protocolo_doc.dt_devolucao,null,setor_destino.nm_setor,null),null) nm_setor_destino
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.setor setor
+      ,dbamv.convenio
+      ,dbamv.remessa_fatura
+      ,dbamv.fatura
+      ,dbamv.empresa_convenio
+     ,dbamv.agrupamento
+     ,dbamv.setor setor_destino
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  protocolo_doc.cd_setor = setor.cd_setor
+  and  it_protocolo_doc.cd_atendimento is null
+  and  it_protocolo_doc.cd_remessa is not null
+  and  it_protocolo_doc.dt_recebimento is null
+  and  remessa_fatura.cd_remessa        = it_protocolo_doc.cd_remessa
+  and  fatura.cd_fatura                 = remessa_fatura.cd_fatura
+  and  convenio.cd_convenio             = fatura.cd_convenio
+  and  agrupamento.cd_agrupamento(+) = remessa_fatura.cd_agrupamento
+  and  setor_destino.cd_setor = protocolo_doc.cd_setor_destino
+  and  empresa_convenio.cd_convenio     = convenio.cd_convenio
+  and  empresa_convenio.cd_multi_empresa= :CAMPO_CD_MULTI_EMPRESA
+  and  fatura.cd_multi_empresa          = empresa_convenio.cd_multi_empresa
+  and  (:CAMPO_DT_COMPETENCIA is null or to_char(fatura.dt_competencia,'MM/YYYY') = to_char(:CAMPO_DT_COMPETENCIA,'MM/YYYY') )
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+Union
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor_destino cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,dbamv.remessa_fatura.dt_fechamento
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,it_protocolo_doc.cd_remessa cd_remessa
+      ,convenio.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,agrupamento.ds_agrupamento
+      ,decode(it_protocolo_doc.dt_recebimento,null,decode(it_protocolo_doc.dt_devolucao,null,setor_destino.nm_setor,null),null)
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.setor setor
+      ,dbamv.convenio
+      ,dbamv.remessa_fatura
+      ,dbamv.fatura
+      ,dbamv.empresa_convenio
+     ,dbamv.agrupamento
+     ,dbamv.setor setor_destino
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  it_protocolo_doc.cd_atendimento is null
+  and  it_protocolo_doc.cd_remessa is not null
+  and  protocolo_doc.cd_setor_destino = setor.cd_setor
+  and  it_protocolo_doc.dt_recebimento is not null
+  and  remessa_fatura.cd_remessa        = it_protocolo_doc.cd_remessa
+  and  fatura.cd_fatura                 = remessa_fatura.cd_fatura
+  and  convenio.cd_convenio             = fatura.cd_convenio
+  and  agrupamento.cd_agrupamento(+) = remessa_fatura.cd_agrupamento
+  and  setor_destino.cd_setor = protocolo_doc.cd_setor
+  and  empresa_convenio.cd_convenio     = convenio.cd_convenio
+  and  empresa_convenio.cd_multi_empresa= :CAMPO_CD_MULTI_EMPRESA
+  and  fatura.cd_multi_empresa          = empresa_convenio.cd_multi_empresa
+  and  (:CAMPO_DT_COMPETENCIA is null or to_char(fatura.dt_competencia,'MM/YYYY') = to_char(:CAMPO_DT_COMPETENCIA,'MM/YYYY') )
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+order by 17,6
+)
+ORDER BY CD_DOCUMENTO_PROT,DS_DOCUMENTO_PROT,
+CD_SETOR,NM_SETOR,
+CD_CONVENIO,NM_CONVENIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SITUACAO_DOCUMENTO_R_DOCUMENTO_REMESSA_Q_PROTOCOLO_REMESSA
+SELECT * FROM (
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,dbamv.remessa_fatura.dt_fechamento
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,it_protocolo_doc.cd_remessa cd_remessa
+      ,convenio.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,agrupamento.ds_agrupamento
+      ,decode(it_protocolo_doc.dt_recebimento,null,decode(it_protocolo_doc.dt_devolucao,null,setor_destino.nm_setor,null),null) nm_setor_destino
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.setor setor
+      ,dbamv.convenio
+      ,dbamv.remessa_fatura
+      ,dbamv.fatura
+      ,dbamv.empresa_convenio
+     ,dbamv.agrupamento
+     ,dbamv.setor setor_destino
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  protocolo_doc.cd_setor = setor.cd_setor
+  and  it_protocolo_doc.cd_atendimento is null
+  and  it_protocolo_doc.cd_remessa is not null
+  and  it_protocolo_doc.dt_recebimento is null
+  and  remessa_fatura.cd_remessa        = it_protocolo_doc.cd_remessa
+  and  fatura.cd_fatura                 = remessa_fatura.cd_fatura
+  and  convenio.cd_convenio             = fatura.cd_convenio
+  and  agrupamento.cd_agrupamento(+) = remessa_fatura.cd_agrupamento
+  and  setor_destino.cd_setor = protocolo_doc.cd_setor_destino
+  and  empresa_convenio.cd_convenio     = convenio.cd_convenio
+  and  empresa_convenio.cd_multi_empresa= :CAMPO_CD_MULTI_EMPRESA
+  and  fatura.cd_multi_empresa          = empresa_convenio.cd_multi_empresa
+  and  (:CAMPO_DT_COMPETENCIA is null or to_char(fatura.dt_competencia,'MM/YYYY') = to_char(:CAMPO_DT_COMPETENCIA,'MM/YYYY') )
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+Union
+select documento_prot.cd_documento_prot cd_documento_prot
+      ,documento_prot.ds_documento_prot ds_documento_prot
+      ,documento_prot.sn_informa_conta  sn_informa_conta
+      ,protocolo_doc.cd_protocolo_doc cd_protocolo_doc
+      ,protocolo_doc.cd_setor_destino cd_setor
+      ,protocolo_doc.dt_envio dt_envio
+      ,dbamv.remessa_fatura.dt_fechamento
+      ,setor.nm_setor nm_setor
+      ,it_protocolo_doc.cd_it_protocolo_doc cd_it_protocolo_doc
+      ,it_protocolo_doc.dt_realizacao dt_realizacao
+      ,it_protocolo_doc.hr_realizacao hr_realizacao
+      ,it_protocolo_doc.dt_recebimento dt_recebimento
+      ,it_protocolo_doc.dt_devolucao dt_devolucao
+      ,it_protocolo_doc.cd_remessa cd_remessa
+      ,convenio.cd_convenio    cd_convenio
+      ,convenio.nm_convenio    nm_convenio
+      ,agrupamento.ds_agrupamento
+      ,decode(it_protocolo_doc.dt_recebimento,null,decode(it_protocolo_doc.dt_devolucao,null,setor_destino.nm_setor,null),null)
+From   dbamv.documento_prot documento_prot
+      ,dbamv.it_protocolo_doc it_protocolo_doc
+      ,dbamv.protocolo_doc protocolo_doc
+      ,dbamv.setor setor
+      ,dbamv.convenio
+      ,dbamv.remessa_fatura
+      ,dbamv.fatura
+      ,dbamv.empresa_convenio
+     ,dbamv.agrupamento
+     ,dbamv.setor setor_destino
+Where  documento_prot.cd_documento_prot = it_protocolo_doc.cd_documento_prot
+  and  it_protocolo_doc.cd_protocolo_doc = protocolo_doc.cd_protocolo_doc
+  and  it_protocolo_doc.cd_atendimento is null
+  and  it_protocolo_doc.cd_remessa is not null
+  and  protocolo_doc.cd_setor_destino = setor.cd_setor
+  and  it_protocolo_doc.dt_recebimento is not null
+  and  remessa_fatura.cd_remessa        = it_protocolo_doc.cd_remessa
+  and  fatura.cd_fatura                 = remessa_fatura.cd_fatura
+  and  convenio.cd_convenio             = fatura.cd_convenio
+  and  agrupamento.cd_agrupamento(+) = remessa_fatura.cd_agrupamento
+  and  setor_destino.cd_setor = protocolo_doc.cd_setor
+  and  empresa_convenio.cd_convenio     = convenio.cd_convenio
+  and  empresa_convenio.cd_multi_empresa= :CAMPO_CD_MULTI_EMPRESA
+  and  fatura.cd_multi_empresa          = empresa_convenio.cd_multi_empresa
+  and  (:CAMPO_DT_COMPETENCIA is null or to_char(fatura.dt_competencia,'MM/YYYY') = to_char(:CAMPO_DT_COMPETENCIA,'MM/YYYY') )
+  and  (:CAMPO_TP_STATUS = 'T' or (:CAMPO_TP_STATUS = 'P' and it_protocolo_doc.dt_recebimento is null and it_protocolo_doc.dt_devolucao is null) or
+           (:CAMPO_TP_STATUS = 'D' and it_protocolo_doc.dt_devolucao is not null) or (:CAMPO_TP_STATUS = 'R' and it_protocolo_doc.dt_recebimento is not null) )
+order by 17,6
+)
+ORDER BY CD_DOCUMENTO_PROT,DS_DOCUMENTO_PROT,
+CD_SETOR,NM_SETOR,
+CD_CONVENIO,NM_CONVENIO

@@ -1,0 +1,29 @@
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_MEDIO_PRE_AGENDAMENTO
+SELECT cd_prestador,
+        Trunc(tempo_intervalo) 
+       || ' Dia(s) ' 
+       || Trunc(Mod(tempo_intervalo * 24, 24)) 
+       || ' Horas' 
+       Tempo ,
+       quantidade_total
+FROM   (SELECT ( tempo_total / quantidade_total ) tempo_intervalo, 
+               cd_prestador,
+               quantidade_total 
+                        FROM (  
+SELECT cd_prestador, 
+Sum((DECODE(aviso_cirurgia.tp_situacao, 'G', age_cir.dt_inicio_age_cir,
+                    'P', aviso_cirurgia.dt_prev_inter) - aviso_cirurgia.dt_aviso_cirurgia)) tempo_total,
+                    count(prestador_aviso.cd_prestador) quantidade_total
+FROM   prestador_aviso, 
+       aviso_cirurgia,
+       age_cir 
+WHERE  aviso_cirurgia.cd_aviso_cirurgia = prestador_aviso.cd_aviso_cirurgia 
+  AND aviso_cirurgia.tp_situacao IN ('G','P')
+  AND prestador_aviso.sn_principal='S'
+  AND aviso_cirurgia.cd_aviso_cirurgia = age_cir.cd_aviso_cirurgia(+)
+  AND Nvl(aviso_cirurgia.dt_prev_inter,SYSDATE+1) > aviso_cirurgia.dt_aviso_cirurgia 
+  AND trunc(aviso_cirurgia.dt_aviso_cirurgia) between trunc(:CAMPO_DT_INICIAL) and trunc(:CAMPO_DT_FINAL) 
+  GROUP BY cd_prestador
+))
+ORDER BY 1 desc

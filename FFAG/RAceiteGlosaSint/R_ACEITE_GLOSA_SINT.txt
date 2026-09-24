@@ -1,0 +1,33 @@
+/*----------------------------------------------------------------------------*/
+--R_ACEITE_GLOSA_SINT
+select nf.cd_nota_fiscal
+     , nf.nr_id_nota_fiscal
+     , nf.dt_emissao
+     , nf.cd_convenio
+     , nf.vl_total_nota
+	 ,  vl_previsto vl_bruto  
+     , Sum(GLOSAS.VL_GLOSA_ACEITA) vl_glosa_aceita
+  from dbamv.nota_fiscal nf
+      ,dbamv.convenio co
+      ,(SELECT itm.CD_ITFAT_NF,
+              mg.dt_movimentacao,
+              Sum(itm.VL_GLOSA) VL_GLOSA_ACEITA
+        FROM  dbamv.mov_glosas mg,
+              dbamv.itmov_glosas itm
+        WHERE mg.cd_mov_glosas = itm.cd_mov_glosas
+         GROUP BY itm.cd_itfat_nf,
+              mg.dt_movimentacao) GLOSAS
+      ,dbamv.itfat_nota_fiscal itf
+	  ,dbamv.con_rec cr 
+  where co.cd_convenio = nf.cd_convenio
+	AND nf.cd_nota_fiscal = cr.cd_nota_fiscal 
+    and GLOSAS.cd_itfat_nf = itf.cd_itfat_nf
+    and itf.cd_nota_fiscal = nf.cd_nota_fiscal
+    and   GLOSAS.dt_movimentacao >= to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY')
+    and   GLOSAS.dt_movimentacao <= to_date(:CAMPO_DATA_FINAL,'DD/mm/yyyy')
+  group by  nf.cd_nota_fiscal
+     , nf.nr_id_nota_fiscal
+     , nf.dt_emissao
+     , nf.cd_convenio
+     , nf.vl_total_nota
+	 , cr.vl_previsto

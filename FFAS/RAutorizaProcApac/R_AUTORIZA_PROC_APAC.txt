@@ -1,0 +1,37 @@
+/*----------------------------------------------------------------------------*/
+--R_AUTORIZA_PROC_APAC
+select apa.nr_apac num_apac
+     , dbamv.pkg_sus_regra_paciente.f_nome_paciente(apa.cd_paciente) nome_paciente
+     , pac.cd_paciente_externo registro
+     , decode(null, apa.cd_laudo, null, apa.cd_laudo||'/'||to_char(apa.dt_inicial,'yyyy')) laudo
+     , pac.nr_cns cns_paciente
+     , decode(null,pac.nr_cpf,null, substr(lpad(pac.nr_cpf, 11, 0),1,3) ||'.'||
+                       substr(lpad(pac.nr_cpf, 11, 0),4,3) ||'.'||
+                       substr(lpad(pac.nr_cpf, 11, 0),7,3) ||'-'||
+                       substr(lpad(pac.nr_cpf, 11, 0),10,2)) cpf_paciente
+     , me.ds_multi_empresa unidade_solicitante
+     , me.nr_cnes cnes_solic
+     , dbamv.pkg_sus_regra_prestador.f_descricao(apa.cd_prestador) nm_prof_solicitante
+     , dbamv.pkg_sus_regra_prestador.f_cns(apa.cd_prestador) cns_solic
+     , dbamv.pkg_sus_regra_prestador.f_cpf_cgc(apa.cd_prestador) cpf_solic
+     , dbamv.pkg_sus_regra_procedimento.f_descricao(dbamv.pkg_ffas_regra_conta_apac.f_procedimento_principal(apa.cd_apac)) nm_procedimento
+     , dbamv.pkg_ffas_regra_conta_apac.f_procedimento_principal(apa.cd_apac) cd_procedimento
+     , dbamv.pkg_mv2000.Le_Nome_Cliente nm_autorizador
+     , dbamv.pkt_config_ffas.retorna_campo('cd_orgao_emissor_apac') cd_autorizador
+     , dbamv.pkg_mv2000.Le_Nome_Cliente nm_prest_serv
+     , decode(null, me.cd_cgc, null,substr(lpad(me.cd_cgc, 14, 0),1,2)||'.'||
+                                    substr(lpad(me.cd_cgc, 14, 0),3,3)||'.'||
+                                    substr(lpad(me.cd_cgc, 14, 0),6,3)||'/'||
+                                    substr(lpad(me.cd_cgc, 14, 0),9,4)||'-'||
+                                    substr(lpad(me.cd_cgc, 14, 0),13,2)) cnpj_prest_serv
+     , me.nr_cnes cd_prest_serv
+     , dbamv.pkg_sus_regra_prestador.f_cns(apa.cd_autorizador) cns_autorizador
+     , dbamv.pkg_sus_regra_prestador.f_cpf_cgc(apa.cd_autorizador) cpf_autorizador
+     , to_char(trunc(apa.dt_inicial),'dd/mm/yyyy')||'  à  '||to_char(trunc(apa.dt_final),'dd/mm/yyyy')  periodo
+  from dbamv.apac apa
+     , dbamv.paciente pac
+     , dbamv.laudo_sia_apac lau
+     , dbamv.multi_empresas me
+ where apa.cd_paciente = pac.cd_paciente
+   and apa.cd_laudo = lau.cd_laudo(+)
+   and apa.cd_multi_empresa = me.cd_multi_empresa

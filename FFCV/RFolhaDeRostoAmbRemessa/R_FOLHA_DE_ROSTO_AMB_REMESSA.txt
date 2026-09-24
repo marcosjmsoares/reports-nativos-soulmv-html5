@@ -1,0 +1,82 @@
+/*----------------------------------------------------------------------------*/
+--R_FOLHA_DE_ROSTO_AMB_REMESSA
+SELECT DISTINCT
+ DECODE(:CAMPO_CD_REMESSA, null, decode(:CAMPO_PCD_ATENDIMENTO, NULL, ('LOTE: ' || TO_CHAR(REG_AMB.CD_REG_AMB)), ('ATENDIMENTO: ' || TO_CHAR(ATENDIME.CD_ATENDIMENTO))), ('REMESSA: ' || TO_CHAR(REG_AMB.CD_REMESSA))) DSP_ATENDIME
+,'CONTA_AMBULATORIAL'      TP_ATENDIMENTO
+,DECODE(:CAMPO_PCD_ATENDIMENTO, NULL, ('Convênio: '  ||  CONVENIO.NM_CONVENIO),  ('Paciente: '  ||  PACIENTE.NM_PACIENTE)  )  DSP_PACIENTE
+FROM DBAMV.REG_AMB
+          ,DBAMV.CONVENIO
+          ,DBAMV.ITREG_AMB
+          ,DBAMV.ATENDIME
+          ,DBAMV.PACIENTE
+WHERE  REG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+AND        REG_AMB.CD_REG_AMB  =  ITREG_AMB.CD_REG_AMB
+AND        ITREG_AMB.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FOLHA_DE_ROSTO_AMB_REMESSA_R_CONTA_Q_GRU_FAT
+SELECT * FROM (
+select tp_gru_fat
+     , cd_prestador
+     , nm_prestador
+     , sum(tot_casa) tot_casa
+     , sum(tot_repassar) tot_repassar
+     , sum(tot_demonstrar) tot_demonstrar
+from
+(
+select reg_amb.tp_gru_fat
+     , reg_amb.cd_prestador
+     , reg_amb.nm_prestador
+     , decode( nvl( reg_amb.tp_pagamento, 'F' ), 'F', reg_amb.vl_total_conta, 'P', decode(reg_amb.cd_prestador, null, reg_amb.vl_total_conta, reg_amb.vl_total_conta - dbamv.f_obtem_vlrepasse_folharosto(null,reg_amb.cd_reg_amb,reg_amb.cd_atendimento,reg_amb.cd_multi_empresa,decode(reg_amb.cd_prestador,null,null,reg_amb.cd_pro_fat),reg_amb.cd_prestador)), 0)  tot_casa
+     , decode( nvl( reg_amb.tp_pagamento, 'F' ), 'P', decode(reg_amb.cd_prestador, null, 0, dbamv.f_obtem_vlrepasse_folharosto(null,reg_amb.cd_reg_amb,reg_amb.cd_atendimento,reg_amb.cd_multi_empresa,decode(reg_amb.cd_prestador,null,null,reg_amb.cd_pro_fat),reg_amb.cd_prestador)), 0 )  tot_repassar
+     , decode( nvl( reg_amb.tp_pagamento, 'F' ), 'C', decode(nvl(reg_amb.sn_paciente_paga,'N'), 'N', reg_amb.vl_total_conta, 0), 0 )  tot_demonstrar
+from (
+select gru_fat.tp_gru_fat
+     , prestador.cd_prestador
+     , prestador.nm_prestador
+     , sum(itreg_amb.vl_total_conta) vl_total_conta
+     , itreg_amb.tp_pagamento
+     , itreg_amb.cd_reg_amb
+     , itreg_amb.cd_atendimento
+     , reg_amb.cd_multi_empresa
+     , itreg_amb.cd_pro_fat
+     , itreg_amb.sn_paciente_paga
+  from dbamv.reg_amb
+     , dbamv.itreg_amb
+     , dbamv.atendime
+     , dbamv.gru_fat
+     , dbamv.prestador
+ where reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+   AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and itreg_amb.cd_prestador  =  prestador.cd_prestador(+)
+   and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+   and itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+   and itreg_amb.cd_atendimento  =  atendime.cd_atendimento
+   and itreg_amb.sn_pertence_pacote = 'N'
+   and not exists (select 1
+                     from dbamv.itreg_amb itr
+                    where itr.cd_reg_amb = itreg_amb.cd_reg_amb
+                      and itr.cd_lancamento = itreg_amb.cd_lancamento
+                      and nvl(itr.tp_pagamento, 'F') = 'C'
+                      and nvl(itr.sn_paciente_paga, 'N') = 'S')
+group by gru_fat.tp_gru_fat
+       , prestador.cd_prestador
+       , prestador.nm_prestador
+       , itreg_amb.tp_pagamento
+       , itreg_amb.cd_reg_amb
+       , itreg_amb.cd_atendimento
+       , reg_amb.cd_multi_empresa
+       , itreg_amb.cd_pro_fat
+       , itreg_amb.sn_paciente_paga
+) reg_amb
+)
+group by tp_gru_fat
+     , cd_prestador
+     , nm_prestador
+)
+ORDER BY TP_GRU_FAT

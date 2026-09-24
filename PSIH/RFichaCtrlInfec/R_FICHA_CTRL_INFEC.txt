@@ -1,0 +1,185 @@
+/*----------------------------------------------------------------------------*/
+--R_FICHA_CTRL_INFEC
+SELECT
+   ident,
+   cd_atendimento,
+   tp_atendimento,
+   (select decode(paciente.sn_utiliza_nome_social,'S',nm_social_paciente,NULL) from dbamv.paciente 
+   where paciente.cd_paciente = V_PAC_SUSPEITOS_INFEC.cd_paciente )nm_social_paciente,
+   dt_atendimento,
+   dt_alta,
+   cd_paciente,
+   nm_paciente,
+   ds_leito,
+   cd_unid_int,
+   ds_unid_int,
+   cd_setor,
+   nm_setor,
+   dt_prevista_alta,
+   nm_prestador,
+   cd_cid,
+   ds_cid,
+   cd_convenio,
+   cd_pro_int,
+   hr_atendimento,
+   cd_prestador,
+   cd_leito,
+   cd_mot_alt,
+   cd_ori_ate,
+   cd_servico,
+   hr_alta,
+   ds_obs_alta,
+   dt_retorno,
+   cd_atendimento_pai,
+   ds_obs_psih,
+   dt_revisao,
+   sn_obito,
+   DECODE(sn_obito_infec,'S','Sim','N','Não') SN_OBITO_INFEC,
+   ( SELECT 
+   DECODE(PACIENTE.SN_UTIL_IDENTIDADE_GENERO,
+                      'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,IDENTIDADE_GENERO.DS_IDENTIDADE_GENERO,
+                         NULL),
+                    NULL) FROM DBAMV.PACIENTE,DBAMV.IDENTIDADE_GENERO
+                    WHERE DBAMV.V_PAC_SUSPEITOS_INFEC.CD_PACIENTE = PACIENTE.CD_PACIENTE
+                    AND PACIENTE.CD_IDENTIDADE_GENERO = IDENTIDADE_GENERO.CD_IDENTIDADE_GENERO)AS IDENTIDADE_GENERO ,
+                    (SELECT 
+                      DECODE(PACIENTE.SN_UTIL_ORIENTACAO_SEXUAL,
+                      'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,ORIENTACAO_SEXUAL.DS_ORIENTACAO_SEXUAL,
+                         NULL),
+                    NULL) FROM DBAMV.PACIENTE,DBAMV.ORIENTACAO_SEXUAL
+                    WHERE DBAMV.V_PAC_SUSPEITOS_INFEC.CD_PACIENTE = PACIENTE.CD_PACIENTE
+                    AND ORIENTACAO_SEXUAL.CD_ORIENTACAO_SEXUAL = PACIENTE.CD_ORIENTACAO_SEXUAL) AS ORIENTACAO_SEXUAL
+FROM DBAMV.V_PAC_SUSPEITOS_INFEC
+WHERE
+(1=1)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FICHA_CTRL_INFEC_R_AVISO_CIRURGIA_Q_AVISO_CIRURGIA
+SELECT * FROM (
+SELECT DISTINCT
+    a.cd_aviso_cirurgia,
+    A.CD_ATENDIMENTO,
+    A.DT_REALIZACAO,
+    A.DT_INICIO_CIRURGIA,
+    A.DT_FIM_CIRURGIA,
+    c.ds_cirurgia,
+    DECODE(A.TP_NATUREZA,'L','Limpa', 'C','Contaminada', 'I','Infectada', 'P','Potencialmente Contaminada', A.TP_NATUREZA) DS_NATUREZA,
+    PR.NM_PRESTADOR,
+    R.CD_REG_INF,
+    TA.DS_TIP_ANEST,
+    a.cd_asa
+FROM
+    DBAMV.ATENDIME ATD ,
+    DBAMV.AVISO_CIRURGIA A ,
+    dbamv.cirurgia_aviso ca,
+    dbamv.cirurgia c,
+    dbamv.prestador_aviso pa,
+    DBAMV.PRESTADOR PR ,
+    DBAMV.REG_INF R ,
+    DBAMV.TIP_ANEST TA,
+    dbamv.ati_med am
+WHERE
+    ATD.CD_ATENDIMENTO = A.CD_ATENDIMENTO       AND
+    A.TP_SITUACAO = 'R'                         and
+    a.cd_aviso_cirurgia = ca.cd_aviso_cirurgia  and
+    ca.cd_cirurgia = c.cd_cirurgia              and
+    ca.sn_principal = 'S'                       and
+    ca.cd_cirurgia_aviso = pa.cd_cirurgia_aviso and
+    pa.cd_ati_med = am.cd_ati_med               and
+    am.tp_funcao = 'C'                          and
+    pa.cd_prestador = pr.cd_prestador           AND
+    A.CD_AVISO_CIRURGIA = R.CD_AVISO_CIRURGIA (+) AND
+    A.CD_TIP_ANEST = TA.CD_TIP_ANEST (+)        AND
+    C.TP_CLASSIF_PSIH = 'C'
+)
+WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FICHA_CTRL_INFEC_R_CULTURA1_Q_CULTURA
+SELECT * FROM (
+SELECT
+    CD_ATENDIMENTO,
+    DT_LAUDO,
+    CD_PED_LAB,
+    CD_ITPED_LAB,
+    CD_CULTURA_MANUAL,
+    CD_EXA_LAB,
+    NM_EXA_LAB,
+    DS_MATERIAL,
+    CD_REG_INF,
+    DS_OBSERVACAO,
+    decode(TP_RESULTADO,'P', 'Positivo','N', 'Negativo','A','Positivo em Andamento', 'B', 'Negativo em Andamento') TP_RESULTADO
+FROM (
+    (
+    SELECT
+        CULTURA_MANUAL.CD_ATENDIMENTO,
+        CULTURA_MANUAL.DT_EXAME DT_LAUDO,
+        0 CD_PED_LAB,
+        CULTURA_MANUAL.CD_EXA_LAB,
+        EXA_LAB.NM_EXA_LAB,
+        0 CD_ITPED_LAB,
+        MATERIAL.DS_MATERIAL,
+        CULTURA_MANUAL.CD_CULTURA_MANUAL,
+        CULTURA_MANUAL.CD_REG_INF,
+        CULTURA_MANUAL.DS_OBSERVACAO,
+        CULTURA_MANUAL.TP_RESULTADO
+    FROM
+        DBAMV.CULTURA_MANUAL ,
+        DBAMV.EXA_LAB ,
+        DBAMV.MATERIAL
+    WHERE
+        CULTURA_MANUAL.CD_EXA_LAB           = EXA_LAB.CD_EXA_LAB                 AND
+        CULTURA_MANUAL.CD_MATERIAL          = MATERIAL.CD_MATERIAL
+    )
+    UNION ALL
+    (
+    SELECT
+        PED_LAB.CD_ATENDIMENTO,
+        ITPED_LAB.DT_LAUDO,
+        PED_LAB.CD_PED_LAB,
+        EXA_LAB.CD_EXA_LAB,
+        NM_EXA_LAB,
+        ITPED_LAB.CD_ITPED_LAB,
+        DS_MATERIAL,
+        0 CD_CULTURA_MANUAL,
+        CULTURA.CD_REG_INF,
+        null DS_OBSERVACAO,
+        CULTURA.TP_RESULTADO
+    FROM
+        DBAMV.PED_LAB ,
+        DBAMV.ITPED_LAB ,
+        DBAMV.EXA_LAB ,
+        DBAMV.MATERIAL ,
+        DBAMV.CULTURA
+    WHERE
+        PED_LAB.CD_PED_LAB      = ITPED_LAB.CD_PED_LAB  AND
+        ITPED_LAB.CD_EXA_LAB    = EXA_LAB.CD_EXA_LAB    AND
+        ITPED_LAB.CD_EXA_LAB    = CULTURA.CD_EXA_LAB    AND
+        ITPED_LAB.CD_PED_LAB    = CULTURA.CD_PED_LAB    AND
+        ITPED_LAB.CD_ITPED_LAB  = CULTURA.CD_ITPED_LAB  AND
+        CULTURA.CD_MATERIAL     = MATERIAL.CD_MATERIAL
+    )
+    )
+ORDER BY DT_LAUDO DESC
+)
+WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO

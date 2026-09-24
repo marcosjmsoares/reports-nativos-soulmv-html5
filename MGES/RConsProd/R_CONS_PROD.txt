@@ -1,0 +1,44 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_PROD
+SELECT * FROM (
+SELECT  Produto.Cd_Produto Cd_Produto
+       ,Initcap ( Produto.Ds_Produto ) Ds_Produto
+       ,Initcap ( Verif_Ds_Unid_Prod( Produto.Cd_Produto )) Ds_unidade
+       ,TO_DATE(TO_CHAR(C_Conest.Cd_Mes) || '/' ||
+                TO_CHAR(C_Conest.Cd_Ano), 'mm/yyyy') Data
+       ,(Sum((Nvl(C_Conest.qt_saida_setor, 0) +
+              Nvl(C_Conest.qt_saida_paciente, 0) +
+              Nvl(C_Conest.qt_venda, 0) +
+              Nvl(DECODE(ESTOQUE.TP_ESTOQUE, 'D', C_Conest.qt_transferencia_saida,0), 0))-
+             (Nvl( C_Conest.qt_devolucao_setor, 0) +
+              Nvl(C_Conest.qt_devolucao_paciente, 0) +
+              Nvl(C_Conest.qt_devolucao_venda, 0) +
+              Nvl(DECODE(ESTOQUE.TP_ESTOQUE,'D',c_conest.qt_entrada_transferido,0), 0)))) CONSUMO
+       ,Sum((Nvl(C_Conest.vl_saida_setor, 0) +
+             Nvl(C_Conest.vl_saida_paciente, 0) +
+             Nvl(C_Conest.qt_venda, 0) +
+             Nvl(DECODE(ESTOQUE.TP_ESTOQUE, 'D', C_Conest.vl_transferencia_saida, 0), 0)) -
+            (Nvl(C_Conest.vl_devolucao_setor, 0) +
+             Nvl(C_Conest.vl_devolucao_paciente, 0) +
+             Nvl(C_Conest.qt_devolucao_venda, 0) +
+             Nvl(DECODE(ESTOQUE.TP_ESTOQUE, 'D', C_Conest.vl_entrada_transferido, 0), 0)))VLR_CONSUMO
+       ,     VERIF_VL_CUSTO_MEDIO(PRODUTO.CD_PRODUTO,LAST_DAY(TO_DATE(:CAMPO_COMPETENCIA, 'MM/YYYY')),'H',NULL,TO_DATE('23', 'HH24')) VL_CUSTO_MEDIO
+FROM   Dbamv.Estoque
+            ,Dbamv.Produto
+            ,Dbamv.C_Conest
+WHERE
+                Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                AND To_Date(To_Char(C_Conest.Cd_Mes) || '/' ||
+                To_Char(C_Conest.Cd_Ano), 'mm/yyyy')
+                BETWEEN ADD_MONTHS(to_date(:CAMPO_COMPETENCIA,'mm/yyyy'),-5)
+                AND LAST_DAY(to_date(:CAMPO_COMPETENCIA,'mm/yyyy'))
+               AND   C_CONEST.CD_PRODUTO = PRODUTO.CD_PRODUTO
+               AND   C_CONEST.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+               AND   PRODUTO.SN_MESTRE = 'N'
+GROUP BY    Produto.Cd_Produto
+                      ,Produto.Ds_Produto
+                     ,To_Date(To_Char(C_Conest.Cd_Mes) || '/' ||
+                                     To_Char(C_Conest.Cd_Ano), 'mm/yyyy')
+)
+ORDER BY CD_PRODUTO,VL_CUSTO_MEDIO,DS_PRODUTO,DS_UNIDADE,
+DATA

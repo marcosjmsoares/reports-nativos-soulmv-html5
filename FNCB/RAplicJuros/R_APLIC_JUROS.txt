@@ -1,0 +1,204 @@
+/*----------------------------------------------------------------------------*/
+--R_APLIC_JUROS
+SELECT a.*,
+	sum(Decode(ranking,1,Nvl(VALOR_INICIAL,0),0)+ nvl(vl_movimentacao,0)) OVER (PARTITION BY cd_multi_empresa) VALOR_APLICADO_PERIODO,
+	Sum(Decode(ranking,1,Nvl(saldo_final_periodo,0),0)) OVER (PARTITION BY cd_multi_empresa) GERAL_EMP_VL_APLIC_ATUAL
+FROM (
+select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa empresa,
+       e.cd_multi_empresa cd_multi_empresa,
+       e.cd_multi_empresa || ' - ' || e.ds_multi_empresa empresa_o,
+       con_cor.cd_con_cor,
+       con_cor.ds_con_cor,
+       tip_aplica.cd_tip_aplica,
+       tip_aplica.ds_tip_aplica,
+       aplicacao.cd_aplicacao,
+       aplicacao.ds_aplicacao,
+       aplicacao.dt_abertura,
+       aplicacao.vl_saldo_atual,
+       Rank() OVER (PARTITION BY aplicacao.cd_aplicacao ORDER BY mov_concor.vl_movimentacao) ranking,
+       aplicacao.vl_moeda vl_moeda_aplic,
+       mov_concor.ds_movimentacao,
+       mov_concor.dt_movimentacao,
+       mov_concor.nr_documento_identificacao,
+       DECODE (lan_concor.tp_operacao_saldo_aplicacao,
+               '+', mov_concor.vl_movimentacao,
+               '-', -mov_concor.vl_movimentacao,
+               '0', mov_concor.vl_movimentacao ) vl_movimentacao,
+       DECODE (:CAMPO_CONVERTE, 1, :CAMPO_CD_MOEDA, mov_concor.cd_moeda) cd_moeda,
+       DECODE (lan_concor.tp_operacao_saldo_aplicacao,
+               '+', mov_concor.vl_moeda,
+               '-', -mov_concor.vl_moeda,
+               '0', mov_concor.vl_moeda ) vl_moeda,
+DECODE (:CAMPO_CONVERTE, 1,
+DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA,
+:CAMPO_CD_MOEDA,
+aplicacao.dt_abertura,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao < TO_DATE( TO_CHAR( :CAMPO_DT_INIC , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+),
+NULL, NULL)
+,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao < TO_DATE( TO_CHAR( :CAMPO_DT_INIC , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+)
+) valor_inicial,
+DECODE (:CAMPO_CONVERTE, 1,
+DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA,
+:CAMPO_CD_MOEDA,
+aplicacao.dt_abertura,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao <= TO_DATE( TO_CHAR( :CAMPO_DT_FIM , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+),
+NULL, NULL)
+,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao <= TO_DATE( TO_CHAR( :CAMPO_DT_FIM , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+)
+) saldo_final_periodo
+  from dbamv.tip_aplica tip_aplica,
+       dbamv.con_cor con_cor,
+       dbamv.aplicacao aplicacao,
+       dbamv.mov_concor mov_concor,
+       dbamv.lan_concor lan_concor,
+       dbamv.multi_empresas e
+ where con_cor.cd_con_cor = aplicacao.cd_con_cor
+   and con_cor.cd_con_cor = mov_concor.cd_con_cor
+   and aplicacao.cd_tip_aplica = tip_aplica.cd_tip_aplica
+   and mov_concor.dt_movimentacao <= TO_DATE (TO_CHAR (:CAMPO_DT_FIM, 'DD/MM/YYYY') || ' 23', 'DD/MM/YYYY HH24' )
+   and mov_concor.dt_movimentacao >= TO_DATE (TO_CHAR (:CAMPO_DT_INIC, 'DD/MM/YYYY') || ' 00', 'DD/MM/YYYY HH24' )
+   and aplicacao.cd_aplicacao = mov_concor.cd_aplicacao
+   and mov_concor.cd_lan_concor = lan_concor.cd_lan_concor
+   and con_cor.cd_multi_empresa = e.cd_multi_empresa
+   and (mov_concor.cd_lan_concor) IN
+       ((SELECT l.cd_lan_concor
+          FROM dbamv.lan_concor l
+         WHERE (l.tp_operacao_saldo_aplicacao) IN ('+', '-')
+           AND (l.cd_lan_concor) NOT IN
+               ((SELECT nvl(cd_lanc_abert_aplic, 0)
+                  FROM dbamv.config_financ
+                 WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                UNION
+                SELECT nvl(cd_lanc_fech_aplic, 0) 
+                  FROM dbamv.config_financ
+                 WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA))))
+UNION ALL
+SELECT  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa empresa,
+       e.cd_multi_empresa cd_multi_empresa,
+       e.cd_multi_empresa || '' - '' || e.ds_multi_empresa empresa_o,
+       CON_COR.CD_CON_COR
+       ,CON_COR.DS_CON_COR
+       ,TIP_APLICA.CD_TIP_APLICA
+       ,TIP_APLICA.DS_TIP_APLICA
+       ,APLICACAO.CD_APLICACAO
+       ,APLICACAO.DS_APLICACAO
+       ,APLICACAO.DT_ABERTURA
+       ,APLICACAO.VL_SALDO_ATUAL
+       ,1 ranking
+       ,APLICACAO.VL_MOEDA VL_MOEDA_APLIC
+       ,to_char( null ) DS_MOVIMENTACAO
+       ,to_date( null ) DT_MOVIMENTACAO
+       ,to_char( null ) NR_DOCUMENTO_IDENTIFICACAO
+       ,to_number( null ) VL_MOVIMENTACAO
+       ,to_char( null ) CD_MOEDA
+       ,to_number( null ) VL_MOEDA,
+DECODE (:CAMPO_CONVERTE, 1,
+DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA,
+:CAMPO_CD_MOEDA,
+aplicacao.dt_abertura,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao < TO_DATE( TO_CHAR( :CAMPO_DT_INIC , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+),
+NULL, NULL)
+,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao < TO_DATE( TO_CHAR( :CAMPO_DT_INIC , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+)
+) valor_inicial,
+DECODE (:CAMPO_CONVERTE, 1,
+DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA,
+:CAMPO_CD_MOEDA,
+aplicacao.dt_abertura,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao <= TO_DATE( TO_CHAR( :CAMPO_DT_FIM , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+),
+NULL, NULL)
+,
+Nvl(
+(SELECT sum(decode(lan.tp_operacao_saldo_aplicacao, '+', mov.vl_movimentacao, '-', - mov.vl_movimentacao, '0', mov.vl_movimentacao)) vl_movimentacao
+FROM dbamv.lan_concor lan, dbamv.mov_concor mov
+WHERE mov.cd_aplicacao = aplicacao.cd_aplicacao AND mov.cd_lan_concor = lan.cd_lan_concor AND mov.dt_movimentacao <= TO_DATE( TO_CHAR( :CAMPO_DT_FIM , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' ))
+,
+(SELECT b.vl_movimentacao
+FROM dbamv.config_financ a, dbamv.mov_concor b
+WHERE b.cd_lan_concor = a.cd_lanc_abert_aplic AND b.cd_aplicacao = aplicacao.cd_aplicacao AND a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA and rownum = 1)
+)
+) saldo_final_periodo
+FROM    DBAMV.TIP_APLICA	TIP_APLICA
+       ,DBAMV.CON_COR		CON_COR
+       ,DBAMV.APLICACAO		APLICACAO
+       ,dbamv.multi_empresas e
+WHERE   CON_COR.CD_CON_COR                        =  APLICACAO.CD_CON_COR
+AND     CON_COR.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+AND     APLICACAO.CD_TIP_APLICA                       =  TIP_APLICA.CD_TIP_APLICA
+and con_cor.cd_multi_empresa = e.cd_multi_empresa
+and :CAMPO_SN_APLICACAO = 'S'
+AND NOT EXISTS ( SELECT MOV_CONCOR.CD_CON_COR
+                                    FROM DBAMV.MOV_CONCOR,
+                                               DBAMV.LAN_CONCOR
+                                WHERE CON_COR.CD_CON_COR = MOV_CONCOR.CD_CON_COR
+                                      AND MOV_CONCOR.DT_MOVIMENTACAO <= TO_DATE( TO_CHAR( :CAMPO_DT_FIM  , 'DD/MM/YYYY') || '23','DD/MM/YYYY HH24' )
+                                      AND MOV_CONCOR.DT_MOVIMENTACAO >= TO_DATE( TO_CHAR( :CAMPO_DT_INIC , 'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24' )
+                                      AND APLICACAO.CD_APLICACAO =  MOV_CONCOR.CD_APLICACAO
+                                      AND MOV_CONCOR.CD_LAN_CONCOR =  LAN_CONCOR.CD_LAN_CONCOR
+                                      AND MOV_CONCOR.CD_LAN_CONCOR NOT IN
+                                    (
+                                      SELECT CONFIG_FINANC.CD_LANC_ABERT_APLIC CODIGO
+                                      FROM DBAMV.CONFIG_FINANC
+                                     ) )
+:CAMPO_CF_TIP_APLIC
+) a
+ORDER BY CD_MULTI_EMPRESA,
+CD_CON_COR,DS_CON_COR,EMPRESA_O,
+CD_APLICACAO,DS_APLICACAO,CD_TIP_APLICA,DS_TIP_APLICA,DT_ABERTURA,VL_SALDO_ATUAL,VL_MOEDA_APLIC

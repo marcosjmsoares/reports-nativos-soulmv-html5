@@ -1,0 +1,186 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_ACOMOD_ATUALSIMUL_ANALITICO
+SELECT CODIGO_ACOMODACAO AS CD_TIP_ACOM,
+      NOME_ACOMODACAO AS DS_TIP_ACOM,
+      ROUND(CUSTO_UNIT_ATUAL,2) CUSTO_UNIT_ATUAL,
+     ROUND(DECODE(VL_QT_PROD,0,0,DECODE(NVL(VL_CUSTO_DIARIA,0),0,0,(CUSTO_OPER / VL_CUSTO_DIARIA * (VL_QT_PROD * VL_FATOR_CUSTO))/DECODE(NVL(PROD_SIMUL,0),0,1,PROD_SIMUL))),2) CUSTO_UNIT_SIMUL,
+      QT_DIARIAS_DISPONIVEL,
+      qt_diarias_faturado,
+      qt_diarias_pacdia,
+      qt_diarias_utilizada,
+      CD_SETOR,
+      NM_SETOR,
+      DT_COMP,
+      VL_FATOR_CUSTO,
+nvl((SELECT DECODE(conf.comp_rateio_gen,'N', 0,nvl( cf.vl_custo_genericos, 0)) +
+        		  DECODE(conf.comp_rateio_esp,'N', 0,nvl( cf.vl_custo_especificos, 0)) as RATEIO_ABS  FROM dbamv.custo_final cf,(SELECT comp_rateio_esp, comp_rateio_gen FROM dbamv.config_fcch
+              WHERE cd_multi_empresa = 1 AND rownum = 1) conf
+          		WHERE cd_setor = Y.CD_SETOR AND to_char(dt_competencia, 'mm/yyyy') = Y.DT_COMP
+          AND cf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA),0) RATEIO_ABSORVIDO
+    FROM
+      (SELECT X.*,
+        DECODE(QT_DIARIAS_DISPONIVEL,0,0,(VL_QT_PROD            /QT_DIARIAS_DISPONIVEL) * 100) TAXA_OCULP_ATUAL,
+        DECODE(QT_DIARIAS_DISPONIVEL,0,0,((QT_DIARIAS_DISPONIVEL*:CAMPO_TAXA_OCULP_SIMUL)/100)) PROD_SIMUL,
+        DECODE(VL_QT_PROD,0,0,DECODE(NVL(VL_CUSTO_DIARIA,0),0,0,(CUSTO_OPER / VL_CUSTO_DIARIA * (VL_QT_PROD * VL_FATOR_CUSTO))/DECODE(NVL(VL_QT_PROD,0),0,1,VL_QT_PROD))) CUSTO_UNIT_ATUAL
+      FROM
+        (SELECT (
+          CASE tp_custo_diaria
+            WHEN 'P'
+            THEN qt_diarias_pacdia
+            WHEN 'D'
+            THEN qt_diarias_disponivel
+            WHEN 'F'
+            THEN qt_diarias_faturado
+            ELSE qt_diarias_utilizada
+          END) VL_QT_PROD,
+          Z.*
+        FROM
+          (SELECT CUSTO_DIARIA_CENCIR.CD_TIP_ACOM AS CODIGO_ACOMODACAO,
+            TIP_ACOM.DS_TIP_ACOM                  AS NOME_ACOMODACAO,
+            TO_CHAR(CUSTO_DIARIA_CENCIR.DT_COMPETENCIA, 'MM/YYYY') DT_COMP,
+            CUSTO_DIARIA_CENCIR.CD_SETOR AS CD_SETOR,
+            SETOR.NM_SETOR,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_disponivel, 0) ) qt_diarias_disponivel,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_faturadas, 0) ) qt_diarias_faturado,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_utilizadas, 0) ) qt_diarias_utilizada,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_pacdia, 0) ) qt_diarias_pacdia,
+            CUSTO_DIARIA_CENCIR.VL_FATOR_CUSTO,
+            NVL(custo_final.vl_custo_diaria, 1) vl_custo_diaria,
+            (SELECT tp_custo_diaria
+            FROM dbamv.config_fcch
+            WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            AND rownum             = 1
+            ) TP_CUSTO_DIARIA,
+            (SELECT SUM(NVL(vl_custo_evento,0))+ SUM(DECODE(C.comp_rateio_gen,'N',0,NVL(vl_custo_genericos,0)))+ SUM(DECODE(C.comp_rateio_esp,'N',0,NVL(vl_custo_especificos,0)))+ SUM(DECODE(C.comp_op_matmed,'N',0,NVL(vl_custo_matmed,0)))SOMA
+            FROM dbamv.custo_final,
+              (SELECT comp_op_matmed,
+                comp_rateio_esp,
+                comp_rateio_gen
+              FROM dbamv.config_fcch
+              WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              AND rownum             = 1
+              ) C
+            WHERE cd_setor = CUSTO_DIARIA_CENCIR.CD_SETOR
+            AND DT_COMPETENCIA BETWEEN TO_DATE('01/'||:CAMPO_DTINI, 'dd/mm/yyyy') AND LAST_DAY(To_Date('01/'||:CAMPO_DTFIM,'dd/mm/yyyy'))
+            AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            ) AS CUSTO_OPER
+          FROM DBAMV.SETOR,
+            DBAMV.CUSTO_DIARIA_CENCIR,
+            DBAMV.TIP_ACOM,
+            DBAMV.TIP_ACOM_SETOR,
+            DBAMV.custo_final
+          WHERE CUSTO_DIARIA_CENCIR.CD_SETOR  = SETOR.CD_SETOR
+          AND custo_final.CD_SETOR            = SETOR.CD_SETOR
+          AND CUSTO_DIARIA_CENCIR.CD_SETOR    = TIP_ACOM_SETOR.CD_SETOR(+)
+          AND CUSTO_DIARIA_CENCIR.CD_TIP_ACOM = TIP_ACOM_SETOR.CD_TIP_ACOM(+)
+          AND CUSTO_DIARIA_CENCIR.CD_TIP_ACOM = TIP_ACOM.CD_TIP_ACOM
+          AND CUSTO_DIARIA_CENCIR.TP_CUSTO    = 'D'
+          AND custo_final.CD_MULTI_EMPRESA    = SETOR.CD_MULTI_EMPRESA
+          AND SETOR.CD_MULTI_EMPRESA          = :CAMPO_CD_MULTI_EMPRESA
+          AND custo_final.DT_COMPETENCIA      = CUSTO_DIARIA_CENCIR.DT_COMPETENCIA
+          AND CUSTO_DIARIA_CENCIR.DT_COMPETENCIA BETWEEN TO_DATE('01/'||:CAMPO_DTINI, 'dd/mm/yyyy') AND LAST_DAY(To_Date('01/'||:CAMPO_DTFIM,'dd/mm/yyyy'))
+          AND SETOR.TP_COMPOSICAO_CALCULO = '4'
+          GROUP BY CUSTO_DIARIA_CENCIR.CD_TIP_ACOM,
+            TIP_ACOM.DS_TIP_ACOM,
+            CUSTO_DIARIA_CENCIR.CD_SETOR,
+            CUSTO_DIARIA_CENCIR.VL_FATOR_CUSTO,
+            SETOR.NM_SETOR,
+            TO_CHAR(CUSTO_DIARIA_CENCIR.DT_COMPETENCIA, 'MM/YYYY') ,
+            vl_custo_diaria
+          ORDER BY CD_SETOR,
+            CODIGO_ACOMODACAO,
+            DT_COMP
+          ) Z
+        ) X
+      ) Y
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_ACOMOD_ATUALSIMUL_ANALITICO_SUB
+SELECT CODIGO_ACOMODACAO,
+  NOME_ACOMODACAO,
+  ROUND(AVG(CUSTO_UNIT_ATUAL),2) CUSTO_UNIT_ATUAL,
+  ROUND(AVG(CUSTO_UNIT_SIMUL),2) CUSTO_UNIT_SIMUL
+FROM
+    (SELECT CODIGO_ACOMODACAO,
+      NOME_ACOMODACAO,
+      ROUND(CUSTO_UNIT_ATUAL,2) CUSTO_UNIT_ATUAL,
+      ROUND(DECODE(VL_QT_PROD,0,0,DECODE(NVL(VL_CUSTO_DIARIA,0),0,0,(CUSTO_OPER / VL_CUSTO_DIARIA * (VL_QT_PROD * VL_FATOR_CUSTO))/DECODE(nvl(PROD_SIMUL,0),0,1,PROD_SIMUL))),2) CUSTO_UNIT_SIMUL
+    FROM
+      (SELECT X.*,
+        DECODE(QT_DIARIAS_DISPONIVEL,0,0,(VL_QT_PROD            /QT_DIARIAS_DISPONIVEL) * 100) TAXA_OCULP_ATUAL,
+        DECODE(QT_DIARIAS_DISPONIVEL,0,0,((QT_DIARIAS_DISPONIVEL*:CAMPO_TAXA_OCULP_SIMUL)/100)) PROD_SIMUL,
+        DECODE(VL_QT_PROD,0,0,DECODE(NVL(VL_CUSTO_DIARIA,0),0,0,(CUSTO_OPER / VL_CUSTO_DIARIA * (VL_QT_PROD * VL_FATOR_CUSTO))/DECODE(NVL(VL_QT_PROD,0),0,1,VL_QT_PROD))) CUSTO_UNIT_ATUAL
+      FROM
+        (SELECT (
+          CASE tp_custo_diaria
+            WHEN 'P'
+            THEN qt_diarias_pacdia
+            WHEN 'D'
+            THEN qt_diarias_disponivel
+            WHEN 'F'
+            THEN qt_diarias_faturado
+            ELSE qt_diarias_utilizada
+          END) VL_QT_PROD,
+          Z.*
+        FROM
+          (SELECT CUSTO_DIARIA_CENCIR.CD_TIP_ACOM AS CODIGO_ACOMODACAO,
+            TIP_ACOM.DS_TIP_ACOM                  AS NOME_ACOMODACAO,
+            TO_CHAR(CUSTO_DIARIA_CENCIR.DT_COMPETENCIA, 'MM/YYYY') DT_COMP,
+            CUSTO_DIARIA_CENCIR.CD_SETOR AS CD_SETOR,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_disponivel, 0) ) qt_diarias_disponivel,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_faturadas, 0) ) qt_diarias_faturado,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_utilizadas, 0) ) qt_diarias_utilizada,
+            SUM( NVL(CUSTO_DIARIA_CENCIR.qt_diarias_pacdia, 0) ) qt_diarias_pacdia,
+            CUSTO_DIARIA_CENCIR.VL_FATOR_CUSTO,
+            NVL(custo_final.vl_custo_diaria, 1) vl_custo_diaria,
+            (SELECT tp_custo_diaria
+            FROM dbamv.config_fcch
+            WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            ) TP_CUSTO_DIARIA,
+            (SELECT SUM(NVL(vl_custo_evento,0))+ SUM(DECODE(C.comp_rateio_gen,'N',0,NVL(vl_custo_genericos,0)))+ SUM(DECODE(C.comp_rateio_esp,'N',0,NVL(vl_custo_especificos,0)))+ SUM(DECODE(C.comp_op_matmed,'N',0,NVL(vl_custo_matmed,0)))SOMA
+            FROM dbamv.custo_final,
+              (SELECT comp_op_matmed,
+                comp_rateio_esp,
+                comp_rateio_gen
+              FROM dbamv.config_fcch
+              WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              ) C
+            WHERE cd_setor = CUSTO_DIARIA_CENCIR.CD_SETOR
+            AND DT_COMPETENCIA BETWEEN TO_DATE('01/'||:CAMPO_DTINI, 'dd/mm/yyyy') AND LAST_DAY(To_Date('01/'||:CAMPO_DTFIM,'dd/mm/yyyy'))
+            AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            ) AS CUSTO_OPER
+          FROM DBAMV.SETOR,
+            DBAMV.CUSTO_DIARIA_CENCIR,
+            DBAMV.TIP_ACOM,
+            DBAMV.TIP_ACOM_SETOR,
+            DBAMV.custo_final
+          WHERE CUSTO_DIARIA_CENCIR.CD_SETOR  = SETOR.CD_SETOR
+          AND custo_final.CD_SETOR            = SETOR.CD_SETOR
+          AND CUSTO_DIARIA_CENCIR.CD_SETOR    = TIP_ACOM_SETOR.CD_SETOR(+)
+          AND CUSTO_DIARIA_CENCIR.CD_TIP_ACOM = TIP_ACOM_SETOR.CD_TIP_ACOM(+)
+          AND CUSTO_DIARIA_CENCIR.CD_TIP_ACOM = TIP_ACOM.CD_TIP_ACOM
+          AND CUSTO_DIARIA_CENCIR.TP_CUSTO    = 'D'
+          AND custo_final.CD_MULTI_EMPRESA    = SETOR.CD_MULTI_EMPRESA
+          AND SETOR.CD_MULTI_EMPRESA          = :CAMPO_CD_MULTI_EMPRESA
+          AND custo_final.DT_COMPETENCIA      = CUSTO_DIARIA_CENCIR.DT_COMPETENCIA
+          AND CUSTO_DIARIA_CENCIR.DT_COMPETENCIA BETWEEN TO_DATE('01/'||:CAMPO_DTINI, 'dd/mm/yyyy') AND LAST_DAY(To_Date('01/'||:CAMPO_DTFIM,'dd/mm/yyyy'))
+          AND SETOR.TP_COMPOSICAO_CALCULO = '4'
+          GROUP BY CUSTO_DIARIA_CENCIR.CD_TIP_ACOM,
+            TIP_ACOM.DS_TIP_ACOM,
+            CUSTO_DIARIA_CENCIR.CD_SETOR,
+            CUSTO_DIARIA_CENCIR.VL_FATOR_CUSTO,
+            SETOR.NM_SETOR,
+            TO_CHAR(CUSTO_DIARIA_CENCIR.DT_COMPETENCIA, 'MM/YYYY') ,
+            vl_custo_diaria
+          ORDER BY CD_SETOR,
+            CODIGO_ACOMODACAO,
+            DT_COMP
+          ) Z
+        ) X
+      )
+    )
+GROUP BY CODIGO_ACOMODACAO,
+  NOME_ACOMODACAO
+ORDER BY CODIGO_ACOMODACAO

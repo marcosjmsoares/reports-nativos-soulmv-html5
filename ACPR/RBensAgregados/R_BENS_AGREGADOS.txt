@@ -1,0 +1,64 @@
+/*----------------------------------------------------------------------------*/
+--R_BENS_AGREGADOS
+SELECT ('Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa) Empresa
+      ,me.cd_multi_empresa cd_multi_empresa1
+      ,IO.CD_CAPITULO CD_CAPITULO
+      ,IO.DS_CAPITULO DS_CAPITULO
+      ,BENS.CD_BEM CD_BEM
+      ,BENS.DS_BEM DS_BEM
+      ,BENS.DS_PLAQUETA DS_PLAQUETA
+      ,BENS.VL_COMPRA VL_ORIGINAL,
+      NVL(BENS.VL_DEPRECIACAO_HISTORICA, 0) + NVL(BENS.VL_DEPREC_ACUM_ECO, 0) VL_DEPREC_HISTORICA,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( BENS.Cd_Bem, Trunc(Sysdate,'MM'), Null, Null, 'C' )    VL_DEPREC_CUSTO,
+       Dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( BENS.Cd_Bem, Null, 'V', Null, Null )         Vl_Total_Reavaliacao,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( BENS.Cd_Bem, Trunc(Sysdate,'MM'), Null, Null, 'R' ) Vl_Total_Deprec_Reav,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalBemAgregado( BENS.Cd_Bem, 'B' ) Vl_Bens_Agregados_princ,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalBemAgregado( BENS.Cd_Bem, 'O' ) Vl_Bens_Agregacao_Extra_princ,
+       Dbamv.Pkg_Patrimonio.fnc_calc_vl_residual_bem( BENS.Cd_Bem, 'E' ) Vl_Residual
+FROM DBAMV.IOB IO
+    ,DBAMV.BENS
+    ,DBAMV.ITDEPRECIA IT
+    ,dbamv.multi_empresas me
+    , dbamv.bens_agregados BA
+WHERE IO.CD_CAPITULO              = BENS.CD_CAPITULO
+  and BENS.cd_bem                   = ba.cd_bemprincipal
+  AND BENS.CD_BEM                   = IT.CD_BEM (+)
+  AND BENS.CD_MULTI_EMPRESA         = ME.CD_MULTI_EMPRESA
+  AND NVL(BA.sn_agrega_valor,'N') = 'S'
+UNION
+SELECT 'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa
+      ,me.cd_multi_empresa cd_multi_empresa1
+      ,IO.CD_CAPITULO CD_CAPITULO
+      ,IO.DS_CAPITULO DS_CAPITULO
+      ,BENS.CD_BEM CD_BEM
+      ,BENS.DS_BEM DS_BEM
+      ,BENS.DS_PLAQUETA DS_PLAQUETA
+      ,BENS.VL_COMPRA VL_ORIGINAL,
+      NVL(BENS.VL_DEPRECIACAO_HISTORICA, 0) + NVL(BENS.VL_DEPREC_ACUM_ECO, 0)     VL_DEPREC_HISTORICA,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( BENS.Cd_Bem, Trunc(Sysdate,'MM'), Null, Null, 'C' )    VL_DEPREC_CUSTO,
+       Dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( BENS.Cd_Bem, Null, 'V', Null, Null )         Vl_Total_Reavaliacao,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( BENS.Cd_Bem, Trunc(Sysdate,'MM'), Null, Null, 'R' ) Vl_Total_Deprec_Reav,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalBemAgregado( BENS.Cd_Bem, 'B' ) Vl_Bens_Agregados,
+       Dbamv.Pkg_Patrimonio.Fn_RetTotalBemAgregado( BENS.Cd_Bem, 'O' ) Vl_Bens_Agregacao_Extra,
+       Dbamv.Pkg_Patrimonio.fnc_calc_vl_residual_bem( BENS.Cd_Bem, 'E' ) Vl_Residual
+FROM DBAMV.IOB IO
+    ,DBAMV.BENS
+    ,DBAMV.ITDEPRECIA IT
+    ,dbamv.multi_empresas me
+    , dbamv.bens_agregacao_extra BT
+WHERE IO.CD_CAPITULO              = BENS.CD_CAPITULO
+  and BENS.cd_bem                   = bt.cd_bem_principal
+  AND BENS.CD_BEM                   = IT.CD_BEM (+)
+  AND BENS.CD_MULTI_EMPRESA         = ME.CD_MULTI_EMPRESA
+  AND NVL(BT.sn_agrega_valor,'N') = 'S'
+ GROUP BY  IO.CD_CAPITULO
+              ,IO.DS_CAPITULO
+              ,BENS.CD_BEM
+              ,BENS.DS_BEM
+              ,BENS.DS_PLAQUETA
+              ,BENS.DT_COMPRA
+              ,BENS.VL_COMPRA
+              ,BENS.VL_DEPRECIACAO_HISTORICA
+              ,BENS.VL_DEPREC_ACUM_ECO
+              ,me.cd_multi_empresa
+              ,me.ds_multi_empresa

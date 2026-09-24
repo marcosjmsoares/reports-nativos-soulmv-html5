@@ -1,0 +1,51 @@
+/*----------------------------------------------------------------------------*/
+--R_AGRUP_CONTA
+SELECT * FROM (
+select agrup.nr_documento          nr_doc_agrup
+     , itagrup.dt_vencimento       dt_venc_agrup
+     , con_pagdet.nr_documento     nr_doc_det
+     , itcon_pag.dt_vencimento     dt_venc_det
+     , con_pagdet.vl_bruto_conta   vl_bruto_conta
+     , detcon_pag.vl_detalhamento  vl_detalhamento
+     , tip_detalhe.cd_atividade    cd_atividade
+     , tip_detalhe.ds_detalhamento ds_detalhamento
+     , tip_doc.ds_tip_doc          ds_tip_doc
+     , fornec.nr_cgc_cpf           nr_cgc_cpf
+     , agrup.cd_con_pag            cd_con_pag
+     , decode(con_pagdet.cd_fornecedor,'', con_pagdet.ds_fornecedor,fornec.nm_fornecedor) nm_fornecedor
+     , CON_PAGDET.VL_MOEDA        VL_MOEDA
+      ,decode  ( :CAMPO_CONVERTE, 1 , :CAMPO_CD_MOEDA ,  CON_PAGDET.CD_MOEDA  )	CD_MOEDA
+      ,tip_detalhe.cd_detalhamento    cd_detalhamento
+     , con_pagdet.dt_emissao           dt_emissao
+     , con_pagdet.vl_base_inss        vl_base_inss
+     , con_pagdet.vl_base_irrf          vl_base_irrf
+     , con_pagdet.cd_con_pag         cd_con_pagdet
+     , con_pagdet.cd_fornecedor      cd_fornecedordet
+     , con_pagdet.ds_fornecedor      ds_fornecedordet
+     , tip_detalhe.tp_inc_imposto      tp_inc_imposto
+     , tip_detalhe.sn_acumula           sn_acumula
+     , tip_detalhe.tp_data                  tp_data
+  from dbamv.con_pag            agrup
+     , dbamv.itcon_pag          itagrup
+     , dbamv.itcon_pag          itcon_pag
+     , dbamv.con_pag            con_pag
+     , dbamv.tip_detcon_pag     detcon_pag
+     , dbamv.con_pag            con_pagdet
+     , dbamv.tip_detalhe        tip_detalhe
+     , dbamv.tip_doc            tip_doc
+     , dbamv.fornecedor         fornec
+ where agrup.cd_con_pag           = itagrup.cd_con_pag
+   and itagrup.cd_con_pag         = nvl(itcon_pag.cd_con_pag_agrup, itcon_pag.cd_con_pag)
+   and itcon_pag.cd_con_pag       = con_pag.cd_con_pag
+   and con_pag.cd_con_pag         = detcon_pag.cd_con_pag_filho
+   and con_pag.cd_multi_empresa   = :CAMPO_CD_MULTI_EMPRESA 
+   and detcon_pag.cd_con_pag_pai  = con_pagdet.cd_con_pag
+   and detcon_pag.cd_detalhamento = tip_detalhe.cd_detalhamento
+   and agrup.cd_tip_doc           = tip_doc.cd_tip_doc
+   and con_pagdet.cd_fornecedor   = fornec.cd_fornecedor(+)
+   and agrup.nr_documento         = :CAMPO_NR_DOC
+   and agrup.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+   and agrup.cd_con_pag           = :CAMPO_CD_CON_PAG
+order by nm_fornecedor
+)
+ORDER BY CD_MOEDA

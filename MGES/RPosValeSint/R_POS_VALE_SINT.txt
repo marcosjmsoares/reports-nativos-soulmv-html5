@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_POS_VALE_SINT
+SELECT ent_pro.cd_ent_pro
+     , ent_pro.dt_entrada
+     , ent_pro.cd_fornecedor
+     , fornecedor.nm_fornecedor
+     , nvl(ent_pro.nr_documento,0) nr_documento
+     , Decode (tip_doc.tp_entrada, 'V', 'VALE PENDENTE', 'VALE PAGO') SITUACAO
+     , tip_doc.ds_tip_doc
+     ,ent_pro.vl_total
+     ,dbamv.fnc_mges_total_pend_vale(ent_pro.cd_fornecedor, :CAMPO_DTINIC) saldo_anterior
+  FROM dbamv.tip_doc
+     , dbamv.fornecedor
+     , dbamv.produto
+     , dbamv.uni_pro
+     , dbamv.ent_pro
+     , dbamv.itent_pro
+     , dbamv.estoque
+     , dbamv.especie
+	 , dbamv.empresa_produto
+WHERE ent_pro.cd_ent_pro          = itent_pro.cd_ent_pro
+   AND ent_pro.cd_fornecedor       = fornecedor.cd_fornecedor
+   AND ent_pro.cd_estoque          = estoque.cd_estoque
+   AND ent_pro.cd_tip_doc          = tip_doc.cd_tip_doc
+   AND itent_pro.cd_produto        = produto.cd_produto
+   AND itent_pro.cd_uni_pro        = uni_pro.cd_uni_pro
+   AND produto.cd_especie          = especie.cd_especie
+   AND ent_pro.tp_documento_entrada= 'V'
+   AND ent_pro.dt_entrada >= :CAMPO_DTINIC
+   AND ent_pro.dt_entrada <= :CAMPO_DTFIM
+   AND estoque.cd_multi_empresa    = Dbamv.Pkg_Mv2000.le_empresa
+   AND empresa_produto.cd_multi_empresa = estoque.cd_multi_empresa
+   AND empresa_produto.cd_produto = produto.cd_produto
+ ORDER BY CD_FORNECEDOR,NM_FORNECEDOR, ds_tip_doc, situacao

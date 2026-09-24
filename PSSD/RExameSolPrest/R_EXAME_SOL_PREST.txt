@@ -1,0 +1,120 @@
+/*----------------------------------------------------------------------------*/
+--R_EXAME_SOL_PREST
+SELECT * FROM (
+SELECT DECODE('S',
+              'R',
+              NVL(ped_lab.cd_prestador_resp, itPed_lab.cd_medico_exec),
+              ped_lab.cd_prestador) CD_PRESTADOR,
+              DECODE('S',
+                              'R',
+                              NVL(presta.nm_prestador, Prest_resp.Nm_prestador), 
+                              NVL(PED_LAB.NM_PRESTADOR,  PRESTADOR.NM_PRESTADOR)
+                               ) NM_PRESTADOR,
+       ATENDIME.CD_CONVENIO    CD_CONVENIO,
+       CONVENIO.NM_CONVENIO    NM_CONVENIO,
+       ITPED_LAB.CD_EXA_LAB    CD_EXA_LAB,
+       DECODE(CONVENIO.TP_CONVENIO,
+              'A',
+              EXA_LAB.CD_PROCEDIMENTO_SIA,
+              'C',
+              EXA_LAB.CD_PRO_FAT,
+              'P',
+              EXA_LAB.CD_PRO_FAT,
+              'H',
+              EXA_LAB.CD_PROCEDIMENTO_SIH)                  CD_EXAME,
+       EXA_LAB.NM_EXA_LAB      NM_EXA_LAB,
+       COUNT(*)                   QTD_EXAME,
+       dbamv.calc_vl_proc_unit(convenio.tp_convenio,
+                               decode(convenio.tp_convenio,
+                                      'A',
+                                      EXA_LAB.CD_PROCEDIMENTO_SIA,
+                                      'H',
+                                      exa_lab.CD_PROCEDIMENTO_SIH,
+                                      'C',
+                                      exa_lab.cd_pro_fat,
+                                      'P',
+                                      exa_lab.cd_pro_fat),
+                               ped_lab.dt_pedido,
+                               ped_lab.hr_ped_lab,
+                               convenio.cd_convenio,
+                               con_pla.cd_con_pla,
+                               atendime.tp_atendimento,
+                               atendime.cd_tip_acom,
+                               'U') VL_CUSTO
+  FROM DBAMV.ATENDIME,
+       DBAMV.PED_LAB,
+       DBAMV.PRESTADOR,
+       DBAMV.PRESTADOR PRESTA,
+       DBAMV.CONVENIO,
+       DBAMV.CON_PLA,
+       DBAMV.ITPED_LAB,
+       DBAMV.EXA_LAB,
+       DBAMV.PRESTADOR PREST_RESP 
+,Dbamv.Empresa_Con_Pla
+Where Empresa_Con_Pla.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And Empresa_Con_Pla.Cd_Convenio = Con_Pla.Cd_Convenio
+And Empresa_Con_Pla.Cd_Con_Pla = Con_Pla.Cd_Con_Pla
+And ATENDIME.CD_ATENDIMENTO = PED_LAB.CD_ATENDIMENTO
+       AND ATENDIME.CD_ATENDIMENTO = PED_LAB.CD_ATENDIMENTO
+       AND PED_LAB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+       AND ped_lab.cd_prestador_resp = presta.cd_prestador(+)
+       AND itPed_lab.cd_medico_exec = Prest_resp.cd_prestador (+)  
+       AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+       AND ATENDIME.CD_CONVENIO = CON_PLA.CD_CONVENIO (+) 
+       AND ATENDIME.CD_CON_PLA = CON_PLA.CD_CON_PLA (+) 
+       AND PED_LAB.CD_PED_LAB = ITPED_LAB.CD_PED_LAB
+       AND ITPED_LAB.CD_EXA_LAB = EXA_LAB.CD_EXA_LAB
+      AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+      AND EXISTS  (SELECT 1
+                               FROM  DBAMV.USUARIOS_SET_EXA
+                               WHERE USUARIOS_SET_EXA.CD_SET_EXA = ITPED_LAB.CD_SET_EXA
+                                   AND   USUARIOS_SET_EXA.NM_USUARIO = USER)
+GROUP BY DECODE('S',
+              'R',
+              NVL(ped_lab.cd_prestador_resp, itPed_lab.cd_medico_exec),
+              ped_lab.cd_prestador),
+              DECODE('S',
+                     'R',
+                     NVL(presta.nm_prestador, Prest_resp.Nm_prestador), 
+                     NVL(PED_LAB.NM_PRESTADOR,  PRESTADOR.NM_PRESTADOR)
+                     ),
+              ATENDIME.CD_CONVENIO,
+              CONVENIO.NM_CONVENIO,
+              ITPED_LAB.CD_EXA_LAB,
+              DECODE(CONVENIO.TP_CONVENIO,
+                     'A',
+                     EXA_LAB.CD_PROCEDIMENTO_SIA,
+                     'C',
+                     EXA_LAB.CD_PRO_FAT,
+                     'P',
+                     EXA_LAB.CD_PRO_FAT,
+                     'H',
+                     EXA_LAB.CD_PROCEDIMENTO_SIH),
+                     EXA_LAB.NM_EXA_LAB,
+               dbamv.calc_vl_proc_unit(convenio.tp_convenio,
+                                      decode(convenio.tp_convenio,
+                                      'A',
+                                      EXA_LAB.CD_PROCEDIMENTO_SIA,
+                                      'H',
+                                      exa_lab.CD_PROCEDIMENTO_SIH,
+                                      'C',
+                                      exa_lab.cd_pro_fat,
+                                      'P',
+                                      exa_lab.cd_pro_fat),
+                                      ped_lab.dt_pedido,
+                                      ped_lab.hr_ped_lab,
+                                      convenio.cd_convenio,
+                                      con_pla.cd_con_pla,
+                                      atendime.tp_atendimento,
+                                      atendime.cd_tip_acom,
+                                      'U')
+ ORDER BY DECODE('S',
+                 'R',
+                  NVL(presta.nm_prestador, Prest_resp.Nm_prestador), 
+                  NVL(PED_LAB.NM_PRESTADOR,  PRESTADOR.NM_PRESTADOR)
+                 ),
+          CONVENIO.NM_CONVENIO,
+          EXA_LAB.NM_EXA_LAB
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR,
+NM_CONVENIO,CD_CONVENIO

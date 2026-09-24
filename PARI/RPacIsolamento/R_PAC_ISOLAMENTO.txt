@@ -1,0 +1,33 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_ISOLAMENTO
+SELECT atendime.cd_leito,
+       leito.ds_leito,
+       atendime.cd_atendimento,
+       paciente.nm_paciente,
+   (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+       mov_int.dt_mov_int,
+       mov_int.hr_mov_int,
+       unid_int.cd_unid_int,
+       unid_int.ds_unid_int
+FROM dbamv.atendime,
+     dbamv.paciente,
+     dbamv.leito,
+     dbamv.unid_int,
+     dbamv.mov_int,
+     dbamv.tip_acom
+WHERE atendime.cd_paciente = paciente.cd_paciente
+    AND atendime.cd_leito = leito.cd_leito
+    AND atendime.cd_tip_acom = tip_acom.cd_tip_acom 
+    AND leito.cd_unid_int = unid_int.cd_unid_int
+    AND ((:CAMPO_DT_INI IS NULL
+    AND  IS NULL)
+        OR (mov_int.dt_mov_int BETWEEN :CAMPO_DT_INI AND :CAMPO_DT_FIM))
+    AND mov_int.cd_atendimento = atendime.cd_atendimento
+    AND mov_int.cd_leito = atendime.cd_leito
+    AND atendime.dt_alta IS NULL
+    AND atendime.cd_multi_empresa = pkg_mv2000.le_empresa
+    AND mov_int.cd_mov_int =
+        (SELECT max(cd_mov_int)
+         FROM dbamv.mov_int
+         WHERE cd_atendimento = atendime.cd_atendimento) 
+ORDER BY unid_int.cd_unid_int

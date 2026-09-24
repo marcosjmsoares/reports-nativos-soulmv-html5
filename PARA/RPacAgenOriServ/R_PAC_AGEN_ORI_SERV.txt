@@ -1,0 +1,33 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_AGEN_ORI_SERV
+SELECT * FROM (
+SELECT ORI_ATE.CD_ORI_ATE
+              ,ORI_ATE.DS_ORI_ATE
+              ,TRUNC(ITMA.DT_AGENDADO)      DT_AGENDADO
+              ,SER_DIS.CD_SER_DIS
+              ,SER_DIS.DS_SER_DIS
+              ,TRUNC(MARC.DT_MARCACAO)    DT_MARCACAO
+              ,ITMA.CD_PACIENTE
+              ,ITMA.NM_PACIENTE
+              ,(SELECT PA.NM_SOCIAL_PACIENTE
+          		FROM DBAMV.PACIENTE PA
+          		WHERE PA.CD_PACIENTE = ITMA.CD_PACIENTE
+            	  AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE
+FROM    DBAMV.MARCACAO         MARC
+             ,DBAMV.ORI_ATE
+             ,DBAMV.SER_DIS
+             ,DBAMV.IT_MARCACAO    ITMA
+             ,DBAMV.MARCACAO_SER_DIS  MARCA_SER_DIS
+WHERE ITMA.DT_AGENDADO between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+							   to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+AND        NVL(MARC.SN_ATIVO,'S')  =  'S'
+AND        MARC.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+AND        MARC.CD_MARCACAO = MARCA_SER_DIS.CD_MARCACAO
+AND        MARCA_SER_DIS.CD_SER_DIS  = SER_DIS.CD_SER_DIS
+AND        MARC.CD_MARCACAO = ITMA.CD_MARCACAO
+AND        ITMA.NM_PACIENTE IS NOT NULL
+:CAMPO_CF_MULTI_EMPRESA
+)
+ORDER BY CD_ORI_ATE,DS_ORI_ATE,
+DT_AGENDADO,
+CD_SER_DIS,DS_SER_DIS

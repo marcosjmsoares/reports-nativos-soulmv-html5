@@ -1,0 +1,52 @@
+/*----------------------------------------------------------------------------*/
+--R_CLAS_CONTAB_INVENTARIO
+SELECT * FROM (
+Select     Ds_Sub_Tipo,
+           Decode( Vl_Conta, abs(Vl_Conta), Conta_Credito, Conta_Debito ) Conta_Debito,
+		   Decode( Vl_Conta, abs(Vl_Conta), Conta_Debito, Conta_Credito ) Conta_Credito,
+		   Cd_Setor,
+		   Nm_Setor,
+		   Nvl( Abs(Vl_Conta), 0 )  Vl_Conta
+From (
+Select     Classe.Ds_Classe                Ds_Sub_Tipo
+          ,Plano_Debito.Cd_Contabil_Sap    Conta_Debito
+          ,Plano_Credito.Cd_Contabil_Sap   Conta_Credito
+          ,ImvSap_Setor.Cd_Setor_Sap       Cd_Setor
+          ,Setor.Nm_Setor                  Nm_Setor
+          ,Round( Sum( ( ( Itcontagem.Qt_Estoque * Uni_Pro.Vl_Fator )
+		             - dbamv.f_retorna_qtd_antes_da_contag (  Produto.Cd_Produto,
+                                                              Contagem.Cd_Estoque,
+                                                              Contagem.Cd_Contagem ) ) *
+		           (Itcontagem.vl_custo_Medio / uni_pro.vl_fator)  ), 2 ) Vl_Conta
+  From Dbamv.ImvSap_Plano	    Plano_Credito   
+         ,Dbamv.ImvSap_Plano	Plano_Debito   
+         ,Dbamv.Config_Debito_Credito_Mges  Prod_Config  
+         ,Dbamv.Classe
+         ,Dbamv.Produto
+         ,Dbamv.Uni_Pro
+         ,Dbamv.ItContagem
+         ,Dbamv.Imvsap_Setor   
+         ,Dbamv.Setor
+		 ,Dbamv.Estoque
+         ,Dbamv.Contagem
+ Where Contagem.Cd_contagem = :CAMPO_CD_CONTAGEM
+      and Estoque.Cd_Multi_Empresa                                    = :CAMPO_CD_MULTI_EMPRESA 
+      and Setor.Cd_Setor			            = Estoque.Cd_Setor
+	  And Estoque.Cd_Estoque                    = Contagem.Cd_Estoque
+      and ImvSap_Setor.Cd_Setor		        (+) = Estoque.Cd_Setor
+      and Uni_Pro.Cd_Uni_Pro		            = ItContagem.Cd_Uni_Pro
+      and Produto.Cd_Produto                    = Itcontagem.Cd_Produto
+	  and contagem.cd_contagem                  = Itcontagem.Cd_Contagem
+      and Classe.Cd_Especie		                = Produto.Cd_Especie
+      and Classe.Cd_Classe		                = Produto.Cd_Classe
+      and Prod_Config.Rowid                   (+)= Dbamv.Busca_Conta_Mges( Itcontagem.Cd_Produto, 'I' )
+      and Plano_Debito.Cd_Reduzido     (+)= Prod_Config.Cd_Reduzido_Contabil
+      and Plano_Credito.Cd_Reduzido     (+)= Prod_Config.Cd_Reduzido_Contra_Partida
+  Group By Classe.Ds_Classe
+          ,Plano_Debito.Cd_Contabil_Sap
+          ,Plano_Credito.Cd_Contabil_Sap
+          ,ImvSap_Setor.Cd_Setor_Sap
+          ,Setor.Nm_Setor )
+Where Nvl( Vl_Conta, 0 ) <> 0
+)
+ORDER BY DS_SUB_TIPO,CONTA_DEBITO,CONTA_CREDITO

@@ -1,0 +1,69 @@
+/*----------------------------------------------------------------------------*/
+--R_CAPA_REMESSA_U
+SELECT COUNT(*) Tot_Contas , SUM(QT_ITENS+qt_outros) Tot_Itens, SUM(vL_TOTAL+vl_Outros) Vl_Total
+FROM
+(
+    Select distinct itreg_amb.cd_reg_amb cd_conta,
+                   itreg_amb.cd_atendimento,
+                   Nvl( it_matmed.qt_lcto_matmed, 0 ) qt_outros,
+                   Nvl( it_outros.qt_lcto_outros, 0 ) qt_itens,
+                   Nvl( it_outros.vl_total_outros, 0 ) vl_total,
+                   Nvl( it_matmed.vl_total_matmed, 0 ) vl_outros
+     From dbamv.reg_amb,
+          dbamv.itreg_amb,
+          dbamv.remessa_fatura,
+          dbamv.atendime,
+          ( Select cd_reg_amb,
+                   cd_atendimento,
+                   Nvl( Sum( sn_matmed ), 0 ) qt_lcto_matmed,
+                   Sum( vl_total_matmed ) vl_total_matmed
+             From ( Select reg_amb.cd_reg_amb,
+                           itreg_amb.cd_atendimento,
+                           decode( gru_pro.tp_gru_pro, 'MT', 1, 0 ) +
+                           decode( gru_pro.tp_gru_pro, 'MD', 1, 0 ) sn_matmed,
+                           Sum( itreg_amb.vl_total_conta ) vl_total_matmed
+                      From dbamv.reg_amb,
+                           dbamv.itreg_amb,
+                           dbamv.pro_fat,
+                           dbamv.gru_pro
+                     Where reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+                       AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                       and itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+                       and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                       and gru_pro.tp_gru_pro in ( 'MD', 'MT' )
+                       and reg_amb.cd_remessa = :CAMPO_CD_REMESSA
+                       and Nvl( itreg_amb.sn_pertence_pacote, 'N' ) = 'N'
+                  Group by reg_amb.cd_reg_amb,
+                           itreg_amb.cd_atendimento,
+                           gru_pro.tp_gru_pro )
+                 Group by cd_reg_amb,
+                          cd_atendimento ) it_matmed,
+          ( Select reg_amb.cd_reg_amb,
+                   itreg_amb.cd_atendimento,
+                   Count( itreg_amb.cd_lancamento ) qt_lcto_outros,
+                   Sum( itreg_amb.vl_total_conta ) vl_total_outros
+              From dbamv.reg_amb,
+                   dbamv.itreg_amb,
+                   dbamv.pro_fat,
+                   dbamv.gru_pro
+             Where reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+               AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+               and itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+               and gru_pro.tp_gru_pro not in ( 'MD', 'MT' )
+               and reg_amb.cd_remessa = :CAMPO_CD_REMESSA
+               and Nvl( itreg_amb.sn_pertence_pacote, 'N' ) = 'N'
+            Group by reg_amb.cd_reg_amb,
+                   itreg_amb.cd_atendimento ) it_outros
+    Where reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+      AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and remessa_fatura.cd_remessa = reg_amb.cd_remessa
+      and atendime.cd_atendimento = itreg_amb.cd_atendimento
+      and remessa_fatura.cd_remessa = :CAMPO_CD_REMESSA
+      and atendime.tp_atendimento = :CAMPO_TP_NOTA
+      and itreg_amb.cd_reg_amb = it_matmed.cd_reg_amb (+)
+      and itreg_amb.cd_atendimento = it_matmed.cd_atendimento (+)
+       and itreg_amb.cd_reg_amb = it_outros.cd_reg_amb (+)
+      and itreg_amb.cd_atendimento = it_outros.cd_atendimento (+)
+)

@@ -1,0 +1,86 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_CONV
+SELECT B.CD_CONVENIO,
+       B.NM_CONVENIO,
+       B.TOT_EXA_AMB TOT_EXA_AMB,
+       B.TOT_EXA_INT TOT_EXA_INT,
+       B.TotalVal_Int TotalVal_Int,
+       B.TotalVal_Amb TotalVal_Amb,
+       A.TOT_ATD_INT,
+       A.TOT_ATD_AMB,
+       B.TOT_EXA_AMB + B.TOT_EXA_INT TOTAL_EXA,
+       B.TOTALVAL_INT + B.TOTALVAL_AMB TOTAL_VALOR 
+FROM
+    (SELECT CD_CONVENIO,
+     SUM(TOT_AT_INT) TOT_ATD_INT,
+     SUM(TOT_AT_AMB) TOT_ATD_AMB,
+     SUM(TOT_ATEND ) TOT_ATEND
+     FROM
+         (SELECT DISTINCT ATENDIME.CD_CONVENIO,
+          ATENDIME.CD_ATENDIMENTO,
+          DECODE(ATENDIME.TP_ATENDIMENTO, 'I', 1, 'H', 1, 0)TOT_AT_INT,
+          DECODE(ATENDIME.TP_ATENDIMENTO, 'I', 0, 'H', 0, 1) TOT_AT_AMB,
+          1 TOT_ATEND
+          FROM DBAMV.ATENDIME,
+               DBAMV.PED_LAB,
+               DBAMV.ITPED_LAB
+          WHERE ATENDIME.CD_ATENDIMENTO = PED_LAB.CD_ATENDIMENTO
+            AND PED_LAB.CD_PED_LAB                  = ITPED_LAB.CD_PED_LAB
+            AND ATENDIME.CD_ATENDIMENTO     = PED_LAB.CD_ATENDIMENTO
+            AND EXISTS (SELECT 1
+                         FROM DBAMV.USUARIOS_SET_EXA
+                        WHERE USUARIOS_SET_EXA.CD_SET_EXA = ITPED_LAB.CD_SET_EXA
+                          AND USUARIOS_SET_EXA.NM_USUARIO    = USER)
+          AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+          :CAMPO_CF_COND_PERIODO
+          )GROUP BY CD_CONVENIO
+      )A, 
+       (SELECT CONVENIO.CD_CONVENIO,
+               CONVENIO.NM_CONVENIO,
+               SUM(DECODE(ATENDIME.TP_ATENDIMENTO, 'I', 1, 'H', 1, 0))TOT_EXA_INT,
+               SUM(DECODE(ATENDIME.TP_ATENDIMENTO, 'I', 0, 'H', 0, 1))TOT_EXA_AMB,
+               SUM(DECODE(ATENDIME.TP_ATENDIMENTO, 'E', 0, 'U', 0, 'A', 0,
+               DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO,
+                                       decode( convenio.tp_convenio, 'A', exa_lab.cd_procedimento_sia
+                                                                   , 'H', exa_lab.cd_procedimento_sih
+                                                                   , 'C', exa_lab.cd_pro_fat
+                                                                   , 'P', exa_lab.cd_pro_fat),
+                                          DECODE(:CAMPO_SITU_EXAME, 'S', PED_LAB.DT_PEDIDO, ITPED_LAB.DT_LAUDO),
+                                              PED_LAB.HR_PED_LAB,
+                                              ATENDIME.CD_CONVENIO,
+                                              ATENDIME.CD_CON_PLA,
+                                              ATENDIME.TP_ATENDIMENTO,
+                                              ATENDIME.CD_TIP_ACOM,
+                                             :CAMPO_UNIDADE))) TotalVal_Int,
+               SUM( DECODE(ATENDIME.TP_ATENDIMENTO, 'I', 0, 'H', 0,
+                DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO,
+                                       decode( convenio.tp_convenio, 'A', exa_lab.cd_procedimento_sia
+                                                                    , 'H', exa_lab.cd_procedimento_sih
+                                                                    , 'C', exa_lab.cd_pro_fat
+                                                                    , 'P', exa_lab.cd_pro_fat),
+                                          DECODE(:CAMPO_SITU_EXAME, 'S', PED_LAB.DT_PEDIDO, ITPED_LAB.DT_LAUDO),
+                                              PED_LAB.HR_PED_LAB,
+                                              ATENDIME.CD_CONVENIO,
+                                              ATENDIME.CD_CON_PLA,
+                                              ATENDIME.TP_ATENDIMENTO,
+                                              ATENDIME.CD_TIP_ACOM,
+                                             :CAMPO_UNIDADE))) TotalVal_Amb
+        FROM DBAMV.ATENDIME,
+             DBAMV.CONVENIO,
+             DBAMV.PED_LAB,
+             DBAMV.ITPED_LAB,
+             DBAMV.EXA_LAB
+       WHERE ATENDIME.CD_CONVENIO     = CONVENIO.CD_CONVENIO
+         AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+         AND ATENDIME.CD_ATENDIMENTO = PED_LAB.CD_ATENDIMENTO
+         AND PED_LAB.CD_PED_LAB              = ITPED_LAB.CD_PED_LAB
+         AND ITPED_LAB.CD_EXA_LAB           = EXA_LAB.CD_EXA_LAB
+         AND EXISTS (SELECT 1
+                      FROM DBAMV.USUARIOS_SET_EXA
+                     WHERE USUARIOS_SET_EXA.CD_SET_EXA = ITPED_LAB.CD_SET_EXA
+                       AND USUARIOS_SET_EXA.NM_USUARIO    = USER)
+         AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+group by CONVENIO.CD_CONVENIO,
+CONVENIO.NM_CONVENIO
+)B
+WHERE A.cd_convenio = B.cd_convenio

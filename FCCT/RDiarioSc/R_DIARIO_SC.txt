@@ -1,0 +1,245 @@
+/*----------------------------------------------------------------------------*/
+--R_DIARIO_SC
+SELECT 1 FROM DUAL
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIARIO_SC_LANCAMENTOS
+SELECT trunc( lc.dt_lcto )  data_lcto
+      ,lc.cd_lcto_contabil  codigo_lcto
+      ,me.cd_multi_empresa  codigo_empresa
+      ,me.ds_multi_empresa  descricao_empresa
+      ,Decode(:CAMPO_AGRUPA_POR_EMPRESAS, 'N', NULL, me.ds_multi_empresa) ds_empresa_agrupa
+      ,lote.cd_lote         lote
+      ,lc.cd_lcto_movimento movimento
+      ,pedeb.cd_reduzido    codigo_reduzido_debito
+      ,pedeb.cd_contabil    codigo_contabil_debito
+      ,pedeb.ds_conta       descricao_conta_debito
+	  ,Decode(:CAMPO_TP_DESCRICAO, '1', pedeb.cd_contabil, '2', pedeb.ds_conta, pedeb.cd_contabil||' - '||pedeb.ds_conta) ds_conta_debito
+      ,pecred.cd_reduzido   codigo_reduzido_credito
+      ,pecred.cd_contabil   codigo_contabil_credito
+      ,pecred.ds_conta      descricao_conta_credito
+	  ,Decode(:CAMPO_TP_DESCRICAO, '1', pecred.cd_contabil, '2', pecred.ds_conta, pecred.cd_contabil||' - '||pecred.ds_conta) ds_conta_credito
+      ,Decode(Ltrim(Rtrim(hist_padrao.ds_historico_padrao)), Ltrim(Rtrim(lc.ds_complemento) ) , hist_padrao.ds_historico_padrao, Ltrim( HIST_PADRAO.DS_HISTORICO_PADRAO || ' ' || lc.DS_COMPLEMENTO)) descricao_complemento
+      ,Decode(lc.cd_reduzido_credito, NULL, to_number(NULL), dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, lc.VL_LANCADO,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO) )  valor_credido
+      ,Decode(lc.cd_reduzido_debito, NULL, to_number(NULL), dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, lc.VL_LANCADO,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO) )  valor_debito
+FROM dbamv.lote
+    ,dbamv.lcto_contabil lc
+    ,dbamv.historico_padrao hist_padrao
+    ,dbamv.multi_empresas me
+    ,(SELECT pcdeb.cd_reduzido cd_reduzido_pc, pedeb.cd_reduzido, pedeb.cd_contabil, pedeb.ds_conta
+      FROM dbamv.plano_estr pedeb
+          ,dbamv.plano_contabil pcdeb
+      WHERE pcdeb.cd_plano_estr = pedeb.cd_plano_estr
+        AND pedeb.cd_plano = :CAMPO_CD_PLANO
+     ) pedeb
+    ,(SELECT pccred.cd_reduzido cd_reduzido_pc, pecred.cd_reduzido, pecred.cd_contabil, pecred.ds_conta
+      FROM dbamv.plano_estr pecred
+          ,dbamv.plano_contabil pccred
+      WHERE pccred.cd_plano_estr = pecred.cd_plano_estr
+        AND pecred.cd_plano = :CAMPO_CD_PLANO
+     ) pecred
+WHERE lc.dt_lcto BETWEEN To_date(To_char(:CAMPO_DATA_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' ) AND To_date( To_char( :CAMPO_DATA_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+  AND lc.cd_lote = lote.cd_lote(+)
+  AND me.CD_MULTI_EMPRESA = lc.CD_MULTI_EMPRESA
+  AND lc.cd_historico_padrao = hist_padrao.cd_historico_padrao(+)
+  AND lc.cd_reduzido_debito	 = pedeb.cd_reduzido_pc(+)
+  AND lc.cd_reduzido_credito = pecred.cd_reduzido_pc(+)
+  AND (lc.sn_transitoria = :CAMPO_INC_CONTA_TRANSITORIA OR lc.sn_transitoria IS NULL)
+  AND (lc.cd_lanc_agrup IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+UNION ALL
+SELECT trunc( LC.dt_lcto) data_lcto
+	,LC.cd_lcto_contabil   codigo_lcto
+	,me.cd_multi_empresa        codigo_empresa
+	,me.ds_multi_empresa        descricao_empresa
+	,Decode(:CAMPO_AGRUPA_POR_EMPRESAS, 'N', NULL, me.ds_multi_empresa) ds_empresa_agrupa
+	,lote.cd_lote lote
+	,LC.cd_lcto_movimento movimento
+	,pedeb.cd_reduzido codigo_reduzido_debito
+	,pedeb.cd_contabil codigo_contabil_debito
+	,pedeb.ds_conta    descricao_conta_debito
+	,Decode(:CAMPO_TP_DESCRICAO, '1', pedeb.cd_contabil, '2', pedeb.ds_conta, pedeb.cd_contabil||' - '||pedeb.ds_conta) ds_conta_debito
+	,pecred.cd_reduzido codigo_reduzido_credito
+	,pecred.cd_contabil codigo_contabil_credito
+	,pecred.ds_conta    descricao_conta_credito
+	,Decode(:CAMPO_TP_DESCRICAO, '1', pecred.cd_contabil, '2', pecred.ds_conta, pecred.cd_contabil||' - '||pecred.ds_conta) ds_conta_credito
+	,Decode(ltrim(rtrim(hi.ds_historico_padrao)), ltrim(rtrim(LC.ds_complemento) ) , hi.ds_historico_padrao, ltrim( hi.ds_historico_padrao || ' ' || LC.ds_complemento)) descricao_complemento
+	,Decode(LC.cd_reduzido_credito, null, to_number(null), dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,sysdate, LC.vl_lancado,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO)) valor_credido
+	,Decode(LC.cd_reduzido_debito , null, to_number(null), dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,sysdate, LC.vl_lancado,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO)) valor_debito
+FROM dbamv.lote
+    ,(SELECT pcdeb.cd_reduzido cd_reduzido_pc, pedeb.cd_reduzido, pedeb.cd_contabil, pedeb.ds_conta
+      FROM dbamv.plano_estr pedeb
+          ,dbamv.plano_contabil pcdeb
+      WHERE pcdeb.cd_plano_estr = pedeb.cd_plano_estr
+        AND pedeb.cd_plano = :CAMPO_CD_PLANO
+     ) pedeb
+    ,(SELECT pccred.cd_reduzido cd_reduzido_pc, pecred.cd_reduzido, pecred.cd_contabil, pecred.ds_conta
+      FROM dbamv.plano_estr pecred
+          ,dbamv.plano_contabil pccred
+      WHERE pccred.cd_plano_estr = pecred.cd_plano_estr
+        AND pecred.cd_plano = :CAMPO_CD_PLANO
+     ) pecred
+    ,dbamv.historico_padrao hi
+    ,dbamv.multi_empresas me
+	,(SELECT lc.dt_lcto
+			,min(cd_lcto_movimento) cd_lcto_movimento
+			,min(cd_lcto_contabil) cd_lcto_contabil
+			,lc.cd_reduzido_debito
+			,lc.cd_reduzido_credito
+			,sum(vl_lancado) vl_lancado
+			,lc.cd_historico_padrao
+			,upper(:CAMPO_LABEL_DEP_AGRUPADO) ds_complemento
+			,lc.cd_lote
+			,lc.cd_lanc_agrup
+			,lc.sn_transitoria
+			,lc.cd_multi_empresa
+			,lc.cd_multi_empresa_origem
+		FROM dbamv.lcto_contabil lc
+		WHERE lc.cd_lanc_agrup IS NOT NULL
+		  AND lc.cd_reduzido_debito IS NOT NULL
+		  AND :CAMPO_SN_AGRUPA_DEP = 'S'
+		GROUP BY lc.dt_lcto
+				,lc.cd_reduzido_debito
+				,lc.cd_reduzido_credito
+				,lc.cd_historico_padrao
+				,lc.cd_lote
+				,lc.cd_lanc_agrup
+				,lc.sn_transitoria
+				,lc.cd_multi_empresa
+				,lc.cd_multi_empresa_origem
+		UNION
+		SELECT lc.dt_lcto
+			  ,min(lc.cd_lcto_movimento) cd_lcto_movimento
+			  ,min(cd_lcto_contabil) cd_lcto_contabil
+			  ,lc.cd_reduzido_debito
+			  ,lc.cd_reduzido_credito
+			  ,sum(lc.vl_lancado) vl_lancado
+			  ,lc.cd_historico_padrao
+			  ,upper(:CAMPO_LABEL_DEP_AGRUPADO) ds_complemento
+			  ,lc.cd_lote
+			  ,lc.cd_lanc_agrup
+			  ,lc.sn_transitoria
+			  ,lc.cd_multi_empresa
+			  ,lc.cd_multi_empresa_origem
+		  FROM dbamv.lcto_contabil lc
+		 WHERE lc.cd_lanc_agrup IS NOT NULL
+		   AND lc.cd_reduzido_credito IS NOT NULL
+		   AND :CAMPO_SN_AGRUPA_DEP = 'S'
+		GROUP BY lc.dt_lcto
+				,lc.cd_reduzido_debito
+				,lc.cd_reduzido_credito
+				,lc.cd_historico_padrao
+				,lc.cd_lote
+				,lc.cd_lanc_agrup
+				,lc.sn_transitoria
+				,lc.cd_multi_empresa
+				,lc.cd_multi_empresa_origem
+		) LC
+WHERE lc.dt_lcto BETWEEN to_date(to_char(:CAMPO_DATA_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' ) AND to_date(to_char(:CAMPO_DATA_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+  AND lc.cd_lote = lote.cd_lote(+)
+  AND me.cd_multi_empresa = lc.cd_multi_empresa
+  AND lc.cd_historico_padrao = hi.cd_historico_padrao(+)
+  AND lc.cd_reduzido_debito = pedeb.cd_reduzido(+)
+  AND lc.cd_reduzido_credito = pecred.cd_reduzido(+)
+  AND (lc.sn_transitoria = :CAMPO_INC_CONTA_TRANSITORIA OR lc.sn_transitoria IS NULL)
+  AND :CAMPO_SN_AGRUPA_DEP = 'S'
+ORDER BY codigo_empresa
+		,data_lcto
+		,lote
+		,movimento
+		,descricao_conta_debito
+		,descricao_conta_credito
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIARIO_SC_PROCESSOS
+SELECT trunc(lc.dt_lcto) data_lcto_proc
+	  ,to_char(lc.dt_lcto, 'DD/MM/YYYY') data_char_lcto
+      ,lc.cd_lcto_contabil codigo_lcto_proc
+      ,me.cd_multi_empresa codigo_empresa_proc
+      ,me.ds_multi_empresa descricao_empresa_proc
+      ,Decode(:CAMPO_AGRUPA_POR_EMPRESAS, 'N', NULL, me.ds_multi_empresa) ds_empresa_agrupa_proc
+      ,lote.cd_lote lote_proc
+      ,lc.cd_lcto_movimento movimento_proc
+      ,pedeb.cd_reduzido codigo_reduzido_proc
+      ,pedeb.cd_contabil codigo_contabil_proc
+      ,pedeb.ds_conta    descricao_conta_proc
+	  ,Decode(:CAMPO_TP_DESCRICAO, '1', pedeb.cd_contabil, '2', pedeb.ds_conta, pedeb.cd_contabil||' - '||pedeb.ds_conta) ds_conta
+      ,decode(ltrim(rtrim(hi.ds_historico_padrao))
+				,ltrim(rtrim(lc.ds_complemento))
+				,hi.ds_historico_padrao
+				,ltrim(hi.ds_historico_padrao || ' ' || lc.ds_complemento)) descricao_complemento_proc
+      ,decode(lc.cd_reduzido_debito, null, to_number(null), dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, lc.vl_lancado, :CAMPO_CONVERTE, :CAMPO_VL_CAMBIO)) valor_deb_proc
+      ,to_number(null)   valor_cred_proc
+      ,lc.cd_processo    cd_processo_proc
+      ,lc.ds_complemento ds_complemento_proc
+      ,processo.cd_estrutural || ' - ' || processo.ds_processo ds_processo_proc
+      ,processo.cd_estrutural cd_estrutural_proc
+FROM dbamv.lcto_contabil lc
+    ,dbamv.processo
+	,dbamv.multi_empresas me
+    ,(SELECT pcdeb.cd_reduzido cd_reduzido_pc, pe.cd_reduzido, pe.cd_contabil, pe.ds_conta
+      FROM dbamv.plano_estr pe
+          ,dbamv.plano_contabil pcdeb
+      WHERE pcdeb.cd_plano_estr = pe.cd_plano_estr
+        AND pe.cd_plano = :CAMPO_CD_PLANO
+		:CAMPO_CF_COND_CD_CONTABIL
+     ) pedeb
+	,dbamv.lote
+    ,dbamv.historico_padrao hi
+WHERE lc.cd_processo = processo.cd_processo
+  AND lc.cd_multi_empresa = me.cd_multi_empresa
+  AND lc.cd_reduzido_debito = pedeb.cd_reduzido_pc(+)
+  AND lc.cd_lote = lote.cd_lote(+)
+  AND lc.cd_historico_padrao = hi.cd_historico_padrao(+)
+  AND lc.dt_lcto BETWEEN to_date(to_char(:CAMPO_DATA_INICIAL, 'DD/MM/YYYY') || ' 00', 'DD/MM/YYYY HH24') AND to_date(to_char(:CAMPO_DATA_FINAL , 'DD/MM/YYYY') || ' 23', 'DD/MM/YYYY HH24')
+  AND lc.cd_reduzido_debito IS NOT NULL
+  AND (lc.sn_transitoria = :CAMPO_INC_CONTA_TRANSITORIA OR lc.sn_transitoria IS NULL)
+  AND :CAMPO_SN_AGRUPA_PROC = 'S'
+UNION ALL
+SELECT trunc( lc.dt_lcto ) data_lcto_proc
+	  ,to_char(lc.dt_lcto, 'DD/MM/YYYY') data_char_lcto
+      ,lc.cd_lcto_contabil codigo_lcto_proc
+      ,me.cd_multi_empresa codigo_empresa_proc
+      ,me.ds_multi_empresa descricao_empresa_proc
+      ,Decode(:CAMPO_AGRUPA_POR_EMPRESAS, 'N', NULL, me.ds_multi_empresa) ds_empresa_agrupa_proc
+      ,lote.cd_lote lote_proc
+      ,lc.cd_lcto_movimento movimento_proc
+      ,pecred.cd_reduzido codigo_reduzido_proc
+      ,pecred.cd_contabil codigo_contabil_proc
+      ,pecred.ds_conta    descricao_conta_proc
+	  ,Decode(:CAMPO_TP_DESCRICAO, '1', pecred.cd_contabil, '2', pecred.ds_conta, pecred.cd_contabil||' - '||pecred.ds_conta) ds_conta
+      ,decode(ltrim(rtrim(hi.ds_historico_padrao))
+				,ltrim(rtrim(lc.ds_complemento))
+				,hi.ds_historico_padrao
+				,ltrim(hi.ds_historico_padrao || ' ' || lc.ds_complemento)) descricao_complemento_proc
+      ,to_number(null) valor_deb_proc
+      ,decode( lc.cd_reduzido_credito, null, to_number(null), dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, lc.vl_lancado, :CAMPO_CONVERTE, :CAMPO_VL_CAMBIO)) valor_cred_proc
+      ,lc.cd_processo    cd_processo_proc
+      ,lc.ds_complemento ds_complemento_proc
+      ,processo.cd_estrutural || ' - ' || processo.ds_processo ds_processo_proc
+      ,processo.cd_estrutural cd_estrutural_proc
+FROM dbamv.lcto_contabil lc
+    ,dbamv.processo
+	,dbamv.multi_empresas me
+    ,(SELECT pcdeb.cd_reduzido cd_reduzido_pc, pe.cd_reduzido, pe.cd_contabil, pe.ds_conta
+      FROM dbamv.plano_estr pe
+          ,dbamv.plano_contabil pcdeb
+      WHERE pcdeb.cd_plano_estr = pe.cd_plano_estr
+        AND pe.cd_plano = :CAMPO_CD_PLANO
+		:CAMPO_CF_COND_CD_CONTABIL
+     ) pecred
+	,dbamv.lote
+    ,dbamv.historico_padrao hi
+WHERE lc.cd_processo = processo.cd_processo
+  AND lc.cd_multi_empresa = me.cd_multi_empresa
+  AND lc.cd_reduzido_credito = pecred.cd_reduzido_pc(+)
+  AND lc.cd_lote = lote.cd_lote(+)
+  AND lc.cd_historico_padrao = hi.cd_historico_padrao(+)
+  AND lc.dt_lcto BETWEEN to_date(to_char(:CAMPO_DATA_INICIAL, 'DD/MM/YYYY') || ' 00', 'DD/MM/YYYY HH24') AND to_date(to_char(:CAMPO_DATA_FINAL , 'DD/MM/YYYY') || ' 23', 'DD/MM/YYYY HH24')
+  AND lc.cd_reduzido_credito IS NOT NULL
+  AND (lc.sn_transitoria = :CAMPO_INC_CONTA_TRANSITORIA OR lc.sn_transitoria IS NULL)
+  AND :CAMPO_SN_AGRUPA_PROC = 'S'
+ORDER BY codigo_empresa_proc, data_lcto_proc, lote_proc, movimento_proc

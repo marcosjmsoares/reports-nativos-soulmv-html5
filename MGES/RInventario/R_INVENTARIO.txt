@@ -1,0 +1,54 @@
+/*----------------------------------------------------------------------------*/
+--R_INVENTARIO
+select i.cd_estoque
+          ,i.sn_aberto
+         ,i.cd_usuario_abertura
+         ,i.dt_geracao
+         ,i.cd_inventario
+        , v.cd_produto
+        , p.ds_produto
+        , ds_unidade
+        , nvl(qt_contado_anterior,0) qt_contado_anterior
+        , (nvl( trunc((Select sum(it.qt_estoque * dbamv.mges.f_checa_uni_pro(it.cd_uni_pro,it.cd_produto))
+             From dbamv.itcontagem it
+                , dbamv.contagem   c
+            where c.cd_contagem = it.cd_contagem
+              And c.cd_inventario =  i.cd_inventario
+               And c.nr_sequencia  = 0
+              AND it.cd_produto   = v.cd_produto),4),0) / dbamv.verif_vl_fator_prod(v.cd_produto)) qt_contado_atual
+        , nvl(qt_saldo_atual,0) qt_saldo_atual
+        , i.hr_geracao
+        , i.hr_inventario
+        , i.tp_contagem
+        , decode(i.tp_contagem,'B','Qt. Atual (Avulso)','C','Contagem Anterior',' ') DS_CONAGEM_ANTERIOR
+        , decode(i.tp_contagem,'B','Qt. Anterior (Avulso)','C','Contagem Atual',' ') DS_CONAGEM_ATUAL
+        , decode(i.tp_contagem,'B','Qt. Res. Kit','C','Saldo Kit',' ') DS_KIT
+        , ((select sum(qt_kit)  qt_kit
+            from dbamv.lot_pro
+            where cd_produto = v.cd_produto
+            and cd_estoque = i.cd_estoque ) / dbamv.verif_vl_fator_prod(v.cd_produto)) qt_kit
+         , Nvl(Nvl(QT_CONTADO_ATUAL,0) - Nvl(QT_CONTADO_ANTERIOR,0),0 )       qt_diverge,
+          ((Select trunc(itsa.qt_saldo_anterior,4) qt_saldo_anterior
+       From DBAMV.ITCONTAGEM_SALDO_ANTERIOR itsa
+      Where itsa.cd_contagem = (Select cd_contagem
+                                  From dbamv.contagem
+                                 where cd_inventario = i.cd_inventario
+                                   and nr_sequencia  = 0)
+           And itsa.cd_produto = p.cd_produto)  / dbamv.verif_vl_fator_prod(v.cd_produto)) qt_saldo_anterior1,
+                           (SELECT trunc(dbamv.fnc_mges_saldo_anterior(i.cd_estoque, p.cd_produto, (NVL(nvl(i.hr_inventario,i.HR_GERACAO), SYSDATE)- 1/5000)),4) FROM DUAL ) qt_saldo_anterior2
+    , (nvl( trunc((Select sum(it.qt_estoque * dbamv.mges.f_checa_uni_pro(it.cd_uni_pro,it.cd_produto))
+                      From dbamv.itcontagem it
+                     where it.cd_contagem = (SELECT Max(cd_contagem) 
+                                               FROM dbamv.itcontagem 
+                                              WHERE cd_produto = v.cd_produto 
+                                                AND  cd_contagem in (SELECT cd_contagem 
+                                                                       FROM dbamv.contagem 
+                                                                      WHERE cd_inventario = i.cd_inventario )) 
+                                                AND it.cd_produto   = v.cd_produto ),4),0) / dbamv.verif_vl_fator_prod(v.cd_produto)) QT_CONTADO_ATUALB   
+  From DBAMV.VDIC_ITENS_INVENTARIO V
+     , DBAMV.PRODUTO P
+     ,DBAMV.INVENTARIO I 
+ where v.cd_produto = p.cd_produto
+   And v.cd_inventario = i.cd_inventario
+   And i.cd_inventario = :CAMPO_INVENTARIO
+ Order by v.cd_produto

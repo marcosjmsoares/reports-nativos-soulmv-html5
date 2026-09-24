@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_APLICACAO_DIRETA
+SELECT * FROM (
+SELECT cx.cd_Caixa,
+       cx.ds_caixa,
+       Decode( :CAMPO_AGRUPAR_EMPRESA, 'S', emp.cd_multi_empresa, null )   cd_multi_empresa,
+       Decode( :CAMPO_AGRUPAR_EMPRESA, 'S', emp.ds_multi_empresa, null )   ds_multi_empresa,
+       Decode( :CAMPO_AGRUPAR_EMPRESA, 'S', Cx.Ds_Caixa, Cx.Ds_Caixa||'    Empresa: '||emp.Ds_Multi_Empresa ) Ds_Caixa_Empresa,
+       mc.tp_origem_mov          tp_origem_mov
+      ,imp.dt_importa_mov_caixa  dt_importacao
+      ,mc.dt_movimentacao        dt_movimentacao
+      ,dc.dt_vencimento          dt_vencimento
+      ,mc.cd_mov_caixa           cd_mov_caixa
+      ,dc.nr_documento           nr_documento
+      ,nvl(mc.vl_moeda,mc.vl_movimentacao)   vl_movimentacao
+      ,CASE 
+                  WHEN dc.ds_documento = '' or dc.ds_documento is null 
+                     THEN mc.DS_MOV_CAIXA 
+                  ELSE dc.ds_documento 
+             END AS ds_documento
+	  ,nvl(mc.cd_moeda,dbamv.moeda_padrao(mc.cd_multi_empresa)) cd_moeda
+FROM   dbamv.lote_caixa lc
+       ,dbamv.mov_caixa  mc
+       ,dbamv.doc_caixa  dc
+       ,dbamv.importa_mov_caixa imp
+       ,dbamv.itimporta_mov_caixa itimp
+       ,dbamv.caixa               cx
+       ,dbamv.multi_empresas      emp
+WHERE lc.cd_lote_caixa            = mc.cd_lote_caixa
+  AND mc.cd_doc_caixa             = dc.cd_doc_caixa(+)
+  AND mc.cd_itimporta_mov_caixa   = itimp.cd_itimporta_mov_caixa(+)
+  AND itimp.cd_importa_mov_caixa  = imp.cd_importa_mov_caixa(+)
+  AND mc.tp_origem_mov            in ('RD','DD')
+  AND mc.dt_cancelamento is null
+  AND mc.cd_motivo_canc is null
+  AND lc.cd_Caixa         = cx.cd_Caixa
+  AND cx.cd_multi_empresa = emp.cd_multi_empresa
+  AND ((:CAMPO_TP_PERIODO = 'V' and trunc(dc.dt_vencimento)         between :CAMPO_DATA_INIC and :CAMPO_DATA_FIM) OR
+       (:CAMPO_TP_PERIODO = 'M' and trunc(mc.dt_movimentacao)       between :CAMPO_DATA_INIC and :CAMPO_DATA_FIM) OR
+       (:CAMPO_TP_PERIODO = 'I' and trunc(imp.dt_importa_mov_caixa) between :CAMPO_DATA_INIC and :CAMPO_DATA_FIM))
+order by tp_origem_mov
+        ,dt_importacao
+        ,dt_movimentacao
+        ,dt_vencimento
+)
+ORDER BY CD_MOEDA,DS_MULTI_EMPRESA,CD_MULTI_EMPRESA,
+DS_CAIXA,CD_CAIXA,DS_CAIXA_EMPRESA

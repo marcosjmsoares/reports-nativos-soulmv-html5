@@ -1,0 +1,350 @@
+/*----------------------------------------------------------------------------*/
+--R_FICHA_RAST_LOTE
+SELECT *
+  From (Select CD_PRODUTO,
+               DS_PRODUTO,
+               DS_UNIDADE,
+               Sum(QTD) / DBAMV.verif_vl_fator_prod(CD_PRODUTO) As QUANTIDADE,
+               DATA,
+               HORA,
+               DOCUMENTO,
+               DS_DESTINO,
+               OPERACAO,
+               CD_ESTOQUE,
+               DS_ESTOQUE,
+               CD_MOVIMENTACAO,
+               CD_LOTE,
+               CD_IUM,
+               DT_VALIDADE,
+               ds_rodape_reports
+          From (Select ITCONTAGEM.CD_PRODUTO As CD_PRODUTO,
+                       PRODUTO.DS_PRODUTO As DS_PRODUTO,
+                       DBAMV.verif_ds_unid_prod(ITCONTAGEM.CD_PRODUTO) As DS_UNIDADE,
+                       (Nvl(ITCONTAGEM.QT_ESTOQUE, 0) +
+                       Nvl(ITCONTAGEM.QT_ESTOQUE_DOADO, 0) +
+                       Nvl(ITCONTAGEM.QT_KIT, 0)) * UNI_PRO.VL_FATOR As QTD,
+                       Trunc(CONTAGEM.DT_GERACAO) As DATA,
+                       To_Char(CONTAGEM.HR_GERACAO, 'HH24') As HORA,
+                       CONTAGEM.CD_CONTAGEM As DOCUMENTO,
+                       'Contagem - ' || ESTOQUE.DS_ESTOQUE As DS_DESTINO,
+                       'Contagem' As OPERACAO,
+                       ESTOQUE.CD_ESTOQUE As CD_ESTOQUE,
+                       ESTOQUE.DS_ESTOQUE As DS_ESTOQUE,
+                       ITCONTAGEM.CD_LINHA As CD_MOVIMENTACAO,
+                       ITCONTAGEM.CD_LOTE As CD_LOTE,
+                       LOT_PRO.CD_IUM AS CD_IUM,
+                       To_Char(ITCONTAGEM.DT_VALIDADE, 'DD/MM/YYYY') As DT_VALIDADE,
+                       (SELECT hospital.ds_rodape_reports 
+		 	FROM hospital hospital 
+	 		WHERE Hospital.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa) ds_rodape_reports
+                  From DBAMV.EMPRESA_PRODUTO,
+                       DBAMV.PRODUTO,
+                       DBAMV.UNI_PRO,
+                       DBAMV.ESTOQUE,
+                       DBAMV.CONTAGEM,
+                       DBAMV.ITCONTAGEM,
+                       DBAMV.CONFIGEST,
+                       DBAMV.LOT_PRO
+                 Where ITCONTAGEM.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+                   And ITCONTAGEM.CD_PRODUTO = PRODUTO.CD_PRODUTO
+                   And ITCONTAGEM.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                   And CONTAGEM.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+                   And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+                   AND LOT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+                   AND Nvl(LOT_PRO.DT_VALIDADE, SYSDATE) = Nvl(ITCONTAGEM.DT_VALIDADE, SYSDATE)
+                   AND Nvl(LOT_PRO.CD_LOTE, '*.*') = Nvl(ITCONTAGEM.CD_LOTE, '*.*')
+                   AND LOT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+                   And EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                   AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+                   And Trunc(CONTAGEM.DT_GERACAO) + (CONTAGEM.HR_GERACAO - Trunc(CONTAGEM.HR_GERACAO)) Between :CAMPO_DTINIC And 
+                   And CONTAGEM.TP_CONTAGEM Not In ('K', 'T' , 'E' , 'P')
+                   And PRODUTO.CD_PRODUTO = :CAMPO_PRODUTO
+                   AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+                   And ((Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S',  EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'S' And
+                       ITCONTAGEM.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITCONTAGEM.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+                      Or
+                       (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                        Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S',  EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'S' And To_Char(ITCONTAGEM.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+                      Or
+                       (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                        Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'N' And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+                      Or
+                       (dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'S' And ITCONTAGEM.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITCONTAGEM.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM'))
+                       )
+                  :CAMPO_CF_ESTOQUE)
+         Group By CD_PRODUTO,
+                  DS_PRODUTO,
+                  DS_UNIDADE,
+                  DATA,
+                  HORA,
+                  DOCUMENTO,
+                  DS_DESTINO,
+                  OPERACAO,
+                  CD_ESTOQUE,
+                  DS_ESTOQUE,
+                  CD_MOVIMENTACAO,
+                  CD_LOTE,
+                  CD_IUM,
+                  DT_VALIDADE,
+                  ds_rodape_reports
+        Union All
+        Select ITMVTO_ESTOQUE.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE,
+               Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'D', ITMVTO_ESTOQUE.QT_MOVIMENTACAO, 'C', ITMVTO_ESTOQUE.QT_MOVIMENTACAO, ITMVTO_ESTOQUE.QT_MOVIMENTACAO * -1) * UNI_PRO.VL_FATOR / DBAMV.verif_vl_fator_prod(ITMVTO_ESTOQUE.CD_PRODUTO) As QUANTIDADE,
+               Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) As DATA,
+               To_Char(MVTO_ESTOQUE.HR_MVTO_ESTOQUE, 'HH24') As HORA,
+               MVTO_ESTOQUE.CD_MVTO_ESTOQUE As DOCUMENTO,
+               InitCap(Nvl((Select PACIENTE.NM_PACIENTE
+                             From DBAMV.PACIENTE, DBAMV.ATENDIME
+                            Where ATENDIME.CD_PACIENTE    = PACIENTE.CD_PACIENTE
+                              And ATENDIME.CD_ATENDIMENTO = MVTO_ESTOQUE.CD_ATENDIMENTO),
+                           Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'T',
+                                  (Select E.DS_ESTOQUE
+                                     From DBAMV.ESTOQUE E
+                                    Where E.CD_ESTOQUE =
+                                          MVTO_ESTOQUE.CD_ESTOQUE_DESTINO), 'E',
+                                  (Select FORNECEDOR.NM_FORNECEDOR
+                                     From DBAMV.FORNECEDOR
+                                    Where FORNECEDOR.CD_FORNECEDOR =
+                                          MVTO_ESTOQUE.CD_FORNECEDOR), 'B',
+                                  'Tombamento Patrimonio',
+                                  (Select SETOR.NM_SETOR
+                                     From DBAMV.SETOR
+                                    Where SETOR.CD_SETOR =
+                                          MVTO_ESTOQUE.CD_SETOR)))) As DS_DESTINO,
+               Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                      'X', 'Baixa De Produtos',
+                      'S', 'Saida Setor',
+                      'B', 'Tombamento',
+                      'P', 'Saida Paciente',
+                      'D', 'Devol. De Setor',
+                      'C', 'Devol. De Paciente',
+                      'T', 'Transf. De Estoque',
+                      'M', 'Manipul. Produtos',
+                      'O', 'Doação Produtos',
+                      'R', 'Transf. Empresas',
+                      'E', 'Saida De Emprestimo',
+                      'V', 'Venda De Produtos',
+                      'N', 'Devolucao De Vendas') As OPERACAO,
+               ESTOQUE.CD_ESTOQUE,
+               ESTOQUE.DS_ESTOQUE,
+               ITMVTO_ESTOQUE.CD_ITMVTO_ESTOQUE As CD_MOVIMENTACAO,
+               ITMVTO_ESTOQUE.CD_LOTE,
+                LOT_PRO.CD_IUM AS CD_IUM,
+               To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'DD/MM/YYYY') As DT_VALIDADE,
+               (SELECT hospital.ds_rodape_reports 
+		 	FROM hospital hospital 
+	 		WHERE Hospital.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa) ds_rodape_reports
+          From DBAMV.EMPRESA_PRODUTO,
+               DBAMV.PRODUTO,
+               DBAMV.UNI_PRO,
+               DBAMV.ESTOQUE,
+               DBAMV.MVTO_ESTOQUE,
+               DBAMV.ITMVTO_ESTOQUE,
+               DBAMV.CONFIGEST,
+               DBAMV.LOT_PRO
+         Where ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+           And ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           And ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+           And MVTO_ESTOQUE.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           AND LOT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           AND LOT_PRO.CD_ESTOQUE = MVTO_ESTOQUE.CD_ESTOQUE
+           AND Nvl(LOT_PRO.DT_VALIDADE, SYSDATE) = Nvl(ITMVTO_ESTOQUE.DT_VALIDADE, SYSDATE)
+           AND Nvl(LOT_PRO.CD_LOTE, '*.*') = Nvl(ITMVTO_ESTOQUE.CD_LOTE, '*.*')
+           And EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) + (MVTO_ESTOQUE.HR_MVTO_ESTOQUE - Trunc(MVTO_ESTOQUE.HR_MVTO_ESTOQUE)) Between :CAMPO_DTINIC And 
+           And PRODUTO.CD_PRODUTO = :CAMPO_PRODUTO
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And ((Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'S' And
+                ITMVTO_ESTOQUE.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+               Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S',  EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'S' And To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+               Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'N' And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'S' And ITMVTO_ESTOQUE.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM'))
+               )
+        Union All
+        Select ITMVTO_ESTOQUE.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE,
+               ITMVTO_ESTOQUE.QT_MOVIMENTACAO * UNI_PRO.VL_FATOR /
+               DBAMV.verif_vl_fator_prod(ITMVTO_ESTOQUE.CD_PRODUTO) As QUANTIDADE,
+               Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) As DATA,
+               To_Char(MVTO_ESTOQUE.HR_MVTO_ESTOQUE, 'HH24') As HORA,
+               MVTO_ESTOQUE.CD_MVTO_ESTOQUE As DOCUMENTO,
+               E2.DS_ESTOQUE As DS_DESTINO,
+               'Cred. Transf. Est.' As OPERACAO,
+               ESTOQUE.CD_ESTOQUE,
+               ESTOQUE.DS_ESTOQUE,
+               ITMVTO_ESTOQUE.CD_ITMVTO_ESTOQUE As CD_MOVIMENTACAO,
+               ITMVTO_ESTOQUE.CD_LOTE,
+               LOT_PRO.CD_IUM AS CD_IUM,
+               To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'DD/MM/YYYY') As DT_VALIDADE,
+               (SELECT hospital.ds_rodape_reports 
+		 	FROM hospital hospital 
+	 		WHERE Hospital.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa) ds_rodape_reports
+          From DBAMV.EMPRESA_PRODUTO,
+               DBAMV.PRODUTO,
+               DBAMV.UNI_PRO,
+               DBAMV.ESTOQUE,
+               DBAMV.ESTOQUE E2,
+               DBAMV.MVTO_ESTOQUE,
+               DBAMV.ITMVTO_ESTOQUE,
+               DBAMV.CONFIGEST,
+               DBAMV.LOT_PRO
+         Where ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+           And ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           And ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+           And MVTO_ESTOQUE.CD_ESTOQUE = E2.CD_ESTOQUE
+           And MVTO_ESTOQUE.CD_ESTOQUE_DESTINO = ESTOQUE.CD_ESTOQUE
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           AND LOT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           AND LOT_PRO.CD_ESTOQUE = E2.CD_ESTOQUE
+           AND Nvl(LOT_PRO.DT_VALIDADE, SYSDATE) = Nvl(ITMVTO_ESTOQUE.DT_VALIDADE, SYSDATE)
+           AND Nvl(LOT_PRO.CD_LOTE, '*.*') = Nvl(ITMVTO_ESTOQUE.CD_LOTE, '*.*')
+           And EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And MVTO_ESTOQUE.TP_MVTO_ESTOQUE = 'T'
+           And Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) + (MVTO_ESTOQUE.HR_MVTO_ESTOQUE - Trunc(MVTO_ESTOQUE.HR_MVTO_ESTOQUE)) Between :CAMPO_DTINIC And 
+           And PRODUTO.CD_PRODUTO = :CAMPO_PRODUTO
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And ((Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'S' And ITMVTO_ESTOQUE.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'S' And To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'N' And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'S' And ITMVTO_ESTOQUE.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITMVTO_ESTOQUE.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM'))
+               )
+         UNION ALL SELECT ITENT_PRO.CD_PRODUTO,
+                            PRODUTO.DS_PRODUTO,
+                            UNI_PRO.DS_UNIDADE,
+                            (CASE WHEN produto.sn_consignado = 'S' AND ((InitCap(TIP_DOC.DS_TIP_DOC) = 'Nota Fiscal') OR (InitCap(TIP_DOC.DS_TIP_DOC) ='Nota Fiscal De Bonificacao')) THEN
+                                    0
+                             ELSE
+                                  Nvl(ITLOT_ENT.QT_ENT_PRO, ITENT_PRO.QT_ENTRADA) * UNI_PRO.VL_FATOR / DBAMV.verif_vl_fator_prod(ITENT_PRO.CD_PRODUTO)
+                              END) AS QUANTIDADE,
+                            Trunc(ENT_PRO.DT_ENTRADA) AS DATA,
+                            To_Char(ENT_PRO.HR_ENTRADA, 'HH24') AS HORA,
+                            ENT_PRO.CD_ENT_PRO AS DOCUMENTO,
+                            InitCap(
+                                      (SELECT FORNECEDOR.NM_FORNECEDOR
+                                       FROM DBAMV.FORNECEDOR
+                                       WHERE FORNECEDOR.CD_FORNECEDOR = ENT_PRO.CD_FORNECEDOR)) AS DS_DESTINO,
+                            InitCap(TIP_DOC.DS_TIP_DOC) AS OPERACAO,
+                            ESTOQUE.CD_ESTOQUE,
+                            ESTOQUE.DS_ESTOQUE,
+                            ITENT_PRO.CD_ITENT_PRO AS CD_MOVIMENTACAO,
+                            ITLOT_ENT.CD_LOTE,
+                             LOT_PRO.CD_IUM AS CD_IUM,
+                            To_Char(ITLOT_ENT.DT_VALIDADE, 'DD/MM/YYYY') AS DT_VALIDADE,
+                            (SELECT hospital.ds_rodape_reports 
+		 	FROM hospital hospital 
+	 		WHERE Hospital.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa) ds_rodape_reports
+           FROM DBAMV.EMPRESA_PRODUTO,
+                DBAMV.PRODUTO,
+                DBAMV.UNI_PRO,
+                DBAMV.TIP_DOC,
+                DBAMV.ESTOQUE,
+                DBAMV.ITLOT_ENT,
+                DBAMV.ENT_PRO,
+                DBAMV.ITENT_PRO,
+                DBAMV.CONFIGEST,
+                DBAMV.LOT_PRO
+         Where ITENT_PRO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO
+           And ITENT_PRO.CD_ITENT_PRO = ITLOT_ENT.CD_ITENT_PRO(+)
+           And ENT_PRO.CD_TIP_DOC = TIP_DOC.CD_TIP_DOC
+           And ENT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+           And ITENT_PRO.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+           And ITENT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           AND LOT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           AND Nvl(LOT_PRO.DT_VALIDADE, SYSDATE) = Nvl(ITLOT_ENT.DT_VALIDADE, SYSDATE)
+           AND Nvl(LOT_PRO.CD_LOTE, '*.*') = Nvl(ITLOT_ENT.CD_LOTE, '*.*')
+           AND LOT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+           And EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And Trunc(ENT_PRO.DT_ENTRADA) + (ENT_PRO.HR_ENTRADA - Trunc(ENT_PRO.HR_ENTRADA)) Between :CAMPO_DTINIC And 
+           And PRODUTO.CD_PRODUTO = :CAMPO_PRODUTO
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And ((Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S',  EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'S' And ITLOT_ENT.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITLOT_ENT.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'S' And To_Char(ITLOT_ENT.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'N' And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (DBAMV.CONFIGEST.SN_RASTREIA_S_CONTROLAR_QUANT = 'S' And ITLOT_ENT.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITLOT_ENT.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM'))
+               )
+        Union All
+        Select ITDEV_FOR.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE,
+               (ITDEV_FOR.QT_DEVOLVIDA * -1 * UNI_PRO.VL_FATOR / 
+               DBAMV.verif_vl_fator_prod(ITDEV_FOR.CD_PRODUTO)) AS QUANTIDADE,
+               Trunc(DEV_FOR.DT_DEVOLUCAO) As DATA,
+               To_Char(DEV_FOR.HR_DEVOLUCAO, 'HH24') As HORA,
+               DEV_FOR.CD_DEVOLUCAO As DOCUMENTO,
+               InitCap((Select FORNECEDOR.NM_FORNECEDOR
+                         From DBAMV.FORNECEDOR
+                        Where FORNECEDOR.CD_FORNECEDOR =
+                              ENT_PRO.CD_FORNECEDOR)) As DS_DESTINO,
+               'Dev. P/ Fornecedor' As OPERACAO,
+               ESTOQUE.CD_ESTOQUE,
+               ESTOQUE.DS_ESTOQUE,
+               ITDEV_FOR.CD_ITDEV_FOR As CD_MOVIMENTACAO,
+               ITDEV_FOR.CD_LOTE,
+               LOT_PRO.CD_IUM AS CD_IUM,
+               To_Char(ITDEV_FOR.DT_VALIDADE, 'DD/MM/YYYY') As DT_VALIDADE,
+               (SELECT hospital.ds_rodape_reports 
+		 	FROM hospital hospital 
+	 		WHERE Hospital.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa) ds_rodape_reports
+          From DBAMV.EMPRESA_PRODUTO,
+               DBAMV.PRODUTO,
+               DBAMV.UNI_PRO,
+               DBAMV.ENT_PRO,
+               DBAMV.ESTOQUE,
+               DBAMV.DEV_FOR,
+               DBAMV.ITDEV_FOR,
+               DBAMV.CONFIGEST,
+               DBAMV.LOT_PRO
+         Where ITDEV_FOR.CD_DEVOLUCAO = DEV_FOR.CD_DEVOLUCAO
+           And ITDEV_FOR.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           And ITDEV_FOR.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+           And ENT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+           And DEV_FOR.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           And PRODUTO.CD_PRODUTO = EMPRESA_PRODUTO.CD_PRODUTO
+           AND LOT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           AND Nvl(LOT_PRO.DT_VALIDADE, SYSDATE) = Nvl(ITDEV_FOR.DT_VALIDADE, SYSDATE)
+           AND Nvl(LOT_PRO.CD_LOTE, '*.*') = Nvl(ITDEV_FOR.CD_LOTE, '*.*')
+           AND LOT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+           And EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And Trunc(DEV_FOR.DT_DEVOLUCAO) + (DEV_FOR.HR_DEVOLUCAO - Trunc(DEV_FOR.HR_DEVOLUCAO)) Between :CAMPO_DTINIC And 
+           And PRODUTO.CD_PRODUTO = :CAMPO_PRODUTO
+           AND CONFIGEST.CD_MULTI_EMPRESA = EMPRESA_PRODUTO.CD_MULTI_EMPRESA
+           And ((Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'S' And ITDEV_FOR.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITDEV_FOR.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'S' And To_Char(ITDEV_FOR.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM') And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N' )
+              Or
+               (Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N' And
+                Decode(DBAMV.configest.SN_LOTE_VAL_PRD_EMP,'S', EMPRESA_PRODUTO.SN_CONTROLE_VALIDADE, PRODUTO.SN_CONTROLE_VALIDADE) = 'N' And dbamv.configest.SN_RASTREIA_S_CONTROLAR_QUANT = 'N')
+              Or
+               (DBAMV.CONFIGEST.SN_RASTREIA_S_CONTROLAR_QUANT = 'S' And ITDEV_FOR.CD_LOTE = :CAMPO_CD_LOTE And To_Char(ITDEV_FOR.DT_VALIDADE, 'YYYYMM') = To_Char(To_Date(:CAMPO_DT_VALIDADE, 'DD/MM/YYYY'), 'YYYYMM'))
+               )
+         :CAMPO_CF_ESTOQUE)
+ Order By data, hora, cd_movimentacao

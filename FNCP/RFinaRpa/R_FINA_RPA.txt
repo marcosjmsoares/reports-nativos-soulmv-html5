@@ -1,0 +1,234 @@
+/*----------------------------------------------------------------------------*/
+--R_FINA_RPA
+SELECT NR_CGC_CPF,
+       CD_CON_PAG,
+       CD_MOEDA,
+       NR_CGC,
+       CD_EMPRESA,
+       NM_EMPRESA,
+       VL_RENDIMENTO,
+       CD_PAGCON_PAG,
+       VL_TOTAL,
+	VL_BRUTO_CONTA VL_CONTA,
+       NM_FORNECEDOR,
+       NM_CIDADE,
+       SUM(X.VL_RENDIMENTO) VL_BRUTO_CONTA,
+       CD_ISS,
+       NVL(VL_ISS,0) VL_ISS,
+       CD_IRRF,
+       NVL(VL_IRRF,0) VL_IRRF,
+       CD_INSS,
+       NVL(VL_INSS,0) VL_INSS,
+       DT_NASCIMENTO,
+       NR_CCM,
+       NR_REGISTRO,
+       NVL(VL_BASE,0)    VL_BASE,
+       NVL(VL_DEDUCAO,0) VL_DEDUCAO ,
+       NVL(VL_ALIQUOTA,0)VL_ALIQUOTA,
+       NVL(VL_REMUNERADO,0) VL_REMUNERADO,
+       NVL(VL_RETENCAO,0) VL_RETENCAO,
+       NR_PIS_PASEP,
+       DS_OBSERVACAO,
+       CD_ESTRUTURAL,
+vl_max_recolhimento,
+   (Nvl(VL_MAX_RECOLHIMENTO,0) -  Nvl(vl_inss,0)) VL_TETO
+FROM   (SELECT
+                f.nr_cgc_cpf                                     NR_CGC_CPF,
+                cp.cd_con_pag,
+                pp.cd_moeda,
+                To_char(multi_empresas.cd_cgc, '99999999999999') NR_CGC,
+                multi_empresas.cd_multi_empresa                  cd_empresa,
+                multi_empresas.ds_multi_empresa                  NM_EMPRESA,
+                decode(p.cd_estrutural,'1.2.1.1.2',sum(nvl(pc.vl_prestacao,0)), '1.2.1.1.3',sum(nvl(pc.vl_prestacao,0)),cp.vl_bruto_conta + (nvl(cp.vl_desconto,0) - nvl(cp.vl_acrescimo,0)))  vl_rendimento,
+                pp.cd_pagcon_pag,
+                (Nvl(pp.vl_pago,0))                           VL_TOTAL,
+                f.nm_fornecedor,
+ cp.vl_bruto_conta,
+                cidade.nm_cidade,
+                iss.cd_iss,
+                Sum(ISS.vl_iss) vl_iss,
+                irrf.cd_irrf,
+                Sum(IRRF.vl_irrf) vl_irrf,
+                inss.cd_inss,
+                Sum(INSS.vl_inss) vl_inss,
+                f.dt_nascimento,
+                f.nr_ccm,
+                f.nr_registro,
+                Sum(IRRF.vl_base)    vl_base,
+                Sum(IRRF.vl_deducao) vl_deducao ,
+                Sum(IRRF.vl_aliquota) vl_aliquota,
+                INSS.cd_retencao_tributo,
+                INSS.vl_remunerado,
+                INSS.vl_retencao,
+                INSS.dt_competencia,
+                INSS.cd_fornecedor,
+                INSS.cd_detalhamento,
+                f.nr_pis_pasep,
+                cp.ds_observacao,
+                p.cd_estrutural,
+tip_detalhe.vl_max_recolhimento
+        FROM   dbamv.con_pag cp,
+               dbamv.itcon_pag Tb_itcp,
+               dbamv.processo p,
+               dbamv.fornecedor f,
+               dbamv.prestacao_de_contas pc,
+               dbamv.pagcon_pag pp,
+               dbamv.cidade,
+               dbamv.multi_empresas,
+dbamv.tip_detalhe,
+                     (Select  Sum(tdcp.vl_detalhamento)   vl_iss,
+                                tdcp.cd_con_pag_pai cd_con_pag_ISS,
+                                td.cd_detalhamento cd_iss
+                        From dbamv.tip_detalhe          td
+                            ,dbamv.tip_detcon_pag       tdcp
+                        where td.tp_detalhamento = 'I'
+                          and tdcp.cd_detalhamento = td.cd_detalhamento
+                          GROUP BY  tdcp.cd_con_pag_pai ,
+                                td.cd_detalhamento
+                        ) ISS,
+              (Select Sum(tdcp.vl_detalhamento)   vl_irrf,
+                      Sum(tdcp.vl_base)    vl_base,
+                      Sum(tdcp.vl_deducao) vl_deducao ,
+                      Sum(tdcp.vl_aliquota) vl_aliquota,
+                           tdcp.cd_con_pag_pai cd_con_pag_IRRF ,
+                           td.cd_detalhamento cd_irrf
+                      From dbamv.tip_detalhe          td
+                          ,dbamv.tip_detcon_pag       tdcp
+                      where td.tp_detalhamento in('F')
+                      and tdcp.cd_detalhamento = td.cd_detalhamento
+                      GROUP BY tdcp.cd_con_pag_pai,
+                              td.cd_detalhamento
+                ) IRRF,
+                ( Select  Sum(tdcp.vl_detalhamento)   vl_inss,
+                              tdcp.cd_con_pag_pai cd_con_pag_inss,
+                              td.cd_detalhamento cd_inss,
+                              Ret_trib.cd_retencao_tributo,
+                              Ret_trib.vl_remunerado,
+                              Ret_trib.vl_retencao,
+                              Ret_trib.dt_competencia,
+                              Ret_trib.cd_fornecedor,
+                              Ret_trib.cd_detalhamento
+                    From dbamv.tip_detalhe          td
+                        ,dbamv.tip_detcon_pag       tdcp
+                        ,    (   SELECT   rt.cd_retencao_tributo,
+                          SUM (Nvl(itr.vl_remuneracao,0)) vl_remunerado,
+                          SUM (Nvl(itr.vl_retencao,0)) vl_retencao,
+                          rt.dt_competencia,
+                          rt.cd_fornecedor,
+                          rt.cd_detalhamento
+                      FROM dbamv.retencao_tributo rt, dbamv.itretencao_tributo itr
+                      WHERE rt.cd_retencao_tributo = itr.cd_retencao_tributo
+				              anD rt.cd_fornecedor in ( SELECT F2.CD_FORNECEDOR
+						                                  FROM DBAMV.FORNECEDOR F1,
+								                                   DBAMV.FORNECEDOR F2
+						                                 WHERE F1.CD_FORNECEDOR = rt.cd_fornecedor
+							                                 AND SUBSTR(F1.NR_CGC_CPF,1,7) = SUBSTR(F2.NR_CGC_CPF,1,7)
+							                                 AND LENGTH(F1.NR_CGC_CPF) >= 7
+							                                 AND F2.TP_FORNECEDOR = 'F' )
+                       AND itr.cd_con_pag IS NULL
+                       AND itr.tp_lancamento <> 'T'
+                       AND NVL (sn_exclui_vl_remunerado, 'N') = 'N'
+                  GROUP BY rt.cd_retencao_tributo,rt.dt_competencia,
+                            rt.cd_fornecedor,
+                            rt.cd_detalhamento,
+                            rt.cd_retencao_tributo
+                            ) Ret_trib
+                    where td.tp_detalhamento = 'N'
+                     and tdcp.cd_detalhamento = td.cd_detalhamento
+                     AND Ret_trib.cd_detalhamento(+) = td.cd_detalhamento
+                     GROUP BY tdcp.cd_con_pag_pai ,
+                              td.cd_detalhamento,
+                              Ret_trib.cd_retencao_tributo,
+                              Ret_trib.vl_remunerado,
+                              Ret_trib.vl_retencao,
+                              Ret_trib.dt_competencia,
+                              Ret_trib.cd_fornecedor,
+                              Ret_trib.cd_detalhamento
+                     ) INSS
+         WHERE  cp.cd_processo = p.cd_processo
+         AND inss.cd_con_pag_inss(+) = cp.cd_con_pag
+         AND irrf.cd_con_pag_IRRF(+) = cp.cd_con_pag
+         AND iss.cd_con_pag_ISS(+) = cp.cd_con_pag
+ AND tip_detalhe.cd_detalhamento(+) = inss.cd_inss
+         AND cp.CD_PROCESSO = p.CD_PROCESSO
+               AND Nvl(TRUNC (inss.dt_competencia, 'month'),TRUNC (cp.dt_emissao, 'month')) = TRUNC (cp.dt_emissao, 'month')
+                 AND Nvl(inss.cd_fornecedor,cp.cd_fornecedor) = cp.cd_fornecedor
+               AND multi_empresas.cd_cidade = cidade.cd_cidade(+)
+               AND cp.cd_multi_empresa = multi_empresas.cd_multi_empresa
+               AND cp.cd_fornecedor = f.cd_fornecedor
+               AND Tb_itcp.cd_con_pag = cp.cd_con_pag
+               AND p.cd_estrutural NOT IN ( '1.1.1.1.3', '1.2.1.1.5',
+                                            '2.1.1.1.3',
+                                            '2.1.1.1.1')
+               AND cp.cd_con_pag = pc.cd_con_pag (+)
+               AND pc.cd_itcon_pag IS NULL
+               AND cp.cd_fornecedor IS NOT NULL
+               AND cp.cd_previsao IS NULL
+               AND PP.vl_pago <> 0
+               AND TB_ITCP.cd_itcon_pag = PP.cd_itcon_pag
+               AND p.cd_estrutural = '1.2.1.1.1'
+               AND f.tp_fornecedor = 'F'
+               AND pp.dt_estorno IS NULL
+               AND pp.cd_motivo_canc IS NULL
+               AND Tb_itcp.tp_quitacao IN ( 'P', 'Q' )
+        GROUP  BY f.nr_cgc_cpf,
+                  cp.cd_con_pag,
+                  cp.vl_bruto_conta,
+                  cp.vl_desconto,
+                  cp.vl_acrescimo,
+                  p.cd_estrutural,
+                  pp.cd_moeda,
+                  pp.cd_pagcon_pag,
+                  To_char(multi_empresas.cd_cgc, '99999999999999'),
+                  multi_empresas.cd_multi_empresa,
+                  multi_empresas.ds_multi_empresa,
+                  ( Nvl(pp.vl_pago, 0) ),
+                  f.nm_fornecedor,
+                cidade.nm_cidade,
+                iss.cd_iss,
+               irrf.cd_irrf,
+                inss.cd_inss,
+                f.dt_nascimento,
+                f.nr_ccm,
+                f.nr_registro,
+                INSS.cd_retencao_tributo,
+                INSS.vl_remunerado,
+                INSS.vl_retencao,
+                INSS.dt_competencia,
+                INSS.cd_fornecedor,
+                INSS.cd_detalhamento,
+                f.nr_pis_pasep,
+                cp.ds_observacao,
+tip_detalhe.vl_max_recolhimento
+                  ) x
+GROUP  BY NR_CGC_CPF,
+       cd_con_pag,
+       cd_moeda,
+       nr_cgc,
+       cd_empresa,
+       nm_empresa,
+       vl_rendimento,
+       cd_pagcon_pag,
+       vl_total,
+       nm_fornecedor,
+       nm_cidade,
+       cd_iss,
+       vl_iss,
+       cd_irrf,
+       vl_irrf,
+       cd_inss,
+       vl_inss,
+       dt_nascimento,
+       nr_ccm,
+       nr_registro,
+       vl_base,
+       vl_deducao,
+       vl_aliquota,
+        vl_remunerado,
+       vl_retencao,
+       dt_competencia,
+       nr_pis_pasep,
+       ds_observacao,
+      cd_estrutural,
+vl_max_recolhimento,
+VL_BRUTO_CONTA

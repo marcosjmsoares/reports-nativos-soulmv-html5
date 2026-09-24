@@ -1,0 +1,25 @@
+/*----------------------------------------------------------------------------*/
+--R_ENTREGA_LAUDO
+SELECT LAUDO_RX.CD_LAUDO
+      ,PACIENTE.NM_PACIENTE
+      ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND paciente.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE          
+      ,LAUDO_RX.DT_LAUDO
+FROM  DBAMV.ATENDIME
+     ,DBAMV.PACIENTE
+     ,DBAMV.PED_RX
+     ,DBAMV.LAUDO_RX
+WHERE  TRUNC(LAUDO_RX.DT_LAUDO)  BETWEEN :CAMPO_DT_INICIO  AND  
+AND   ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND   ATENDIME.CD_ATENDIMENTO = PED_RX.CD_ATENDIMENTO
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+AND   LAUDO_RX.CD_LAUDO NOT IN (SELECT LAUDO_RX.CD_LAUDO
+                                  FROM DBAMV.LAUDO_RX,
+                                       DBAMV.ENT_PSDI,
+                                       DBAMV.ITENT_PSDI
+                                  WHERE LAUDO_RX.CD_LAUDO = ITENT_PSDI.CD_LAUDO
+                                  AND ITENT_PSDI.CD_ENT_PSDI = ENT_PSDI.CD_ENT_PSDI
+                                  AND ENT_PSDI.CD_SET_EXA IN (SELECT PSDI_SET_EXA.CD_SET_EXA
+                                                               FROM DBAMV.PSDI_SET_EXA
+                                                               WHERE NM_USUARIO = USER))
+AND  PED_RX.CD_PED_RX = LAUDO_RX.CD_PED_RX
+ORDER BY TRUNC(LAUDO_RX.DT_LAUDO), LAUDO_RX.CD_LAUDO

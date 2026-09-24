@@ -1,0 +1,112 @@
+/*----------------------------------------------------------------------------*/
+--R_A_RECEBER_CONV
+SELECT * FROM (
+SELECT ITREG_FAT.CD_PRESTADOR       CD_PRESTADOR
+             ,ITREG_FAT.VL_TOTAL_CONTA     VL_TOTAL
+             ,PRESTADOR.NM_PRESTADOR    NM_PRESTADOR
+             ,ATENDIME.CD_ATENDIMENTO    CD_ATENDIMENTO
+             ,REG_FAT.NR_GUIA                        NR_GUIA
+             ,ATENDIME.DT_ATENDIMENTO    DT_ATENDIMENTO
+             ,ATENDIME.DT_ALTA                     DT_ALTA
+             ,ORI_ATE.DS_ORI_ATE                  DS_ORI_ATE
+             ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)             NM_PACIENTE
+FROM   DBAMV.REMESSA_FATURA      REMESSA
+            ,DBAMV.REG_FAT                        REG_FAT
+            ,DBAMV.ITREG_FAT                     ITREG_FAT
+            ,DBAMV.PRESTADOR                  PRESTADOR
+            ,DBAMV.PRES_CON                     PRES_CON
+            ,DBAMV.ATENDIME                      ATENDIME
+            ,DBAMV.ORI_ATE                         ORI_ATE
+            ,DBAMV.PACIENTE                       PACIENTE
+WHERE  REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        ITREG_FAT.CD_PRESTADOR = PRES_CON.CD_PRESTADOR
+AND        ITREG_FAT.CD_PRES_CON = PRES_CON.CD_PRES_CON
+and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null)
+and (pres_con.cd_con_pla =  reg_fat.cd_con_pla or pres_con.cd_con_pla is null)
+and (pres_con.cd_regra = reg_fat.cd_regra or pres_con.cd_regra is null)
+and (pres_con.cd_gru_pro = (select pro_fat.cd_gru_pro from dbamv.pro_fat where pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat) or pres_con.cd_gru_pro is null)
+and (pres_con.cd_pro_fat = itreg_fat.cd_pro_fat or pres_con.cd_pro_fat is null)
+AND        PRES_CON.SN_PAGA_PELO_CONVENIO = 'S'
+AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+AND        ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        REMESSA.CD_REMESSA = :CAMPO_CD_REMESSA
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT ITREG_AMB.CD_PRESTADOR       CD_PRESTADOR
+              ,ITREG_AMB.VL_TOTAL_CONTA    VL_TOTAL
+              ,PRESTADOR.NM_PRESTADOR     NM_PRESTADOR
+              ,ATENDIME.CD_ATENDIMENTO     CD_ATENDIMENTO
+              ,ATENDIME.NR_GUIA                       NR_GUIA
+              ,ATENDIME.DT_ATENDIMENTO      DT_ATENDIMENTO
+              ,ATENDIME.DT_ALTA                        DT_ALTA
+              ,ORI_ATE.DS_ORI_ATE                     DS_ORI_ATE
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)                NM_PACIENTE
+FROM   DBAMV.REMESSA_FATURA      REMESSA
+             ,DBAMV.REG_AMB                      REG_AMB
+             ,DBAMV.ITREG_AMB                   ITREG_AMB
+             ,DBAMV.PRESTADOR                 PRESTADOR
+             ,DBAMV.PRES_CON                    PRES_CON
+             ,DBAMV.ATENDIME                    ATENDIME
+             ,DBAMV.ORI_ATE                       ORI_ATE
+             ,DBAMV.PACIENTE                     PACIENTE
+WHERE  REMESSA.CD_REMESSA = REG_AMB.CD_REMESSA
+AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND    ITREG_AMB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND    ITREG_AMB.CD_PRESTADOR = PRES_CON.CD_PRESTADOR
+and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null)
+and (pres_con.cd_con_pla =  itreg_amb.cd_con_pla or pres_con.cd_con_pla is null)
+and (pres_con.cd_regra = (select empresa_con_pla.cd_regra from dbamv.empresa_con_pla where itreg_amb.cd_convenio = empresa_con_pla.cd_convenio and itreg_amb.cd_con_pla = empresa_con_pla.cd_con_pla and empresa_con_pla.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) or pres_con.cd_regra is null)
+and (pres_con.cd_gru_pro = (select pro_fat.cd_gru_pro from dbamv.pro_fat where pro_fat.cd_pro_fat = itreg_amb.cd_pro_fat) or pres_con.cd_gru_pro is null)
+and (pres_con.cd_pro_fat = itreg_amb.cd_pro_fat or pres_con.cd_pro_fat is null)
+AND    ITREG_AMB.CD_PRES_CON = PRES_CON.CD_PRES_CON
+AND    PRES_CON.SN_PAGA_PELO_CONVENIO = 'S'
+AND    ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND    ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+AND    ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        REMESSA.CD_REMESSA = :CAMPO_CD_REMESSA
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT ITREG_FAT.CD_PRESTADOR        CD_PRESTADOR
+              ,ITLAN_MED.VL_ATO                       VL_TOTAL
+              ,PRESTADOR.NM_PRESTADOR     NM_PRESTADOR
+              ,ATENDIME.CD_ATENDIMENTO     CD_ATENDIMENTO
+              ,REG_FAT.NR_GUIA                         NR_GUIA
+              ,ATENDIME.DT_ATENDIMENTO     DT_ATENDIMENTO
+              ,ATENDIME.DT_ALTA                      DT_ALTA
+              ,ORI_ATE.DS_ORI_ATE                   DS_ORI_ATE
+              ,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)              NM_PACIENTE
+FROM   DBAMV.REMESSA_FATURA   REMESSA
+             ,DBAMV.REG_FAT                    REG_FAT
+             ,DBAMV.ITREG_FAT                 ITREG_FAT
+             ,DBAMV.ITLAN_MED                ITLAN_MED
+             ,DBAMV.PRESTADOR              PRESTADOR
+             ,DBAMV.PRES_CON                 PRES_CON
+             ,DBAMV.ATENDIME                  ATENDIME
+             ,DBAMV.ORI_ATE                     ORI_ATE
+             ,DBAMV.PACIENTE                   PACIENTE
+WHERE  REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND    ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT
+AND    ITLAN_MED.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND    ITLAN_MED.CD_PRESTADOR = PRES_CON.CD_PRESTADOR
+AND    ITLAN_MED.CD_PRES_CON = PRES_CON.CD_PRES_CON
+and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null)
+and (pres_con.cd_con_pla =  reg_fat.cd_con_pla or pres_con.cd_con_pla is null)
+and (pres_con.cd_regra = reg_fat.cd_regra or pres_con.cd_regra is null)
+and (pres_con.cd_gru_pro = (select pro_fat.cd_gru_pro from dbamv.pro_fat where pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat) or pres_con.cd_gru_pro is null)
+and (pres_con.cd_pro_fat = itreg_fat.cd_pro_fat or pres_con.cd_pro_fat is null)
+AND    PRES_CON.SN_PAGA_PELO_CONVENIO = 'S'
+AND    REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND    ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+AND    ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND    REMESSA.CD_REMESSA = :CAMPO_CD_REMESSA
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+)
+ORDER BY CD_PRESTADOR,NM_PRESTADOR,
+DT_ATENDIMENTO,DT_ALTA,NR_GUIA,CD_ATENDIMENTO,NM_PACIENTE,DS_ORI_ATE

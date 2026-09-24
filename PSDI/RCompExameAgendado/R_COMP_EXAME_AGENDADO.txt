@@ -1,0 +1,88 @@
+/*----------------------------------------------------------------------------*/
+--R_COMP_EXAME_AGENDADO
+SELECT * FROM (
+SELECT ATENDIME.CD_ATENDIMENTO            CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE                     CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE                    NM_PACIENTE
+              ,LEITO.DS_RESUMO                              DS_RESUMO
+              ,CONVENIO.CD_CONVENIO                   CD_CONVENIO
+              ,CONVENIO.NM_CONVENIO                  NM_CONVENIO
+              ,DECODE(CONVENIO.TP_CONVENIO,'H', EXA_RX.CD_PRO_FAT_SUS, EXA_RX.EXA_RX_CD_PRO_FAT)   CD_PRO_FAT
+              ,NVL(PED_RX.CD_CON_PLA, 1)            CD_CON_PLA
+              ,SETOR.CD_SETOR                               CD_SETOR
+              ,SETOR.NM_SETOR                              NM_SETOR
+              ,SET_EXA.CD_SET_EXA                       CD_SET_EXA
+              ,SET_EXA.NM_SET_EXA                      NM_SET_EXA
+              ,PRESTADOR.CD_PRESTADOR          CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR         NM_PRESTADOR
+              ,PED_RX.DT_PEDIDO                           DT_PEDIDO
+              ,PED_RX.HR_PEDIDO                           HR_PEDIDO
+              ,PED_RX.NM_USUARIO                        NM_USUARIO
+              ,EXA_RX.CD_EXA_RX                           CD_EXA_RX
+              ,PRESTADOR2.CD_PRESTADOR         CD_PRESTADOR_SOL
+              ,PED_RX.NM_PRESTADOR        NM_PRESTADOR_SOL
+              ,EXA_RX.DS_EXA_RX  ||  DECODE(ITPED_RX.DS_REGIAO,NULL, ITPED_RX.DS_REGIAO, (' - '  || ITPED_RX.DS_REGIAO))   DS_EXA_RX
+              ,ITPED_RX.NR_INCIDENCIAS               NR_INCIDENCIAS
+              ,PRODUTO.CD_PRODUTO                    CD_PRODUTO
+              ,PRODUTO.DS_PRODUTO                    DS_PRODUTO
+              ,(  NVL(ITMVTO_ESTOQUE.QT_MOVIMENTACAO,0)   *   NVL(UNI_PRO.VL_FATOR,0)  )    QT_USADA
+              ,UNI_PRO.DS_UNIDADE                        DESC_UNIDADE
+              ,PED_RX.DS_OBSERVACAO                  DS_OBSERVACAO
+              ,ITPED_RX.CD_ITPED_RX                     CD_ITPED_RX
+              ,PACIENTE.DT_NASCIMENTO               DT_NASCIMENTO
+              ,PACIENTE.NR_IDENTIDADE                NR_IDENTIDADE
+              ,ATENDIME.CD_PRESTADOR               CD_PRESTADOR_ATEND
+              ,PRESTADOR_ATEND.NM_PRESTADOR  NM_PRESTADOR_ATEND
+              ,DBAMV.CALC_QT_CH(DECODE(CONVENIO.TP_CONVENIO,'H', EXA_RX.CD_PRO_FAT_SUS, EXA_RX.EXA_RX_CD_PRO_FAT)
+                                                    ,PED_RX.DT_PEDIDO
+                                                    ,PED_RX.HR_PEDIDO
+                                                    ,PED_RX.CD_CONVENIO
+                                                    ,NVL(PED_RX.CD_CON_PLA, 1)
+                                                    ,ATENDIME.TP_ATENDIMENTO
+                                                    ,NULL
+                                                    ,NULL
+                                                    ,100
+                                                    ,NULL
+                                                    )    QT_CH
+FROM   DBAMV.ATENDIME
+            ,DBAMV.PACIENTE
+            ,DBAMV.LEITO
+            ,DBAMV.PED_RX
+            ,DBAMV.CONVENIO
+            ,DBAMV.SETOR
+            ,DBAMV.SET_EXA
+            ,DBAMV.PRESTADOR
+            ,DBAMV.PRESTADOR PRESTADOR2
+            ,DBAMV.ITPED_RX
+            ,DBAMV.EXA_RX
+            ,DBAMV.MVTO_ESTOQUE
+            ,DBAMV.ITMVTO_ESTOQUE
+            ,DBAMV.PRODUTO
+            ,DBAMV.UNI_PRO
+            ,DBAMV.PRESTADOR PRESTADOR_ATEND
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And PED_RX.CD_PED_RX = :CAMPO_NR_PEDIDO
+AND       ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND       ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+AND       ATENDIME.CD_ATENDIMENTO = PED_RX.CD_ATENDIMENTO
+AND       PED_RX.CD_PRESTADOR = PRESTADOR2.CD_PRESTADOR(+)
+AND       ATENDIME.CD_PRESTADOR = PRESTADOR_ATEND.CD_PRESTADOR(+)
+AND       PED_RX.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND       PED_RX.CD_SETOR = SETOR.CD_SETOR
+AND       PED_RX.CD_SET_EXA = SET_EXA.CD_SET_EXA
+AND       SET_EXA.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+AND       PED_RX.CD_PED_RX = ITPED_RX.CD_PED_RX
+AND       ITPED_RX.CD_EXA_RX = EXA_RX.CD_EXA_RX
+AND       ITPED_RX.CD_ITPED_RX  =  MVTO_ESTOQUE.CD_ITPED_RX(+)
+AND       MVTO_ESTOQUE.CD_MVTO_ESTOQUE  =  ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE(+)
+AND       ITMVTO_ESTOQUE.CD_PRODUTO  =  PRODUTO.CD_PRODUTO(+)
+AND       ITMVTO_ESTOQUE.CD_UNI_PRO  =  UNI_PRO.CD_UNI_PRO(+)
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY EXA_RX.DS_EXA_RX  ||  DECODE(ITPED_RX.DS_REGIAO,NULL, ITPED_RX.DS_REGIAO, (' - '  || ITPED_RX.DS_REGIAO))
+       , PRODUTO.DS_PRODUTO
+)
+ORDER BY CD_PACIENTE,NM_PACIENTE,DS_RESUMO,CD_CONVENIO,NM_CONVENIO,CD_CON_PLA,CD_SETOR,NM_SETOR,CD_SET_EXA,NM_SET_EXA,CD_PRESTADOR,NM_PRESTADOR,DT_PEDIDO,CD_PRESTADOR_SOL,NM_PRESTADOR_SOL,HR_PEDIDO,NM_PRESTADOR_ATEND,CD_PRESTADOR_ATEND,DT_NASCIMENTO,NR_IDENTIDADE,CD_ATENDIMENTO,DS_OBSERVACAO,NM_USUARIO,
+DS_EXA_RX,CD_EXA_RX,CD_ITPED_RX,CD_PRO_FAT,QT_CH,NR_INCIDENCIAS

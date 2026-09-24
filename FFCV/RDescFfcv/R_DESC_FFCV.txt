@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_DESC_FFCV
+SELECT * FROM (
+SELECT  to_char(max(CON_REC.DT_EMISSAO),'DD/MM/YYYY')   dt_emissao
+       ,CON_REC.NM_CLIENTE                  nm_cliente
+       ,CON_REC.CD_ATENDIMENTO            cd_atendimento
+       ,DECODE(CON_REC.CD_REG_AMB, NULL, CON_REC.CD_REG_FAT, CON_REC.CD_REG_AMB) CONTA
+       ,DECODE(CON_REC.CD_REG_AMB, NULL, 'H', 'A') TP_CONTA
+       ,NVL(REG_FAT.VL_DESCONTO_FECHAMENTO,RECCON_REC.VL_DESCONTO) VL_DESCONTO
+       ,CON_REC.DT_EMISSAO DT_EMISSAO_ORDEM
+FROM    DBAMV.CON_REC
+             ,DBAMV.REG_FAT
+             ,DBAMV.REMESSA_FATURA
+             ,DBAMV.FATURA
+             ,DBAMV.ATENDIME
+             ,DBAMV.ITCON_REC
+             ,DBAMV.RECCON_REC
+            ,dbamv.itreg_fat
+WHERE   CON_REC.TP_CON_REC = 'P'
+AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND     CON_REC.CD_REG_FAT = REG_FAT.CD_REG_FAT
+AND     NVL(REG_FAT.VL_DESCONTO_FECHAMENTO,RECCON_REC.VL_DESCONTO) > 0
+AND FATURA.CD_FATURA = REMESSA_FATURA.CD_FATURA
+AND REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+AND ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+AND CON_REC.CD_CON_REC  = ITCON_REC.CD_CON_REC
+AND ITCON_REC.CD_ITCON_REC = RECCON_REC.CD_ITCON_REC
+and itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+GROUP BY  CON_REC.NM_CLIENTE
+                   ,CON_REC.CD_ATENDIMENTO
+                   ,DECODE(CON_REC.CD_REG_AMB, NULL, CON_REC.CD_REG_FAT, CON_REC.CD_REG_AMB)
+                   ,DECODE(CON_REC.CD_REG_AMB, NULL, 'H', 'A')
+                   ,NVL(REG_FAT.VL_DESCONTO_FECHAMENTO,RECCON_REC.VL_DESCONTO)
+                   ,CON_REC.DT_EMISSAO
+union all
+SELECT to_char(max(CON_REC.DT_EMISSAO),'DD/MM/YYYY')   dt_emissao
+       ,CON_REC.NM_CLIENTE       nm_cliente
+       ,CON_REC.CD_ATENDIMENTO   cd_atendimento
+       ,con_rec.cd_reg_amb       conta
+       ,'A'                      tp_conta
+       ,nvl(itreg_amb.vl_desconto_fechamento,RECCON_REC.VL_DESCONTO) vl_desconto_fechamento
+       ,CON_REC.DT_EMISSAO dt_emissao_ordem
+from  dbamv.itreg_amb
+        ,dbamv.atendime
+        ,dbamv.con_rec
+        ,DBAMV.REG_AMB
+        ,DBAMV.REMESSA_FATURA
+        ,DBAMV.FATURA
+        ,DBAMV.ITCON_REC
+        ,DBAMV.RECCON_REC
+WHERE  itreg_amb.cd_atendimento = atendime.cd_atendimento
+AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND FATURA.CD_FATURA = REMESSA_FATURA.CD_FATURA
+AND REG_AMB.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+AND REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND CON_REC.CD_CON_REC  = ITCON_REC.CD_CON_REC
+AND ITCON_REC.CD_ITCON_REC = RECCON_REC.CD_ITCON_REC
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+  and    atendime.cd_atendimento  = con_rec.cd_atendimento
+  and    itreg_amb.cd_reg_amb     = con_rec.cd_reg_amb
+  and    con_rec.tp_con_rec       = 'P'
+  AND  NVL(ITREG_AMB.VL_DESCONTO_FECHAMENTO,RECCON_REC.VL_DESCONTO) > 0
+group by  CON_REC.NM_CLIENTE
+          ,CON_REC.CD_ATENDIMENTO
+          ,con_rec.cd_reg_amb
+          ,'A'
+          ,nvl(itreg_amb.vl_desconto_fechamento,RECCON_REC.VL_DESCONTO)
+          ,CON_REC.DT_EMISSAO
+)
+ORDER BY dt_emissao_ordem

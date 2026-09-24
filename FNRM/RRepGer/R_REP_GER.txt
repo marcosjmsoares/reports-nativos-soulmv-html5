@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_REP_GER
+SELECT * FROM (
+SELECT	cd_gru_rep
+		  ,ds_gru_rep
+		  ,cd_prestador
+		  ,nm_prestador
+		  ,SUM(vl_bruto) AS SUM_VL_BRUTO
+		  ,tipo
+		  ,tp_vinculo
+		  ,SUM(vl_faturado) AS SUM_VL_FATURADO
+		  ,SUM(vl_automatico) AS SUM_VL_AUTOMATICO
+		  ,SUM(vl_manual) AS SUM_VL_MANUAL
+	 FROM
+			(SELECT DECODE (gru_rep.cd_prestador, NULL, prestador.cd_prestador, gru_rep.cd_prestador) cd_gru_rep
+					 ,DECODE (gru_rep.nm_prestador, NULL, prestador.nm_prestador, gru_rep.nm_prestador) ds_gru_rep
+					 ,prestador.cd_prestador
+					 ,prestador.nm_prestador
+					 , (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) ) vl_bruto
+					 ,DECODE (gru_rep.cd_prestador, NULL, 'NAO', 'SIM') tipo
+					 ,DECODE (gru_rep.cd_prestador, NULL, prestador.tp_vinculo, gru_rep.tp_vinculo) tp_vinculo
+					 ,NVL (repasse_prestador.vl_faturado, 0) vl_faturado
+					 ,DECODE (repasse.tp_repasse
+								,'M', 0
+								, (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) )
+								) vl_automatico
+					 ,DECODE (repasse.tp_repasse
+								,'M', (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) )
+								,0
+								) vl_manual
+				FROM dbamv.repasse
+					 ,dbamv.repasse_prestador
+					 ,dbamv.prestador
+					 ,dbamv.prestador gru_rep
+			  WHERE TO_CHAR (repasse.dt_competencia, 'MM/YYYY') = :CAMPO_DT_COMPET
+				 AND repasse.cd_repasse = repasse_prestador.cd_repasse
+				 AND repasse_prestador.cd_prestador = prestador.cd_prestador
+				 AND repasse_prestador.cd_con_pag IS NOT NULL
+				 AND repasse_prestador.cd_prestador_repasse = gru_rep.cd_prestador
+			)
+GROUP BY cd_gru_rep
+		  ,ds_gru_rep
+		  ,cd_prestador
+		  ,nm_prestador
+		  ,tipo
+		  ,tp_vinculo
+)
+ORDER BY TP_VINCULO,
+DS_GRU_REP,CD_GRU_REP,TIPO

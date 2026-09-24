@@ -1,0 +1,66 @@
+/*----------------------------------------------------------------------------*/
+--R_PENDECIA_PROD_FORNEC
+Select Fornecedor.cd_fornecedor Cd_fornecedor,
+       Fornecedor.nm_fornecedor Nm_fornecedor,
+       Ord_com.dt_prev_entrega  Dt_prevista,
+       round(Sysdate - Ord_com.dt_prev_entrega) Dias_atrazo,
+       Uni_pro.cd_produto       Cd_produto,
+       Produto.ds_produto       Ds_produto,
+       Uni_pro.cd_unidade       Cd_unidade,
+       Uni_pro.Ds_unidade       Ds_unidade,
+       Uni_pro.vl_fator              vl_fator,
+       Nvl(Itord_pro.qt_comprada, 0) Qt_comprada,
+       Nvl(Itord_pro.qt_recebida, 0) Qt_recebida,
+       Nvl(Itord_pro.qt_comprada, 0) - Nvl(Itord_pro.qt_recebida, 0) - Nvl(Itord_pro.qt_cancelada, 0) Qt_atrazo,
+       Ord_com.cd_ord_com
+  From Dbamv.fornecedor Fornecedor,
+       Dbamv.ord_com    Ord_com,
+       Dbamv.itord_pro  Itord_pro,
+       Dbamv.uni_pro    Uni_pro,
+       Dbamv.produto    Produto,
+       DBAMV.ESTOQUE    ESTOQUE,
+       dbamv.sol_com   solic,
+       dbamv.cotador cotador
+ Where Ord_com.cd_fornecedor = Fornecedor.cd_fornecedor
+   And Ord_com.cd_ord_com    = Itord_pro.cd_ord_com
+   and estoque.cd_estoque = ord_com.cd_estoque
+   and estoque.cd_multi_empresa = Dbamv.Pkg_mv2000.le_empresa
+   And Itord_pro.cd_uni_pro  = Uni_pro.cd_uni_pro
+   And Itord_pro.cd_produto    = Produto.cd_produto
+   And nvl(Itord_pro.qt_recebida, 0) + nvl(qt_cancelada,0) < nvl(Itord_pro.qt_comprada, 0)
+   And Ord_com.tp_situacao   In ('U','L')
+   And ItOrd_Pro.cd_mot_cancel is null
+   And To_date(To_char(Ord_com.dt_prev_entrega, 'dd/mm/yyyy'), 'dd/mm/yyyy') Between To_date(:CAMPO_DTINIC,'dd/mm/yyyy')
+   And To_date(:CAMPO_DTFIM,'dd/mm/yyyy')
+UNION ALL
+Select Fornecedor.cd_fornecedor   Cd_fornecedor,
+       Fornecedor.nm_fornecedor   Nm_fornecedor,
+       Ord_com.dt_prev_entrega    Dt_prevista,
+       (trunc(Sysdate) - trunc(Ord_com.dt_prev_entrega)) Dias_atrazo,
+       itord_ser.cd_ser_sol       Cd_produto,
+       manu_serv.nm_servico       Ds_produto,
+       ' '                        Cd_unidade,
+       ' '                        Ds_unidade,
+       1                         vl_fator,
+       Nvl(Itord_ser.qt_comprada, 0) Qt_comprada,
+       Nvl(Itord_ser.qt_recebida, 0) Qt_recebida,
+       Nvl(Itord_ser.qt_comprada, 0) - Nvl(Itord_ser.qt_recebida, 0) Qt_atrazo,
+       Ord_com.cd_ord_com
+  From Dbamv.fornecedor Fornecedor,
+       Dbamv.ord_com    Ord_com,
+       Dbamv.itord_ser  Itord_ser,
+       DBAMV.ESTOQUE    ESTOQUE,
+       dbamv.sol_com   solic,
+       dbamv.cotador cotador,
+       dbamv.manu_serv manu_serv
+ Where Ord_com.cd_fornecedor    = Fornecedor.cd_fornecedor
+   And Ord_com.cd_ord_com       = Itord_ser.cd_ord_com
+   And cotador.cd_cotador(+)    = solic.cd_cotador
+   And solic.cd_sol_com(+)      = ord_com.cd_sol_com
+   and estoque.cd_estoque       = ord_com.cd_estoque
+   and estoque.cd_multi_empresa = Dbamv.Pkg_mv2000.le_empresa
+   AND itord_ser.cd_ser_sol     = manu_serv.cd_servico
+   And Ord_com.tp_situacao   In ('U','L')
+   And To_date(To_char(Ord_com.dt_prev_entrega, 'dd/mm/yyyy'), 'dd/mm/yyyy') Between To_date(:CAMPO_DTINIC,'dd/mm/yyyy')
+   And To_date(:CAMPO_DTFIM,'dd/mm/yyyy')
+Order by 2,3

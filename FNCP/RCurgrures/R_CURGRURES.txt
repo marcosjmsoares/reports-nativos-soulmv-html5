@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_CURGRURES
+SELECT * FROM (
+select   decode( item_res.cd_item_res, null, 1, 0 ) cd_ordem,
+         item_res.cd_item_res,
+         decode( item_res.ds_item_res, null, 'NÃO INFORMADA', ds_item_res ) ds_item_res,
+         sum( round(   (   nvl( ratcon_pag.vl_rateio, 0 )
+                         / (   nvl( con_pag.vl_bruto_conta, 0 )
+                             + nvl( con_pag.vl_desconto, 0 )
+                             - nvl( con_pag.vl_acrescimo, 0 )))
+                     * nvl( pagcon_pag.vl_pago, 0 ), 2 )) vl_total
+    from dbamv.item_res,
+         dbamv.con_pag,
+         dbamv.itcon_pag,
+         dbamv.ratcon_pag,
+         dbamv.pagcon_pag,
+         dbamv.processo 
+   where itcon_pag.cd_con_pag = con_pag.cd_con_pag
+     and itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+     and con_pag.cd_con_pag = ratcon_pag.cd_con_pag(+)
+     and ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+     and processo.cd_estrutural <> '1.2.1.1.5'
+     and processo.cd_processo = con_pag.cd_processo 
+     and con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and pagcon_pag.dt_baixa is not null
+     and con_pag.cd_con_pag_dev is null
+     and con_pag.cd_previsao is null
+     and nvl( con_pag.vl_bruto_conta, 0 ) > 0
+     and nvl( itcon_pag.vl_duplicata, 0 ) > 0
+     and trunc( itcon_pag.dt_vencimento ) between :CAMPO_DT_INIC group by item_res.cd_item_res,
+         item_res.ds_item_res
+order by vl_total desc
+)
+ORDER BY CD_ORDEM

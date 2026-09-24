@@ -1,0 +1,35 @@
+/*----------------------------------------------------------------------------*/
+--R_CAD_VOLUME_TEMPO
+SELECT DISTINCT(amostra.cd_amostra) cd_amostra,
+       PED_LAB.cd_ped_lab,
+       PED_LAB.cd_paciente,
+       PED_LAB.nm_paciente,
+       NM_SOCIAL_PACIENTE,
+       PED_LAB.dt_hr,
+       PED_LAB.ds_ori_ate,
+       PED_LAB.cd_atendimento,
+       Nvl2(Nvl(amostra.nr_volume, PED_LAB.nr_volume), Nvl(amostra.nr_volume, PED_LAB.nr_volume) ||'ml', '
+       Nvl2(Nvl(amostra.nr_tempo, PED_LAB.nr_tempo), Nvl(amostra.nr_tempo, PED_LAB.nr_tempo) ||'h', '
+FROM dbamv.itped_lab
+INNER JOIN amostra_exa_lab ON(amostra_exa_lab.cd_itped_lab = itped_lab.cd_itped_lab)
+INNER JOIN amostra ON(amostra_exa_lab.cd_amostra = amostra.cd_amostra)
+INNER JOIN dbamv.versao ON (versao.sn_calc_volume_tempo = 'S'
+                            AND versao.cd_exa_lab = itped_lab.cd_exa_lab)
+INNER JOIN
+  (SELECT ped_lab.cd_ped_lab,
+          atendime.cd_paciente,
+          paciente.nm_paciente,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+          To_char(ped_lab.dt_pedido, 'dd/mm/yyyy') || ' ' || To_char(ped_lab.hr_ped_lab, 'hh24') dt_hr,
+          ori_ate.cd_ori_ate,
+          ori_ate.ds_ori_ate,
+          ped_lab.cd_atendimento,
+          ped_lab.nr_volume,
+          ped_lab.nr_tempo
+   FROM dbamv.ped_lab
+   INNER JOIN dbamv.atendime ON (atendime.cd_atendimento = ped_lab.cd_atendimento)
+   INNER JOIN dbamv.paciente ON (atendime.cd_paciente = paciente.cd_paciente)
+   LEFT JOIN dbamv.ori_ate ON (atendime.cd_ori_ate = ori_ate.cd_ori_ate)
+   WHERE ped_lab.cd_ped_lab = cd_ped_lab )PED_LAB ON (PED_LAB.CD_PED_LAB = itped_lab.cd_ped_lab)
+WHERE 1 = 1 
+ORDER BY PED_LAB.dt_hr

@@ -1,0 +1,32 @@
+/*----------------------------------------------------------------------------*/
+--R_CIR_CANC_TIPO
+select avi_cir.cd_cen_cir
+         ,cen_cir.ds_cen_cir
+         ,mot_canc.cd_mot_canc
+         ,mot_canc.ds_mot_canc
+         ,decode(
+         	cirurgia.tp_cirurgia,
+         	'P', Upper(pkg_rmi_traducao.extrair_pkg_msg('MSG_1', 'VDIC_CIRURGIA_AVISO', 'PEQUENA')),
+         	'M', Upper(pkg_rmi_traducao.extrair_pkg_msg('MSG_2', 'VDIC_CIRURGIA_AVISO', 'MÉDIA')),
+         	'G', Upper(pkg_rmi_traducao.extrair_pkg_msg('MSG_3', 'VDIC_CIRURGIA_AVISO', 'GRANDE')),
+         	'E', Upper(pkg_rmi_traducao.extrair_pkg_msg('MSG_4', 'VDIC_CIRURGIA_AVISO', 'ESPECIAL'))
+         ) tp_cirurgia
+         ,count(*) COUNT
+from  dbamv.aviso_cirurgia  avi_cir
+       ,dbamv.cirurgia_aviso
+       ,dbamv.cirurgia
+       ,dbamv.mot_canc
+       ,dbamv.cen_cir
+       ,dbamv.age_cir
+where avi_cir.tp_situacao                = 'C'
+  and avi_cir.cd_multi_empresa           = dbamv.pkg_mv2000.le_empresa
+  and mot_canc.cd_mot_canc(+)            = avi_cir.cd_mot_canc
+  and cirurgia_aviso.cd_aviso_cirurgia   = avi_cir.cd_aviso_cirurgia
+  and cen_cir.cd_cen_cir                 = avi_cir.cd_cen_cir
+  and cirurgia_aviso.cd_cirurgia         = cirurgia.cd_cirurgia
+  and dt_cancelamento BETWEEN To_Date(Concat(To_Char(:CAMPO_DATA_INI,'dd/mm/yyyy'),'00'),'dd/mm/yyyy hh24') and  To_Date(Concat(To_Char(:CAMPO_DATA_FIM,'dd/mm/yyyy'),'23'),'dd/mm/yyyy hh24')
+  and avi_cir.cd_aviso_cirurgia          = age_cir.cd_aviso_cirurgia (+)
+group by avi_cir.cd_cen_cir,mot_canc.cd_mot_canc
+        ,mot_canc.ds_mot_canc,cirurgia.tp_cirurgia
+        ,cen_cir.ds_cen_cir
+order by avi_cir.cd_cen_cir,cirurgia.tp_cirurgia,mot_canc.cd_mot_canc

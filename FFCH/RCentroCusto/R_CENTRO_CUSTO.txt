@@ -1,0 +1,147 @@
+/*----------------------------------------------------------------------------*/
+--R_CENTRO_CUSTO
+SELECT 1 FROM DUAL
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CENTRO_CUSTO_R_1_Q_SETOR_RATEIO
+SELECT * FROM (
+SELECT * FROM (
+SELECT  setor.cd_setor    cd_setor_filho
+              ,setor.nm_setor           nm_setor_filho
+              ,grupo_de_custo.cd_grupo_de_custo
+              ,grupo_de_custo.ds_grupo_de_custo
+              ,nvl(setor.nr_ordem_rateio,0)   nr_ordem_rateio_filho
+              ,rr.dt_vigencia    dt_vigencia
+              ,rr.cd_regra_rateio
+              ,rr.tp_rateio ds_tp_rateio
+              ,rr.tp_rateio
+              ,um.cd_unidade_mensuracao
+              ,um.ds_unidade_mensuracao  ds_desc_um
+              ,rr.cd_rotina
+              ,rr.ds_formula
+              ,DECODE(:CAMPO_TP_RATEIO,'U',u.ordem,p.ordem) ordem
+FROM   dbamv.setor
+            ,dbamv.regra_rateio  rr
+            ,dbamv.unidade_mensuracao um
+            ,dbamv.grupo_de_custo
+            ,(select rotinas_Custo.cd_rotina ||' - '|| ds_rotina ordem, rotinas_custo.cd_rotina
+                from dbamv.rotinas_Custo
+                     ,dbamv.unidade_mensuracao
+                where rotinas_custo.cd_rotina(+) = unidade_mensuracao.cd_rotinas_Custo) U
+            ,(select rotinas_Custo.cd_rotina ||' - '|| rotinas_custo.ds_rotina ordem, rotinas_custo.cd_rotina
+                from dbamv.rotinas_Custo) P
+WHERE setor.cd_setor = rr.cd_setor
+               and grupo_de_custo.cd_grupo_de_custo = setor.cd_grupo_de_custo
+               and grupo_de_custo.tp_grupo_de_custo in ('A','D')
+               and rr.cd_unidade_mensuracao = um.cd_unidade_mensuracao(+)
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and u.cd_rotina(+) = rr.cd_rotina
+               and p.cd_rotina(+) = rr.cd_rotina
+:CAMPO_CF_VIG
+)
+WHERE CD_SETOR_FILHO = :CAMPO_CD_SETOR_FILHO
+ORDER BY ORDEM
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CENTRO_CUSTO_R_1_Q_SETOR_RATEIO.ANTIGO
+SELECT * FROM (
+SELECT * FROM (
+SELECT  setor.cd_setor    cd_setor_filho
+              ,setor.nm_setor           nm_setor_filho
+              ,grupo_de_custo.cd_grupo_de_custo
+              ,grupo_de_custo.ds_grupo_de_custo
+              ,nvl(setor.nr_ordem_rateio,0)   nr_ordem_rateio_filho
+              ,rr.dt_vigencia    dt_vigencia
+              ,rr.cd_regra_rateio
+              ,DECODE( rr.tp_rateio, 'C', 'Convenção', 'F', 'Fórmula', 'M', 'Incidência Percentual', 'P', 'Produção', 'U', 'Unidade de Mensuração' ) ds_tp_rateio
+              ,rr.tp_rateio
+              ,um.cd_unidade_mensuracao
+              ,um.ds_unidade_mensuracao  ds_desc_um
+              ,rr.cd_rotina
+              ,rr.ds_formula
+              ,DECODE(:CAMPO_TP_RATEIO,'U',u.ordem,p.ordem) ordem
+FROM   dbamv.setor
+            ,dbamv.regra_rateio  rr
+            ,dbamv.unidade_mensuracao um
+            ,dbamv.grupo_de_custo
+            ,(select rotinas_Custo.cd_rotina ||' - '|| ds_rotina ordem, rotinas_custo.cd_rotina
+                from dbamv.rotinas_Custo
+                     ,dbamv.unidade_mensuracao
+                where rotinas_custo.cd_rotina(+) = unidade_mensuracao.cd_rotinas_Custo) U
+            ,(select rotinas_Custo.cd_rotina ||' - '|| rotinas_custo.ds_rotina ordem, rotinas_custo.cd_rotina
+                from dbamv.rotinas_Custo) P
+WHERE setor.cd_setor = rr.cd_setor
+               and grupo_de_custo.cd_grupo_de_custo = setor.cd_grupo_de_custo
+               and grupo_de_custo.tp_grupo_de_custo in ('A','D')
+               and rr.cd_unidade_mensuracao = um.cd_unidade_mensuracao(+)
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and u.cd_rotina(+) = rr.cd_rotina
+               and p.cd_rotina(+) = rr.cd_rotina
+:CAMPO_CF_VIG
+)
+WHERE CD_SETOR_FILHO = :CAMPO_CD_SETOR_FILHO
+ORDER BY ORDEM
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CENTRO_CUSTO_R_GRUPO_Q_QUEBRA_CUSTO
+SELECT * FROM (
+SELECT   multi_empresas.cd_multi_empresa  cd_multi_empresa
+        ,multi_empresas.ds_multi_empresa  ds_multi_empresa
+        ,setor.cd_setor cd_setor_filho
+        ,setor.nm_setor nm_setor_filho
+        ,setor.cd_setor_custo cd_custo_filho
+        ,setor.cd_cen_cus     cd_cen_cus_filho
+        ,setor_pai.cd_setor cd_setor_pai
+        ,setor_pai.cd_setor_custo cd_cus_pai
+        ,setor_pai.cd_cen_cus Cd_Cen_pai
+        ,gru_custo_pai.cd_grupo_de_custo cd_Gru_pai
+        ,gru_custo_pai.ds_grupo_de_custo ds_Gru_pai
+        ,DECODE( setor_pai.nr_ordem_rateio, NULL, 0, setor_pai.nr_ordem_rateio ) nr_rateio_pai
+        ,setor_pai.classificacao Classificação_pai
+        ,setor_pai.tp_rat_mat_diretos tp_rat_mat_diretos_pai
+        ,setor_pai.nm_setor ||' - ' || gru_custo_pai.ds_grupo_de_custo  nm_setor_Pai
+        ,DECODE( setor.nr_ordem_rateio, NULL, 0, setor.nr_ordem_rateio ) nr_ordem_rateio_Filho
+        ,setor.classificacao Classificação
+        ,setor.tp_rat_mat_diretos tp_rat_mat_diretos
+        ,grupo_de_custo.cd_grupo_de_custo  cd_grupo_de_custo_Filho
+        ,grupo_de_custo.ds_grupo_de_custo  ds_grupo_de_custo_Filho
+    FROM dbamv.multi_empresas
+        ,dbamv.grupo_de_custo
+        ,dbamv.setor
+        ,dbamv.setor setor_pai
+        ,dbamv.grupo_de_custo gru_custo_pai
+   WHERE setor_pai.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND setor_pai.cd_multi_empresa = multi_empresas.cd_multi_empresa
+     AND setor.cd_grupo_de_custo(+) = grupo_de_custo.cd_grupo_de_custo
+     AND setor_pai.cd_grupo_de_custo(+)= gru_custo_pai.cd_grupo_de_custo
+     AND setor.cd_setor_custo = setor_pai.cd_setor
+:CAMPO_CF_ORDEM
+)
+ORDER BY DECODE('',
+        'Codigo',
+            TO_CHAR(cd_setor_pai, '0000' ),
+        'Alfabetico',
+            nm_setor_pai,
+        'Centro',
+            TO_CHAR(cd_cen_pai)
+        ,
+            to_char( nvl( nr_rateio_pai, 0 ),'0000' ) ||to_char( cd_setor_pai,'0000' )
+)||','||
+DECODE('',
+        'Codigo',
+            TO_CHAR(cd_setor_filho, '0000' ),
+        'Alfabetico',
+            nm_setor_filho,
+        'Centro',
+            TO_CHAR(cd_cen_cus_filho)
+        ,
+            to_char(nvl( NR_ORDEM_RATEIO_filho,0 ),'0000')
+)

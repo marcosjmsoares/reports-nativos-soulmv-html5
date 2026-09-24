@@ -1,0 +1,283 @@
+/*----------------------------------------------------------------------------*/
+--R_DETALHAMENTO_ANUAL
+SELECT *
+FROM
+  (SELECT f.nm_fornecedor,
+          f.cd_fornecedor,
+          f.cd_fornecedor cd_fornecedor_aux,
+          f.nr_cgc_cpf,
+          f.tp_fornecedor,
+          m.cd_cgc,
+          m.cd_multi_empresa,
+          m.ds_multi_empresa,
+          m.ds_nome_contador nm_contador,
+          valor.vl_detalhamento_1 vl_detalhamento1,
+          valor.vl_detalhamento_2 vl_detalhamento2,
+          valor.vl_detalhamento_3 vl_detalhamento3,
+          valor.vl_rendimento,
+          valor.dt_base,
+          valor.Fornecedor_detalhe,
+          'DESCRICAO_PADRAO' ds_detalhamento
+   FROM dbamv.fornecedor f,
+        dbamv.multi_empresas m,
+     (SELECT dt_base,
+             sum(vl_detalhamento_1) vl_detalhamento_1,
+             sum(vl_detalhamento_2) vl_detalhamento_2,
+             sum(vl_detalhamento_3) vl_detalhamento_3,
+             sum(vl_rendimento) vl_rendimento,
+             Fornecedor_detalhe 
+      FROM
+        (SELECT Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')) dt_base,
+                Sum(nvl(tdc.vl_detalhamento, 0)) vl_detalhamento_1,
+                0 vl_detalhamento_2,
+                0 vl_detalhamento_3,
+                0 vl_rendimento,
+                f.nr_cgc_cpf Fornecedor_detalhe
+         FROM dbamv.con_pag cp ,
+              dbamv.fornecedor f ,
+              dbamv.plano_contas pl ,
+              dbamv.itcon_pag it ,
+              dbamv.pagcon_pag pc ,
+              dbamv.tip_detcon_pag tdc ,
+              dbamv.tip_detalhe td
+         WHERE cp.cd_con_pag = it.cd_con_pag
+           AND cp.cd_fornecedor = f.cd_fornecedor
+           AND it.cd_itcon_pag = pc.cd_itcon_pag
+           AND pc.cd_pagcon_pag = tdc.cd_pagcon_pag
+           AND tdc.cd_detalhamento = td.cd_detalhamento
+           AND cp.cd_reduzido = pl.cd_reduzido (+)   
+           AND pc.tp_pagamento <> 'B'
+           AND cp.tp_con_pag NOT IN ('AF',
+                                     'AP')
+           AND td.tp_detalhamento in('J',
+                                     'F')
+         GROUP BY Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')),
+                  f.nr_cgc_cpf
+         UNION ALL SELECT Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')) dt_base,
+                          Sum(nvl(td.vl_detalhamento, 0)) vl_detalhamento_1,
+                          0 vl_detalhamento_2,
+                          0 vl_detalhamento_3,
+                          0 vl_rendimento,
+                          f.nr_cgc_cpf Fornecedor_detalhe
+         FROM dbamv.con_pag cp ,
+              dbamv.fornecedor f ,
+              dbamv.plano_contas pl ,
+              dbamv.itcon_pag it ,
+           (SELECT i.cd_con_pag,
+                   min(p.dt_pagamento) dt_pagamento
+            FROM dbamv.itcon_pag i ,
+                 dbamv.pagcon_pag p
+            WHERE i.cd_itcon_pag = p.cd_itcon_pag
+              AND p.vl_pago <> 0
+            GROUP BY i.cd_con_pag) pc ,
+           (SELECT tdc.cd_con_pag_pai,
+                   tdc.cd_detalhamento,
+                   td.tp_detalhamento,
+                   sum(nvl(tdc.vl_detalhamento, 0)) vl_detalhamento
+            FROM dbamv.tip_detcon_pag tdc ,
+                 dbamv.tip_detalhe td
+            WHERE tdc.cd_detalhamento = td.cd_detalhamento
+              AND tdc.cd_pagcon_pag IS NULL
+            GROUP BY tdc.cd_con_pag_pai,
+                     tdc.cd_detalhamento,
+                     td.tp_detalhamento) td
+         WHERE cp.cd_con_pag = it.cd_con_pag
+           AND cp.cd_fornecedor = f.cd_fornecedor
+           AND it.cd_con_pag = td.cd_con_pag_pai
+           AND it.cd_con_pag = pc.cd_con_pag
+           AND cp.cd_reduzido = pl.cd_reduzido (+)   
+           AND cp.tp_con_pag NOT IN ('AF',
+                                     'AP')
+           AND td.tp_detalhamento in('J',
+                                     'F')
+         GROUP BY Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')),
+                  f.nr_cgc_cpf 
+         UNION ALL SELECT Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')) dt_base,
+                          0 vl_detalhamento_1,
+                          Sum(nvl(tdc.vl_detalhamento, 0)) vl_detalhamento_2,
+                          0 vl_detalhamento_3,
+                          0 vl_rendimento,
+                          f.nr_cgc_cpf Fornecedor_detalhe
+         FROM dbamv.con_pag cp ,
+              dbamv.fornecedor f ,
+              dbamv.plano_contas pl ,
+              dbamv.itcon_pag it ,
+              dbamv.pagcon_pag pc ,
+              dbamv.tip_detcon_pag tdc ,
+              dbamv.tip_detalhe td
+         WHERE cp.cd_con_pag = it.cd_con_pag
+           AND cp.cd_fornecedor = f.cd_fornecedor
+           AND it.cd_itcon_pag = pc.cd_itcon_pag
+           AND pc.cd_pagcon_pag = tdc.cd_pagcon_pag
+           AND tdc.cd_detalhamento = td.cd_detalhamento
+           AND cp.cd_reduzido = pl.cd_reduzido (+)   
+           AND pc.tp_pagamento <> 'B'
+           AND cp.tp_con_pag NOT IN ('AF',
+                                     'AP')
+           AND td.tp_detalhamento = 'N'
+         GROUP BY Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')),
+                  f.nr_cgc_cpf
+         UNION ALL SELECT Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')) dt_base,
+                          0 vl_detalhamento_1,
+                          Sum(nvl(td.vl_detalhamento, 0)) vl_detalhamento_2,
+                          0 vl_detalhamento_3,
+                          0 vl_rendimento,
+                          f.nr_cgc_cpf Fornecedor_detalhe
+         FROM dbamv.con_pag cp ,
+              dbamv.fornecedor f ,
+              dbamv.plano_contas pl ,
+              dbamv.itcon_pag it ,
+           (SELECT i.cd_con_pag,
+                   min(p.dt_pagamento) dt_pagamento
+            FROM dbamv.itcon_pag i ,
+                 dbamv.pagcon_pag p
+            WHERE i.cd_itcon_pag = p.cd_itcon_pag
+              AND p.vl_pago <> 0
+            GROUP BY i.cd_con_pag) pc ,
+           (SELECT tdc.cd_con_pag_pai,
+                   tdc.cd_detalhamento,
+                   td.tp_detalhamento,
+                   sum(nvl(tdc.vl_detalhamento, 0)) vl_detalhamento
+            FROM dbamv.tip_detcon_pag tdc ,
+                 dbamv.tip_detalhe td
+            WHERE tdc.cd_detalhamento = td.cd_detalhamento
+              AND tdc.cd_pagcon_pag IS NULL
+            GROUP BY tdc.cd_con_pag_pai,
+                     tdc.cd_detalhamento,
+                     td.tp_detalhamento) td
+         WHERE cp.cd_con_pag = it.cd_con_pag
+           AND cp.cd_fornecedor = f.cd_fornecedor
+           AND it.cd_con_pag = td.cd_con_pag_pai
+           AND it.cd_con_pag = pc.cd_con_pag
+           AND cp.cd_reduzido = pl.cd_reduzido (+)   
+           AND cp.tp_con_pag NOT IN ('AF',
+                                     'AP')
+           AND td.tp_detalhamento = 'N'
+         GROUP BY Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')),
+                  f.nr_cgc_cpf 
+         UNION ALL SELECT Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')) dt_base,
+                          0 vl_detalhamento_1,
+                          0 vl_detalhamento_2,
+                          Sum(nvl(tdc.vl_detalhamento, 0)) vl_detalhamento_3,
+                          0 vl_rendimento,
+                          f.nr_cgc_cpf Fornecedor_detalhe
+         FROM dbamv.con_pag cp ,
+              dbamv.fornecedor f ,
+              dbamv.plano_contas pl ,
+              dbamv.itcon_pag it ,
+              dbamv.pagcon_pag pc ,
+              dbamv.tip_detcon_pag tdc ,
+              dbamv.tip_detalhe td
+         WHERE cp.cd_con_pag = it.cd_con_pag
+           AND cp.cd_fornecedor = f.cd_fornecedor
+           AND it.cd_itcon_pag = pc.cd_itcon_pag
+           AND pc.cd_pagcon_pag = tdc.cd_pagcon_pag
+           AND tdc.cd_detalhamento = td.cd_detalhamento
+           AND cp.cd_reduzido = pl.cd_reduzido (+)   
+           AND td.tp_detalhamento in('S',
+                                     'P',
+                                     'C',
+                                     'L')
+         GROUP BY Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')),
+                  f.nr_cgc_cpf
+         UNION ALL SELECT Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')) dt_base,
+                          0 vl_detalhamento_1,
+                          0 vl_detalhamento_2,
+                          Sum(nvl(td.vl_detalhamento, 0)) vl_detalhamento_3,
+                          0 vl_rendimento,
+                          f.nr_cgc_cpf Fornecedor_detalhe
+         FROM dbamv.con_pag cp ,
+              dbamv.fornecedor f ,
+              dbamv.plano_contas pl ,
+              dbamv.itcon_pag it ,
+           (SELECT i.cd_con_pag,
+                   min(p.dt_pagamento) dt_pagamento
+            FROM dbamv.itcon_pag i ,
+                 dbamv.pagcon_pag p
+            WHERE i.cd_itcon_pag = p.cd_itcon_pag
+              AND p.vl_pago <> 0
+            GROUP BY i.cd_con_pag) pc ,
+           (SELECT tdc.cd_con_pag_pai,
+                   tdc.cd_detalhamento,
+                   td.tp_detalhamento,
+                   sum(nvl(tdc.vl_detalhamento, 0)) vl_detalhamento
+            FROM dbamv.tip_detcon_pag tdc ,
+                 dbamv.tip_detalhe td
+            WHERE tdc.cd_detalhamento = td.cd_detalhamento
+              AND tdc.cd_pagcon_pag IS NULL
+            GROUP BY tdc.cd_con_pag_pai,
+                     tdc.cd_detalhamento,
+                     td.tp_detalhamento) td
+         WHERE cp.cd_con_pag = it.cd_con_pag
+           AND cp.cd_fornecedor = f.cd_fornecedor
+           AND it.cd_con_pag = td.cd_con_pag_pai
+           AND it.cd_con_pag = pc.cd_con_pag
+           AND cp.cd_reduzido = pl.cd_reduzido (+)   
+           AND cp.tp_con_pag NOT IN ('AF',
+                                     'AP')
+           AND td.tp_detalhamento in('S',
+                                     'P',
+                                     'C',
+                                     'L')
+         GROUP BY Decode('', 'L', trunc(cp.dt_lancamento, 'mm'), 'P', trunc(pc.dt_pagamento, 'mm')),
+                  f.nr_cgc_cpf 
+         UNION ALL SELECT trunc(Rend.dt_selecionada, 'mm') dt_base,
+                          0 vl_detalhamento_1,
+                          0 vl_detalhamento_2,
+                          0 vl_detalhamento_3,
+                          sum(NVL(Rend.vl_rendimento, 0)) vl_rendimento,
+                          Rend.nr_cgc_cpf Fornecedor_detalhe
+         FROM
+           (SELECT Decode('', 'L', trunc(cp.dt_lancamento), 'P', trunc(pc.dt_pagamento)) dt_selecionada ,
+                   f.nr_cgc_cpf ,
+                   Sum(nvl(pc.vl_pago, 0) + nvl(pc.vl_desconto, 0) - nvl(pc.vl_acrescimo, 0)) + sum(nvl(cp.vl_desconto, 0)) - Sum(nvl(cp.vl_acrescimo, 0)) + sum(NVL(Det_imp.vl_detalhe, 0)) vl_rendimento
+            FROM dbamv.con_pag cp ,
+                 dbamv.processo p ,
+                 dbamv.fornecedor f ,
+                 dbamv.plano_contas pl ,
+                 dbamv.itcon_pag it ,
+                 dbamv.pagcon_pag pc ,
+              (SELECT tdc.cd_con_pag_pai,
+                      sum(nvl(tdc.vl_detalhamento, 0)) vl_detalhe
+               FROM dbamv.tip_detcon_pag tdc ,
+                    dbamv.tip_detalhe td
+               WHERE tdc.cd_detalhamento = td.cd_detalhamento
+               GROUP BY tdc.cd_con_pag_pai) Det_imp
+            WHERE cp.cd_processo = p.cd_processo
+              AND cp.cd_fornecedor = f.cd_fornecedor
+              AND it.cd_con_pag = cp.cd_con_pag
+              AND it.cd_itcon_pag = pc.cd_itcon_pag
+              AND cp.cd_con_pag = Det_imp.cd_con_pag_pai (+)
+              AND cp.cd_reduzido = pl.cd_reduzido (+)
+              AND p.cd_estrutural not in ('1.1.1.1.3',
+                                          '1.2.1.1.5',
+                                          '2.1.1.1.3',
+                                          '2.1.1.1.1')
+              AND cp.cd_fornecedor IS NOT NULL
+              AND cp.cd_previsao IS NULL
+              AND pc.vl_pago <> 0
+              AND pc.tp_pagamento <> 'B'
+              AND cp.tp_con_pag NOT IN ('AF',
+                                        'AP')   
+            GROUP BY cp.dt_lancamento,
+                     pc.dt_pagamento,
+                     f.nr_cgc_cpf) Rend
+         GROUP BY trunc(Rend.dt_selecionada, 'mm'),
+                  Rend.nr_cgc_cpf)
+      GROUP BY dt_base,
+               Fornecedor_detalhe
+      ORDER BY dt_base) valor
+   WHERE f.nr_cgc_cpf = valor.Fornecedor_detalhe
+     AND m.cd_multi_empresa =:CAMPO_CD_MULTI_EMPRESA  
+   ORDER BY valor.dt_base)
+ORDER BY NM_FORNECEDOR,
+         CD_FORNECEDOR,
+         CD_CGC,
+         CD_MULTI_EMPRESA,
+         DS_MULTI_EMPRESA,
+         NM_CONTADOR,
+         TP_FORNECEDOR,
+         NR_CGC_CPF,
+         CD_FORNECEDOR_AUX,
+         DS_DETALHAMENTO,
+         dt_base

@@ -1,0 +1,236 @@
+/*----------------------------------------------------------------------------*/
+--R_EXTRATO
+SELECT  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+       ,e.cd_multi_empresa  cd_multi_empresa
+       ,V1.CD_BANCO    CD_BANCO
+       ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+       ,V1.DS_BANCO   DS_BANCO
+       ,V1.CD_CON_COR CD_CON_COR
+       ,V1.DS_CON_COR DS_CON_COR
+       ,V1.CD_AGENCIA CD_AGENCIA
+       ,V1.DS_AGENCIA DS_AGENCIA
+       ,V1.NR_CONTA NR_CONTA
+       ,nvl(cc.cd_moeda, e.cd_moeda) cd_moeda_cc
+       ,V1.VL_SLD_ATUAL_CONTA VL_SLD_ATUAL_CONTA
+       ,V1.VL_CHQ_DEP_NAO_COMP VL_CHQ_DEP_NAO_COMP
+       ,V1.CD_CHQ_DEP_NAO_COMP CD_CHQ_DEP_NAO_COMP
+       ,V1.VL_CHQ_EMI_NAO_COMP VL_CHQ_EMI_NAO_COMP
+       ,V1.CD_CHQ_EMI_NAO_COMP CD_CHQ_EMI_NAO_COMP
+       ,V1.SN_CONTA_ESPECIAL SN_CONTA_ESPECIAL
+       ,V1.VL_LIMITE_CHEQUE_ESPECIAL VL_LIMITE_CHEQUE_ESPECIAL
+      ,Trunc(decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO
+      ,decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),v2.dt_compensacao),v2.dt_emissao)),v2.dt_estorno)) DT_MOVIMENTACAO
+      ,V2.NR_DOCUMENTO_IDENTIFICACAO NR_DOCUMENTO_IDENTIFICACAO
+      ,V2.CD_MOV_CONCOR CD_MOV_CONCOR
+      ,V2.DS_MOVIMENTACAO DS_MOVIMENTACAO
+      ,Decode(v2.dt_estorno, NULL,
+			Decode( :CAMPO_MOV_CARTAO, 'A', Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO),
+				Decode(Nvl(Tar.tp_operacao_saldo_conta,'*'),'-',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) - Abs(Nvl(Tar.Vl_Movimentacao,0)),'+',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) + Abs(Nvl(Tar.Vl_Movimentacao,0)),Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO)) ),
+					Decode(v2.CD_ESTRUTURAL, '1.6.1.1.2.2', Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO),
+						Decode( :CAMPO_MOV_CARTAO, 'A', Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO),
+							Decode(Nvl(Tar.tp_operacao_saldo_conta,'*'),'-',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) - Abs(Nvl(Tar.Vl_Movimentacao,0)),'+',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) + Abs(Nvl(Tar.Vl_Movimentacao,0)),Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO)
+							)
+						)
+					)
+				)   VL_MOVIMENTACAO
+      ,V2.TP_OPERACAO_SALDO_CONTA TP_OPERACAO_SALDO_CONTA
+      ,V2.Cd_Mov_Deposito_Agrup
+      ,e.cd_moeda moeda_empresa
+       ,(select dt_predatada from dbamv.cheque where cd_cheque = v2.cd_cheque) as dt_predatada
+       ,nvl((select VL_CHEQUE from dbamv.cheque where cd_cheque = v2.cd_cheque and dt_predatada is not null), 0) as vl_cheque_predatado
+FROM  DBAMV.V_BCO_CONTA   V1,
+      dbamv.con_cor cc,
+      dbamv.multi_empresas e,
+      DBAMV.V_MOV_CONCOR  V2,
+      dbamv.config_financ V3,
+      dbamv.USUARIO_MULTI_EMPRESA UME,
+      (select  count(*) total,
+               count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+               m.cd_mov_deposito_agrup
+         from  dbamv.mov_concor M
+        where  m.cd_mov_deposito_agrup Is Not Null
+     group by  M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+               ( Select Cd_Mov_Pai,
+                        Nvl(Sum(NVL(VL_MOEDA,Vl_Movimentacao)),0) Vl_Movimentacao, tp_operacao_saldo_conta
+                   From Dbamv.V_Mov_Concor M
+                  Where :CAMPO_MOV_CARTAO  = 'L'
+                    And M.Cd_Estrutural = '1.6.1.1.10.3'
+               Group By Cd_Mov_Pai, tp_operacao_saldo_conta ) Tar
+WHERE cc.CD_CON_COR = V1.cd_con_cor
+  AND V1.CD_CON_COR            = V2.CD_CON_COR
+  AND V1.cd_multi_empresa      = e.cd_multi_empresa
+  AND V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+  AND V3.cd_multi_empresa = e.cd_multi_empresa
+  AND V3.cd_multi_empresa = UME.cd_multi_empresa
+  AND ume.cd_id_usuario = user
+And V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup(+)
+AND decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+    decode('','C',decode(v2.dt_compensacao,null,
+	   Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),
+	v2.dt_compensacao),v2.dt_emissao))
+    ,v2.dt_estorno)
+    >= TO_DATE( TO_CHAR( :CAMPO_DATA_INIC, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND decode(v2.dt_estorno,null,DECODE( V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+    decode('','C',decode(v2.dt_compensacao,null,
+	  Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),v2.dt_compensacao),v2.dt_emissao)),v2.dt_estorno)
+    <= TO_DATE( TO_CHAR( :CAMPO_DATA_FIM , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+AND V1.CD_CON_COR       = V2.CD_CON_COR
+AND NVL(V2.VL_MOVIMENTACAO,0) <> 0
+AND (:CAMPO_AGRUPADO = 'N'
+OR  ( :CAMPO_AGRUPADO = 'S'
+And ( V2.CD_MOV_DEPOSITO_AGRUP Is Null
+OR  ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null  And Tb_Conciliacao.Total <> Tb_Conciliacao.Sim  and Tb_Conciliacao.Sim <> 0  ) ) ))
+And V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+And ( ( :CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3' ) Or ( :CAMPO_MOV_CARTAO  =   'A')  )
+ AND decode(v2.dt_estorno,null,
+      DECODE(V2.CD_CHEQUE, NULL, Trunc(V2.DT_MOVIMENTACAO),
+       decode('','C',
+        decode(v2.dt_compensacao,null,
+	       Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),
+	         Decode (:CAMPO_CF_CD_HOSPITAL, 374, v2.dt_compensacao,
+            Decode(Nvl(v3.sn_atualiza_dt_mov_concor,'N'),'N',v2.dt_compensacao, v2.dt_movimentacao))), v2.dt_emissao)), v2.dt_estorno) >= TO_DATE( To_Char
+            ( :CAMPO_DATA_INIC , 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND  decode(v2.dt_estorno,null,
+      DECODE( V2.CD_CHEQUE, NULL, Trunc(V2.DT_MOVIMENTACAO),
+       decode('','C',
+        decode(v2.dt_compensacao,null,
+	        Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),
+	     Decode(:CAMPO_CF_CD_HOSPITAL, 374, v2.dt_compensacao,
+          Decode(Nvl(v3.sn_atualiza_dt_mov_concor,'N'),'N',v2.dt_compensacao, v2.dt_movimentacao))), v2.dt_emissao)), v2.dt_estorno) <= TO_DATE( To_Char
+          ( :CAMPO_DATA_FIM , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+AND ( (v2.cd_cheque IS NOT NULL
+  AND (Nvl(:CAMPO_SN_CHEQUE_COMP,'N') = 'S'
+  and v2.dt_compensacao is NOT NULL
+  AND v2.dt_compensacao >= TO_DATE( TO_CHAR( :CAMPO_DATA_INIC, 'DD/MM/YYYY' ) || '00', 'DD/MM/YYYY HH24' )
+  AND v2.dt_compensacao <= TO_DATE( TO_CHAR( :CAMPO_DATA_FIM, 'DD/MM/YYYY' ) || '23', 'DD/MM/YYYY HH24' )
+  )
+OR (Nvl(:CAMPO_SN_CHEQUE_COMP,'N') = 'N' ))
+OR v2.cd_cheque IS NULL)
+UNION
+SELECT 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+       ,e.cd_multi_empresa  cd_multi_empresa
+       ,V1.CD_BANCO    CD_BANCO
+       ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+       ,V1.DS_BANCO   DS_BANCO
+       ,V1.CD_CON_COR CD_CON_COR
+       ,V1.DS_CON_COR DS_CON_COR
+       ,V1.CD_AGENCIA CD_AGENCIA
+       ,V1.DS_AGENCIA DS_AGENCIA
+       ,V1.NR_CONTA NR_CONTA
+       ,nvl(cc.cd_moeda, e.cd_moeda) cd_moeda_cc
+       ,V1.VL_SLD_ATUAL_CONTA VL_SLD_ATUAL_CONTA
+       ,V1.VL_CHQ_DEP_NAO_COMP VL_CHQ_DEP_NAO_COMP
+       ,V1.CD_CHQ_DEP_NAO_COMP CD_CHQ_DEP_NAO_COMP
+       ,V1.VL_CHQ_EMI_NAO_COMP VL_CHQ_EMI_NAO_COMP
+       ,V1.CD_CHQ_EMI_NAO_COMP CD_CHQ_EMI_NAO_COMP
+       ,V1.SN_CONTA_ESPECIAL SN_CONTA_ESPECIAL
+       ,V1.VL_LIMITE_CHEQUE_ESPECIAL VL_LIMITE_CHEQUE_ESPECIAL
+       ,decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+        decode('','C',decode(v2.dt_compensacao,null,
+        Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),v2.dt_compensacao),v2.dt_emissao)),v2.dt_estorno)
+       ,'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup) NR_DOCUMENTO_IDENTIFICACAO
+       ,0 CD_MOV_CONCOR
+       ,decode(V2.TP_OPERACAO_SALDO_CONTA,'+',
+               Decode(v2.CD_MOV_CAIXA, NULL,'CRED. AGRUP. MVSAUDE','DEP. AGRUP. CAIXA'),
+                                          '-',
+               Decode(v2.cd_bordero, null,  'AGRUPADO', 'PGTO BORD. '|| To_Char(v2.cd_bordero)))  DS_MOVIMENTACAO
+       ,SUM(Decode(v2.dt_estorno, NULL,
+			Decode( :CAMPO_MOV_CARTAO, 'A', Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO),
+				Decode(Nvl(Tar.tp_operacao_saldo_conta,'*'),'-',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) - Abs(Nvl(Tar.Vl_Movimentacao,0)),'+',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) + Abs(Nvl(Tar.Vl_Movimentacao,0)),Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO)) ),
+					Decode(v2.CD_ESTRUTURAL, '1.6.1.1.2.2', Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO),
+						Decode( :CAMPO_MOV_CARTAO, 'A', Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO),
+							Decode(Nvl(Tar.tp_operacao_saldo_conta,'*'),'-',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) - Abs(Nvl(Tar.Vl_Movimentacao,0)),'+',Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO) + Abs(Nvl(Tar.Vl_Movimentacao,0)),Nvl(V2.VL_MOEDA,V2.VL_MOVIMENTACAO)
+							)
+						)
+					)
+				))   VL_MOVIMENTACAO
+       ,V2.TP_OPERACAO_SALDO_CONTA TP_OPERACAO_SALDO_CONTA
+       ,V2.Cd_Mov_Deposito_Agrup
+       ,e.cd_moeda moeda_empresa
+        ,(select dt_predatada from dbamv.cheque where cd_cheque = v2.cd_cheque) as dt_predatada
+        ,nvl((select VL_CHEQUE from dbamv.cheque where cd_cheque = v2.cd_cheque and dt_predatada is not null), 0) as vl_cheque_predatado
+FROM   DBAMV.V_BCO_CONTA   V1,
+       dbamv.con_cor cc,
+       dbamv.config_financ V3,
+       dbamv.multi_empresas e,
+       DBAMV.V_MOV_CONCOR  V2,
+       dbamv.USUARIO_MULTI_EMPRESA UME,
+       (select  count(*) total,
+                count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+                m.cd_mov_deposito_agrup
+          from  dbamv.mov_concor M
+         where  m.cd_mov_deposito_agrup Is Not Null
+      group by  M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+                ( Select Cd_Mov_Pai,
+                         Nvl(Sum(NVL(VL_MOEDA,Vl_Movimentacao)),0) Vl_Movimentacao, tp_operacao_saldo_conta
+                    From Dbamv.V_Mov_Concor M
+                   Where :CAMPO_MOV_CARTAO   = 'L'
+                     And M.Cd_Estrutural = '1.6.1.1.10.3'
+                Group By Cd_Mov_Pai, tp_operacao_saldo_conta ) Tar
+WHERE  cc.CD_CON_COR = V1.cd_con_cor
+  AND V1.CD_CON_COR            = V2.CD_CON_COR
+  AND  V1.cd_multi_empresa      = e.cd_multi_empresa
+  AND  V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+  AND V3.cd_multi_empresa = e.cd_multi_empresa
+  AND V3.cd_multi_empresa = UME.cd_multi_empresa
+  AND ume.cd_id_usuario = user
+  And  :CAMPO_AGRUPADO = 'S'
+AND ( (v2.cd_cheque IS NOT NULL
+  AND (Nvl(:CAMPO_SN_CHEQUE_COMP,'N') = 'S'
+  and v2.dt_compensacao is NOT NULL
+  AND v2.dt_compensacao >= TO_DATE( TO_CHAR( :CAMPO_DATA_INIC, 'DD/MM/YYYY' ) || '00', 'DD/MM/YYYY HH24' )
+  AND v2.dt_compensacao <= TO_DATE( TO_CHAR( :CAMPO_DATA_FIM, 'DD/MM/YYYY' ) || '23', 'DD/MM/YYYY HH24' )
+  )
+OR (Nvl(:CAMPO_SN_CHEQUE_COMP,'N') = 'N' ))
+OR v2.cd_cheque IS NULL)
+ And   V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup(+)
+ AND decode(v2.dt_estorno,null,
+      DECODE(V2.CD_CHEQUE, NULL, Trunc(V2.DT_MOVIMENTACAO),
+       decode('','C',
+        decode(v2.dt_compensacao,null,
+	       Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),
+	         Decode (:CAMPO_CF_CD_HOSPITAL, 374, v2.dt_compensacao,
+            Decode(Nvl(v3.sn_atualiza_dt_mov_concor,'N'),'N',v2.dt_compensacao, v2.dt_movimentacao))), v2.dt_emissao)), v2.dt_estorno) >= TO_DATE( To_Char
+            ( :CAMPO_DATA_INIC , 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND  decode(v2.dt_estorno,null,
+      DECODE( V2.CD_CHEQUE, NULL, Trunc(V2.DT_MOVIMENTACAO),
+       decode('','C',
+        decode(v2.dt_compensacao,null,
+	        Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao),
+	     Decode(:CAMPO_CF_CD_HOSPITAL, 374, v2.dt_compensacao,
+          Decode(Nvl(v3.sn_atualiza_dt_mov_concor,'N'),'N',v2.dt_compensacao, v2.dt_movimentacao))), v2.dt_emissao)), v2.dt_estorno) <= TO_DATE( To_Char
+          ( :CAMPO_DATA_FIM , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+AND    V1.CD_CON_COR       = V2.CD_CON_COR
+AND    NVL(V2.VL_MOVIMENTACAO,0) <> 0
+And    ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null
+And    Tb_Conciliacao.Total = Tb_Conciliacao.Sim  or Tb_Conciliacao.Sim = 0  )
+And    V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+And    ( (:CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3') Or ( :CAMPO_MOV_CARTAO = 'A')  )
+Group by 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+	     ,e.cd_multi_empresa , e.cd_multi_empresa || ' - ' || e.ds_multi_empresa , V2.Cd_Mov_Deposito_Agrup
+		 ,decode(V2.TP_OPERACAO_SALDO_CONTA,'+',
+               Decode(v2.CD_MOV_CAIXA, NULL,'CRED. AGRUP. MVSAUDE','DEP. AGRUP. CAIXA'),
+                                          '-',
+               Decode(v2.cd_bordero, null,  'AGRUPADO', 'PGTO BORD. '|| To_Char(v2.cd_bordero)))
+         ,V2.TP_OPERACAO_SALDO_CONTA,
+		 'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup) ,V1.CD_BANCO ,V1.DS_BANCO ,V1.CD_CON_COR ,V1.DS_CON_COR ,V1.CD_AGENCIA ,V1.DS_AGENCIA
+		 ,V1.NR_CONTA,V1.VL_SLD_ATUAL_CONTA,V1.VL_CHQ_DEP_NAO_COMP,V1.CD_CHQ_DEP_NAO_COMP
+         ,V1.VL_CHQ_EMI_NAO_COMP,V1.CD_CHQ_EMI_NAO_COMP,V1.SN_CONTA_ESPECIAL
+         ,V1.VL_LIMITE_CHEQUE_ESPECIAL
+         , decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+		  decode('','C',decode(v2.dt_compensacao,null,
+             Decode(:CAMPO_CF_CD_HOSPITAL, 967, v2.dt_compensacao, v2.dt_emissao)
+		   ,v2.dt_movimentacao),v2.dt_emissao))
+         ,v2.dt_estorno)
+	      ,v2.dt_estorno
+         ,V2.CD_CHEQUE
+         ,V2.DT_MOVIMENTACAO
+         ,v2.dt_compensacao
+         ,v2.dt_emissao
+         ,e.cd_moeda
+         ,cc.cd_moeda
+ORDER BY
+        DS_CON_COR
+       ,DS_AGENCIA
+       ,DT_MOVIMENTACAO
+       ,NR_DOCUMENTO_IDENTIFICACAO

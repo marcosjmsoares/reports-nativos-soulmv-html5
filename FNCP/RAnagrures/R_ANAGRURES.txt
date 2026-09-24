@@ -1,0 +1,302 @@
+/*----------------------------------------------------------------------------*/
+--R_ANAGRURES
+SELECT * FROM (
+select  con.cd_con_pag                  cd_con_pag
+        ,con.ds_con_pag                 ds_con_pag
+        ,con.nr_documento               nr_documento
+        ,nvl( item.cd_item_res, 0 )     codigo
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) descricao
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)      dt_pagamento
+        ,it.nr_parcela                  nr_parcela1
+        ,decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( ( nvl( rat.vl_rateio, 0 ) / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( it.vl_duplicata, 0 ), 2 )) vl_duplicata
+        ,pag.vl_pago
+        ,SUM(decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( ( nvl( rat.vl_rateio, 0 ) / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( pag.vl_pago, 0 ), 2 ))) vl_total
+        ,'CONTA'                        tp_pagamento
+        ,hist.ds_historico_padrao       ds_hist_p
+        ,fornecedor.nm_fantasia         nm_fantasia
+  from  dbamv.itcon_pag           it
+        ,dbamv.con_pag             con
+        ,dbamv.ratcon_pag          rat
+        ,dbamv.fornecedor
+        ,dbamv.item_res            item
+        ,dbamv.historico_padrao    hist
+        ,dbamv.pagcon_pag          pag
+        ,dbamv.plano_contas        pla
+        ,dbamv.setor setor
+ where  con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and  con.cd_fornecedor = fornecedor.cd_fornecedor(+)
+   and  con.cd_con_pag = it.cd_con_pag
+   and  con.cd_con_pag_dev is null
+   and  pag.dt_estorno is null
+   and  pag.cd_motivo_canc is null
+and not exists (select c.cd_con_pag
+                              from dbamv.con_pag c
+                                 , dbamv.processo p
+                             where c.cd_processo = p.cd_processo
+                               and p.cd_multi_empresa = con.cd_multi_empresa
+                               and c.cd_con_pag = con.cd_con_pag
+                               and p.cd_estrutural in ('1.2.1.1.5'))
+   and  rat.vl_rateio <> 0
+   and  pag.tp_pagamento <> '3' 
+   and  it.cd_itcon_pag = pag.cd_itcon_pag
+   and  con.cd_con_pag = rat.cd_con_pag
+   and  rat.cd_item_res = item.cd_item_res(+)
+   and  rat.cd_setor = setor.cd_setor(+)
+   and  rat.cd_reduzido = pla.cd_reduzido(+)
+   and  hist.cd_historico_padrao(+) = pla.cd_historico_padrao
+   and  it.tp_quitacao in( 'Q', 'P' )
+group by con.cd_con_pag
+        ,con.ds_con_pag
+        ,con.nr_documento
+        ,nvl( item.cd_item_res, 0 )
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' )
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)
+        ,it.nr_parcela
+        ,decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( ( nvl( rat.vl_rateio, 0 ) / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( it.vl_duplicata, 0 ), 2 ))
+        ,pag.vl_pago
+        ,'CONTA'
+        ,hist.ds_historico_padrao
+        ,fornecedor.nm_fantasia
+union ALL
+select  con.cd_con_pag                  cd_con_pag
+        ,con.ds_con_pag                 ds_con_pag
+        ,con.nr_documento               nr_documento
+        ,nvl( item.cd_item_res, 0 )     codigo
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) descricao
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)      dt_pagamento
+        ,it.nr_parcela                  nr_parcela1
+        ,0 vl_duplicata
+        ,0 vl_pago
+        ,nvl(rat.vl_ratpag_desc_acres,0)vl_total
+        ,'CONTA'                        tp_pagamento
+        ,hist.ds_historico_padrao       ds_hist_p
+        ,fornecedor.nm_fantasia         nm_fantasia
+  from  dbamv.itcon_pag           it
+        ,dbamv.con_pag             con
+        ,dbamv.fornecedor
+        ,dbamv.item_res            item
+        ,dbamv.historico_padrao    hist
+        ,dbamv.pagcon_pag          pag
+        ,dbamv.plano_contas        pla
+        ,dbamv.setor setor
+        ,dbamv.pag_desc_acres    pag_desc_acres
+        ,dbamv.ratpag_desc_acres rat
+        ,dbamv.desc_acres_conta desc_acres
+ where  con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and  con.cd_fornecedor = fornecedor.cd_fornecedor(+)
+   and  con.cd_con_pag = it.cd_con_pag
+   and  con.cd_con_pag_dev is null
+   and  pag.dt_estorno is null
+   and  pag.cd_motivo_canc is NULL
+   AND  pag.cd_pagcon_pag = pag_desc_acres.cd_pagcon_pag
+   AND  rat.cd_pag_desc_acres = pag_desc_acres.cd_pag_desc_acres
+   AND  nvl(rat.vl_ratpag_desc_acres,0) <> 0
+   AND desc_acres.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and not exists (select c.cd_con_pag
+                              from dbamv.con_pag c
+                                 , dbamv.processo p
+                             where c.cd_processo = p.cd_processo
+                               and p.cd_multi_empresa = con.cd_multi_empresa
+                               and c.cd_con_pag = con.cd_con_pag
+                               and p.cd_estrutural in ('1.2.1.1.5'))
+   and  pag.tp_pagamento <> '3'
+   and  it.cd_itcon_pag = pag.cd_itcon_pag
+   and  rat.cd_item_res = item.cd_item_res(+)
+   and  rat.cd_setor = setor.cd_setor(+)
+   and  desc_acres.cd_reduzido = pla.cd_reduzido(+)
+   and desc_acres.CD_DESC_ACRES = pag_desc_acres.CD_DESC_ACRES
+   and  hist.cd_historico_padrao(+) = pla.cd_historico_padrao
+   and  it.tp_quitacao in( 'Q', 'P' )
+group by con.cd_con_pag
+        ,con.ds_con_pag
+        ,con.nr_documento
+        ,nvl( item.cd_item_res, 0 )
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' )
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)  
+        ,it.nr_parcela
+        ,decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( (  nvl(rat.vl_ratpag_desc_acres,0) / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( it.vl_duplicata, 0 ), 2 ))
+        ,vl_pago
+        ,'CONTA'
+        ,hist.ds_historico_padrao
+        ,fornecedor.nm_fantasia
+        ,nvl(rat.vl_ratpag_desc_acres,0)
+UNION ALL
+select  con.cd_con_pag                  cd_con_pag
+        ,con.ds_con_pag                 ds_con_pag
+        ,con.nr_documento               nr_documento
+        ,nvl( item.cd_item_res, 0 )     codigo
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) descricao
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)   dt_pagamento
+        ,it.nr_parcela                  nr_parcela1
+        ,decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( ( nvl( rat.vl_rateio, 0 ) / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( it.vl_duplicata, 0 ), 2 )) vl_duplicata
+        ,pag.vl_pago
+        ,SUM(decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( ( nvl( rat.vl_rateio, 0 ) / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( pag.vl_pago, 0 ), 2 ))) vl_total
+        ,'CONTA'                        tp_pagamento
+        ,hist.ds_historico_padrao       ds_hist_p
+        ,fornecedor.nm_fantasia         nm_fantasia
+  from  dbamv.con_pag               con,
+        dbamv.itcon_pag             it,
+        dbamv.pagcon_pag            pag,
+        dbamv.cheque                chq,
+        dbamv.mov_concor            mov,
+        dbamv.ratcon_pag            rat,
+        dbamv.item_res              item,
+        dbamv.fornecedor,
+        dbamv.historico_padrao      hist,
+        dbamv.plano_contas          pla,
+        dbamv.setor setor
+ where  con.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+and  con.cd_fornecedor       = fornecedor.cd_fornecedor(+)
+   and  con.cd_con_pag          = it.cd_con_pag
+   and  con.cd_con_pag_dev      is null
+   and  pag.dt_estorno          is null
+   and  pag.tp_pagamento = '3'
+   and  pag.cd_motivo_canc      is null
+and not exists (select c.cd_con_pag
+                              from dbamv.con_pag c
+                                 , dbamv.processo p
+                             where c.cd_processo = p.cd_processo
+                               and p.cd_multi_empresa = con.cd_multi_empresa
+                               and c.cd_con_pag = con.cd_con_pag
+                               and p.cd_estrutural in ('1.2.1.1.5'))
+   and  rat.vl_rateio           <> 0
+   and  it.cd_itcon_pag         = pag.cd_itcon_pag
+   and  con.cd_con_pag          = rat.cd_con_pag
+   and  rat.cd_item_res         = item.cd_item_res(+)
+   and  rat.cd_setor            = setor.cd_setor(+)
+   and  rat.cd_reduzido         = pla.cd_reduzido(+)
+   and  hist.cd_historico_padrao(+) = pla.cd_historico_padrao
+   and  it.tp_quitacao in('Q', 'P')
+   and  pag.cd_cheque           = chq.cd_cheque
+   and  chq.cd_cheque           = mov.cd_cheque
+   and  pag.cd_con_cor          = mov.cd_con_cor
+   and  pag.cd_cheque = mov.cd_cheque
+   and  pag.cd_pagcon_pag = nvl(mov.cd_pagcon_pag,pag.cd_pagcon_pag)
+group by con.cd_con_pag
+        ,con.ds_con_pag
+        ,con.nr_documento
+        ,nvl( item.cd_item_res, 0 )
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' )
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)
+        ,it.nr_parcela
+        ,decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( ( nvl( rat.vl_rateio, 0 ) / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( it.vl_duplicata, 0 ), 2 ))
+        ,pag.vl_pago
+        ,'CONTA'
+        ,hist.ds_historico_padrao
+        ,fornecedor.nm_fantasia
+union ALL
+select  con.cd_con_pag                  cd_con_pag
+        ,con.ds_con_pag                 ds_con_pag
+        ,con.nr_documento               nr_documento
+        ,nvl( item.cd_item_res, 0 )     codigo
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) descricao
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)   dt_pagamento  
+        ,it.nr_parcela                  nr_parcela1
+        ,0 vl_duplicata
+        ,0 vl_pago
+        ,nvl(rat.vl_ratpag_desc_acres,0)vl_total
+        ,'CONTA'                        tp_pagamento
+        ,hist.ds_historico_padrao       ds_hist_p
+        ,fornecedor.nm_fantasia         nm_fantasia
+  from  dbamv.con_pag               con,
+        dbamv.itcon_pag             it,
+        dbamv.pagcon_pag            pag,
+        dbamv.cheque                chq,
+        dbamv.mov_concor            mov,
+        dbamv.item_res              item,
+        dbamv.fornecedor,
+        dbamv.historico_padrao      hist,
+        dbamv.plano_contas          pla,
+        dbamv.setor                 setor,
+        dbamv.pag_desc_acres        pag_desc_acres,
+        dbamv.ratpag_desc_acres     rat,
+        dbamv.desc_acres_conta      desc_acres
+ where  con.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+   and desc_acres.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+   and  con.cd_fornecedor       = fornecedor.cd_fornecedor(+)
+   and  con.cd_con_pag          = it.cd_con_pag
+   and  con.cd_con_pag_dev      is null
+   and  pag.dt_estorno          is null
+   and  pag.tp_pagamento = '3'
+   and  pag.cd_motivo_canc      is null
+   AND  pag.cd_pagcon_pag = pag_desc_acres.cd_pagcon_pag
+   AND  rat.cd_pag_desc_acres = pag_desc_acres.cd_pag_desc_acres
+   AND  nvl(rat.vl_ratpag_desc_acres,0) <> 0
+   and not exists (select c.cd_con_pag
+                              from dbamv.con_pag c
+                                 , dbamv.processo p
+                             where c.cd_processo = p.cd_processo
+                               and p.cd_multi_empresa = con.cd_multi_empresa
+                               and c.cd_con_pag = con.cd_con_pag
+                               and p.cd_estrutural in ('1.2.1.1.5'))
+   AND  nvl(rat.vl_ratpag_desc_acres,0) <> 0
+   and  it.cd_itcon_pag         = pag.cd_itcon_pag
+   and  rat.cd_item_res         = item.cd_item_res(+)
+   and  rat.cd_setor            = setor.cd_setor(+)
+   and  desc_acres.cd_reduzido         = pla.cd_reduzido(+)
+   and  desc_acres.CD_DESC_ACRES = pag_desc_acres.CD_DESC_ACRES
+   and  hist.cd_historico_padrao(+) = pla.cd_historico_padrao
+   and  it.tp_quitacao in('Q', 'P')
+   and  pag.cd_cheque           = chq.cd_cheque
+   and  chq.cd_cheque           = mov.cd_cheque
+   and  pag.cd_con_cor          = mov.cd_con_cor
+   and  pag.cd_cheque = mov.cd_cheque
+   AND (pag.cd_pagcon_pag = NVL (mov.cd_pagcon_pag, pag.cd_pagcon_pag) OR  pag.cd_pagcon_pag_agrup = NVL (mov.cd_pagcon_pag, pag.cd_pagcon_pag_agrup))
+group by con.cd_con_pag
+        ,con.ds_con_pag
+        ,con.nr_documento
+        ,nvl( item.cd_item_res, 0 )
+        ,nvl( item.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' )
+        ,decode('','P',pag.dt_pagamento,it.dt_vencimento)
+        ,it.nr_parcela
+        ,decode( nvl( con.vl_bruto_conta, 0 ), 0, 0, round( ( nvl(rat.vl_ratpag_desc_acres,0)   / (con.vl_bruto_conta + nvl(con.vl_desconto, 0) - nvl(con.vl_acrescimo, 0)) ) * nvl( it.vl_duplicata, 0 ), 2 ))
+        ,vl_pago
+        ,'CONTA'
+        ,hist.ds_historico_padrao
+        ,fornecedor.nm_fantasia
+        ,nvl(rat.vl_ratpag_desc_acres,0)
+UNION ALL
+          select  0 cd_con_pag,
+                  null ds_con_pag,
+                  mov_concor.nr_documento_identificacao,
+                  nvl( item_res.cd_item_res, 0 ) codigo,
+                  nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) descricao,
+                  mov_concor.dt_movimentacao dt_pagamento,
+                  0 nr_parcela1,
+                  0 vl_duplicata,
+		  ( mov_concor.vl_movimentacao - nvl( Mov_concor.vl_conciliado, 0 )) vl_pago,
+                  ( mov_concor.vl_movimentacao - nvl( Mov_concor.vl_conciliado, 0 )) vl_total,
+                  'CONTA'                 tp_pagamento,
+                  mov_concor.ds_movimentacao ds_hist_p,
+                 null nm_fantasia
+            from dbamv.mov_concor,
+                 dbamv.con_cor,
+                 dbamv.lan_concor,
+                 dbamv.empresa_lan_concor,
+                 dbamv.item_res,
+                 dbamv.setor
+           where trunc( mov_concor.dt_movimentacao) between :CAMPO_DT_INIC and 
+         and :CAMPO_SN_RET_EXTRATO = 'S'
+             and con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and mov_concor.cd_con_cor = con_cor.cd_con_cor
+             and lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+             and lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+             and empresa_lan_concor.cd_setor = setor.cd_setor (+)
+             and empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and ( (  mov_concor.cd_aplicacao is not null and nvl( lan_concor.tp_operacao_saldo_conta, '0' )  = '0'
+                    and nvl( lan_concor.tp_operacao_saldo_aplicacao, '0' )  <> '+' )
+                 or  (mov_concor.cd_aplicacao is null and lan_concor.tp_operacao_saldo_conta = '-' ))
+             and mov_concor.cd_bordero is null
+             and mov_concor.cd_con_cor_transferencia is null
+             and Mov_concor.cd_mov_concor_transferencia is null 
+             and Mov_concor.cd_mov_caixa is null 
+             and Mov_concor.cd_pagcon_pag is null 
+             and Mov_concor.cd_cheque is null
+             and Mov_concor.vl_movimentacao  - nvl( Mov_concor.vl_conciliado, 0 ) > 0
+             and not exists( select cd_mov_concor
+                               from dbamv.rec_mov_con r
+                              where r.cd_mov_concor = Mov_concor.cd_mov_concor )
+order by dt_pagamento, descricao
+)
+ORDER BY CODIGO,DESCRICAO,DT_PAGAMENTO,NM_FANTASIA,CD_CON_PAG,NR_DOCUMENTO,NR_PARCELA1,DS_CON_PAG,DS_HIST_P,VL_DUPLICATA,TP_PAGAMENTO

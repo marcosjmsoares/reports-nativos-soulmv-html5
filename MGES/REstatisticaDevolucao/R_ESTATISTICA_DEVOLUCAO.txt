@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_ESTATISTICA_DEVOLUCAO
+SELECT * FROM (
+select cd_estoque
+     , ds_estoque
+     , cd_setor
+     , nm_setor
+     , qt_dispensada
+     , qt_devolvida
+     , trunc(decode(qt_devolvida,0,0,((qt_devolvida/qt_dispensada)*100)),2) perc_devolucao
+     , trunc((qt_dispensada/qt_repres_disp)*100,2) perc_repres_disp
+     , NVL(trunc((qt_devolvida/qt_repres_devol)*100,2),0) perc_repres_devol
+  from
+     (
+select estoque.cd_estoque
+     , estoque.ds_estoque
+     , mvto_estoque.cd_setor
+     , nm_setor
+      , Trunc(Sum(decode(:CAMPO_DEV_PAC,'S',(Decode(mvto_estoque.tp_mvto_estoque,'P',(itmvto_estoque.qt_movimentacao*uni_pro.vl_fator / verif_vl_fator_prod( itmvto_estoque.cd_produto )),0)),0) + decode(:CAMPO_DEV_SET,'S',(Decode(mvto_estoque.tp_mvto_estoque,'S',(itmvto_estoque.qt_movimentacao*uni_pro.vl_fator / verif_vl_fator_prod( itmvto_estoque.cd_produto )),0)),0))) qt_dispensada
+     , Trunc(Sum(decode(:CAMPO_DEV_PAC,'S',(Decode(mvto_estoque.tp_mvto_estoque,'C',(itmvto_estoque.qt_movimentacao*uni_pro.vl_fator / verif_vl_fator_prod( itmvto_estoque.cd_produto )),0)),0) + decode(:CAMPO_DEV_SET,'S',(Decode(mvto_estoque.tp_mvto_estoque,'D',(itmvto_estoque.qt_movimentacao*uni_pro.vl_fator / verif_vl_fator_prod( itmvto_estoque.cd_produto )),0)),0))) qt_devolvida
+     , repres_disp.qt_repres_disp
+     , repres_devol.qt_repres_devol
+  from dbamv.mvto_estoque
+     , dbamv.itmvto_estoque
+     , dbamv.setor
+     , dbamv.uni_pro
+     , dbamv.estoque
+     , (select trunc(sum(itmvto_estoque.qt_movimentacao*uni_pro.vl_fator / verif_vl_fator_prod( itmvto_estoque.cd_produto ))) qt_repres_disp
+         from dbamv.mvto_estoque
+            , dbamv.itmvto_estoque
+            , dbamv.uni_pro
+            , dbamv.estoque
+        where mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+          and uni_pro.cd_uni_pro = itmvto_estoque.cd_uni_pro
+          and uni_pro.cd_produto = itmvto_estoque.cd_produto
+          and estoque.cd_estoque = mvto_estoque.cd_estoque
+          AND estoque.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+          and trunc(mvto_estoque.dt_mvto_estoque) between to_date(:CAMPO_DT_INICIAL,'dd/mm/rrrr') and trunc(to_date(:CAMPO_DT_FINAL,'dd/mm/rrrr'))
+          :CAMPO_CF_ESTOQUE
+       ) repres_disp
+     , (select trunc(sum(itmvto_estoque.qt_movimentacao*uni_pro.vl_fator/ verif_vl_fator_prod( itmvto_estoque.cd_produto ))) qt_repres_devol
+         from dbamv.mvto_estoque
+            , dbamv.itmvto_estoque
+            , dbamv.uni_pro
+            , dbamv.estoque
+        where mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+          and uni_pro.cd_uni_pro = itmvto_estoque.cd_uni_pro
+          and uni_pro.cd_produto = itmvto_estoque.cd_produto
+          and estoque.cd_estoque = mvto_estoque.cd_estoque
+          AND estoque.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+          and trunc(mvto_estoque.dt_mvto_estoque) between to_date(:CAMPO_DT_INICIAL,'dd/mm/rrrr') and trunc(to_date(:CAMPO_DT_FINAL,'dd/mm/rrrr'))
+          :CAMPO_CF_ESTOQUE
+       ) repres_devol
+ where mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+   and setor.cd_setor = mvto_estoque.cd_setor
+   and uni_pro.cd_uni_pro = itmvto_estoque.cd_uni_pro
+   and uni_pro.cd_produto = itmvto_estoque.cd_produto
+   and estoque.cd_estoque = mvto_estoque.cd_estoque
+    AND estoque.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+   and trunc(mvto_estoque.dt_mvto_estoque) between to_date(:CAMPO_DT_INICIAL,'dd/mm/rrrr') and trunc(to_date(:CAMPO_DT_FINAL,'dd/mm/rrrr'))
+  group by mvto_estoque.cd_setor
+         , nm_setor
+         , repres_disp.qt_repres_disp
+         , repres_devol.qt_repres_devol
+         , estoque.cd_estoque
+         , estoque.ds_estoque
+      )
+ where qt_dispensada > 0
+   order by trunc((qt_dispensada/qt_repres_disp)*100,2) desc
+)
+ORDER BY   qt_dispensada desc, CD_ESTOQUE,DS_ESTOQUE desc

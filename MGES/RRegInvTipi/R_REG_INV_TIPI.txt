@@ -1,0 +1,245 @@
+/*----------------------------------------------------------------------------*/
+--R_REG_INV_TIPI
+SELECT * FROM (
+SELECT CD_PRODUTO CD_PRODUTO,
+       DS_PRODUTO DS_PRODUTO,
+       CD_SUB_CLA CD_SUB_CLA,
+       DS_SUB_CLA DS_SUB_CLA,
+       CD_CLASSE  CD_CLASSE,
+       DS_CLASSE  DS_CLASSE,
+       CD_ESPECIE CD_ESPECIE,
+       DS_ESPECIE DS_ESPECIE,
+       QT_ESTOQUE_INICIAL QT_ESTOQUE_INICIAL,
+       VL_ESTOQUE_INICIAL VL_ESTOQUE_INICIAL,
+       QT_ESTOQUE_FINAL QT_ESTOQUE_FINAL,
+       QT_ESTOQUE_FINAL_SEM_TRANSF QT_ESTOQUE_FINAL_SEM_TRANSF,
+       VL_ESTOQUE_FINAL VL_ESTOQUE_FINAL,
+       VL_ESTOQUE_FINAL_SEM_TRANSF VL_ESTOQUE_FINAL_SEM_TRANSF,
+       CD_MES CD_MES,
+       CD_ANO CD_ANO,
+       CD_ESTOQUE CD_ESTOQUE,
+       Ds_Unidade Ds_Unidade,
+       ENTRADAS ENTRADAS,
+       VL_ENTRADAS VL_ENTRADAS,
+       SAIDAS SAIDAS,
+       VL_SAIDAS   VL_SAIDAS,
+       DS_ESPECIFICACAO DS_ESPECIFICACAO,
+       CD_INCIDENCIA_IPI CD_TIPI
+FROM (
+SELECT C_CONEST.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       DECODE(:CAMPO_QUEBRA,'S',PRODUTO.CD_SUB_CLA,NULL) CD_SUB_CLA,
+       DECODE(:CAMPO_QUEBRA,'S',SUB_CLAS.DS_SUB_CLA,NULL) DS_SUB_CLA,
+       DECODE(:CAMPO_QUEBRA,'E',NULL,'P',NULL,PRODUTO.CD_CLASSE) CD_CLASSE,
+       DECODE(:CAMPO_QUEBRA,'E',NULL,'P',NULL,CLASSE.DS_CLASSE) DS_CLASSE,
+       DECODE(:CAMPO_QUEBRA,'P',NULL,PRODUTO.CD_ESPECIE) CD_ESPECIE,
+       DECODE(:CAMPO_QUEBRA,'P',NULL,ESPECIE.DS_ESPECIE) DS_ESPECIE,
+       SUM(decode(produto.sn_consignado, 'S', QT_ESTOQUE_INICIAL_CONSIG, QT_ESTOQUE_INICIAL)) / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto )          QT_ESTOQUE_INICIAL,
+       SUM(decode(produto.sn_consignado, 'S', VL_ESTOQUE_INICIAL_CONSIG, VL_ESTOQUE_INICIAL))                                                                                      VL_ESTOQUE_INICIAL,
+       SUM(NVL(decode(produto.sn_consignado, 'S', QT_ESTOQUE_FINAL_CONSIG, QT_ESTOQUE_FINAL),0)) / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto )   QT_ESTOQUE_FINAL,
+       SUM(NVL(decode(produto.sn_consignado, 'S', QT_ESTOQUE_FINAL_CONSIG, QT_ESTOQUE_FINAL_SEM_TRANSF),0)) / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto)                                                                                                                                                                                                                                                                                                            QT_ESTOQUE_FINAL_SEM_TRANSF,
+       SUM(NVL(decode(produto.sn_consignado, 'S', VL_ESTOQUE_FINAL_CONSIG, VL_ESTOQUE_FINAL),0))                                                                                VL_ESTOQUE_FINAL,
+       SUM(NVL(decode(produto.sn_consignado, 'S', VL_ESTOQUE_FINAL_CONSIG, VL_ESTOQUE_FINAL_SEM_TRANSF),0))                                                      VL_ESTOQUE_FINAL_SEM_TRANSF,
+       CD_MES,
+       CD_ANO,
+       1 CD_ESTOQUE,
+       VERIF_DS_UNID_PROD( C_Conest.Cd_Produto )	Ds_Unidade,
+       SUM(( NVL(QT_ENTRADA,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_ENTRADA_TRANSFERIDO),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_DEVOLUCAO_VENDA),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, NVL(QT_ENTRADA_EMPRESTIMO_RECEBIDO,0)+NVL(QT_ENTRADA_PAG_EMPRESTIMO,0) ),0) +
+                  NVL(QT_DEVOLUCAO_SETOR,0) +
+                  NVL(QT_DEVOLUCAO_PACIENTE,0) +
+                  NVL(QT_DOACAO,0) +
+                  NVL(c_conest.qt_nota_fiscal_nao_cobrada,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_MANIPULADA_ENTRADA),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_CONTAGEM_ENTRADA),0) )  / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto )  )                                     ENTRADAS,
+       SUM(( NVL(VL_ENTRADA,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_ENTRADA_TRANSFERIDO),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, NVL(VL_ENTRADA_EMPRESTIMO_RECEBIDO,0)+NVL(VL_ENTRADA_PAG_EMPRESTIMO,0) ),0) +
+                  NVL(VL_DEVOLUCAO_SETOR,0) +
+                  NVL(VL_DEVOLUCAO_PACIENTE,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_DEVOLUCAO_VENDA),0) +
+                  NVL(VL_DOACAO,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_MANIPULADA_ENTRADA),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_CONTAGEM_ENTRADA),0) +
+                  NVL(c_conest.vl_nota_fiscal_nao_cobrada,0) +
+                  NVL(C_CONEST.VL_ENTRADA_AJUSTE_CONTABIL,0) ) )                                                                                                                  VL_ENTRADAS,
+      SUM(( NVL(QT_SAIDA_SETOR,0) +
+                 NVL(QT_SAIDA_PACIENTE,0)  +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_VENDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, NVL(QT_SAIDA_EMPRESTIMO_CONCEDIDO,0)+NVL(QT_SAIDA_PAG_EMPRESTIMO,0) ),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_BAIXA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_MANIPULADA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_TRANSFERENCIA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_CONTAGEM_SAIDA),0) +
+                 NVL(QT_DEVOLVIDA_FORNEC,0) )   / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto ) )                                                                                                       SAIDAS,
+      SUM(( NVL(VL_SAIDA_SETOR,0) +
+                 NVL(VL_SAIDA_PACIENTE,0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_VENDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, NVL(VL_SAIDA_EMPRESTIMO_CONCEDIDO,0)+NVL(VL_SAIDA_PAG_EMPRESTIMO,0)  ),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_BAIXA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_MANIPULADA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_TRANSFERENCIA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_CONTAGEM_SAIDA),0) +
+                 NVL(VL_DEVOLVIDA_FORNEC,0)  +
+                 NVL(C_CONEST.VL_SAIDA_AJUSTE_CONTABIL,0) ) )                                                                                                                                                                                      VL_SAIDAS,
+       (SELECT PRODUTO2.DS_ESPECIFICACAO
+       FROM DBAMV.PRODUTO PRODUTO2
+       WHERE PRODUTO2.CD_PRODUTO = C_CONEST.CD_PRODUTO) DS_ESPECIFICACAO,
+      dbamv.Fnc_Mges_Retorna_Ipi_Vigente(C_CONEST.CD_PRODUTO, To_Date( CD_MES||'/'||CD_ANO ,'MM/YYYY'),'T') CD_INCIDENCIA_IPI
+FROM   DBAMV.C_CONEST,
+             DBAMV.PRODUTO,
+             DBAMV.ESTOQUE,
+             DBAMV.CLASSE,
+             DBAMV.SUB_CLAS,
+             DBAMV.ESPECIE
+WHERE  ESTOQUE.CD_ESTOQUE	= C_CONEST.CD_ESTOQUE
+  AND  PRODUTO.CD_PRODUTO	= C_CONEST.CD_PRODUTO
+  AND  PRODUTO.CD_ESPECIE	= ESPECIE.CD_ESPECIE
+  AND  PRODUTO.CD_CLASSE	= CLASSE.CD_CLASSE
+  AND  ESPECIE.CD_ESPECIE	= CLASSE.CD_ESPECIE
+  AND  ESPECIE.CD_ESPECIE	= SUB_CLAS.CD_ESPECIE
+  AND  CLASSE.CD_CLASSE		= SUB_CLAS.CD_CLASSE
+  AND  PRODUTO.CD_SUB_CLA	= SUB_CLAS.CD_SUB_CLA
+  AND  PRODUTO.SN_MESTRE           = 'N'
+ AND C_CONEST.CD_MES                       = to_number(:CAMPO_DATA_INI)
+ AND C_CONEST.CD_ANO                       = to_number(:CAMPO_DATA_FIM)
+ AND  ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ AND PRODUTO.SN_MESTRE = 'N'
+GROUP BY C_CONEST.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       PRODUTO.CD_SUB_CLA,
+       SUB_CLAS.DS_SUB_CLA,
+       PRODUTO.CD_CLASSE,
+       CLASSE.DS_CLASSE,
+       PRODUTO.CD_ESPECIE,
+       ESPECIE.DS_ESPECIE,
+       CD_MES,
+       CD_ANO,
+       1,
+       VERIF_DS_UNID_PROD( C_Conest.Cd_Produto )
+       ) TAB
+UNION ALL
+SELECT CD_PRODUTO CD_PRODUTO,
+       DS_PRODUTO DS_PRODUTO,
+       CD_SUB_CLA CD_SUB_CLA,
+       DS_SUB_CLA DS_SUB_CLA,
+       CD_CLASSE  CD_CLASSE,
+       DS_CLASSE  DS_CLASSE,
+       CD_ESPECIE CD_ESPECIE,
+       DS_ESPECIE DS_ESPECIE,
+       QT_ESTOQUE_INICIAL QT_ESTOQUE_INICIAL,
+       VL_ESTOQUE_INICIAL VL_ESTOQUE_INICIAL,
+       QT_ESTOQUE_FINAL QT_ESTOQUE_FINAL,
+       QT_ESTOQUE_FINAL_SEM_TRANSF QT_ESTOQUE_FINAL_SEM_TRANSF,
+       VL_ESTOQUE_FINAL VL_ESTOQUE_FINAL,
+       VL_ESTOQUE_FINAL_SEM_TRANSF VL_ESTOQUE_FINAL_SEM_TRANSF,
+       CD_MES CD_MES,
+       CD_ANO CD_ANO,
+       CD_ESTOQUE CD_ESTOQUE,
+       Ds_Unidade Ds_Unidade,
+       ENTRADAS ENTRADAS,
+       VL_ENTRADAS VL_ENTRADAS,
+       SAIDAS SAIDAS,
+       VL_SAIDAS   VL_SAIDAS,
+       DS_ESPECIFICACAO DS_ESPECIFICACAO,
+       CD_INCIDENCIA_IPI CD_TIPI
+FROM (
+SELECT C_CONEST.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       DECODE(:CAMPO_QUEBRA,'S',PRODUTO.CD_SUB_CLA,NULL) CD_SUB_CLA,
+       DECODE(:CAMPO_QUEBRA,'S',SUB_CLAS.DS_SUB_CLA,NULL) DS_SUB_CLA,
+       DECODE(:CAMPO_QUEBRA,'E',NULL,'P',NULL,PRODUTO.CD_CLASSE) CD_CLASSE,
+       DECODE(:CAMPO_QUEBRA,'E',NULL,'P',NULL,CLASSE.DS_CLASSE) DS_CLASSE,
+       DECODE(:CAMPO_QUEBRA,'P',NULL,PRODUTO.CD_ESPECIE) CD_ESPECIE,
+       DECODE(:CAMPO_QUEBRA,'P',NULL,ESPECIE.DS_ESPECIE) DS_ESPECIE,
+       SUM(decode(produto.sn_consignado, 'S', QT_ESTOQUE_INICIAL_CONSIG, QT_ESTOQUE_INICIAL)) / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto )          QT_ESTOQUE_INICIAL,
+       SUM(decode(produto.sn_consignado, 'S', VL_ESTOQUE_INICIAL_CONSIG, VL_ESTOQUE_INICIAL))                                                                                      VL_ESTOQUE_INICIAL,
+       SUM(NVL(decode(produto.sn_consignado, 'S', QT_ESTOQUE_FINAL_CONSIG, QT_ESTOQUE_FINAL),0)) / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto )   QT_ESTOQUE_FINAL,
+       SUM(NVL(decode(produto.sn_consignado, 'S', QT_ESTOQUE_FINAL_CONSIG, QT_ESTOQUE_FINAL_SEM_TRANSF),0)) / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto)                                                                                                                                                                                                                                                                                                            QT_ESTOQUE_FINAL_SEM_TRANSF,
+       SUM(NVL(decode(produto.sn_consignado, 'S', VL_ESTOQUE_FINAL_CONSIG, VL_ESTOQUE_FINAL),0))                                                                                VL_ESTOQUE_FINAL,
+       SUM(NVL(decode(produto.sn_consignado, 'S', VL_ESTOQUE_FINAL_CONSIG, VL_ESTOQUE_FINAL_SEM_TRANSF),0))                                                      VL_ESTOQUE_FINAL_SEM_TRANSF,
+       CD_MES,
+       CD_ANO,
+       1 CD_ESTOQUE,
+       VERIF_DS_UNID_PROD( C_Conest.Cd_Produto )	Ds_Unidade,
+       SUM(( NVL(QT_ENTRADA,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_ENTRADA_TRANSFERIDO),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_DEVOLUCAO_VENDA),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, NVL(QT_ENTRADA_EMPRESTIMO_RECEBIDO,0)+NVL(QT_ENTRADA_PAG_EMPRESTIMO,0) ),0) +
+                  NVL(QT_DEVOLUCAO_SETOR,0) +
+                  NVL(QT_DEVOLUCAO_PACIENTE,0) +
+                  NVL(QT_DOACAO,0) +
+                  NVL(c_conest.qt_nota_fiscal_nao_cobrada,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_MANIPULADA_ENTRADA),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, QT_CONTAGEM_ENTRADA),0) )  / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto )  )                                     ENTRADAS,
+       SUM(( NVL(VL_ENTRADA,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_ENTRADA_TRANSFERIDO),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, NVL(VL_ENTRADA_EMPRESTIMO_RECEBIDO,0)+NVL(VL_ENTRADA_PAG_EMPRESTIMO,0) ),0) +
+                  NVL(VL_DEVOLUCAO_SETOR,0) +
+                  NVL(VL_DEVOLUCAO_PACIENTE,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_DEVOLUCAO_VENDA),0) +
+                  NVL(VL_DOACAO,0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_MANIPULADA_ENTRADA),0) +
+                  NVL(decode(produto.sn_consignado, 'S', 0, VL_CONTAGEM_ENTRADA),0) +
+                  NVL(c_conest.vl_nota_fiscal_nao_cobrada,0) +
+                  NVL(C_CONEST.VL_ENTRADA_AJUSTE_CONTABIL,0) ) )                                                                                                                  VL_ENTRADAS,
+      SUM(( NVL(QT_SAIDA_SETOR,0) +
+                 NVL(QT_SAIDA_PACIENTE,0)  +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_VENDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, NVL(QT_SAIDA_EMPRESTIMO_CONCEDIDO,0)+NVL(QT_SAIDA_PAG_EMPRESTIMO,0) ),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_BAIXA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_MANIPULADA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_TRANSFERENCIA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, QT_CONTAGEM_SAIDA),0) +
+                 NVL(QT_DEVOLVIDA_FORNEC,0) )   / DBAMV.Verif_Vl_Fator_Prod( C_Conest.Cd_Produto ) )                                                                                                       SAIDAS,
+      SUM(( NVL(VL_SAIDA_SETOR,0) +
+                 NVL(VL_SAIDA_PACIENTE,0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_VENDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, NVL(VL_SAIDA_EMPRESTIMO_CONCEDIDO,0)+NVL(VL_SAIDA_PAG_EMPRESTIMO,0)  ),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_BAIXA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_MANIPULADA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_TRANSFERENCIA_SAIDA),0) +
+                 NVL(decode(produto.sn_consignado, 'S', 0, VL_CONTAGEM_SAIDA),0) +
+                 NVL(VL_DEVOLVIDA_FORNEC,0)  +
+                 NVL(C_CONEST.VL_SAIDA_AJUSTE_CONTABIL,0) ) )                                                                                                                                                                                      VL_SAIDAS,
+       (SELECT PRODUTO2.DS_ESPECIFICACAO
+       FROM DBAMV.PRODUTO PRODUTO2
+       WHERE PRODUTO2.CD_PRODUTO = C_CONEST.CD_PRODUTO) DS_ESPECIFICACAO,
+      dbamv.Fnc_Mges_Retorna_Ipi_Vigente(C_CONEST.CD_PRODUTO, To_Date( CD_MES||'/'||CD_ANO ,'MM/YYYY'),'T') CD_INCIDENCIA_IPI
+FROM   DBAMV.C_CONEST,
+             DBAMV.PRODUTO,
+             DBAMV.ESTOQUE,
+             DBAMV.CLASSE,
+             DBAMV.SUB_CLAS,
+             DBAMV.ESPECIE
+WHERE  ESTOQUE.CD_ESTOQUE	= C_CONEST.CD_ESTOQUE
+  AND  PRODUTO.CD_PRODUTO	= C_CONEST.CD_PRODUTO
+  AND  PRODUTO.CD_ESPECIE	= ESPECIE.CD_ESPECIE
+  AND  PRODUTO.CD_CLASSE	= CLASSE.CD_CLASSE
+  AND  ESPECIE.CD_ESPECIE	= CLASSE.CD_ESPECIE
+  AND  ESPECIE.CD_ESPECIE	= SUB_CLAS.CD_ESPECIE
+  AND  CLASSE.CD_CLASSE		= SUB_CLAS.CD_CLASSE
+  AND  PRODUTO.CD_SUB_CLA	= SUB_CLAS.CD_SUB_CLA
+  AND  PRODUTO.SN_MESTRE           = 'N'
+ AND C_CONEST.CD_MES                       = to_number(:CAMPO_DATA_INI)
+ AND C_CONEST.CD_ANO                       = to_number(:CAMPO_DATA_FIM)
+ AND  ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ AND PRODUTO.SN_MESTRE = 'N'
+GROUP BY C_CONEST.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       PRODUTO.CD_SUB_CLA,
+       SUB_CLAS.DS_SUB_CLA,
+       PRODUTO.CD_CLASSE,
+       CLASSE.DS_CLASSE,
+       PRODUTO.CD_ESPECIE,
+       ESPECIE.DS_ESPECIE,
+       CD_MES,
+       CD_ANO,
+       1,
+       VERIF_DS_UNID_PROD( C_Conest.Cd_Produto )
+       ) TAB
+:CAMPO_CF_SEM_TIPI
+)
+ORDER BY CD_ESTOQUE,CD_ESPECIE,CD_CLASSE,CD_SUB_CLA,DS_PRODUTO, CD_PRODUTO

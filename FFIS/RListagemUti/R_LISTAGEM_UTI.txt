@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_LISTAGEM_UTI
+select
+itreg_fat.cd_procedimento||' '||procedimento_sus.ds_procedimento ds_procedimento
+     , decode(procedimento_sus.nr_idade_maxima,0,'Id Min: '||procedimento_sus.nr_idade_minima_mes||' Meses / Id Max: '||procedimento_sus.nr_idade_maxima_mes||' Meses ','Id Min: '||procedimento_sus.nr_idade_minima||' Anos / Id Max:'||procedimento_sus.nr_idade_maxima||' Anos') ds_idade
+     , reg_fat.nr_guia
+     , atendime.cd_atendimento
+     , paciente.nm_paciente
+     , reg_fat.cd_procedimento_realizado
+     , reg_fat.dt_inicio
+     , reg_fat.dt_final
+     , reg_fat.cd_mot_alt||' '||motivo_cobranca_sus.ds_motivo ds_motivo
+     , diaria_uti_sus.dt_competencia
+     , diaria_uti_sus.qt_lancada
+     , fn_idade(paciente.dt_nascimento,'a',sysdate)||'a '||fn_idade(paciente.dt_nascimento,'m',sysdate)||'m '||fn_idade(paciente.dt_nascimento,'d',sysdate)||'d ' IDADE
+  from dbamv.paciente
+     , dbamv.atendime
+     , dbamv.reg_fat
+     , dbamv.itreg_fat
+     , dbamv.diaria_uti_sus
+     , dbamv.remessa_fatura
+     , dbamv.fatura
+     , dbamv.procedimento_sus
+     , dbamv.motivo_cobranca_sus
+ where paciente.cd_paciente = atendime.cd_paciente
+   and atendime.cd_atendimento = reg_fat.cd_atendimento
+   and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+   and diaria_uti_sus.cd_reg_fat = itreg_fat.cd_reg_fat
+   and diaria_uti_sus.cd_lancamento = itreg_fat.cd_lancamento
+   and motivo_cobranca_sus.cd_motivo = reg_fat.cd_mot_alt
+   and reg_fat.cd_remessa = remessa_fatura.cd_remessa
+   and remessa_fatura.cd_fatura = fatura.cd_fatura
+   and fatura.cd_multi_empresa = reg_fat.cd_multi_empresa
+   and itreg_fat.cd_procedimento = procedimento_sus.cd_procedimento
+   and fatura.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+   and reg_fat.cd_reg_fat not in (select cd_reg_fat from dbamv.glosas_sus)
+   and to_char(fatura.dt_competencia,'mm/yyyy') = to_char(:CAMPO_COMPET,'mm/yyyy')
+   order by 1,2,3,10 desc

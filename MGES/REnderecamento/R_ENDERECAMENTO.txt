@@ -1,0 +1,109 @@
+/*----------------------------------------------------------------------------*/
+--R_ENDERECAMENTO
+SELECT  ENT_PRO.CD_ENT_PRO
+       ,ENT_PRO.CD_FORNECEDOR
+       ,ENT_PRO.CD_TIP_DOC
+       ,ENT_PRO.NR_SERIE
+       ,ENT_PRO.VL_PERCENTUAL_ICMS
+       ,ENT_PRO.NR_SERIE_FRETE
+       ,ENT_PRO.VL_IMPOSTO_ICMS
+       ,ENT_PRO.CD_ESTOQUE
+       ,ENT_PRO.CD_SETOR_APL_MVTO_ESTOQUE
+       ,ENT_PRO.NR_DOCUMENTO
+       ,ENT_PRO.TP_FRETE
+       ,ENT_PRO.VL_FRETE
+       ,ENT_PRO.VL_PERC_FRETE
+       ,ENT_PRO.DT_ENTRADA
+       ,ENT_PRO.VL_TOTAL
+       ,ENT_PRO.VL_PERCENTUAL_DESCONTO
+       ,ENT_PRO.DT_EMISSAO
+       ,ENT_PRO.VL_DESCONTO
+       ,ENT_PRO.CD_FORNECEDOR_FRETE
+       ,ENT_PRO.DT_VENCIMENTO_FRETE
+       ,ENT_PRO.CD_PORTADOR_FRETE
+       ,ENT_PRO.NR_CONHECIMENTO_FRETE
+       ,USUARIOS.NM_USUARIO
+       ,FORNECEDOR.NM_FORNECEDOR
+       ,TIP_DOC.DS_TIP_DOC
+       ,PORTADOR.DS_PORTADOR
+       ,ESTOQUE.DS_ESTOQUE
+       ,ENT_PRO.VL_OUTROS
+       ,ENT_PRO.TP_ENTREGA
+       ,ENT_PRO.SN_ATUALIZA_PRECO
+       ,FORNECEDOR.NM_FORNECEDOR NM_FORNECEDOR_FRETE
+       ,ENT_PRO.CD_APLICACAO_DIRETA
+FROM DBAMV.ENT_PRO  ENT_PRO
+     ,DBASGU.USUARIOS  USUARIOS
+     ,DBAMV.FORNECEDOR FORNECEDOR
+     ,DBAMV.ESTOQUE ESTOQUE
+     ,DBAMV.TIP_DOC TIP_DOC
+     ,DBAMV.PORTADOR PORTADOR
+WHERE USUARIOS.CD_USUARIO = ENT_PRO.CD_USUARIO
+    AND FORNECEDOR.CD_FORNECEDOR = ENT_PRO.CD_FORNECEDOR
+    AND ESTOQUE.CD_ESTOQUE = ENT_PRO.CD_ESTOQUE
+    AND TIP_DOC.CD_TIP_DOC = ENT_PRO.CD_TIP_DOC
+    AND PORTADOR.CD_PORTADOR(+) = ENT_PRO.CD_PORTADOR_FRETE
+    AND ENT_PRO.CD_ENT_PRO = (SELECT CD_ENT_PRO
+		                    FROM DBAMV.ENDERECAMENTO
+				   WHERE cd_enderecamento :CAMPO_CF_ENDERECAMENTO)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENDERECAMENTO_SUB
+SELECT DISTINCT produto.ds_produto
+       ,item_enderecamento.cd_produto
+       ,item_enderecamento.dt_validade
+       ,item_enderecamento.qt_enderecada
+       ,uni_pro.ds_unidade
+       ,item_enderecamento.ds_endereco
+       ,itent_pro.qt_entrada qt_entrada
+       ,item_enderecamento.cd_lote
+FROM dbamv.item_enderecamento item_enderecamento
+     ,dbamv.produto produto
+     ,dbamv.enderecamento enderecamento
+     ,dbamv.uni_pro uni_pro
+     ,dbamv.itent_pro
+     ,dbamv.empresa_produto
+WHERE  produto.cd_produto = item_enderecamento.cd_produto
+       AND produto.cd_produto = empresa_produto.cd_produto
+	   AND empresa_produto.cd_multi_empresa = pkg_mv2000.le_empresa
+       AND enderecamento.cd_enderecamento = item_enderecamento.cd_enderecamento
+       AND uni_pro.cd_uni_pro = item_enderecamento.cd_uni_pro
+       AND item_enderecamento.cd_enderecamento 
+       AND itent_pro.cd_ent_pro IN (SELECT enderecamento.cd_ent_pro
+                            FROM dbamv.enderecamento enderecamento
+                           WHERE enderecamento.cd_enderecamento = item_enderecamento.cd_enderecamento)
+       AND itent_pro.cd_produto = item_enderecamento.cd_produto
+       AND itent_pro.cd_itent_pro = item_enderecamento.cd_itent_pro
+       AND DECODE(NVL(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'),'N'),'S',EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'N'
+UNION ALL
+    SELECT DISTINCT produto.ds_produto
+       ,item_enderecamento.cd_produto
+       ,item_enderecamento.dt_validade
+       ,item_enderecamento.qt_enderecada
+       ,uni_pro.ds_unidade
+       ,item_enderecamento.ds_endereco
+       ,itlot_ent.qt_ent_pro qt_entrada
+       ,item_enderecamento.cd_lote
+FROM dbamv.item_enderecamento item_enderecamento
+     ,dbamv.produto produto
+     ,dbamv.enderecamento enderecamento
+     ,dbamv.uni_pro uni_pro
+     ,dbamv.itent_pro
+     ,dbamv.itlot_ent
+	 ,dbamv.empresa_produto
+WHERE  produto.cd_produto = item_enderecamento.cd_produto
+       AND produto.cd_produto = empresa_produto.cd_produto
+	   AND empresa_produto.cd_multi_empresa = pkg_mv2000.le_empresa
+       AND enderecamento.cd_enderecamento = item_enderecamento.cd_enderecamento
+       AND uni_pro.cd_uni_pro = item_enderecamento.cd_uni_pro
+       AND item_enderecamento.cd_enderecamento 
+       AND itent_pro.cd_ent_pro IN (SELECT enderecamento.cd_ent_pro
+                            FROM dbamv.enderecamento enderecamento
+                           WHERE enderecamento.cd_enderecamento = item_enderecamento.cd_enderecamento)
+       AND itent_pro.cd_produto = item_enderecamento.cd_produto
+       AND itent_pro.cd_itent_pro = item_enderecamento.cd_itent_pro
+       AND itlot_ent.cd_itent_pro = itent_pro.cd_itent_pro
+       AND item_enderecamento.cd_lote = itlot_ent.cd_lote
+       AND DECODE(NVL(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'),'N'),'S',EMPRESA_PRODUTO.SN_LOTE, PRODUTO.SN_LOTE) = 'S'

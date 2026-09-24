@@ -1,0 +1,1587 @@
+/*----------------------------------------------------------------------------*/
+--R_FATURA_GRU_FAT
+Select
+      itreg_fat.nr_difep,
+      decode(itreg_fat.nr_difep, null, 'A',Decode(ITREG_FAT.tp_mvto,'SANGUE-PBSA','B','SANGUEC-PBSA','C', 'A')) tp_mvto_ordenacao,
+       decode(decode(itlan_med.tp_pagamento,null,itreg_fat.tp_pagamento,itlan_med.tp_pagamento) || :CAMPO_PRESTADOR_CREDEN,'CN','B','A') tipo_emissao,
+       trunc(decode('','S',itreg_fat.dt_lancamento,DECODE(itfor_apre_gru_fat.tp_data,'S',TRUNC(SYSDATE),itreg_fat.dt_lancamento))) dt_lancamento,
+       decode('','S',itreg_fat.hr_lancamento,DECODE(itfor_apre_gru_fat.tp_data,'H',itreg_fat.hr_lancamento,SYSDATE)) hr_lancamento,
+       decode('','S',itreg_fat.hr_lancamento,DECODE(itfor_apre_gru_fat.tp_data,'H',itreg_fat.hr_lancamento_final,null)) hr_lancamento_final,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  ds_ordenacao,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  func_desc_fat,
+       nvl(cod_pro.ds_unidade_cobranca,pro_fat.ds_unidade) func_unid_fat,
+       nvl(cod_pro.ds_codigo_cobranca,decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',hierarquizado.cd_pro_fat_hierarquizado,itreg_fat.cd_pro_fat)) func_cd_fat,
+       dbamv.fnc_ffcv_ds_acres_desc(1,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_desconto,
+       dbamv.fnc_ffcv_ds_acres_desc(2,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_acrescimo,
+       decode(for_apre.tp_fatura,'T',gru_pro.cd_gru_pro,null) cd_gru_pro,
+       gru_fat.cd_gru_fat,
+       gru_fat.ds_gru_fat,
+       decode(for_apre.tp_fatura,'T',gru_pro.ds_gru_pro,null) ds_gru_pro,
+       gru_pro.tp_gru_pro,
+       itreg_fat.cd_pro_fat cd_pro_fat1,
+       pro_fat.ds_pro_fat,
+       DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.QT_LANCAMENTO / 60,ITREG_FAT.QT_LANCAMENTO) qt_lancamento,
+       itreg_fat.qt_lancamento qt_lancamento_lan_med,
+       DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.VL_UNITARIO * 60,
+         DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_VL_FILME,'N',ITREG_FAT.VL_UNITARIO + NVL(itreg_fat.vl_filme_unitario,0) ,
+         ITREG_FAT.VL_UNITARIO))       vl_unitario,
+       (itreg_fat.vl_filme_unitario *  itreg_fat.qt_lancamento)  vl_filme,
+       TO_CHAR(nvl(itreg_fat.QT_CH_UNITARIO,0)) qt_ch_unitario,
+       itreg_fat.vl_total_conta vl_total_conta,
+       itreg_fat.vl_desconto_conta,
+       itreg_fat.vl_acrescimo vl_acrescimo,
+       itreg_fat.vl_desconto,
+       itreg_fat.cd_prestador cd_prestador,
+       prestador.nm_prestador,
+       prestador.ds_codigo_conselho,
+       prestador.nr_cpf_cgc,
+       itreg_fat.cd_ati_med,
+       ati_med.ds_ati_med,
+       nvl(itlan_med.tp_pagamento,nvl(itreg_fat.tp_pagamento,'P')) tp_pagamento,
+       reg_fat.cd_convenio,
+       reg_fat.cd_con_pla,
+       empresa_con_pla.cd_regra   cd_regra,
+       empresa_con_pla.cd_regra cd_regra1,
+       reg_fat.cd_atendimento,
+       atendime.tp_atendimento,
+       atendime.dt_atendimento,
+       pro_fat.ds_unidade,
+       itreg_fat.cd_reg_fat,
+       itreg_fat.cd_lancamento,
+       itfor_apre_gru_fat.cd_seq_detalhe cd_seq_detalhe_gru_fat,
+       itfor_apre_gru_fat.tp_data,
+       itfor_apre_gru_fat.sn_imprime_unidade,
+       itfor_apre_gru_fat.sn_imprime_HE,
+       itfor_apre_gru_fat.sn_imprime_perc_pago,
+       itfor_apre_gru_fat.sn_imprime_perc_proc,
+       itfor_apre_gru_fat.sn_imprime_ch,
+       itfor_apre_gru_fat.sn_imprime_simpro,
+       itfor_apre_gru_fat.sn_imprime_brasindice,
+       itfor_apre_gru_fat.sn_imprime_prestador,
+       itfor_apre_gru_fat.sn_imprime_vl_filme,
+       itfor_apre_gru_fat.sn_imprime_fp,
+       itfor_apre_gru_fat.tp_imp_acresc_desc,
+       itreg_fat.sn_horario_especial,
+       itreg_fat.vl_percentual_multipla,
+       itreg_fat.vl_percentual_paciente,
+       itcob_pre.cd_fornecedor,
+       itcob_pre.nr_documento,
+       fornecedor.nm_fornecedor,
+       prestador_equipe.cd_prestador cd_prestador_equipe_nulo,
+       prestador_equipe.nm_prestador nm_prestador_equipe_nulo,
+       prestador_equipe.ds_codigo_conselho ds_codigo_conselho_equipe,
+       prestador_equipe.nr_cpf_cgc nr_cpf_cgc_equipe,
+       ati_med_equipe.cd_ati_med cd_ati_med_equipe,
+       ati_med_equipe.ds_ati_med ds_ati_med_equipe,
+       itlan_med.vl_ato             vl_ato,
+       itlan_med.vl_liquido             vl_liquido,
+       itlan_med.vl_desconto vl_desconto_eqp,
+       itlan_med.vl_acrescimo vl_acrescimo_eqp,
+       itlan_med.vl_desconto_conta  vl_desc_conta ,
+       pres_con.cd_prestador_conveniado,
+       pres_con_equipe.cd_prestador_conveniado cd_prestador_conveniado_equipe,
+       decode(for_apre.sn_imprime_kit,'S',nvl(padrao_cobranca.cd_padrao,0),null) cd_padrao,
+       decode(for_apre.sn_imprime_kit,'S',padrao_cobranca.ds_padrao,null) ds_padrao,
+       decode(configuracao.valor,'N',decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor,null),
+       decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor_produziu,itreg_fat.cd_setor))cd_setor ,
+       itreg_fat.cd_franquia,
+       itreg_fat.cd_regra_acoplamento,
+       itreg_fat.cd_reg_fat_pai,
+       itreg_fat.cd_lancamento_pai,
+       null dt_agrupamento,
+       null kit,
+       imp_simpro.cd_tab_fat,
+       dbamv.fnc_ffcv_ds_acres_desc(3,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_desconto_grupo,
+       dbamv.fnc_ffcv_ds_acres_desc(4,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_acrescimo_grupo,
+       itlan_med.cd_prestador cd_prestador_equipe,
+      itreg_fat.tp_mvto,
+      gru_pro.cd_gru_pro procedimento,
+      itfor_apre_gru_fat.sn_imprime_difep,
+      convenio.cd_convenio,
+      gru_fat.cd_gru_fat   ,
+      DBAMV.PACK_AUX_FFCV.FNC_SN_EMITE_DIFEP(convenio.cd_convenio , gru_pro.cd_gru_pro  ,gru_fat.cd_gru_fat) SN_EMITE_DIFEP
+  From dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.setor,
+       dbamv.pro_fat,
+       dbamv.prestador,
+       dbamv.prestador prestador_equipe,
+       dbamv.ati_med,
+       dbamv.ati_med ati_med_equipe,
+       dbamv.gru_pro,
+       dbamv.con_pla,
+       dbamv.atendime,
+       dbamv.convenio,
+       dbamv.for_apre,
+       dbamv.itfor_apre_gru_fat,
+       dbamv.itcob_pre,
+       dbamv.fornecedor,
+       dbamv.itlan_med,
+       dbamv.simpro,
+       dbamv.padrao_cobranca,
+       dbamv.hospital,
+       dbamv.gru_fat,
+       dbamv.empresa_con_pla,
+      (select distinct cod_pro.cd_pro_fat,cod_pro.ds_nome_cobranca, cod_pro.ds_unidade_cobranca,cod_pro.ds_codigo_cobranca
+       from   dbamv.reg_fat
+             ,dbamv.cod_pro
+             ,dbamv.atendime
+       where ( Cod_Pro.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA or Cod_Pro.Cd_Multi_Empresa Is Null )
+          and reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  cod_pro.cd_convenio = reg_fat.cd_convenio
+         and  atendime.cd_atendimento = reg_fat.cd_atendimento
+         and  (atendime.tp_atendimento = cod_pro.tp_atendimento or cod_pro.tp_atendimento = 'T')) cod_pro,
+      (select distinct pres_con.cd_prestador,pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		 and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		 AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S' ) pres_con,
+      (select distinct pres_con.cd_prestador,pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S' ) pres_con_equipe,
+    (select  DISTINCT PRO_HIE.cd_pro_fat_hierarquizado
+                ,PRO_HIE.ds_pro_fat_hierarquizado
+                ,PRO_HIE.cd_pro_fat
+       from   dbamv.reg_fat
+             ,dbamv.PRO_FAT_HIERARQUIZADO PRO_HIE
+             ,dbamv.itreg_fat
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+         and  itreg_fat.cd_pro_fat = PRO_HIE.cd_pro_fat) hierarquizado,
+      (select cd_pro_fat,
+              max(cd_tab_fat) cd_tab_fat
+      from
+      (select distinct pro_fat.cd_pro_fat,
+                       itregra.cd_tab_fat
+       from   dbamv.pro_fat,
+              dbamv.itregra,
+              dbamv.reg_fat,
+              dbamv.imp_simpro
+       where  reg_fat.cd_regra = itregra.cd_regra
+         and  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itregra.cd_gru_pro = pro_fat.cd_gru_pro
+         and  pro_fat.cd_pro_fat = imp_simpro.cd_pro_fat
+         and  itregra.cd_tab_fat = imp_simpro.cd_tab_fat
+       union
+       select distinct imp_simpro.cd_pro_fat,
+                        0 cd_tab_fat
+       from   dbamv.imp_simpro
+       where  imp_simpro.cd_tab_fat is null)
+       group by cd_pro_fat)  simpro_tab,
+       (select cd_pro_fat,nvl(cd_tab_fat,0) cd_tab_fat,cd_simpro from dbamv.imp_simpro) imp_simpro,
+       (select DISTINCT valor
+          from dbamv.configuracao
+         where configuracao.cd_sistema = 'FFCV'
+           and configuracao.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+           and configuracao.chave = 'SN_IMPRIME_SETOR_EXEC_FAT') configuracao
+Where itreg_fat.cd_setor = setor.cd_setor(+)
+   and itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+   and itreg_fat.cd_prestador = prestador.cd_prestador (+)
+   and itreg_fat.cd_prestador = pres_con.cd_prestador (+)
+   and itlan_med.cd_prestador = pres_con_equipe.cd_prestador (+)
+   and itreg_fat.cd_ati_med = ati_med.cd_ati_med (+)
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and con_pla.cd_convenio = reg_fat.cd_convenio
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   and con_pla.cd_con_pla = reg_fat.cd_con_pla
+   and empresa_con_pla.cd_con_pla = con_pla.cd_con_pla
+   and empresa_con_pla.cd_convenio = con_pla.cd_convenio
+   and empresa_con_pla.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and atendime.cd_atendimento = reg_fat.cd_atendimento
+   and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+   and convenio.cd_convenio = reg_fat.cd_convenio
+   and for_apre.cd_for_apre = convenio.cd_for_apre
+   and itfor_apre_gru_fat.cd_for_apre = for_apre.cd_for_apre
+   and itfor_apre_gru_fat.cd_gru_fat = itreg_fat.cd_gru_fat
+   and itreg_fat.cd_reg_fat = :CAMPO_CD_REG_FAT
+   and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+   and itreg_fat.cd_reg_fat = itcob_pre.cd_reg_fat (+)
+   and itreg_fat.cd_lancamento = itcob_pre.cd_lancamento (+)
+   and itcob_pre.cd_fornecedor = fornecedor.cd_fornecedor (+)
+   and ((itfor_apre_gru_fat.tp_data = 'H' and :CAMPO_DETALHADA = 'N') or (:CAMPO_DETALHADA = 'S'))
+   and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+   and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+   and ati_med_equipe.cd_ati_med (+) = itlan_med.cd_ati_med
+   and prestador_equipe.cd_prestador (+) = itlan_med.cd_prestador
+   and cod_pro.cd_pro_fat (+) = itreg_fat.cd_pro_fat
+   and hospital.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and imp_simpro.cd_pro_fat (+) = simpro_tab.cd_pro_fat
+   and imp_simpro.cd_tab_fat (+) = simpro_tab.cd_tab_fat
+   and itreg_fat.cd_pro_fat = simpro_tab.cd_pro_fat (+)
+    AND ITREG_FAT.CD_PRO_FAT = HIERARQUIZADO.CD_PRO_FAT(+)
+   and imp_simpro.cd_simpro = simpro.cd_simpro (+)
+   and padrao_cobranca.cd_padrao (+) = itreg_fat.cd_padrao
+union all
+(Select
+      itreg_fat.nr_difep,
+      min(decode(itreg_fat.nr_difep, null, 'A',Decode(ITREG_FAT.tp_mvto,'SANGUE-PBSA','B','SANGUEC-PBSA','C', 'A'))) tp_mvto_ordenacao,
+       decode(decode(max(itlan_med.tp_pagamento),null,max(itreg_fat.tp_pagamento),max(itlan_med.tp_pagamento)) || :CAMPO_PRESTADOR_CREDEN,'CN','B','A') tipo_emissao,
+       trunc(decode('','S',max(itreg_fat.dt_lancamento),DECODE(max(itfor_apre_gru_fat.tp_data),'S',TRUNC(SYSDATE),max(itreg_fat.dt_lancamento)))) dt_lancamento,
+       decode('','S',max(itreg_fat.hr_lancamento),DECODE(max(itfor_apre_gru_fat.tp_data),'H', max(itreg_fat.hr_lancamento),SYSDATE)) hr_lancamento,
+       decode('','S',max(itreg_fat.hr_lancamento_final),DECODE(max(itfor_apre_gru_fat.tp_data),'H', max(itreg_fat.hr_lancamento_final),SYSDATE)) hr_lancamento_final,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  ds_ordenacao,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  func_desc_fat,
+       nvl(cod_pro.ds_unidade_cobranca,pro_fat.ds_unidade) func_unid_fat,
+       nvl(cod_pro.ds_codigo_cobranca,decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',hierarquizado.cd_pro_fat_hierarquizado,itreg_fat.cd_pro_fat)) func_cd_fat,
+       max(dbamv.fnc_ffcv_ds_acres_desc(1,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_desconto,
+       max(dbamv.fnc_ffcv_ds_acres_desc(2,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_acrescimo,
+       Max(decode(for_apre.tp_fatura,'T',gru_pro.cd_gru_pro,null)) cd_gru_pro,
+       gru_fat.cd_gru_fat,
+       gru_fat.ds_gru_fat,
+       decode(for_apre.tp_fatura,'T',gru_pro.ds_gru_pro,null) ds_gru_pro,
+       max(gru_pro.tp_gru_pro) tp_gru_pro,
+       itreg_fat.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       sum(DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.QT_LANCAMENTO /  60,ITREG_FAT.QT_LANCAMENTO))               qt_lancamento,
+       sum(itreg_fat.qt_lancamento) qt_lancamento_lan_med,
+       DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.VL_UNITARIO * 60,
+         DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_VL_FILME,'N',ITREG_FAT.VL_UNITARIO + NVL(itreg_fat.vl_filme_unitario,0) ,
+         ITREG_FAT.VL_UNITARIO) )  vl_unitario,
+       (itreg_fat.vl_filme_unitario * sum(itreg_fat.qt_lancamento) )  vl_filme,
+       TO_CHAR(nvl(sum(itreg_fat.QT_CH_UNITARIO),0)) qt_ch_unitario,
+       sum(itreg_fat.vl_total_conta) vl_total_conta,
+       sum(itreg_fat.vl_desconto_conta) vl_total_conta,
+       sum(itreg_fat.vl_acrescimo) vl_acrescimo,
+       sum(itreg_fat.vl_desconto) vl_desconto,
+    itreg_fat.cd_prestador cd_prestador,
+       max(prestador.nm_prestador) nm_prestador,
+       max(prestador.ds_codigo_conselho) ds_codigo_conselho,
+       max(prestador.nr_cpf_cgc) nr_cpf_cgc,
+       max(itreg_fat.cd_ati_med) cd_ati_med,
+       max(ati_med.ds_ati_med) ds_ati_med,
+       nvl(itlan_med.tp_pagamento,nvl(itreg_fat.tp_pagamento,'P')) tp_pagamento,
+       max(reg_fat.cd_convenio) cd_convenio,
+       max(reg_fat.cd_con_pla) cd_con_pla,
+       max(empresa_con_pla.cd_regra) cd_regra,
+       max(empresa_con_pla.cd_regra) cd_regra1,
+       max(reg_fat.cd_atendimento) cd_atendimento,
+       max(atendime.tp_atendimento) tp_atendimento,
+       max(atendime.dt_atendimento) dt_atendimento,
+       max(pro_fat.ds_unidade) ds_unidade,
+       max(itreg_fat.cd_reg_fat) cd_reg_fat,
+       max(itreg_fat.cd_lancamento) cd_lancamento,
+       max(itfor_apre_gru_fat.cd_seq_detalhe) cd_seq_detalhe_gru_fat,
+       max(itfor_apre_gru_fat.tp_data) tp_data,
+       max(itfor_apre_gru_fat.sn_imprime_unidade) sn_imprime_unidade,
+       max(itfor_apre_gru_fat.sn_imprime_HE) sn_imprime_HE,
+       max(itfor_apre_gru_fat.sn_imprime_perc_pago) sn_imprime_perc_pago,
+       max(itfor_apre_gru_fat.sn_imprime_perc_proc) sn_imprime_perc_proc,
+       max(itfor_apre_gru_fat.sn_imprime_ch) sn_imprime_ch,
+       max(itfor_apre_gru_fat.sn_imprime_simpro) sn_imprime_simpro,
+       max(itfor_apre_gru_fat.sn_imprime_brasindice) sn_imprime_brasindice,
+       max(itfor_apre_gru_fat.sn_imprime_prestador) sn_imprime_prestador,
+       max(itfor_apre_gru_fat.sn_imprime_vl_filme) sn_imprime_vl_filme,
+       max(itfor_apre_gru_fat.sn_imprime_fp) sn_imprime_fp,
+       max(itfor_apre_gru_fat.tp_imp_acresc_desc) tp_imp_acresc_desc,
+       itreg_fat.sn_horario_especial sn_horario_especial,
+       itreg_fat.vl_percentual_multipla vl_percentual_multipla,
+       max(itreg_fat.vl_percentual_paciente) vl_percentual_paciente,
+       max(itcob_pre.cd_fornecedor) cd_fornecedor,
+       max(itcob_pre.nr_documento) nr_documento,
+       max(fornecedor.nm_fornecedor) nm_fornecedor,
+        prestador_equipe.cd_prestador cd_prestador_equipe_nulo,
+       max(prestador_equipe.nm_prestador) nm_prestador_equipe_nulo,
+       max(prestador_equipe.ds_codigo_conselho) ds_codigo_conselho_equipe,
+       max(prestador_equipe.nr_cpf_cgc) nr_cpf_cgc_equipe,
+       max(ati_med_equipe.cd_ati_med) cd_ati_med_equipe,
+       max(ati_med_equipe.ds_ati_med) ds_ati_med_equipe,
+       max(itlan_med.vl_ato) vl_ato,
+       sum(itlan_med.vl_liquido)             vl_liquido,
+       sum(itlan_med.vl_desconto) vl_desconto_eqp,
+       sum(itlan_med.vl_acrescimo) vl_acrescimo_eqp,
+       max(itlan_med.vl_desconto_conta/itreg_fat.qt_lancamento)  vl_desc_conta ,
+       max(pres_con.cd_prestador_conveniado) cd_prestador_conveniado,
+       max(pres_con_equipe.cd_prestador_conveniado) cd_prestador_conveniado_equipe,
+       decode(max(for_apre.sn_imprime_kit),'S',nvl(max(padrao_cobranca.cd_padrao),0),null) cd_padrao,
+       decode(max(for_apre.sn_imprime_kit),'S',max(padrao_cobranca.ds_padrao),null) ds_padrao,
+       decode(configuracao.valor,'N',decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor,null)),
+       max(itreg_fat.cd_franquia) cd_franquia,
+       max(itreg_fat.cd_regra_acoplamento) cd_regra_acoplamento,
+       max(itreg_fat.cd_reg_fat_pai) cd_reg_fat_pai,
+       max(itreg_fat.cd_lancamento_pai) cd_lancamento_pai,
+       DECODE(itfor_apre_gru_fat.tp_data,'S',NULL,itreg_fat.dt_lancamento) dt_agrupamento,
+       DECODE(for_apre.sn_imprime_kit,'N',NULL,itreg_fat.cd_padrao) kit,
+       max(imp_simpro.cd_tab_fat) cd_tab_fat,
+       max(dbamv.fnc_ffcv_ds_acres_desc(3,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_desconto_grupo,
+       max(dbamv.fnc_ffcv_ds_acres_desc(4,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_acrescimo_grupo,
+       max(itlan_med.cd_prestador) cd_prestador_equipe,
+      max(itreg_fat.tp_mvto) tp_mvto,
+      gru_pro.cd_gru_pro,
+      itfor_apre_gru_fat.sn_imprime_difep,
+      convenio.cd_convenio,
+      gru_fat.cd_gru_fat,
+      DBAMV.PACK_AUX_FFCV.FNC_SN_EMITE_DIFEP(convenio.cd_convenio , gru_pro.cd_gru_pro  ,gru_fat.cd_gru_fat) SN_EMITE_DIFEP
+  From dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.setor,
+       dbamv.pro_fat,
+       dbamv.prestador,
+       dbamv.prestador prestador_equipe,
+       dbamv.ati_med,
+       dbamv.ati_med ati_med_equipe,
+       dbamv.gru_pro,
+       dbamv.con_pla,
+       dbamv.atendime,
+       dbamv.convenio,
+       dbamv.for_apre,
+       dbamv.itfor_apre_gru_fat,
+       dbamv.itcob_pre,
+       dbamv.fornecedor,
+       dbamv.itlan_med,
+       dbamv.padrao_cobranca,
+       dbamv.simpro,
+       dbamv.hospital,
+       dbamv.gru_fat,
+       dbamv.empresa_con_pla,
+      (select distinct cod_pro.cd_pro_fat,cod_pro.ds_nome_cobranca,  cod_pro.ds_unidade_cobranca,cod_pro.ds_codigo_cobranca
+       from   dbamv.reg_fat
+             ,dbamv.cod_pro
+             ,dbamv.atendime
+       where ( Cod_Pro.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA or Cod_Pro.Cd_Multi_Empresa Is Null )
+         and reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  cod_pro.cd_convenio = reg_fat.cd_convenio
+         and  atendime.cd_atendimento = reg_fat.cd_atendimento
+         and  (atendime.tp_atendimento = cod_pro.tp_atendimento or cod_pro.tp_atendimento = 'T')) cod_pro,
+    (select  DISTINCT PRO_HIE.cd_pro_fat_hierarquizado
+                ,PRO_HIE.ds_pro_fat_hierarquizado
+                ,PRO_HIE.cd_pro_fat
+       from   dbamv.reg_fat
+             ,dbamv.PRO_FAT_HIERARQUIZADO PRO_HIE
+             ,dbamv.itreg_fat
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+         and  itreg_fat.cd_pro_fat = PRO_HIE.cd_pro_fat) hierarquizado,
+     (select distinct pres_con.cd_prestador,pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S') pres_con,
+      (select distinct pres_con.cd_prestador,pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S') pres_con_equipe,
+      (select cd_pro_fat,
+              max(cd_tab_fat) cd_tab_fat
+      from
+      (select distinct pro_fat.cd_pro_fat,
+                       itregra.cd_tab_fat
+       from   dbamv.pro_fat,
+              dbamv.itregra,
+              dbamv.reg_fat,
+              dbamv.imp_simpro
+       where  reg_fat.cd_regra = itregra.cd_regra
+         and  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itregra.cd_gru_pro = pro_fat.cd_gru_pro
+         and  pro_fat.cd_pro_fat = imp_simpro.cd_pro_fat
+         and  itregra.cd_tab_fat = imp_simpro.cd_tab_fat
+       union
+       select distinct imp_simpro.cd_pro_fat,
+                        0 cd_tab_fat
+       from   dbamv.imp_simpro
+       where  imp_simpro.cd_tab_fat is null)
+       group by cd_pro_fat)  simpro_tab,
+       (select cd_pro_fat,nvl(cd_tab_fat,0) cd_tab_fat,cd_simpro from dbamv.imp_simpro) imp_simpro,
+       (select DISTINCT valor
+          from dbamv.configuracao
+         where configuracao.cd_sistema = 'FFCV'
+           and configuracao.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+           and configuracao.chave = 'SN_IMPRIME_SETOR_EXEC_FAT') configuracao
+Where itreg_fat.cd_setor = setor.cd_setor(+)
+    and itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+   and itreg_fat.cd_prestador = prestador.cd_prestador (+)
+   and itreg_fat.cd_prestador = pres_con.cd_prestador (+)
+   and itlan_med.cd_prestador = pres_con_equipe.cd_prestador (+)
+   and itreg_fat.cd_ati_med = ati_med.cd_ati_med (+)
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and con_pla.cd_convenio = reg_fat.cd_convenio
+   and con_pla.cd_con_pla = reg_fat.cd_con_pla
+   and empresa_con_pla.cd_con_pla = con_pla.cd_con_pla
+   and empresa_con_pla.cd_convenio = con_pla.cd_convenio
+   and empresa_con_pla.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and atendime.cd_atendimento = reg_fat.cd_atendimento
+   and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+   and convenio.cd_convenio = reg_fat.cd_convenio
+   and for_apre.cd_for_apre = convenio.cd_for_apre
+   and itfor_apre_gru_fat.cd_for_apre = for_apre.cd_for_apre
+   and itfor_apre_gru_fat.cd_gru_fat = itreg_fat.cd_gru_fat
+   and itreg_fat.cd_reg_fat = :CAMPO_CD_REG_FAT
+   and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+   and itreg_fat.cd_reg_fat = itcob_pre.cd_reg_fat (+)
+   and itreg_fat.cd_lancamento = itcob_pre.cd_lancamento (+)
+   and itcob_pre.cd_fornecedor = fornecedor.cd_fornecedor (+)
+   and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+   and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   and hospital.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and ati_med_equipe.cd_ati_med (+) = itlan_med.cd_ati_med
+   and prestador_equipe.cd_prestador (+) = itlan_med.cd_prestador
+   and cod_pro.cd_pro_fat (+) = itreg_fat.cd_pro_fat
+   and imp_simpro.cd_pro_fat (+) = simpro_tab.cd_pro_fat
+   and imp_simpro.cd_tab_fat (+) = simpro_tab.cd_tab_fat
+   and itreg_fat.cd_pro_fat = simpro_tab.cd_pro_fat (+)
+    AND ITREG_FAT.CD_PRO_FAT = HIERARQUIZADO.CD_PRO_FAT(+)
+   and padrao_cobranca.cd_padrao (+) = itreg_fat.cd_padrao
+   and imp_simpro.cd_simpro = simpro.cd_simpro (+)
+   and itfor_apre_gru_fat.tp_data <> 'H'
+   and :CAMPO_DETALHADA = 'N'
+ GROUP BY GRU_FAT.CD_GRU_FAT                                                                                                                                                                                                                                              ,
+    GRU_FAT.DS_GRU_FAT                                                                                                                                                                                                                                                    ,
+    DECODE(FOR_APRE.TP_FATURA,'T',GRU_PRO.DS_GRU_PRO,NULL)                                                                                                                                                                                                                ,
+    ITREG_FAT.CD_PRO_FAT                                                                                                                                                                                                                                                  ,
+    ATI_MED_EQUIPE.CD_ATI_MED                                                                                                                                                                                                                                             ,
+    PRO_FAT.DS_PRO_FAT                                                                                                                                                                                                                                                    ,
+    COD_PRO.DS_NOME_COBRANCA                                                                                                                                                                                                                                              ,
+    SIMPRO.DS_SIMPRO                                                                                                                                                                                                                                                      ,
+    HOSPITAL.CD_HOSPITAL                                                                                                                                                                                                                                                  ,
+    ITREG_FAT.VL_UNITARIO                                                                                                                                                                                                                                                 ,
+    ITFOR_APRE_GRU_FAT.SN_IMPRIME_VL_FILME                                                                                                                                                                                                                                ,
+    HIERARQUIZADO.CD_PRO_FAT_HIERARQUIZADO                                                                                                                                                                                                                                ,
+    HIERARQUIZADO.DS_PRO_FAT_HIERARQUIZADO                                                                                                                                                                                                                                ,
+    ITFOR_APRE_GRU_FAT.SN_IMPRIME_CBHPM                                                                                                                                                                                                                                   ,
+    ITFOR_APRE_GRU_FAT.SN_IMPRIME_SIMPRO                                                                                                                                                                                                                                  ,
+    ITREG_FAT.VL_FILME_UNITARIO                                                                                                                                                                                                                                           ,
+    DECODE(CONFIGURACAO.VALOR,'N',DECODE(FOR_APRE.SN_IMPRIME_SETOR,'S',ITREG_FAT.CD_SETOR,NULL), DECODE(FOR_APRE.SN_IMPRIME_SETOR,'S',ITREG_FAT.CD_SETOR_PRODUZIU,ITREG_FAT.CD_SETOR))                                                                                    ,
+    ITREG_FAT.CD_PRESTADOR                                                                                                                                                                                                                                                ,
+    PRESTADOR_EQUIPE.CD_PRESTADOR                                                                                                                                                                                                                                         ,
+    ITREG_FAT.NR_DIFEP                                                                                                                                                                                                                                                    ,
+    GRU_PRO.CD_GRU_PRO                                                                                                                                                                                                                                                    ,
+    ITFOR_APRE_GRU_FAT.SN_IMPRIME_DIFEP                                                                                                                                                                                                                                   ,
+    CONVENIO.CD_CONVENIO                                                                                                                                                                                                                                                  ,
+    ITREG_FAT.SN_HORARIO_ESPECIAL                                                                                                                                                                                                                                         ,
+    DECODE(ITFOR_APRE_GRU_FAT.TP_DATA,'S',NULL,ITREG_FAT.DT_LANCAMENTO)                                                                                                                                                                                                   ,
+    DECODE(FOR_APRE.SN_IMPRIME_KIT,'N',NULL,ITREG_FAT.CD_PADRAO)                                                                                                                                                                                                          ,
+    DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_SIMPRO,'N',DECODE(COD_PRO.DS_NOME_COBRANCA,NULL, DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_CBHPM,'S',SUBSTR(HIERARQUIZADO.DS_PRO_FAT_HIERARQUIZADO,1,60),PRO_FAT.DS_PRO_FAT), COD_PRO.DS_NOME_COBRANCA),SUBSTR(SIMPRO.DS_SIMPRO,1,60)),
+    DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_SIMPRO,'N',DECODE(COD_PRO.DS_NOME_COBRANCA,NULL, DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_CBHPM,'S',SUBSTR(HIERARQUIZADO.DS_PRO_FAT_HIERARQUIZADO,1,60),PRO_FAT.DS_PRO_FAT), COD_PRO.DS_NOME_COBRANCA),SUBSTR(SIMPRO.DS_SIMPRO,1,60)),
+    NVL(COD_PRO.DS_UNIDADE_COBRANCA,PRO_FAT.DS_UNIDADE)                                                                                                                                                                                                                   ,
+    NVL(COD_PRO.DS_CODIGO_COBRANCA,DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_CBHPM,'S',HIERARQUIZADO.CD_PRO_FAT_HIERARQUIZADO,ITREG_FAT.CD_PRO_FAT))                                                                                                                           ,
+    DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.VL_UNITARIO * 60, DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_VL_FILME,'N',ITREG_FAT.VL_UNITARIO + NVL(itreg_fat.vl_filme_unitario,0) , ITREG_FAT.VL_UNITARIO) )                                                         ,
+    DECODE(configuracao.valor,'N',DECODE(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor,NULL))                                                                                                                                                                                                  ,
+    NVL(DECODE(itfor_apre_gru_fat.sn_imprime_simpro,'N',DECODE(cod_pro.ds_nome_cobranca,NULL, DECODE(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',SUBSTR(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat), cod_pro.ds_nome_cobranca),SUBSTR(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat),
+    NVL(DECODE(itfor_apre_gru_fat.sn_imprime_simpro,'N',DECODE(cod_pro.ds_nome_cobranca,NULL, DECODE(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',SUBSTR(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat), cod_pro.ds_nome_cobranca),SUBSTR(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat),
+    NVL(cod_pro.ds_unidade_cobranca,pro_fat.ds_unidade)                                                                                                                                                                                                                                           ,
+    NVL(cod_pro.ds_codigo_cobranca,DECODE(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',hierarquizado.cd_pro_fat_hierarquizado,itreg_fat.cd_pro_fat))                                                                                                                                                   ,
+    ITREG_FAT.VL_PERCENTUAL_MULTIPLA                                                                                                                                                                                                                                                              ,
+    NVL(ITLAN_MED.TP_PAGAMENTO,NVL(ITREG_FAT.TP_PAGAMENTO,'P'))
+    )
+ORDER BY tipo_emissao, cd_seq_detalhe_gru_fat, cd_setor, cd_gru_pro, cd_padrao, nr_difep, tp_mvto_ordenacao,
+         dt_lancamento, hr_lancamento, ds_ordenacao, cd_lancamento, cd_ati_med_equipe, cd_ati_med
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_GRU_FAT_RF_OBSERVACAO_Q_ATENDIMENTO
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+               dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) NM_PACIENTE,
+               PACIENTE.DT_NASCIMENTO,
+               PACIENTE.TP_SEXO,
+               PACIENTE.TP_COR,
+               DBAMV.FNC_ESTADO_CIVIL(PACIENTE.TP_ESTADO_CIVIL) TP_ESTADO_CIVIL1,
+               PACIENTE.NR_DOCUMENTO,
+               PACIENTE.NM_MAE,
+               PACIENTE.DS_ENDERECO,
+               PACIENTE.NR_ENDERECO,
+               PACIENTE.NM_BAIRRO,
+               PACIENTE.NR_CEP,
+               PACIENTE.NR_FONE,
+               PACIENTE.DT_CADASTRO,
+               ATENDIME.CD_ATENDIMENTO,
+               ATENDIME.CD_PACIENTE,
+               ATENDIME.DT_ATENDIMENTO,
+               ATENDIME.HR_ATENDIMENTO,
+               ATENDIME.DT_ALTA,
+               ATENDIME.HR_ALTA,
+               ATENDIME.CD_SERVICO,
+               ATENDIME.CD_SER_DIS,
+               ATENDIME.TP_ATENDIMENTO,
+               ATENDIME.DT_VAL_GUIA      DT_VAL_GUIA1,
+               ATENDIME.NR_GUIA,
+               ATENDIME.CD_MOT_ALT,
+               ORI_ATE.DS_ORI_ATE,
+               PRO_INT.CD_PRO_FAT CD_PRO_INT,
+               PRO_INT.DS_PRO_FAT DS_PRO_INT,
+               PRESTADOR.NM_PRESTADOR,
+               PRESTADOR.DS_CODIGO_CONSELHO,
+               LEITO.DS_ENFERMARIA,
+               LEITO.DS_LEITO,
+               CONVENIO.NM_CONVENIO,
+               CONVENIO.TP_CONVENIO,
+               CID.CD_CID,
+               CID.DS_CID,
+               SERVICO.DS_SERVICO,
+               SERVICO.TP_ANAMNESE TP_ANAM_SERVICO,
+               SER_DIS.DS_SER_DIS,
+               SER_DIS.TP_ANAMNESE TP_ANAM_SER_DIS,
+               TIP_ACOM.DS_TIP_ACOM,
+               RESPONSA.NM_RESPONSAVEL,
+               CIDADE.NM_CIDADE,
+               CIDADE.CD_UF,
+               REG_FAT.CD_REG_FAT,
+               REG_FAT.DT_INICIO,
+               REG_FAT.DT_FINAL,
+               REG_FAT.DT_GUIA,
+               REG_FAT.NR_GUIA,
+               REG_FAT.VL_ACRESCIMO_CONTA,
+               REG_FAT.VL_DESCONTO_CONTA,
+               REG_FAT.VL_ACRESCIMO_EXTRA,
+               REG_FAT.VL_DESCONTO_EXTRA,
+               REG_FAT.VL_TOTAL_CONTA,
+               REG_FAT.VL_TOTAL_EXTRAS,
+               REG_FAT.CD_TIP_ACOM,
+               REG_FAT.CD_REMESSA,
+               TIP_ACOM2.DS_TIP_ACOM DS_TIP_ACOM2,
+               REG_FAT.CD_CON_PLA,
+               REG_FAT.CD_CONVENIO CD_CONVENIO,
+               CON_PLA.DS_CON_PLA,
+               MOT_ALT.DS_MOT_ALT,
+               SUB_PLANO.CD_SUB_PLANO,
+               REG_FAT.DS_OBSERVACAO_FRANQUIA,
+               REG_FAT.NR_SEQ_PREIMPRE NR_SEQ_PREIMPRE
+FROM DBAMV.PACIENTE PACIENTE,
+            DBAMV.CIDADE CIDADE,
+            DBAMV.ATENDIME ATENDIME,
+            DBAMV.ORI_ATE ORI_ATE,
+            DBAMV.MOT_ALT,
+            DBAMV.PRO_FAT PRO_INT,
+            DBAMV.PRESTADOR PRESTADOR,
+            DBAMV.LEITO LEITO,
+            DBAMV.CONVENIO CONVENIO,
+            DBAMV.CID CID,
+            DBAMV.SERVICO SERVICO,
+            DBAMV.SER_DIS SER_DIS,
+            DBAMV.TIP_ACOM TIP_ACOM,
+            DBAMV.RESPONSA RESPONSA,
+            DBAMV.REG_FAT REG_FAT,
+            DBAMV.TIP_ACOM TIP_ACOM2,
+            DBAMV.CON_PLA CON_PLA,
+            DBAMV.SUB_PLANO
+Where ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+  AND     REG_FAT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+  AND     PACIENTE.CD_CIDADE    = CIDADE.CD_CIDADE(+)
+  AND     ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+  AND     ATENDIME.CD_MOT_ALT = MOT_ALT.CD_MOT_ALT(+)
+  AND     REG_FAT.CD_PRO_FAT_SOLICITADO = PRO_INT.CD_PRO_FAT(+)
+  AND     ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+  AND     ATENDIME.CD_LEITO     = LEITO.CD_LEITO (+)
+  AND     ATENDIME.CD_CID       = CID.CD_CID (+)
+  AND     ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO (+)
+  AND     ATENDIME.CD_SER_DIS   = SER_DIS.CD_SER_DIS (+)
+  AND     ATENDIME.CD_TIP_ACOM  = TIP_ACOM.CD_TIP_ACOM (+)
+  AND     ATENDIME.CD_ATENDIMENTO = RESPONSA.CD_ATENDIMENTO (+)
+  AND     REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+  AND     REG_FAT.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+  AND     TIP_ACOM2.CD_TIP_ACOM = REG_FAT.CD_TIP_ACOM
+  AND     ( CON_PLA.CD_CON_PLA    = REG_FAT.CD_CON_PLA
+  AND       CON_PLA.CD_CONVENIO   = REG_FAT.CD_CONVENIO )
+  AND      ATENDIME.CD_SUB_PLANO = SUB_PLANO.CD_SUB_PLANO(+)
+  AND    ATENDIME.CD_CONVENIO = SUB_PLANO.CD_CONVENIO(+)
+  AND    ATENDIME.CD_CON_PLA = SUB_PLANO.CD_CON_PLA(+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_GRU_FAT_R_12_Q_CONSUMO_CIRURGIA
+SELECT DISTINCT  NRO_AVISO
+      ,DATA_HORA_INI
+      ,DATA_HORA_FIM
+      ,DS_PRO_FAT
+      ,CD_PRO_FAT
+      ,CD_GRU_PRO
+      ,DS_GRU_PRO
+      ,CD_LANCAMENTO
+FROM (
+select DISTINCT DBAMV.AVISO_CIRURGIA.CD_AVISO_CIRURGIA NRO_AVISO
+      ,DECODE(DBAMV.EMPRESA_APARELHOS_EQUIPTO.TP_TEMPO_REFERENCIA
+      ,null,DBAMV.AVISO_CIRURGIA.DT_INICIO_CIRURGIA
+      ,'G',DBAMV.AVISO_CIRURGIA.DT_REALIZACAO
+      ,'A',DBAMV.AVISO_CIRURGIA.DT_INICIO_ANESTESIA
+      ,'R',DBAMV.AVISO_CIRURGIA.DT_INICIO_CIRURGIA
+      ,'I',DBAMV.AVISO_EQUIPAMENTOS.DT_DATA_HORA_INICIAL
+      ) DATA_HORA_INI
+      ,DECODE(DBAMV.EMPRESA_APARELHOS_EQUIPTO.TP_TEMPO_REFERENCIA
+      ,null,DBAMV.AVISO_CIRURGIA.DT_INICIO_CIRURGIA
+      ,'G',DBAMV.AVISO_CIRURGIA.DT_SAIDA_SAL_CIR
+      ,'A',DBAMV.AVISO_CIRURGIA.DT_FIM_ANESTESIA
+      ,'R',DBAMV.AVISO_CIRURGIA.DT_FIM_CIRURGIA
+      ,'I',DBAMV.AVISO_EQUIPAMENTOS.DT_DATA_HORA_FINAL
+      ) DATA_HORA_FIM
+      ,DBAMV.PRO_FAT.DS_PRO_FAT
+      ,DBAMV.PRO_FAT.CD_PRO_FAT
+      ,DBAMV.GRU_PRO.CD_GRU_PRO
+      ,DBAMV.GRU_PRO.DS_GRU_PRO
+      ,NULL     CD_LANCAMENTO
+    ,CIRURGIA.CD_PRO_FAT PRO_CIRUR
+  from DBAMV.REG_FAT
+      ,DBAMV.AVISO_CIRURGIA
+      ,DBAMV.AVISO_EQUIPAMENTOS
+      ,DBAMV.PRO_FAT
+      ,DBAMV.GRU_PRO
+      ,DBAMV.APARELHOS_EQUIPTO
+      ,DBAMV.EMPRESA_APARELHOS_EQUIPTO
+       ,DBAMV.CIRURGIA_AVISO
+       ,dbamv.cirurgia
+ ,DBAMV.ATENDIME
+ where REG_FAT.CD_REG_FAT                      = :CAMPO_CD_REG_FAT
+   and REG_FAT.CD_MULTI_EMPRESA          = :CAMPO_CD_MULTI_EMPRESA
+      and
+      (
+       (
+        AVISO_CIRURGIA.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+        and REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+       and    trunc(aviso_cirurgia.dt_realizacao) between trunc(reg_fat.dt_inicio) and trunc(nvl(reg_fat.dt_final,sysdate))
+        )
+        or
+        (
+        ATENDIME.CD_ATENDIMENTO = AVISO_CIRURGIA.CD_ATENDIMENTO
+        and atendime.cd_atendimento_pai = reg_fat.cd_atendimento
+        and  ATENDIME.SN_IMPORTA_AUTO = 'S'
+        )
+        )
+   and EMPRESA_APARELHOS_EQUIPTO.TP_MODO_DE_COBRANCA <> 'Q'
+   and EMPRESA_APARELHOS_EQUIPTO.CD_APARELHO_EQUIPAMENTO = APARELHOS_EQUIPTO.CD_APARELHO_EQUIPAMENTO
+   and EMPRESA_APARELHOS_EQUIPTO.cd_multi_empresa = 1
+   AND CIRURGIA.CD_CIRURGIA = CIRURGIA_AVISO.CD_CIRURGIA
+   AND APARELHOS_EQUIPTO.CD_APARELHO_EQUIPAMENTO IN
+       (SELECT CD_APARELHO_EQUIPAMENTO
+          FROM DBAMV.AVISO_EQUIPAMENTOS
+         WHERE CD_AVISO_CIRURGIA = AVISO_CIRURGIA.CD_AVISO_CIRURGIA )
+   AND PRO_FAT.CD_PRO_FAT = EMPRESA_APARELHOS_EQUIPTO.CD_PRO_FAT
+   and GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+   AND AVISO_EQUIPAMENTOS.CD_AVISO_CIRURGIA                   = AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+   AND AVISO_EQUIPAMENTOS.CD_APARELHO_EQUIPAMENTO = APARELHOS_EQUIPTO.CD_APARELHO_EQUIPAMENTO
+   AND CIRURGIA_AVISO.CD_AVISO_CIRURGIA = AVISO_EQUIPAMENTOS.CD_AVISO_CIRURGIA
+   AND CIRURGIA_AVISO.CD_CIRURGIA              = AVISO_EQUIPAMENTOS.CD_CIRURGIA
+   AND CIRURGIA_AVISO.CD_CIRURGIA_AVISO = AVISO_EQUIPAMENTOS.CD_CIRURGIA_AVISO
+   AND AVISO_CIRURGIA.tp_situacao <> 'C'
+UNION ALL
+select DISTINCT DBAMV.AVISO_CIRURGIA.CD_AVISO_CIRURGIA NRO_AVISO
+      ,DBAMV.MVTO_GASES.DT_LIGA    DATA_HORA_INI
+      ,DBAMV.MVTO_GASES.HR_DESLIGA DATA_HORA_FIM
+      ,DBAMV.PRO_FAT.DS_PRO_FAT
+      ,DBAMV.PRO_FAT.CD_PRO_FAT
+      ,DBAMV.GRU_PRO.CD_GRU_PRO
+      ,DBAMV.GRU_PRO.DS_GRU_PRO
+     , NULL CD_LANCAMENTO
+    ,CIRURGIA.CD_PRO_FAT PRO_CIRUR
+  from DBAMV.REG_FAT
+      ,DBAMV.AVISO_CIRURGIA
+      ,DBAMV.PRO_FAT
+      ,DBAMV.GRU_PRO
+      ,DBAMV.MVTO_GASES
+      ,DBAMV.SAL_CIR
+      ,DBAMV.CIRURGIA
+      ,DBAMV.CIRURGIA_AVISO
+ ,DBAMV.ATENDIME
+ where REG_FAT.CD_REG_FAT                       = :CAMPO_CD_REG_FAT
+   and REG_FAT.CD_MULTI_EMPRESA          = :CAMPO_CD_MULTI_EMPRESA
+      and
+      (
+       (
+        AVISO_CIRURGIA.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+        and REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+       and    trunc(aviso_cirurgia.dt_realizacao) between trunc(reg_fat.dt_inicio) and trunc(nvl(reg_fat.dt_final,sysdate))
+        )
+        or
+        (
+        ATENDIME.CD_ATENDIMENTO = AVISO_CIRURGIA.CD_ATENDIMENTO
+        and atendime.cd_atendimento_pai = reg_fat.cd_atendimento
+        and  ATENDIME.SN_IMPORTA_AUTO = 'S'
+        )
+        )
+   AND CIRURGIA.CD_CIRURGIA = CIRURGIA_AVISO.CD_CIRURGIA
+   AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA = CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+   AND MVTO_GASES.CD_ATENDIMENTO    = AVISO_CIRURGIA.CD_ATENDIMENTO
+   AND SAL_CIR.CD_SETOR                            = MVTO_GASES.CD_SETOR
+   and PRO_FAT.CD_PRO_FAT                        = MVTO_GASES.CD_PRO_FAT
+   AND AVISO_CIRURGIA.tp_situacao <> 'C'
+   and GRU_PRO.CD_GRU_PRO                     = PRO_FAT.CD_GRU_PRO
+   and mvto_gases.cd_tip_presc is null
+)
+order by CD_GRU_PRO
+        ,NRO_AVISO
+        ,CD_PRO_FAT
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_GRU_FAT_R_9_Q_ATENDIMENTO
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+               dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) NM_PACIENTE,
+               PACIENTE.DT_NASCIMENTO,
+               PACIENTE.TP_SEXO,
+               PACIENTE.TP_COR,
+               DBAMV.FNC_ESTADO_CIVIL(PACIENTE.TP_ESTADO_CIVIL) TP_ESTADO_CIVIL1,
+               PACIENTE.NR_DOCUMENTO,
+               PACIENTE.NM_MAE,
+               PACIENTE.DS_ENDERECO,
+               PACIENTE.NR_ENDERECO,
+               PACIENTE.NM_BAIRRO,
+               PACIENTE.NR_CEP,
+               PACIENTE.NR_FONE,
+               PACIENTE.DT_CADASTRO,
+               ATENDIME.CD_ATENDIMENTO,
+               ATENDIME.CD_PACIENTE,
+               ATENDIME.DT_ATENDIMENTO,
+               ATENDIME.HR_ATENDIMENTO,
+               ATENDIME.DT_ALTA,
+               ATENDIME.HR_ALTA,
+               ATENDIME.CD_SERVICO,
+               ATENDIME.CD_SER_DIS,
+               ATENDIME.TP_ATENDIMENTO,
+               ATENDIME.DT_VAL_GUIA      DT_VAL_GUIA1,
+               ATENDIME.NR_GUIA,
+               ATENDIME.CD_MOT_ALT,
+               ORI_ATE.DS_ORI_ATE,
+               PRO_INT.CD_PRO_FAT CD_PRO_INT,
+               PRO_INT.DS_PRO_FAT DS_PRO_INT,
+               PRESTADOR.NM_PRESTADOR,
+               PRESTADOR.DS_CODIGO_CONSELHO,
+               LEITO.DS_ENFERMARIA,
+               LEITO.DS_LEITO,
+               CONVENIO.NM_CONVENIO,
+               CONVENIO.TP_CONVENIO,
+               CID.CD_CID,
+               CID.DS_CID,
+               SERVICO.DS_SERVICO,
+               SERVICO.TP_ANAMNESE TP_ANAM_SERVICO,
+               SER_DIS.DS_SER_DIS,
+               SER_DIS.TP_ANAMNESE TP_ANAM_SER_DIS,
+               TIP_ACOM.DS_TIP_ACOM,
+               RESPONSA.NM_RESPONSAVEL,
+               CIDADE.NM_CIDADE,
+               CIDADE.CD_UF,
+               REG_FAT.CD_REG_FAT,
+               REG_FAT.DT_INICIO,
+               REG_FAT.DT_FINAL,
+               REG_FAT.DT_GUIA,
+               REG_FAT.NR_GUIA,
+               REG_FAT.VL_ACRESCIMO_CONTA,
+               REG_FAT.VL_DESCONTO_CONTA,
+               REG_FAT.VL_ACRESCIMO_EXTRA,
+               REG_FAT.VL_DESCONTO_EXTRA,
+               REG_FAT.VL_TOTAL_CONTA,
+               REG_FAT.VL_TOTAL_EXTRAS,
+               REG_FAT.CD_TIP_ACOM,
+               REG_FAT.CD_REMESSA,
+               TIP_ACOM2.DS_TIP_ACOM DS_TIP_ACOM2,
+               REG_FAT.CD_CON_PLA,
+               REG_FAT.CD_CONVENIO CD_CONVENIO,
+               CON_PLA.DS_CON_PLA,
+               MOT_ALT.DS_MOT_ALT,
+               SUB_PLANO.CD_SUB_PLANO,
+               REG_FAT.DS_OBSERVACAO_FRANQUIA,
+               REG_FAT.NR_SEQ_PREIMPRE NR_SEQ_PREIMPRE
+FROM DBAMV.PACIENTE PACIENTE,
+            DBAMV.CIDADE CIDADE,
+            DBAMV.ATENDIME ATENDIME,
+            DBAMV.ORI_ATE ORI_ATE,
+            DBAMV.MOT_ALT,
+            DBAMV.PRO_FAT PRO_INT,
+            DBAMV.PRESTADOR PRESTADOR,
+            DBAMV.LEITO LEITO,
+            DBAMV.CONVENIO CONVENIO,
+            DBAMV.CID CID,
+            DBAMV.SERVICO SERVICO,
+            DBAMV.SER_DIS SER_DIS,
+            DBAMV.TIP_ACOM TIP_ACOM,
+            DBAMV.RESPONSA RESPONSA,
+            DBAMV.REG_FAT REG_FAT,
+            DBAMV.TIP_ACOM TIP_ACOM2,
+            DBAMV.CON_PLA CON_PLA,
+            DBAMV.SUB_PLANO
+Where ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+  AND     REG_FAT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+  AND     PACIENTE.CD_CIDADE    = CIDADE.CD_CIDADE(+)
+  AND     ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+  AND     ATENDIME.CD_MOT_ALT = MOT_ALT.CD_MOT_ALT(+)
+  AND     REG_FAT.CD_PRO_FAT_SOLICITADO = PRO_INT.CD_PRO_FAT(+)
+  AND     ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+  AND     ATENDIME.CD_LEITO     = LEITO.CD_LEITO (+)
+  AND     ATENDIME.CD_CID       = CID.CD_CID (+)
+  AND     ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO (+)
+  AND     ATENDIME.CD_SER_DIS   = SER_DIS.CD_SER_DIS (+)
+  AND     ATENDIME.CD_TIP_ACOM  = TIP_ACOM.CD_TIP_ACOM (+)
+  AND     ATENDIME.CD_ATENDIMENTO = RESPONSA.CD_ATENDIMENTO (+)
+  AND     REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+  AND     REG_FAT.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+  AND     TIP_ACOM2.CD_TIP_ACOM = REG_FAT.CD_TIP_ACOM
+  AND     ( CON_PLA.CD_CON_PLA    = REG_FAT.CD_CON_PLA
+  AND       CON_PLA.CD_CONVENIO   = REG_FAT.CD_CONVENIO )
+  AND      ATENDIME.CD_SUB_PLANO = SUB_PLANO.CD_SUB_PLANO(+)
+  AND    ATENDIME.CD_CONVENIO = SUB_PLANO.CD_CONVENIO(+)
+  AND    ATENDIME.CD_CON_PLA = SUB_PLANO.CD_CON_PLA(+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_GRU_FAT_R_GRUFAT2_Q_RESUMO_GRU_PRO
+Select gru_fat.cd_gru_fat,
+       gru_fat.ds_gru_fat,
+       itfor_apre_gru_fat.cd_seq_resumo cd_seq_resumo_gru_fat,
+       SUM(DECODE(ITLAN_MED.CD_REG_FAT, NULL,
+                       itreg_fat.vl_total_conta + nvl(itreg_fat.vl_desconto_conta,0),
+                       itlan_med.vl_liquido + NVL(itlan_med.vl_desconto_conta,0))) vl_liquido,
+       SUM(DECODE(ITLAN_MED.CD_REG_FAT, NULL,
+                       nvl(itreg_fat.vl_desconto_conta,0),
+                       NVL(itlan_med.vl_desconto_conta,0))) vl_desconto_conta,
+       SUM(DECODE(ITLAN_MED.CD_REG_FAT, NULL,
+                       NVL(itreg_fat.vl_acrescimo,0),
+                       NVL(itlan_med.vl_acrescimo,0))) vl_acrescimo,
+       SUM(DECODE(ITLAN_MED.CD_REG_FAT, NULL,
+                                itreg_fat.vl_desconto,
+                                itlan_med.vl_desconto))  vl_desconto,
+       Sum( itreg_fat.vl_filme_unitario * itreg_fat.qt_lancamento ) vl_filme,
+       SUM(DECODE(ITLAN_MED.CD_REG_FAT, NULL, itreg_fat.vl_total_conta, itlan_med.vl_liquido)) VL_TOTAL_CONTA
+  From dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.gru_fat,
+       dbamv.gru_pro,
+       dbamv.pro_fat,
+       dbamv.setor,
+       dbamv.convenio,
+       dbamv.for_apre,
+       dbamv.itfor_apre_gru_fat,
+       dbamv.itlan_med
+       ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   and itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+   and gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+   and itreg_fat.cd_setor = setor.cd_setor (+)
+   and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+   and convenio.cd_convenio = reg_fat.cd_convenio
+   and for_apre.cd_for_apre = convenio.cd_for_apre
+   and itfor_apre_gru_fat.cd_for_apre = for_apre.cd_for_apre
+   and itfor_apre_gru_fat.cd_gru_fat = itreg_fat.cd_gru_fat
+   and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+   and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+   and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+   and itreg_fat.cd_reg_fat = :CAMPO_CD_REG_FAT
+Group by gru_fat.cd_gru_fat,
+         gru_fat.ds_gru_fat,
+         itfor_apre_gru_fat.cd_seq_resumo
+order by  itfor_apre_gru_fat.cd_seq_resumo
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_GRU_FAT_R_G_CD_SETOR2_Q_FATURA_GRU_PRO
+Select
+      itreg_fat.nr_difep,
+      decode(itreg_fat.nr_difep, null, 'A',Decode(ITREG_FAT.tp_mvto,'SANGUE-PBSA','B','SANGUEC-PBSA','C', 'A')) tp_mvto_ordenacao,
+       decode(decode(itlan_med.tp_pagamento,null,itreg_fat.tp_pagamento,itlan_med.tp_pagamento) || :CAMPO_PRESTADOR_CREDEN,'CN','B','A') tipo_emissao,
+       trunc(decode('','S',itreg_fat.dt_lancamento,DECODE(itfor_apre_gru_fat.tp_data,'S',TRUNC(SYSDATE),itreg_fat.dt_lancamento))) dt_lancamento,
+       decode('','S',itreg_fat.hr_lancamento,DECODE(itfor_apre_gru_fat.tp_data,'H',itreg_fat.hr_lancamento,SYSDATE)) hr_lancamento,
+       decode('','S',itreg_fat.hr_lancamento,DECODE(itfor_apre_gru_fat.tp_data,'H',itreg_fat.hr_lancamento_final,null)) hr_lancamento_final,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  ds_ordenacao,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  func_desc_fat,
+       nvl(cod_pro.ds_unidade_cobranca,pro_fat.ds_unidade) func_unid_fat,
+       nvl(cod_pro.ds_codigo_cobranca,decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',hierarquizado.cd_pro_fat_hierarquizado,itreg_fat.cd_pro_fat)) func_cd_fat,
+       dbamv.fnc_ffcv_ds_acres_desc(1,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_desconto,
+       dbamv.fnc_ffcv_ds_acres_desc(2,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_acrescimo,
+       decode(for_apre.tp_fatura,'T',gru_pro.cd_gru_pro,null) cd_gru_pro,
+       gru_fat.cd_gru_fat,
+       gru_fat.ds_gru_fat,
+       decode(for_apre.tp_fatura,'T',gru_pro.ds_gru_pro,null) ds_gru_pro,
+       gru_pro.tp_gru_pro,
+       itreg_fat.cd_pro_fat cd_pro_fat1,
+       pro_fat.ds_pro_fat,
+       DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.QT_LANCAMENTO / 60,ITREG_FAT.QT_LANCAMENTO) qt_lancamento,
+       itreg_fat.qt_lancamento qt_lancamento_lan_med,
+       DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.VL_UNITARIO * 60,
+         DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_VL_FILME,'N',ITREG_FAT.VL_UNITARIO + NVL(itreg_fat.vl_filme_unitario,0) ,
+         ITREG_FAT.VL_UNITARIO))       vl_unitario,
+       (itreg_fat.vl_filme_unitario *  itreg_fat.qt_lancamento)  vl_filme,
+       TO_CHAR(nvl(itreg_fat.QT_CH_UNITARIO,0)) qt_ch_unitario,
+       itreg_fat.vl_total_conta vl_total_conta,
+       itreg_fat.vl_desconto_conta,
+       itreg_fat.vl_acrescimo vl_acrescimo,
+       itreg_fat.vl_desconto,
+        To_Number(Substr(itreg_fat.cd_prestador,1,12)) Cd_Prestador, 
+       prestador.nm_prestador,
+       prestador.ds_codigo_conselho,
+       prestador.nr_cpf_cgc,
+       itreg_fat.cd_ati_med,
+       ati_med.ds_ati_med,
+       nvl(itlan_med.tp_pagamento,nvl(itreg_fat.tp_pagamento,'P')) tp_pagamento,
+       reg_fat.cd_convenio,
+       reg_fat.cd_con_pla,
+       empresa_con_pla.cd_regra   cd_regra,
+       empresa_con_pla.cd_regra cd_regra1,
+       reg_fat.cd_atendimento,
+       atendime.tp_atendimento,
+       atendime.dt_atendimento,
+       pro_fat.ds_unidade,
+       itreg_fat.cd_reg_fat,
+       itreg_fat.cd_lancamento,
+       itfor_apre_gru_fat.cd_seq_detalhe cd_seq_detalhe_gru_fat,
+       itfor_apre_gru_fat.tp_data,
+       itfor_apre_gru_fat.sn_imprime_unidade,
+       itfor_apre_gru_fat.sn_imprime_HE,
+       itfor_apre_gru_fat.sn_imprime_perc_pago,
+       itfor_apre_gru_fat.sn_imprime_perc_proc,
+       itfor_apre_gru_fat.sn_imprime_ch,
+       itfor_apre_gru_fat.sn_imprime_simpro,
+       itfor_apre_gru_fat.sn_imprime_brasindice,
+       itfor_apre_gru_fat.sn_imprime_prestador,
+       itfor_apre_gru_fat.sn_imprime_vl_filme,
+       itfor_apre_gru_fat.sn_imprime_fp,
+       itfor_apre_gru_fat.tp_imp_acresc_desc,
+       itreg_fat.sn_horario_especial,
+       itreg_fat.vl_percentual_multipla,
+       itreg_fat.vl_percentual_paciente,
+       itcob_pre.cd_fornecedor,
+       itcob_pre.nr_documento,
+       fornecedor.nm_fornecedor,
+       To_Number(Substr(prestador_equipe.cd_prestador,1,12)) cd_prestador_equipe_nulo, 
+       prestador_equipe.nm_prestador nm_prestador_equipe_nulo,
+       prestador_equipe.ds_codigo_conselho ds_codigo_conselho_equipe,
+       prestador_equipe.nr_cpf_cgc nr_cpf_cgc_equipe,
+       ati_med_equipe.cd_ati_med cd_ati_med_equipe,
+       ati_med_equipe.ds_ati_med ds_ati_med_equipe,
+       itlan_med.vl_ato             vl_ato,
+       itlan_med.vl_liquido             vl_liquido,
+       itlan_med.vl_desconto vl_desconto_eqp,
+       itlan_med.vl_acrescimo vl_acrescimo_eqp,
+       itlan_med.vl_desconto_conta  vl_desc_conta ,
+       pres_con.cd_prestador_conveniado,
+       pres_con_equipe.cd_prestador_conveniado cd_prestador_conveniado_equipe,
+       decode(for_apre.sn_imprime_kit,'S',nvl(padrao_cobranca.cd_padrao,0),null) cd_padrao,
+       decode(for_apre.sn_imprime_kit,'S',padrao_cobranca.ds_padrao,null) ds_padrao,
+       decode(configuracao.valor,'N',decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor,null),
+                   decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor_produziu,itreg_fat.cd_setor))cd_setor ,  
+       itreg_fat.cd_franquia,
+       itreg_fat.cd_regra_acoplamento,
+       itreg_fat.cd_reg_fat_pai,
+       itreg_fat.cd_lancamento_pai,
+       null dt_agrupamento,
+       null kit,
+       imp_simpro.cd_tab_fat,
+       dbamv.fnc_ffcv_ds_acres_desc(3,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_desconto_grupo,
+       dbamv.fnc_ffcv_ds_acres_desc(4,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento) ds_acrescimo_grupo,
+       To_Number(Substr(itlan_med.cd_prestador,1,12)) cd_prestador_equipe, 
+      itreg_fat.tp_mvto,
+      gru_pro.cd_gru_pro procedimento,
+      itfor_apre_gru_fat.sn_imprime_difep,
+      convenio.cd_convenio,
+      gru_fat.cd_gru_fat
+     ,dbamv.fnc_ffcv_cf_ds_pro_fat_hosp('F',convenio.cd_convenio,itreg_fat.cd_pro_fat,atendime.cd_atendimento,reg_fat.cd_reg_fat,itreg_fat.cd_lancamento,
+                                        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+                                          decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+                                          cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat),
+                                        itreg_fat.cd_gru_fat,itfor_apre_gru_fat.sn_imprime_unidade) cf_apres_ds_pro_fat
+  From dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.setor,
+       dbamv.pro_fat,
+       dbamv.prestador,
+       dbamv.prestador prestador_equipe,
+       dbamv.ati_med,
+       dbamv.ati_med ati_med_equipe,
+       dbamv.gru_pro,
+       dbamv.con_pla,
+       dbamv.atendime,
+       dbamv.convenio,
+       dbamv.for_apre,
+       dbamv.itfor_apre_gru_fat,
+       dbamv.itcob_pre,
+       dbamv.fornecedor,
+       dbamv.itlan_med,
+       dbamv.simpro,
+       dbamv.padrao_cobranca,
+       dbamv.hospital,
+       dbamv.gru_fat,
+       dbamv.empresa_con_pla,
+      (select distinct cod_pro.cd_pro_fat,cod_pro.ds_nome_cobranca, cod_pro.ds_unidade_cobranca,cod_pro.ds_codigo_cobranca
+       from   dbamv.reg_fat
+             ,dbamv.cod_pro
+             ,dbamv.atendime
+       where ( Cod_Pro.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA or Cod_Pro.Cd_Multi_Empresa Is Null )
+          and reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  cod_pro.cd_convenio = reg_fat.cd_convenio
+         and  atendime.cd_atendimento = reg_fat.cd_atendimento
+         and  (atendime.tp_atendimento = cod_pro.tp_atendimento or cod_pro.tp_atendimento = 'T')) cod_pro,
+      (select distinct To_Number(Substr(pres_con.cd_prestador,1,12)) cd_prestador, 
+                       pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S' ) pres_con,
+      (select distinct To_Number(Substr(pres_con.cd_prestador,1,12)) cd_prestador, 
+                       pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S' ) pres_con_equipe,
+    (select  DISTINCT PRO_HIE.cd_pro_fat_hierarquizado
+                ,PRO_HIE.ds_pro_fat_hierarquizado
+                ,PRO_HIE.cd_pro_fat
+       from   dbamv.reg_fat
+             ,dbamv.PRO_FAT_HIERARQUIZADO PRO_HIE
+             ,dbamv.itreg_fat
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+         and  itreg_fat.cd_pro_fat = PRO_HIE.cd_pro_fat) hierarquizado,
+      (select cd_pro_fat,
+              max(cd_tab_fat) cd_tab_fat
+      from
+      (select distinct pro_fat.cd_pro_fat,
+                       itregra.cd_tab_fat
+       from   dbamv.pro_fat,
+              dbamv.itregra,
+              dbamv.reg_fat,
+              dbamv.itreg_fat ,
+              dbamv.imp_simpro
+       where  reg_fat.cd_regra = itregra.cd_regra
+         and  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itregra.cd_gru_pro = pro_fat.cd_gru_pro
+         and itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+         and itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+         and  pro_fat.cd_pro_fat = imp_simpro.cd_pro_fat
+         and  itregra.cd_tab_fat = imp_simpro.cd_tab_fat
+       union
+       select distinct imp_simpro.cd_pro_fat,
+                        0 cd_tab_fat
+       from   dbamv.imp_simpro
+       where  imp_simpro.cd_tab_fat is null)
+       group by cd_pro_fat)  simpro_tab,
+       (select cd_pro_fat,nvl(cd_tab_fat,0) cd_tab_fat,cd_simpro from dbamv.imp_simpro) imp_simpro,
+       (select valor
+          from dbamv.configuracao
+         where configuracao.cd_sistema = 'FFCV'
+           and configuracao.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+           and configuracao.chave = 'SN_IMPRIME_SETOR_EXEC_FAT') configuracao
+Where itreg_fat.cd_setor = setor.cd_setor(+)
+   and itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+   and itreg_fat.cd_prestador = prestador.cd_prestador (+)
+   and itreg_fat.cd_prestador = pres_con.cd_prestador (+)
+   and itlan_med.cd_prestador = pres_con_equipe.cd_prestador (+)
+   and itreg_fat.cd_ati_med = ati_med.cd_ati_med (+)
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and con_pla.cd_convenio = reg_fat.cd_convenio
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   and con_pla.cd_con_pla = reg_fat.cd_con_pla
+   and empresa_con_pla.cd_con_pla = con_pla.cd_con_pla
+   and empresa_con_pla.cd_convenio = con_pla.cd_convenio
+   and empresa_con_pla.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and atendime.cd_atendimento = reg_fat.cd_atendimento
+   and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+   and convenio.cd_convenio = reg_fat.cd_convenio
+   and for_apre.cd_for_apre = convenio.cd_for_apre
+   and itfor_apre_gru_fat.cd_for_apre = for_apre.cd_for_apre
+   and itfor_apre_gru_fat.cd_gru_fat = itreg_fat.cd_gru_fat
+   and itreg_fat.cd_reg_fat = :CAMPO_CD_REG_FAT
+   and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+   and itreg_fat.cd_reg_fat = itcob_pre.cd_reg_fat (+)
+   and itreg_fat.cd_lancamento = itcob_pre.cd_lancamento (+)
+   and itcob_pre.cd_fornecedor = fornecedor.cd_fornecedor (+)
+   and ((itfor_apre_gru_fat.tp_data = 'H' and :CAMPO_DETALHADA = 'N') or (:CAMPO_DETALHADA = 'S'))
+   and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+   and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+   and ati_med_equipe.cd_ati_med (+) = itlan_med.cd_ati_med
+   and prestador_equipe.cd_prestador (+) = itlan_med.cd_prestador
+   and cod_pro.cd_pro_fat (+) = itreg_fat.cd_pro_fat
+   and hospital.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and imp_simpro.cd_pro_fat (+) = simpro_tab.cd_pro_fat
+   and imp_simpro.cd_tab_fat (+) = simpro_tab.cd_tab_fat
+   and itreg_fat.cd_pro_fat = simpro_tab.cd_pro_fat (+)
+    AND ITREG_FAT.CD_PRO_FAT = HIERARQUIZADO.CD_PRO_FAT(+)
+   and imp_simpro.cd_simpro = simpro.cd_simpro (+)
+   and padrao_cobranca.cd_padrao (+) = itreg_fat.cd_padrao
+union all
+(Select
+      itreg_fat.nr_difep,
+      min(decode(itreg_fat.nr_difep, null, 'A',Decode(ITREG_FAT.tp_mvto,'SANGUE-PBSA','B','SANGUEC-PBSA','C', 'A'))) tp_mvto_ordenacao,
+       decode(decode(max(itlan_med.tp_pagamento),null,max(itreg_fat.tp_pagamento),max(itlan_med.tp_pagamento)) || :CAMPO_PRESTADOR_CREDEN,'CN','B','A') tipo_emissao,
+       trunc(decode('','S',max(itreg_fat.dt_lancamento),DECODE(max(itfor_apre_gru_fat.tp_data),'S',TRUNC(SYSDATE),max(itreg_fat.dt_lancamento)))) dt_lancamento,
+       decode('','S',max(itreg_fat.hr_lancamento),DECODE(max(itfor_apre_gru_fat.tp_data),'H', max(itreg_fat.hr_lancamento),SYSDATE)) hr_lancamento,
+       decode('','S',max(itreg_fat.hr_lancamento_final),DECODE(max(itfor_apre_gru_fat.tp_data),'H', max(itreg_fat.hr_lancamento_final),SYSDATE)) hr_lancamento_final,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  ds_ordenacao,
+        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat)  func_desc_fat,
+       nvl(cod_pro.ds_unidade_cobranca,pro_fat.ds_unidade) func_unid_fat,
+       nvl(cod_pro.ds_codigo_cobranca,decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',hierarquizado.cd_pro_fat_hierarquizado,itreg_fat.cd_pro_fat)) func_cd_fat,
+       max(dbamv.fnc_ffcv_ds_acres_desc(1,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_desconto,
+       max(dbamv.fnc_ffcv_ds_acres_desc(2,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_acrescimo,
+       Max(decode(for_apre.tp_fatura,'T',gru_pro.cd_gru_pro,null)) cd_gru_pro,
+       gru_fat.cd_gru_fat,
+       gru_fat.ds_gru_fat,
+       decode(for_apre.tp_fatura,'T',gru_pro.ds_gru_pro,null) ds_gru_pro,
+       max(gru_pro.tp_gru_pro) tp_gru_pro,
+       itreg_fat.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       sum(DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.QT_LANCAMENTO /  60,ITREG_FAT.QT_LANCAMENTO))               qt_lancamento,
+       sum(itreg_fat.qt_lancamento) qt_lancamento_lan_med,
+       DECODE(ITREG_FAT.CD_PRO_FAT || HOSPITAL.CD_HOSPITAL,'07000032749',ITREG_FAT.VL_UNITARIO * 60,
+         DECODE(ITFOR_APRE_GRU_FAT.SN_IMPRIME_VL_FILME,'N',ITREG_FAT.VL_UNITARIO + NVL(itreg_fat.vl_filme_unitario,0) ,
+         ITREG_FAT.VL_UNITARIO) )  vl_unitario,
+       (itreg_fat.vl_filme_unitario * sum(itreg_fat.qt_lancamento) )  vl_filme,
+       TO_CHAR(nvl(sum(itreg_fat.QT_CH_UNITARIO),0)) qt_ch_unitario,
+       sum(itreg_fat.vl_total_conta) vl_total_conta,
+       sum(itreg_fat.vl_desconto_conta) vl_total_conta,
+       sum(itreg_fat.vl_acrescimo) vl_acrescimo,
+       sum(itreg_fat.vl_desconto) vl_desconto,
+       To_Number(Substr(itreg_fat.cd_prestador,1,12)) Cd_Prestador, 
+       max(prestador.nm_prestador) nm_prestador,
+       max(prestador.ds_codigo_conselho) ds_codigo_conselho,
+       max(prestador.nr_cpf_cgc) nr_cpf_cgc,
+       max(itreg_fat.cd_ati_med) cd_ati_med,
+       max(ati_med.ds_ati_med) ds_ati_med,
+       nvl(itlan_med.tp_pagamento,nvl(itreg_fat.tp_pagamento,'P')) tp_pagamento,
+       max(reg_fat.cd_convenio) cd_convenio,
+       max(reg_fat.cd_con_pla) cd_con_pla,
+       max(empresa_con_pla.cd_regra) cd_regra,
+       max(empresa_con_pla.cd_regra) cd_regra1,
+       max(reg_fat.cd_atendimento) cd_atendimento,
+       max(atendime.tp_atendimento) tp_atendimento,
+       max(atendime.dt_atendimento) dt_atendimento,
+       max(pro_fat.ds_unidade) ds_unidade,
+       max(itreg_fat.cd_reg_fat) cd_reg_fat,
+       max(itreg_fat.cd_lancamento) cd_lancamento,
+       max(itfor_apre_gru_fat.cd_seq_detalhe) cd_seq_detalhe_gru_fat,
+       max(itfor_apre_gru_fat.tp_data) tp_data,
+       max(itfor_apre_gru_fat.sn_imprime_unidade) sn_imprime_unidade,
+       max(itfor_apre_gru_fat.sn_imprime_HE) sn_imprime_HE,
+       max(itfor_apre_gru_fat.sn_imprime_perc_pago) sn_imprime_perc_pago,
+       max(itfor_apre_gru_fat.sn_imprime_perc_proc) sn_imprime_perc_proc,
+       max(itfor_apre_gru_fat.sn_imprime_ch) sn_imprime_ch,
+       max(itfor_apre_gru_fat.sn_imprime_simpro) sn_imprime_simpro,
+       max(itfor_apre_gru_fat.sn_imprime_brasindice) sn_imprime_brasindice,
+       max(itfor_apre_gru_fat.sn_imprime_prestador) sn_imprime_prestador,
+       max(itfor_apre_gru_fat.sn_imprime_vl_filme) sn_imprime_vl_filme,
+       max(itfor_apre_gru_fat.sn_imprime_fp) sn_imprime_fp,
+       max(itfor_apre_gru_fat.tp_imp_acresc_desc) tp_imp_acresc_desc,
+       itreg_fat.sn_horario_especial sn_horario_especial,
+       itreg_fat.vl_percentual_multipla vl_percentual_multipla,
+       max(itreg_fat.vl_percentual_paciente) vl_percentual_paciente,
+       max(itcob_pre.cd_fornecedor) cd_fornecedor,
+       max(itcob_pre.nr_documento) nr_documento,
+       max(fornecedor.nm_fornecedor) nm_fornecedor,
+       To_Number(Substr(prestador_equipe.cd_prestador,1,12)) cd_prestador_equipe_nulo, 
+       max(prestador_equipe.nm_prestador) nm_prestador_equipe_nulo,
+       max(prestador_equipe.ds_codigo_conselho) ds_codigo_conselho_equipe,
+       max(prestador_equipe.nr_cpf_cgc) nr_cpf_cgc_equipe,
+       max(ati_med_equipe.cd_ati_med) cd_ati_med_equipe,
+       max(ati_med_equipe.ds_ati_med) ds_ati_med_equipe,
+       max(itlan_med.vl_ato) vl_ato,
+       sum(itlan_med.vl_liquido)             vl_liquido,
+       sum(itlan_med.vl_desconto) vl_desconto_eqp,
+       sum(itlan_med.vl_acrescimo) vl_acrescimo_eqp,
+       max(itlan_med.vl_desconto_conta/itreg_fat.qt_lancamento)  vl_desc_conta ,
+       max(pres_con.cd_prestador_conveniado) cd_prestador_conveniado,
+       max(pres_con_equipe.cd_prestador_conveniado) cd_prestador_conveniado_equipe,
+       decode(max(for_apre.sn_imprime_kit),'S',nvl(max(padrao_cobranca.cd_padrao),0),null) cd_padrao,
+       decode(max(for_apre.sn_imprime_kit),'S',max(padrao_cobranca.ds_padrao),null) ds_padrao,
+       decode(configuracao.valor,'N',decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor,null),
+	   decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor_produziu,itreg_fat.cd_setor))cd_setor ,
+       max(itreg_fat.cd_franquia) cd_franquia,
+       max(itreg_fat.cd_regra_acoplamento) cd_regra_acoplamento,
+       max(itreg_fat.cd_reg_fat_pai) cd_reg_fat_pai,
+       max(itreg_fat.cd_lancamento_pai) cd_lancamento_pai,
+       DECODE(itfor_apre_gru_fat.tp_data,'S',NULL,itreg_fat.dt_lancamento) dt_agrupamento,
+       DECODE(for_apre.sn_imprime_kit,'N',NULL,itreg_fat.cd_padrao) kit,
+       max(imp_simpro.cd_tab_fat) cd_tab_fat,
+       max(dbamv.fnc_ffcv_ds_acres_desc(3,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_desconto_grupo,
+       max(dbamv.fnc_ffcv_ds_acres_desc(4,:CAMPO_CD_REG_FAT,:CAMPO_CD_ATENDIMENTO,itreg_fat.cd_pro_fat,itreg_fat.dt_lancamento)) ds_acrescimo_grupo,
+       max(To_Number(Substr(itlan_med.cd_prestador,1,12))) cd_prestador_equipe, 
+      max(itreg_fat.tp_mvto) tp_mvto,
+      gru_pro.cd_gru_pro,
+      itfor_apre_gru_fat.sn_imprime_difep,
+      convenio.cd_convenio,
+      gru_fat.cd_gru_fat
+     ,dbamv.fnc_ffcv_cf_ds_pro_fat_hosp('F',convenio.cd_convenio,itreg_fat.cd_pro_fat,max(reg_fat.cd_atendimento),Max(reg_fat.cd_reg_fat),Max(itreg_fat.cd_lancamento),
+                                        nvl(decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null,
+                                         decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat),
+                                         cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),pro_fat.ds_pro_fat),
+                                        gru_fat.cd_gru_fat,Max(itfor_apre_gru_fat.sn_imprime_unidade)) cf_apres_ds_pro_fat
+  From dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.setor,
+       dbamv.pro_fat,
+       dbamv.prestador,
+       dbamv.prestador prestador_equipe,
+       dbamv.ati_med,
+       dbamv.ati_med ati_med_equipe,
+       dbamv.gru_pro,
+       dbamv.con_pla,
+       dbamv.atendime,
+       dbamv.convenio,
+       dbamv.for_apre,
+       dbamv.itfor_apre_gru_fat,
+       dbamv.itcob_pre,
+       dbamv.fornecedor,
+       dbamv.itlan_med,
+       dbamv.padrao_cobranca,
+       dbamv.simpro,
+       dbamv.hospital,
+       dbamv.gru_fat,
+       dbamv.empresa_con_pla,
+      (select distinct cod_pro.cd_pro_fat,cod_pro.ds_nome_cobranca,  cod_pro.ds_unidade_cobranca,cod_pro.ds_codigo_cobranca
+       from   dbamv.reg_fat
+             ,dbamv.cod_pro
+             ,dbamv.atendime
+       where ( Cod_Pro.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA or Cod_Pro.Cd_Multi_Empresa Is Null )
+         and reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  cod_pro.cd_convenio = reg_fat.cd_convenio
+         and  atendime.cd_atendimento = reg_fat.cd_atendimento
+         and  (atendime.tp_atendimento = cod_pro.tp_atendimento or cod_pro.tp_atendimento = 'T')) cod_pro,
+    (select  DISTINCT PRO_HIE.cd_pro_fat_hierarquizado
+                ,PRO_HIE.ds_pro_fat_hierarquizado
+                ,PRO_HIE.cd_pro_fat
+       from   dbamv.reg_fat
+             ,dbamv.PRO_FAT_HIERARQUIZADO PRO_HIE
+             ,dbamv.itreg_fat
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+         and  itreg_fat.cd_pro_fat = PRO_HIE.cd_pro_fat) hierarquizado,
+     (select distinct To_Number(Substr(pres_con.cd_prestador,1,12)) Cd_Prestador, 
+                      pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S') pres_con,
+      (select distinct To_Number(Substr(pres_con.cd_prestador,1,12)) Cd_Prestador, 
+                       pres_con.cd_prestador_conveniado
+       from   dbamv.reg_fat
+             ,dbamv.pres_con
+			 ,dbamv.itreg_fat 
+       where  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and (pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null  )  
+		and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		 and itreg_fat.cd_prestador = pres_con.cd_prestador
+		 AND (PRES_CON.CD_CON_PLA = reg_fat.CD_CON_PLA or PRES_CON.CD_CON_PLA is null)
+		 AND (PRES_CON.CD_REGRA = reg_fat.CD_REGRA or PRES_CON.CD_REGRA is null)
+		 AND (pres_con.cd_gru_pro  =   (SELECT pro_fat.cd_gru_pro
+										FROM dbamv.pro_fat
+									   WHERE pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat )   OR pres_con.cd_gru_pro is NULL)
+		AND (pres_con.cd_pro_fat  = itreg_fat.cd_pro_fat OR pres_con.cd_pro_fat is null)
+         and  pres_con.cd_convenio = reg_fat.cd_convenio
+         and  pres_con.sn_paga_pelo_convenio='S') pres_con_equipe,
+      (select cd_pro_fat,
+              max(cd_tab_fat) cd_tab_fat
+      from
+      (select distinct pro_fat.cd_pro_fat,
+                       itregra.cd_tab_fat
+       from   dbamv.pro_fat,
+              dbamv.itregra,
+              dbamv.reg_fat,
+              DBAMV.ITREG_FAT,
+              dbamv.imp_simpro
+       where  reg_fat.cd_regra = itregra.cd_regra
+         and  reg_fat.cd_reg_fat  = :CAMPO_CD_REG_FAT
+         and  reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         and  itregra.cd_gru_pro = pro_fat.cd_gru_pro
+         and  pro_fat.cd_pro_fat = imp_simpro.cd_pro_fat
+         and  itregra.cd_tab_fat = imp_simpro.cd_tab_fat
+         AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+         AND ITREG_FAT.CD_REG_FAT = REG_FAT.CD_REG_FAT
+       union
+       select distinct imp_simpro.cd_pro_fat,
+                        0 cd_tab_fat
+       from   dbamv.imp_simpro
+       where  imp_simpro.cd_tab_fat is null)
+       group by cd_pro_fat)  simpro_tab,
+       (select cd_pro_fat,nvl(cd_tab_fat,0) cd_tab_fat,cd_simpro from dbamv.imp_simpro) imp_simpro,
+       (select valor
+          from dbamv.configuracao
+         where configuracao.cd_sistema = 'FFCV'
+           and configuracao.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+           and configuracao.chave = 'SN_IMPRIME_SETOR_EXEC_FAT') configuracao
+Where itreg_fat.cd_setor = setor.cd_setor(+)
+    and itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+   and itreg_fat.cd_prestador = prestador.cd_prestador (+)
+   and itreg_fat.cd_prestador = pres_con.cd_prestador (+)
+   and itlan_med.cd_prestador = pres_con_equipe.cd_prestador (+)
+   and itreg_fat.cd_ati_med = ati_med.cd_ati_med (+)
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and con_pla.cd_convenio = reg_fat.cd_convenio
+   and con_pla.cd_con_pla = reg_fat.cd_con_pla
+   and empresa_con_pla.cd_con_pla = con_pla.cd_con_pla
+   and empresa_con_pla.cd_convenio = con_pla.cd_convenio
+   and empresa_con_pla.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and atendime.cd_atendimento = reg_fat.cd_atendimento
+   and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+   and convenio.cd_convenio = reg_fat.cd_convenio
+   and for_apre.cd_for_apre = convenio.cd_for_apre
+   and itfor_apre_gru_fat.cd_for_apre = for_apre.cd_for_apre
+   and itfor_apre_gru_fat.cd_gru_fat = itreg_fat.cd_gru_fat
+   and itreg_fat.cd_reg_fat = :CAMPO_CD_REG_FAT
+   and reg_fat.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+   and itreg_fat.cd_reg_fat = itcob_pre.cd_reg_fat (+)
+   and itreg_fat.cd_lancamento = itcob_pre.cd_lancamento (+)
+   and itcob_pre.cd_fornecedor = fornecedor.cd_fornecedor (+)
+   and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+   and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   and hospital.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and ati_med_equipe.cd_ati_med (+) = itlan_med.cd_ati_med
+   and prestador_equipe.cd_prestador (+) = itlan_med.cd_prestador
+   and cod_pro.cd_pro_fat (+) = itreg_fat.cd_pro_fat
+   and imp_simpro.cd_pro_fat (+) = simpro_tab.cd_pro_fat
+   and imp_simpro.cd_tab_fat (+) = simpro_tab.cd_tab_fat
+   and itreg_fat.cd_pro_fat = simpro_tab.cd_pro_fat (+)
+    AND ITREG_FAT.CD_PRO_FAT = HIERARQUIZADO.CD_PRO_FAT(+)
+   and padrao_cobranca.cd_padrao (+) = itreg_fat.cd_padrao
+   and imp_simpro.cd_simpro = simpro.cd_simpro (+)
+   and itfor_apre_gru_fat.tp_data <> 'H'
+   and :CAMPO_DETALHADA = 'N'
+group by  gru_fat.cd_gru_fat,
+          gru_fat.ds_gru_fat,
+          decode(for_apre.tp_fatura,'T',gru_pro.ds_gru_pro,null) ,
+          itreg_fat.cd_pro_fat,
+          ati_med_equipe.cd_ati_med,
+          pro_fat.ds_pro_fat,
+          cod_pro.ds_nome_cobranca,
+          simpro.ds_simpro,
+          ITREG_FAT.CD_PRO_FAT,  HOSPITAL.CD_HOSPITAL,ITREG_FAT.VL_UNITARIO , ITFOR_APRE_GRU_FAT.SN_IMPRIME_VL_FILME,
+          hierarquizado.cd_pro_fat_hierarquizado,hierarquizado.ds_pro_fat_hierarquizado,itfor_apre_gru_fat.sn_imprime_cbhpm,
+          itfor_apre_gru_fat.sn_imprime_simpro,
+          itreg_fat.vl_filme_unitario,
+          decode(configuracao.valor,'N',decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor,null),
+                   decode(for_apre.sn_imprime_setor,'S',itreg_fat.cd_setor_produziu,itreg_fat.cd_setor)), 
+           itreg_fat.cd_prestador,
+          prestador_equipe.cd_prestador,
+      itreg_fat.nr_difep,
+      gru_pro.cd_gru_pro,
+      itfor_apre_gru_fat.sn_imprime_difep,
+      convenio.cd_convenio,
+      gru_fat.cd_gru_fat,
+          DECODE(itfor_apre_gru_fat.tp_data,'S',NULL,itreg_fat.dt_lancamento),
+          DECODE(for_apre.sn_imprime_kit,'N',NULL,itreg_fat.cd_padrao),
+        decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null, 
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat), 
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),
+        decode(itfor_apre_gru_fat.sn_imprime_simpro,'N',decode(cod_pro.ds_nome_cobranca,null, 
+        decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',substr(hierarquizado.ds_pro_fat_hierarquizado,1,60),pro_fat.ds_pro_fat), 
+        cod_pro.ds_nome_cobranca),substr(simpro.ds_simpro,1,60)),
+       nvl(cod_pro.ds_unidade_cobranca,pro_fat.ds_unidade), 
+       nvl(cod_pro.ds_codigo_cobranca,decode(itfor_apre_gru_fat.sn_imprime_cbhpm,'S',hierarquizado.cd_pro_fat_hierarquizado,itreg_fat.cd_pro_fat)),  
+       itreg_fat.sn_horario_especial,
+          itreg_fat.vl_percentual_multipla,
+          nvl(itlan_med.tp_pagamento,nvl(itreg_fat.tp_pagamento,'P')))
+ORDER BY tipo_emissao, cd_seq_detalhe_gru_fat, cd_setor, cd_gru_pro, cd_padrao, nr_difep, tp_mvto_ordenacao,
+         dt_lancamento, hr_lancamento, cf_apres_ds_pro_fat, cd_lancamento, cd_ati_med_equipe, cd_ati_med
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_GRU_FAT_R_PACIENTE_Q_ATENDIMENTO
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+               dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) NM_PACIENTE,
+               PACIENTE.DT_NASCIMENTO,
+               PACIENTE.TP_SEXO,
+               PACIENTE.TP_COR,
+               DBAMV.FNC_ESTADO_CIVIL(PACIENTE.TP_ESTADO_CIVIL) TP_ESTADO_CIVIL1,
+               PACIENTE.NR_DOCUMENTO,
+               PACIENTE.NM_MAE,
+               PACIENTE.DS_ENDERECO,
+               PACIENTE.NR_ENDERECO,
+               PACIENTE.NM_BAIRRO,
+               PACIENTE.NR_CEP,
+               PACIENTE.NR_FONE,
+               PACIENTE.DT_CADASTRO,
+               ATENDIME.CD_ATENDIMENTO,
+               ATENDIME.CD_PACIENTE,
+               ATENDIME.DT_ATENDIMENTO,
+               TO_CHAR(ATENDIME.HR_ATENDIMENTO,'HH24') HR_ATENDIMENTO,
+               ATENDIME.DT_ALTA,
+               TO_CHAR(ATENDIME.HR_ALTA,'HH24') HR_ALTA,
+               ATENDIME.CD_SERVICO,
+               ATENDIME.CD_SER_DIS,
+               ATENDIME.TP_ATENDIMENTO,
+               ATENDIME.DT_VAL_GUIA      DT_VAL_GUIA1,
+               ATENDIME.NR_GUIA,
+               ATENDIME.CD_MOT_ALT,
+               ORI_ATE.DS_ORI_ATE,
+               PRO_INT.CD_PRO_FAT CD_PRO_INT,
+               PRO_INT.DS_PRO_FAT DS_PRO_INT,
+               PRESTADOR.NM_PRESTADOR,
+               PRESTADOR.DS_CODIGO_CONSELHO,
+               LEITO.DS_ENFERMARIA,
+               LEITO.DS_LEITO,
+               CONVENIO.NM_CONVENIO,
+               CONVENIO.TP_CONVENIO,
+               CID.CD_CID,
+               CID.DS_CID,
+               SERVICO.DS_SERVICO,
+               SERVICO.TP_ANAMNESE TP_ANAM_SERVICO,
+               SER_DIS.DS_SER_DIS,
+               SER_DIS.TP_ANAMNESE TP_ANAM_SER_DIS,
+               TIP_ACOM.DS_TIP_ACOM,
+               RESPONSA.NM_RESPONSAVEL,
+               CIDADE.NM_CIDADE,
+               CIDADE.CD_UF,
+               REG_FAT.CD_REG_FAT,
+               REG_FAT.DT_INICIO,
+               REG_FAT.DT_FINAL,
+               REG_FAT.DT_GUIA,
+               REG_FAT.NR_GUIA,
+               REG_FAT.VL_ACRESCIMO_CONTA,
+               REG_FAT.VL_DESCONTO_CONTA,
+               REG_FAT.VL_ACRESCIMO_EXTRA,
+               REG_FAT.VL_DESCONTO_EXTRA,
+               REG_FAT.VL_TOTAL_CONTA,
+               REG_FAT.VL_TOTAL_EXTRAS,
+               REG_FAT.CD_TIP_ACOM,
+               REG_FAT.CD_REMESSA,
+               TIP_ACOM2.DS_TIP_ACOM DS_TIP_ACOM2,
+               REG_FAT.CD_CON_PLA,
+               REG_FAT.CD_CONVENIO CD_CONVENIO,
+               CON_PLA.DS_CON_PLA,
+               MOT_ALT.DS_MOT_ALT,
+               SUB_PLANO.CD_SUB_PLANO,
+               REG_FAT.DS_OBSERVACAO_FRANQUIA,
+               REG_FAT.NR_SEQ_PREIMPRE NR_SEQ_PREIMPRE
+FROM DBAMV.PACIENTE PACIENTE,
+            DBAMV.CIDADE CIDADE,
+            DBAMV.ATENDIME ATENDIME,
+            DBAMV.ORI_ATE ORI_ATE,
+            DBAMV.MOT_ALT,
+            DBAMV.PRO_FAT PRO_INT,
+            DBAMV.PRESTADOR PRESTADOR,
+            DBAMV.LEITO LEITO,
+            DBAMV.CONVENIO CONVENIO,
+            DBAMV.CID CID,
+            DBAMV.SERVICO SERVICO,
+            DBAMV.SER_DIS SER_DIS,
+            DBAMV.TIP_ACOM TIP_ACOM,
+            DBAMV.RESPONSA RESPONSA,
+            DBAMV.REG_FAT REG_FAT,
+            DBAMV.TIP_ACOM TIP_ACOM2,
+            DBAMV.CON_PLA CON_PLA,
+            DBAMV.SUB_PLANO
+Where ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+  AND     REG_FAT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+  AND     PACIENTE.CD_CIDADE    = CIDADE.CD_CIDADE(+)
+  AND     ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+  AND     ATENDIME.CD_MOT_ALT = MOT_ALT.CD_MOT_ALT(+)
+  AND     REG_FAT.CD_PRO_FAT_SOLICITADO = PRO_INT.CD_PRO_FAT(+)
+  AND     ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+  AND     ATENDIME.CD_LEITO     = LEITO.CD_LEITO (+)
+  AND     ATENDIME.CD_CID       = CID.CD_CID (+)
+  AND     ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO (+)
+  AND     ATENDIME.CD_SER_DIS   = SER_DIS.CD_SER_DIS (+)
+  AND     ATENDIME.CD_TIP_ACOM  = TIP_ACOM.CD_TIP_ACOM (+)
+  AND     ATENDIME.CD_ATENDIMENTO = RESPONSA.CD_ATENDIMENTO (+)
+  AND     REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+  AND     REG_FAT.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+  AND     TIP_ACOM2.CD_TIP_ACOM = REG_FAT.CD_TIP_ACOM
+  AND     ( CON_PLA.CD_CON_PLA    = REG_FAT.CD_CON_PLA
+  AND       CON_PLA.CD_CONVENIO   = REG_FAT.CD_CONVENIO )
+  AND      ATENDIME.CD_SUB_PLANO = SUB_PLANO.CD_SUB_PLANO(+)
+  AND    ATENDIME.CD_CONVENIO = SUB_PLANO.CD_CONVENIO(+)
+  AND    ATENDIME.CD_CON_PLA = SUB_PLANO.CD_CON_PLA(+)

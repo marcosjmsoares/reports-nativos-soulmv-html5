@@ -1,0 +1,112 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_ADIANT_SINT
+SELECT * FROM (
+select  cp.cd_con_pag    cd_con_pag
+        , cp.cd_fornecedor                                                         cd_fornecedor
+        ,decode( fornec.nm_fornecedor,'',cp.ds_fornecedor,fornec.nm_fornecedor)   nm_fornecedor
+        ,pc.dt_pagamento                                                            dt_registro
+        ,ltrim( cp.ds_con_pag || ' ' ) || hp.ds_historico_padrao                  historico
+        ,cp.nr_documento || '/' || it.nr_parcela                                  nr_documento
+        ,it.vl_duplicata                                                          vl_adiantamento
+        ,cp.tp_adiantamento                                                       tp_adiantamento
+        ,cp.cd_reduzido cd_reduzido
+	,prest_cont.cd_prestacao_contas
+	    ,nvl(con_rec_pag.vl_prestacao,0) + nvl(prest_cont.vl_prestacao,0) vl_prestacao
+	    ,dt_prestacao dt_prestacao
+from     dbamv.con_pag             cp
+        ,dbamv.itcon_pag           it
+        ,dbamv.pagcon_pag          pc
+        ,dbamv.historico_padrao    hp
+        ,dbamv.fornecedor          fornec
+        ,dbamv.ratcon_pag          ratcon_pag
+		,(SELECT  cd_prestacao_contas, pr.cd_con_pag    cd_con_pag_prest
+               ,nvl(pr.vl_prestacao, 0) vl_prestacao
+               ,trunc(pr.dt_prestacao_contas) dt_prestacao
+            FROM     dbamv.prestacao_de_contas pr
+            WHERE  trunc(pr.dt_prestacao_contas) <= :CAMPO_DATA_BASE ) prest_cont
+     ,(
+            SELECT NULL cd_prestacao_contas,  cp.cd_con_pag    cd_con_pag_prest
+               ,nvl(cr.VL_PREVISTO, 0) vl_prestacao
+               , :CAMPO_DATA_BASE dt_prestacao_contas
+ FROM dbamv.con_pag cp, dbamv.con_rec cr
+ WHERE   cp.cd_con_rec_prest = cr.cd_con_rec AND cp.cd_con_pag in (SELECT cd_con_pag FROM dbamv.prestacao_de_contas pc WHERE pc.cd_con_pag = cp.cd_con_pag AND  trunc(pc.dt_prestacao_contas) <=  :CAMPO_DATA_BASE)
+) con_rec_pag
+where    cp.cd_multi_empresa      = :CAMPO_CD_MULTI_EMPRESA 
+and :CAMPO_PERIODO = 1
+and      cp.tp_adiantamento     is not null
+and      trunc(pc.dt_pagamento)           >= :CAMPO_DT_INIC
+and      trunc(pc.dt_pagamento)           <= :CAMPO_DT_FIM
+and      cp.cd_historico_padrao =  hp.cd_historico_padrao(+)
+and      cp.cd_con_pag          =  it.cd_con_pag
+and      it.cd_itcon_pag        =  pc.cd_itcon_pag
+and      cp.cd_fornecedor       =  fornec.cd_fornecedor(+)
+and      ratcon_pag.cd_con_pag = cp.cd_con_pag
+and      nvl(pc.sn_estorno,'N') <> 'S'
+AND      con_rec_pag.cd_con_pag_prest(+) = it.cd_con_pag
+AND      prest_cont.cd_con_pag_prest(+) = it.cd_con_pag
+AND      cp.cd_con_pag not in (	SELECT d.cd_con_pag
+																	FROM dbamv.prestacao_de_contas d
+									               WHERE d.cd_con_pag  = cp.cd_con_pag
+															     and  trunc(d.dt_prestacao_contas)           >= :CAMPO_DT_INIC
+                                   and  trunc(d.dt_prestacao_contas)           <= :CAMPO_DATA_BASE
+															GROUP BY    d.cd_con_pag
+															  HAVING	
+and      pc.dt_estorno is null
+Union
+select  cp.cd_con_pag    cd_con_pag
+        , cp.cd_fornecedor                                                         cd_fornecedor
+        ,decode( fornec.nm_fornecedor,'',cp.ds_fornecedor,fornec.nm_fornecedor)   nm_fornecedor
+        ,pc.dt_pagamento                                                            dt_registro
+        ,ltrim( cp.ds_con_pag || ' ' ) || hp.ds_historico_padrao                  historico
+        ,cp.nr_documento || '/' || it.nr_parcela                                  nr_documento
+        ,it.vl_duplicata                                                          vl_adiantamento
+        ,cp.tp_adiantamento                                                       tp_adiantamento
+        ,cp.cd_reduzido cd_reduzido
+	,pr.cd_prestacao_contas
+	,nvl(con_rec_pag.vl_prestacao,0) + nvl(prest_cont.vl_prestacao,0) vl_prestacao
+	,dt_prestacao dt_prestacao
+from     dbamv.con_pag             cp
+        ,dbamv.itcon_pag           it
+        ,dbamv.pagcon_pag          pc
+        ,dbamv.historico_padrao    hp
+        ,dbamv.fornecedor          fornec
+        ,dbamv.prestacao_de_contas pr
+        ,dbamv.ratcon_pag          ratcon_pag
+		,(SELECT  cd_prestacao_contas, pr.cd_con_pag    cd_con_pag_prest
+               ,nvl(pr.vl_prestacao, 0) vl_prestacao
+               ,trunc(pr.dt_prestacao_contas) dt_prestacao
+            FROM     dbamv.prestacao_de_contas pr
+            WHERE  trunc(pr.dt_prestacao_contas) <= :CAMPO_DATA_BASE ) prest_cont
+     ,(
+            SELECT NULL cd_prestacao_contas,  cp.cd_con_pag    cd_con_pag_prest
+               ,nvl(cr.VL_PREVISTO, 0) vl_prestacao
+               , :CAMPO_DATA_BASE dt_prestacao_contas
+ FROM dbamv.con_pag cp, dbamv.con_rec cr
+ WHERE   cp.cd_con_rec_prest = cr.cd_con_rec AND cp.cd_con_pag in (SELECT cd_con_pag FROM dbamv.prestacao_de_contas pc WHERE pc.cd_con_pag = cp.cd_con_pag AND  trunc(pc.dt_prestacao_contas) <=  :CAMPO_DATA_BASE)
+) con_rec_pag
+where    cp.cd_multi_empresa      = :CAMPO_CD_MULTI_EMPRESA 
+and :CAMPO_PERIODO = 2
+and  trunc(pr.dt_prestacao_contas)           >= :CAMPO_DT_INIC
+and  trunc(pr.dt_prestacao_contas)           <= :CAMPO_DT_FIM
+and      cp.tp_adiantamento     is not null
+and      cp.cd_historico_padrao =  hp.cd_historico_padrao(+)
+and      cp.cd_con_pag          =  it.cd_con_pag
+and      it.cd_itcon_pag        =  pc.cd_itcon_pag
+and      cp.cd_fornecedor       =  fornec.cd_fornecedor(+)
+and      ratcon_pag.cd_con_pag = cp.cd_con_pag
+and      cp.cd_con_pag              =  pr.cd_con_pag(+)
+and      nvl(pc.sn_estorno,'N') <> 'S'
+AND      con_rec_pag.cd_con_pag_prest(+) = it.cd_con_pag
+AND      prest_cont.cd_con_pag_prest(+) = it.cd_con_pag
+AND      cp.cd_con_pag not in (	SELECT d.cd_con_pag
+																	FROM dbamv.prestacao_de_contas d
+									               WHERE d.cd_con_pag  = cp.cd_con_pag
+															     and  trunc(d.dt_prestacao_contas)           >= :CAMPO_DT_INIC
+                                   and  trunc(d.dt_prestacao_contas)           <= :CAMPO_DT_FIM
+															GROUP BY    d.cd_con_pag
+															  HAVING	
+and      pc.dt_estorno is null
+)
+ORDER BY CD_REDUZIDO,
+NM_FORNECEDOR,CD_FORNECEDOR,
+CD_CON_PAG,DT_REGISTRO

@@ -1,0 +1,39 @@
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_MEDIO_GUIA_CONVENIO
+SELECT cd_convenio,
+       Trunc(tempo_intervalo / quantidade_total)
+       || ' Dia(s) '
+       || Trunc(Mod(tempo_intervalo / quantidade_total * 24, 24))
+       || ' Horas' Tempo,
+       quantidade_total,
+       'Internado' tp_guia
+FROM   (SELECT cd_convenio,
+               Count(cd_convenio)                   quantidade_total,
+               Sum(dt_autorizacao - dt_solicitacao) tempo_intervalo,
+               tp_guia
+        FROM   guia
+        WHERE  dt_solicitacao IS NOT NULL
+               AND dt_autorizacao IS NOT NULL
+               AND cd_aviso_cirurgia IS NOT NULL
+               AND tp_guia='I'
+               AND trunc(guia.dt_solicitacao) between trunc(:CAMPO_DT_INICIAL) and trunc(:CAMPO_DT_FINAL)
+        GROUP  BY cd_convenio,tp_guia)
+union
+SELECT cd_convenio,
+       Trunc(tempo_intervalo / quantidade_total)
+       || ' Dia(s) '
+       || Trunc(Mod(tempo_intervalo / quantidade_total * 24, 24))
+       || ' Horas' Tempo,
+       quantidade_total,
+       'OPME' tp_guia
+FROM   (SELECT cd_convenio,
+               Count(cd_convenio)                   quantidade_total,
+               Sum(dt_autorizacao - dt_solicitacao) tempo_intervalo
+        FROM   guia
+        WHERE  dt_solicitacao IS NOT NULL
+               AND dt_autorizacao IS NOT NULL
+               AND cd_aviso_cirurgia IS NOT NULL
+               AND tp_guia='P'
+               AND trunc(guia.dt_solicitacao) between trunc(:CAMPO_DT_INICIAL) and trunc(:CAMPO_DT_FINAL)
+        GROUP  BY cd_convenio)
+ORDER BY cd_convenio

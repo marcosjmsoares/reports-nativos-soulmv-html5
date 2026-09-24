@@ -1,0 +1,66 @@
+/*----------------------------------------------------------------------------*/
+--R_SAC_DADOS_CHAMADO
+SELECT * FROM (
+select sac_solicitacao.cd_solicitacao
+      ,origem_sac_solicitacao.nm_origem
+      ,paciente.cd_paciente
+      ,paciente.nm_paciente
+      ,to_char((select max(alt.alt_data)
+          from dbamv.sac_altera_situacao alt
+         where alt.cd_solicitacao = Sac_Solicitacao.Cd_Solicitacao),'dd/mm/yyyy hh24' ) Data_situacao
+      ,sac_solicitacao.nm_origem nome
+      ,sac_solicitacao.nr_ident
+      ,(select decode (altera.tp_situacao,'A','Aberto'
+                                         ,'G','Aguardando Retorno'
+                                         ,'E','Em Análise'
+                                         ,'M','Em Acompanhamento'
+                                         ,'O','Aguardando Correção'
+                                         ,'F','Finalizado'
+                                         ,'C','Retorno ao Cliente'
+                                         ,'R','Retornado')
+          from dbamv.sac_altera_situacao altera
+         where altera.cd_solicitacao = Sac_Solicitacao.Cd_Solicitacao
+           and altera.alt_data = ( select max(alt.alt_data)
+                                     from dbamv.sac_altera_situacao alt
+                                    where alt.cd_solicitacao = Sac_Solicitacao.Cd_Solicitacao)) situacao_sac
+      ,tipo_sac_chamado.cd_chamado
+      ,tipo_sac_chamado.nm_chamado
+      ,tipo_sac_chamado_nivel.cd_nivel
+      ,tipo_sac_chamado_nivel.nm_nivel
+      ,sac_solicitacao.end_ret_contato
+      ,sac_solicitacao.nro_ret_contato
+      ,sac_solicitacao.compl_ret_contato
+      ,sac_solicitacao.cep
+      ,sac_solicitacao.hr_ret_contato
+      ,sac_solicitacao.observacao
+      ,decode(sac_solicitacao.tp_prioridade,'A','Alta','M','Média','Baixa') prioridade
+      ,to_char(sac_solicitacao.dt_previsao_retorno,'dd/mm/yyyy') dt_previsao_retorno
+      ,decode(sac_solicitacao.sn_retorna_contato,'S','Sim','Não') contato
+      ,sac_solicitacao.descr_chamado
+      ,sac_solicitacao.lo_descricao_chamado
+      ,setor.cd_setor
+      ,setor.nm_setor
+      ,sac_chamado_setor.ds_instrucao
+      ,decode(sac_chamado_setor.tp_situacao,'A','Aberto'
+                                           ,'G','Aguardando Retorno'
+                                           ,'P','Respondido Parcialmente'
+                                           ,'R','Respondido'
+                                           ,'F','Finalizado'
+                                           ,'C','Ciente') tp_setor_situacao
+      ,sac_chamado_setor.CD_SAC_PARECER_SETOR
+from dbamv.sac_solicitacao
+      ,dbamv.paciente
+      ,dbamv.origem_sac_solicitacao
+      ,dbamv.tipo_sac_chamado
+      ,dbamv.tipo_sac_chamado_nivel
+      ,dbamv.sac_chamado_setor
+      ,dbamv.setor
+where sac_solicitacao.cd_origem = origem_sac_solicitacao.cd_origem
+    and sac_solicitacao.cd_chamado = tipo_sac_chamado.cd_chamado
+    and sac_solicitacao.cd_nivel = tipo_sac_chamado_nivel.cd_nivel
+    and sac_solicitacao.cd_multi_empresa = nvl(dbamv.pkg_mv2000.le_empresa, sac_solicitacao.cd_multi_empresa)
+    and paciente.cd_paciente(+) = sac_solicitacao.cd_paciente
+    and sac_solicitacao.cd_solicitacao = sac_chamado_setor.cd_solicitacao(+)
+    and sac_chamado_setor.cd_setor = setor.cd_setor(+)
+    and sac_solicitacao.cd_solicitacao =  :CAMPO_CD_SOLICITACAO
+)

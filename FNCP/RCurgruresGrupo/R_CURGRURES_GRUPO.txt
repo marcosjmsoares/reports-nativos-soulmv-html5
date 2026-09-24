@@ -1,0 +1,63 @@
+/*----------------------------------------------------------------------------*/
+--R_CURGRURES_GRUPO
+select   decode( gru_res.cd_gru_res, null, 1, 0 ) cd_ordem,
+         gru_res.cd_gru_res,
+         decode( gru_res.ds_gru_res, null, 'NÃO INFORMADO', gru_res.ds_gru_res ) ds_gru_res,
+         sum(  round( ( (   decode( ratcon_pag.vl_rateio,
+                            null,(  nvl( con_pag.vl_bruto_conta, 0 )
+                                  + nvl( con_pag.vl_desconto, 0 )
+                                  - nvl( con_pag.vl_acrescimo, 0 )), nvl( ratcon_pag.vl_rateio,0 ) )
+                  / (   nvl( con_pag.vl_bruto_conta, 0 )
+                      + nvl( con_pag.vl_desconto, 0 )
+                      - nvl( con_pag.vl_acrescimo, 0 )))
+              * nvl( pagcon_pag.vl_pago, 0 ) ), 2 ) ) vl_total,
+(select   sum(  round( ( (   decode( ratcon_pag.vl_rateio,
+                            null,(  nvl( con_pag.vl_bruto_conta, 0 )
+                                  + nvl( con_pag.vl_desconto, 0 )
+                                  - nvl( con_pag.vl_acrescimo, 0 )), nvl( ratcon_pag.vl_rateio,0 ) )
+                  / (   nvl( con_pag.vl_bruto_conta, 0 )
+                      + nvl( con_pag.vl_desconto, 0 )
+                      - nvl( con_pag.vl_acrescimo, 0 )))
+              * nvl( pagcon_pag.vl_pago, 0 ) ), 2 ) ) vl_total
+    from dbamv.item_res,
+         dbamv.gru_res,
+         dbamv.con_pag,
+         dbamv.itcon_pag,
+         dbamv.ratcon_pag,
+         dbamv.pagcon_pag
+   where con_pag.cd_con_pag = itcon_pag.cd_con_pag
+     and itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+     and con_pag.cd_con_pag = ratcon_pag.cd_con_pag(+)
+     and ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+     and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+     and con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and trunc( itcon_pag.dt_vencimento ) between :CAMPO_DT_INIC and 
+     and itcon_pag.cd_con_pag_agrup is null
+     and pagcon_pag.dt_baixa is not null
+     and nvl( con_pag.vl_bruto_conta, 0 ) > 0
+     and nvl( itcon_pag.vl_duplicata, 0 ) > 0
+     and con_pag.cd_con_pag_dev is null
+     and con_pag.cd_previsao is null
+:CAMPO_CF_GRU_RES) vl_total_geral
+    from dbamv.item_res,
+         dbamv.gru_res,
+         dbamv.con_pag,
+         dbamv.itcon_pag,
+         dbamv.ratcon_pag,
+         dbamv.pagcon_pag
+   where con_pag.cd_con_pag = itcon_pag.cd_con_pag
+     and itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+     and con_pag.cd_con_pag = ratcon_pag.cd_con_pag(+)
+     and ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+     and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+     and con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and trunc( itcon_pag.dt_vencimento ) between :CAMPO_DT_INIC and 
+     and itcon_pag.cd_con_pag_agrup is null
+     and pagcon_pag.dt_baixa is not null
+     and nvl( con_pag.vl_bruto_conta, 0 ) > 0
+     and nvl( itcon_pag.vl_duplicata, 0 ) > 0
+     and con_pag.cd_con_pag_dev is null
+     and con_pag.cd_previsao is null
+group by gru_res.cd_gru_res,
+         gru_res.ds_gru_res
+order by gru_res.cd_gru_res,vl_total desc

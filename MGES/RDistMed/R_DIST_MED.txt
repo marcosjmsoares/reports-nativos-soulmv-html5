@@ -1,0 +1,375 @@
+/*----------------------------------------------------------------------------*/
+--R_DIST_MED
+SELECT cd_estoque
+     , cd_estoque ||' - ' || ds_estoque AS ds_estoque
+     , cd_setor
+     , cd_setor ||' - ' ||nm_Setor AS nm_Setor
+     , cd_unid_int
+     , cd_unid_int ||' - ' || ds_unid_int AS ds_unid_int
+     , cd_paciente
+     , cd_paciente ||' - ' || nm_paciente AS nm_paciente
+     , cd_atendimento
+     , cd_leito
+     , cd_leito ||' - ' || Ds_leito AS Ds_leito
+     , cd_solsai_pro
+     , Dt_SolSai_Pro
+     , Hr_SolSai_Pro
+     , Hr_SolSai_Pro_PRESC
+     , cd_produto
+     , ds_produto
+     , ds_unidade_presc
+     , cd_uni_pro
+     , ds_unidade
+     , ds_localizacao
+     , cd_for_apl
+     , ds_for_apl
+     , Qt_Solicitado
+     , cd_pre_med
+     , cd_ITpre_med
+     , ITEM
+     , DS_ITPRE_MED
+     , cd_identificador
+     , OBS_PRE_DEFINIDA
+     , OBS_TECNICA
+     , QT_PRESC
+     , SN_PSCOTROPICO
+     , SN_COMPONENTE
+     , TP_SITUACAO
+ FROM (
+SELECT SolSai_Pro.cd_estoque
+     , Estoque.ds_estoque
+     , SolSai_Pro.cd_setor
+     , Setor.nm_Setor
+     , SolSai_Pro.cd_unid_int
+     , Unid_int.ds_unid_int
+     , Atendime.cd_paciente
+     , paciente.nm_paciente
+     , SolSai_Pro.cd_atendimento
+     , Atendime.cd_leito
+     , Leito.Ds_leito
+     , SolSai_Pro.cd_solsai_pro
+     , NVL((Select distinct min(hritsolsai_pro.dh_medicacao) dia  From hritsolsai_pro,  itsolsai_pro it Where hritsolsai_pro.cd_itsolsai_pro = it.cd_itsolsai_pro And it.cd_solsai_pro =SOLSAI_PRO.cd_solsai_pro) ,SOLSAI_PRO.DT_SOLSAI_PRO + (SOLSAI_PRO.HR_SOLSAI_PRO - Trunc(SOLSAI_PRO.HR_SOLSAI_PRO))) DT_SOLSAI_PRO
+     , SolSai_Pro.hr_solsai_pro
+     ,NVL((Select distinct min(hritsolsai_pro.dh_medicacao) dia  From hritsolsai_pro,  itsolsai_pro it Where hritsolsai_pro.cd_itsolsai_pro = it.cd_itsolsai_pro And it.cd_solsai_pro =SOLSAI_PRO.cd_solsai_pro) ,SOLSAI_PRO.DT_SOLSAI_PRO + (SOLSAI_PRO.HR_SOLSAI_PRO - Trunc(SOLSAI_PRO.HR_SOLSAI_PRO))) HR_SOLSAI_PRO_PRESC
+     , ItSolSai_Pro.cd_produto
+     , produto.ds_produto
+     ,NVL(
+         ( SELECT uni_pro.ds_unidade cd_unidade
+                FROM dbamv.Uni_pro
+               WHERE Uni_pro.cd_uni_pro = tip_presc.cd_uni_pro )
+        ,( Nvl ((SELECT uni_presc.ds_unidade_presc cd_unidade
+                FROM dbamv.uni_presc
+               WHERE uni_presc.cd_uni_presc = itpre_med.cd_uni_presc),
+          (SELECT uni_pro.ds_unidade cd_unidade
+                FROM dbamv.Uni_pro
+               WHERE Uni_pro.cd_uni_pro = itpre_med.cd_uni_pro)
+               )
+             ) ) ds_unidade_presc
+     , itsolsai_pro.cd_uni_pro
+     , (SELECT uni_pro.ds_unidade FROM Dbamv.uni_pro WHERE uni_pro.cd_uni_pro = ItSolSai_Pro.cd_uni_pro) ds_unidade
+     , ItPre_Med.cd_for_apl
+     , for_apl.ds_for_apl
+     , localizacao.ds_localizacao
+     , Nvl(ItSolSai_Pro.Qt_Solicitado,0) Qt_Solicitado
+     , SolSai_Pro.cd_pre_med
+     , itsolsai_pro.cd_ITpre_med
+     , dbamv.fnc_mges_mapa_item_comp(itsolsai_pro.cd_produto, itsolsai_pro.cd_ITpre_med) item
+     , itpre_med.ds_itpre_med
+     , identificador_etiqueta.cd_identificador
+     ,  ITPRE_MED.DS_OBSERVACAO_AUTOMATICA OBS_PRE_DEFINIDA
+     , (SELECT pw_avaliacao_itpre_med.ds_avaliacao_item FROM pw_avaliacao_itpre_med WHERE pw_avaliacao_itpre_med.cd_itpre_med = Itpre_med.cd_itpre_med AND ROWNUM = 1 ) OBS_TECNICA
+     , NVL( ITPRE_MED.QT_ITPRE_MED, 0) QT_PRESC
+     , PRODUTO.SN_PSCOTROPICO
+     , Nvl(( SELECT DISTINCT 'S' RETORNO
+				  FROM DBAMV.CITPRE_MED C
+				     , DBAMV.ITPRE_MED IT
+				     , DBAMV.UNI_PRO U
+				     , DBAMV.PRODUTO P
+				 WHERE C.CD_ITPRE_MED = IT.CD_ITPRE_MED
+				   AND U.Cd_UNI_PRO = C.CD_UNI_PRO
+				   AND P.CD_PRODUTO = C.CD_PRODUTO
+				   AND IT.CD_ITPRE_MED = ItPre_Med.cd_itpre_med ),'N') SN_COMPONENTE
+    , CASE WHEN SN_MANIPULADO = 'S' AND CD_TIP_PRESC_KIT IS NULL THEN
+       '1' WHEN CD_TIP_PRESC_KIT IS NULL  THEN '2'
+      END ORDEM ,
+      DECODE(solsai_pro.tp_situacao,'P','Pedido','S','Confirmado','C','Atend. Parcial') tp_situacao
+  FROM dbamv.SolSai_Pro
+     , Dbamv.ItSolSai_Pro
+     , Dbamv.Atendime
+     , Dbamv.Pre_Med
+     , Dbamv.ItPre_Med
+     , Dbamv.Estoque
+     , Dbamv.Setor
+     , Dbamv.Unid_int
+     , Dbamv.Paciente
+     , Dbamv.Leito
+     , Dbamv.Tip_Presc
+     , Dbamv.for_apl
+     , Dbamv.produto
+     , Dbamv.empresa_produto
+     , Dbamv.Est_Pro
+     , Dbamv.Localizacao
+     , Dbamv.identificador_etiqueta
+ WHERE SolSai_Pro.cd_solsai_pro  = ItSolSai_Pro.cd_solsai_pro
+   AND SolSai_Pro.cd_atendimento = Atendime.cd_atendimento
+   AND SolSai_Pro.tp_situacao <> 'A'
+   AND Solsai_Pro.cd_estoque     = estoque.cd_estoque
+   AND Nvl(Est_pro.cd_estoque,99999999999)  =  Decode(Est_pro.cd_estoque,NULL,99999999999, Estoque.cd_estoque)
+   AND Itsolsai_pro.cd_produto   = Est_pro.cd_Produto(+)
+   AND est_pro.cd_localizacao    = localizacao.cd_localizacao(+)
+   AND SolSai_Pro.cd_pre_med     = Pre_Med.cd_pre_med(+)
+   AND Pre_Med.cd_Pre_Med = Itpre_med.cd_pre_med
+   AND SolSai_Pro.cd_setor       = setor.cd_setor(+)
+   AND SolSai_Pro.cd_unid_int    = unid_int.cd_unid_int(+)
+   AND Atendime.cd_paciente      = paciente.cd_paciente
+   AND Atendime.cd_leito         = leito.cd_leito(+)
+   AND Itsolsai_pro.cd_itpre_med = Itpre_med.cd_itpre_med(+)
+   AND ItPre_Med.cd_for_apl      = for_apl.cd_for_apl(+)
+   AND itpre_med.cd_tip_presc    = tip_presc.cd_tip_presc(+)
+   AND Itsolsai_pro.cd_produto   = produto.cd_produto
+   AND produto.cd_produto        = empresa_produto.cd_produto
+   AND empresa_produto.cd_multi_empresa = Dbamv.Pkg_mv2000.le_empresa
+   AND Itsolsai_pro.cd_itsolsai_pro =  identificador_etiqueta.cd_itsolsai_pro(+)
+   AND  (dbamv.pkt_configest.retorna_campo('SN_BLOQUEIA_ATND_IT_PRESC_SUSP') = 'N'
+          OR (dbamv.pkt_configest.retorna_campo('SN_BLOQUEIA_ATND_IT_PRESC_SUSP') = 'S'
+          AND itsolsai_pro.sn_conf_determ_usu = 'N'
+          AND Nvl(INSTR (LOWER (itsolsai_pro.ds_alerta_automatico), 'suspenso', 1),0) = 0
+          AND Nvl(INSTR (LOWER (itsolsai_pro.ds_alerta_automatico), 'cancelado', 1),0) = 0
+         )
+     )
+  AND empresa_produto.sn_manipulado = DECODE(:CAMPO_SN_ITEM_MANIPULADO, '%', empresa_produto.sn_manipulado, :CAMPO_SN_ITEM_MANIPULADO)
+   AND SOLSAI_PRO.CD_ESTOQUE = DECODE(:CAMPO_CD_ESTOQUE, '%', SOLSAI_PRO.CD_ESTOQUE, :CAMPO_CD_ESTOQUE)
+AND Nvl(SOLSAI_PRO.CD_SETOR,9999999999) = DECODE(:CAMPO_CD_SETOR, '%', Nvl(SOLSAI_PRO.CD_SETOR,9999999999), :CAMPO_CD_SETOR)
+AND Nvl(SOLSAI_PRO.CD_UNID_INT,9999999999) = DECODE(:CAMPO_UNID_INT, '%', Nvl(SOLSAI_PRO.CD_UNID_INT,9999999999), :CAMPO_UNID_INT)
+   AND SOLSAI_PRO.TP_SOLSAI_PRO = DECODE(:CAMPO_TP_SOLICITACAO, '%',  SOLSAI_PRO.TP_SOLSAI_PRO  , :CAMPO_TP_SOLICITACAO)
+ORDER BY PRODUTO.SN_PSCOTROPICO
+      ,ORDEM
+     , SolSai_Pro.cd_estoque
+     , Estoque.ds_estoque
+     , SolSai_Pro.cd_setor
+     , Setor.nm_Setor
+     , SolSai_Pro.cd_unid_int
+     , Unid_int.ds_unid_int
+     , Atendime.cd_paciente
+     , paciente.nm_paciente
+     , SolSai_Pro.cd_atendimento
+     , Atendime.cd_leito
+     , Leito.Ds_leito
+     , SolSai_Pro.cd_solsai_pro
+     , SolSai_Pro.Dt_SolSai_Pro
+     , SolSai_Pro.Hr_SolSai_Pro
+     , PRODUTO.SN_PSCOTROPICO
+     , ItSolSai_Pro.cd_produto
+     , produto.ds_produto
+     , ds_unidade_presc
+     , ds_unidade
+     , ItPre_Med.cd_for_apl
+     , for_apl.ds_for_apl
+     , SolSai_Pro.cd_pre_med
+     , itsolsai_pro.cd_ITpre_med
+     , itpre_med.ds_itpre_med
+) WHERE item = 'ITEM_PRINCIPAL'
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIST_MED_COMPONENTE
+SELECT componentes.cd_produto
+, componentes.ds_produto
+, componentes.cd_uni_pro
+, componentes.ds_unidade
+, componentes.qt_componente
+, componentes.ds_citpre_med
+, localizacao.ds_localizacao
+FROM (SELECT C.CD_PRODUTO
+, P.DS_PRODUTO
+, C.CD_UNI_PRO
+, U.DS_UNIDADE
+, C.QT_COMPONENTE
+, c.DS_CITPRE_MED
+, s.cd_estoque
+FROM DBAMV.CITPRE_MED C
+, DBAMV.ITPRE_MED IT
+, DBAMV.UNI_PRO U
+, DBAMV.PRODUTO P
+, Dbamv.Itsolsai_pro ip
+, Dbamv.solsai_pro s
+WHERE C.CD_ITPRE_MED   = IT.CD_ITPRE_MED
+AND U.Cd_UNI_PRO     = C.CD_UNI_PRO
+AND P.CD_PRODUTO     = C.CD_PRODUTO
+AND ip.cd_itpre_med  = it.cd_itpre_med
+AND ip.cd_solsai_pro = s.cd_solsai_pro
+AND IT.CD_ITPRE_MED  = :CAMPO_CD_ITPRE_MED
+GROUP BY C.CD_PRODUTO
+, P.DS_PRODUTO
+, C.CD_UNI_PRO
+, U.DS_UNIDADE
+, C.QT_COMPONENTE
+, c.DS_CITPRE_MED
+, s.cd_estoque ) Componentes
+, dbamv.est_pro
+, dbamv.localizacao
+WHERE componentes.cd_produto  = est_pro.cd_produto(+)
+AND componentes.cd_estoque  = est_pro.cd_estoque(+)
+AND est_pro.cd_localizacao  = localizacao.cd_localizacao(+)
+ORDER BY DS_PRODUTO
+, DS_UNIDADE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIST_MED_RESUMO
+SELECT RESUMO.CD_PRODUTO
+     , RESUMO.DS_PRODUTO
+     , RESUMO.CD_UNI_PRO
+     , RESUMO.DS_UNIDADE
+     , Sum(RESUMO.QT_SOLICITADO) QT_SOLICITADO
+  FROM (
+SELECT cd_estoque
+     , cd_estoque ||' - ' || ds_estoque AS ds_estoque
+     , cd_setor
+     , cd_setor ||' - ' ||nm_Setor AS nm_Setor
+     , cd_unid_int
+     , cd_unid_int ||' - ' || ds_unid_int AS ds_unid_int
+     , cd_paciente
+     , cd_paciente ||' - ' || nm_paciente AS nm_paciente
+     , cd_atendimento
+     , cd_leito
+     , cd_leito ||' - ' || Ds_leito AS Ds_leito
+     , cd_solsai_pro
+     , Dt_SolSai_Pro
+     , Hr_SolSai_Pro
+     , cd_produto
+     , ds_produto
+     , ds_unidade_presc
+     , cd_uni_pro
+     , ds_unidade
+     , ds_localizacao
+     , cd_for_apl
+     , ds_for_apl
+     , Qt_Solicitado
+     , cd_pre_med
+     , cd_ITpre_med
+     , ITEM
+     , DS_ITPRE_MED
+ FROM (
+SELECT SolSai_Pro.cd_estoque
+     , Estoque.ds_estoque
+     , SolSai_Pro.cd_setor
+     , Setor.nm_Setor
+     , SolSai_Pro.cd_unid_int
+     , Unid_int.ds_unid_int
+     , Atendime.cd_paciente
+     , paciente.nm_paciente
+     , SolSai_Pro.cd_atendimento
+     , Atendime.cd_leito
+     , Leito.Ds_leito
+     , SolSai_Pro.cd_solsai_pro
+    , NVL((Select distinct min(hritsolsai_pro.dh_medicacao) dia  From hritsolsai_pro,  itsolsai_pro it Where hritsolsai_pro.cd_itsolsai_pro = it.cd_itsolsai_pro And it.cd_solsai_pro =SOLSAI_PRO.cd_solsai_pro) ,SOLSAI_PRO.DT_SOLSAI_PRO + (SOLSAI_PRO.HR_SOLSAI_PRO - Trunc(SOLSAI_PRO.HR_SOLSAI_PRO))) DT_SOLSAI_PRO
+     , SolSai_Pro.hr_solsai_pro
+     ,NVL((Select distinct min(hritsolsai_pro.dh_medicacao) dia  From hritsolsai_pro,  itsolsai_pro it Where hritsolsai_pro.cd_itsolsai_pro = it.cd_itsolsai_pro And it.cd_solsai_pro =SOLSAI_PRO.cd_solsai_pro) ,SOLSAI_PRO.DT_SOLSAI_PRO + (SOLSAI_PRO.HR_SOLSAI_PRO - Trunc(SOLSAI_PRO.HR_SOLSAI_PRO))) HR_SOLSAI_PRO_PRESC
+     , ItSolSai_Pro.cd_produto
+     , produto.ds_produto
+     ,NVL(
+         ( SELECT uni_pro.ds_unidade cd_unidade
+                FROM dbamv.Uni_pro
+               WHERE Uni_pro.cd_uni_pro = tip_presc.cd_uni_pro )
+        ,( Nvl ((SELECT uni_presc.ds_unidade_presc cd_unidade
+                FROM dbamv.uni_presc
+               WHERE uni_presc.cd_uni_presc = itpre_med.cd_uni_presc),
+          (SELECT uni_pro.ds_unidade cd_unidade
+                FROM dbamv.Uni_pro
+               WHERE Uni_pro.cd_uni_pro = itpre_med.cd_uni_pro)
+               )
+             ) ) ds_unidade_presc
+     , itsolsai_pro.cd_uni_pro
+     , (SELECT uni_pro.ds_unidade FROM Dbamv.uni_pro WHERE uni_pro.cd_uni_pro = ItSolSai_Pro.cd_uni_pro) ds_unidade
+     , ItPre_Med.cd_for_apl
+     , for_apl.ds_for_apl
+     , localizacao.ds_localizacao
+     , ItSolSai_Pro.Qt_Solicitado
+     , SolSai_Pro.cd_pre_med
+     , itsolsai_pro.cd_ITpre_med
+     , dbamv.fnc_mges_mapa_item_comp(itsolsai_pro.cd_produto, itsolsai_pro.cd_ITpre_med) item
+     , itpre_med.ds_itpre_med
+     , CASE WHEN SN_MANIPULADO = 'S' AND CD_TIP_PRESC_KIT IS NULL THEN
+       '1' WHEN CD_TIP_PRESC_KIT IS NULL  THEN '2'
+       END ORDEM
+  FROM dbamv.SolSai_Pro
+     , Dbamv.ItSolSai_Pro
+     , Dbamv.Atendime
+     , Dbamv.Pre_Med
+     , Dbamv.ItPre_Med
+     , Dbamv.Estoque
+     , Dbamv.Setor
+     , Dbamv.Unid_int
+     , Dbamv.Paciente
+     , Dbamv.Leito
+     , Dbamv.Tip_Presc
+     , Dbamv.for_apl
+     , Dbamv.produto
+     , Dbamv.empresa_produto
+     , Dbamv.Est_Pro
+     , Dbamv.Localizacao
+ WHERE SolSai_Pro.cd_solsai_pro  = ItSolSai_Pro.cd_solsai_pro
+   AND SolSai_Pro.cd_atendimento = Atendime.cd_atendimento
+   AND SolSai_Pro.tp_situacao <> 'A'
+   AND Solsai_Pro.cd_estoque     = estoque.cd_estoque
+   AND Nvl(Est_pro.cd_estoque,99999999999)  =  Decode(Est_pro.cd_estoque,NULL,99999999999, Estoque.cd_estoque)
+   AND Itsolsai_pro.cd_produto   = Est_pro.cd_Produto(+)
+   AND est_pro.cd_localizacao    = localizacao.cd_localizacao(+)
+   AND SolSai_Pro.cd_pre_med     = Pre_Med.cd_pre_med(+)
+   AND Pre_Med.cd_Pre_Med = Itpre_med.cd_pre_med
+   AND SolSai_Pro.cd_setor       = setor.cd_setor(+)
+   AND SolSai_Pro.cd_unid_int    = unid_int.cd_unid_int(+)
+   AND Atendime.cd_paciente      = paciente.cd_paciente
+   AND Atendime.cd_leito         = leito.cd_leito(+)
+   AND Itsolsai_pro.cd_itpre_med = Itpre_med.cd_itpre_med(+)
+   AND ItPre_Med.cd_for_apl      = for_apl.cd_for_apl(+)
+   AND itpre_med.cd_tip_presc    = tip_presc.cd_tip_presc(+)
+   AND Itsolsai_pro.cd_produto   = produto.cd_produto
+   AND produto.cd_produto        = empresa_produto.cd_produto
+   AND empresa_produto.cd_multi_empresa = Dbamv.Pkg_mv2000.le_empresa
+   AND  (dbamv.pkt_configest.retorna_campo('SN_BLOQUEIA_ATND_IT_PRESC_SUSP') = 'N'
+          OR (dbamv.pkt_configest.retorna_campo('SN_BLOQUEIA_ATND_IT_PRESC_SUSP') = 'S'
+          AND itsolsai_pro.sn_conf_determ_usu = 'N'
+          AND Nvl(INSTR (LOWER (itsolsai_pro.ds_alerta_automatico), 'suspenso', 1),0) = 0
+          AND Nvl(INSTR (LOWER (itsolsai_pro.ds_alerta_automatico), 'cancelado', 1),0) = 0
+         )
+     )
+   AND empresa_produto.sn_manipulado = DECODE(:CAMPO_SN_ITEM_MANIPULADO, '%', empresa_produto.sn_manipulado, :CAMPO_SN_ITEM_MANIPULADO)
+   AND SOLSAI_PRO.CD_ESTOQUE = DECODE(:CAMPO_CD_ESTOQUE, '%', SOLSAI_PRO.CD_ESTOQUE, :CAMPO_CD_ESTOQUE)
+AND Nvl(SOLSAI_PRO.CD_SETOR,9999999999) = DECODE(:CAMPO_CD_SETOR, '%', Nvl(SOLSAI_PRO.CD_SETOR,9999999999), :CAMPO_CD_SETOR)
+AND Nvl(SOLSAI_PRO.CD_UNID_INT,9999999999) = DECODE(:CAMPO_UNID_INT, '%', Nvl(SOLSAI_PRO.CD_UNID_INT,9999999999), :CAMPO_UNID_INT)
+   AND SOLSAI_PRO.TP_SOLSAI_PRO = DECODE(:CAMPO_TP_SOLICITACAO, '%',  SOLSAI_PRO.TP_SOLSAI_PRO  , :CAMPO_TP_SOLICITACAO)
+ORDER BY SolSai_Pro.cd_estoque
+     , Estoque.ds_estoque
+     , SolSai_Pro.cd_setor
+     , Setor.nm_Setor
+     , SolSai_Pro.cd_unid_int
+     , Unid_int.ds_unid_int
+     , Atendime.cd_paciente
+     , paciente.nm_paciente
+     , SolSai_Pro.cd_atendimento
+     , Atendime.cd_leito
+     , Leito.Ds_leito
+     , SolSai_Pro.cd_solsai_pro
+     , SolSai_Pro.Dt_SolSai_Pro
+     , SolSai_Pro.Hr_SolSai_Pro
+     , ItSolSai_Pro.cd_produto
+     , produto.ds_produto
+     , ds_unidade_presc
+     , ds_unidade
+     , ItPre_Med.cd_for_apl
+     , for_apl.ds_for_apl
+     , SolSai_Pro.cd_pre_med
+     , itsolsai_pro.cd_ITpre_med
+     , itpre_med.ds_itpre_med
+) WHERE item = 'ITEM_PRINCIPAL'
+)RESUMO
+GROUP BY RESUMO.CD_PRODUTO
+     , RESUMO.DS_PRODUTO
+     , RESUMO.CD_UNI_PRO
+     , RESUMO.DS_UNIDADE
+ORDER BY RESUMO.DS_PRODUTO
+       , RESUMO.DS_UNIDADE

@@ -1,0 +1,95 @@
+/*----------------------------------------------------------------------------*/
+--R_CAUCAO_CAIXA_PACIENTE_CONV
+SELECT nm_paciente,
+       nm_convenio,
+       nm_social_paciente,
+       dt_caucao,
+       Sum(vl_movimentacao) vl_movimentacao
+FROM (
+select initcap(p.nm_paciente)     nm_paciente
+	  ,initcap(p.nm_social_paciente)     nm_social_paciente
+      ,co.nm_convenio             nm_convenio
+      ,trunc(ca.dt_caucao)               dt_caucao
+      ,dbamv.fnc_fnfi_calcula_moeda(sysdate, :CAMPO_CD_MULTI_EMPRESA,dbamv.moeda_padrao(a.cd_multi_empresa),:CAMPO_CD_MOEDA,(ca.vl_caucao)) vl_movimentacao
+from   dbamv.mov_caixa  m
+      ,dbamv.caucao     ca
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+      ,dbamv.convenio   co
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Co.Cd_Convenio
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And m.cd_caucao = ca.cd_caucao
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and    ca.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    a.cd_convenio = co.cd_convenio
+and    m.dt_cancelamento is null
+and    m.cd_caucao is not null
+and    m.tp_movimentacao = 'E'
+and    m.tp_origem_mov = 'CA'
+and    trunc(m.dt_movimentacao) <= :CAMPO_DATA
+:CAMPO_CF_COND_SOCIAL_PACIENTE
+)
+group by nm_paciente,nm_social_paciente , nm_convenio, dt_caucao
+minus
+select saida_nm_paciente
+      ,saida_nm_convenio
+      ,saida_nm_social_paciente
+      ,saida_dt_caucao
+      ,sum(saida_vl_movimentacao) saida_vl_movimentacao
+from (
+select initcap(p.nm_paciente)     saida_nm_paciente
+		,initcap(p.nm_social_paciente)     saida_nm_social_paciente
+      ,co.nm_convenio             saida_nm_convenio
+      ,trunc(ca.dt_caucao)               saida_dt_caucao
+      ,dbamv.fnc_fnfi_calcula_moeda(sysdate, :CAMPO_CD_MULTI_EMPRESA,dbamv.moeda_padrao(a.cd_multi_empresa),:CAMPO_CD_MOEDA,(ca.vl_caucao)) saida_vl_movimentacao
+from   dbamv.caucao     ca
+      ,dbamv.mov_caixa  m
+      ,dbamv.doc_caixa  d
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+      ,dbamv.convenio   co
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Co.Cd_Convenio
+And     a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And m.cd_doc_caixa = d.cd_doc_caixa
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and    d.cd_caucao = ca.cd_caucao
+and    ca.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    a.cd_convenio = co.cd_convenio
+and    m.dt_cancelamento is null
+and    m.tp_movimentacao = 'S'
+and    m.tp_origem_mov in ('CA','DE')
+and    trunc(m.dt_movimentacao) <= :CAMPO_DATA
+union all
+select initcap(p.nm_paciente)     saida_nm_paciente
+      ,co.nm_convenio             saida_nm_convenio
+      ,initcap(p.nm_social_paciente)     saida_nm_social_paciente
+      ,trunc(ca.dt_caucao)               saida_dt_caucao
+      ,dbamv.fnc_fnfi_calcula_moeda(sysdate, :CAMPO_CD_MULTI_EMPRESA,dbamv.moeda_padrao(a.cd_multi_empresa),:CAMPO_CD_MOEDA,(ca.vl_caucao)) saida_vl_movimentacao
+from   dbamv.caucao     ca
+      ,dbamv.mov_caixa  m
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+      ,dbamv.convenio   co
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Co.Cd_Convenio
+and  a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And m.cd_caucao = ca.cd_caucao
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and    ca.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    a.cd_convenio = co.cd_convenio
+and    not exists (select 'x' from dbamv.doc_caixa where doc_caixa.cd_caucao = ca.cd_caucao)
+and    m.dt_cancelamento is null
+and    m.tp_movimentacao = 'S'
+and    m.tp_origem_mov in ('CA','DE')
+and    trunc(m.dt_movimentacao) <= :CAMPO_DATA
+:CAMPO_CF_COND_SOCIAL_PACIENTE
+)
+group by saida_nm_paciente, saida_nm_convenio, saida_nm_social_paciente , saida_dt_caucao

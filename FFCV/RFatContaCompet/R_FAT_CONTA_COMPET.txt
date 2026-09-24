@@ -1,0 +1,128 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_CONTA_COMPET
+SELECT * FROM (
+select convenio.cd_convenio                                                                        cd_convenio
+     , convenio.nm_convenio                                                                        ds_convenio
+     , reg_fat.cd_reg_fat                                                                          cd_reg_fat
+     , reg_fat.cd_remessa                                                                          cd_remessa
+     , reg_fat.cd_atendimento                                                                      cd_atendimento
+     , paciente.nm_paciente                                                                        nm_paciente
+     , cid.ds_cid                                                                                  ds_cid
+     , sum(nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta))                       vl_total_conta
+     , con_pla.ds_con_pla                                                                          ds_con_pla
+     , ori_ate.ds_ori_ate                                                                          ds_ori_ate
+     , prestador.nm_prestador                                                                      nm_prestador
+     , tip_acom.ds_tip_acom                                                                        ds_tip_acom
+     , reg_fat.dt_inicio                                                                                 dt_inicio
+     , reg_fat.dt_final                                                                                  dt_final
+     , nvl( trunc(reg_fat.dt_final), trunc(sysdate) ) - trunc(reg_fat.dt_inicio) dias_internado
+  from dbamv.reg_fat
+     , dbamv.paciente
+     , dbamv.atendime
+     , dbamv.con_pla
+     , dbamv.ori_ate
+     , dbamv.prestador
+     , dbamv.convenio
+     , dbamv.tip_acom
+     , dbamv.remessa_fatura
+     , dbamv.fatura
+     ,dbamv.itreg_fat
+     ,dbamv.itlan_med
+     , dbamv.cid
+Where reg_fat.cd_atendimento   = atendime.cd_atendimento
+   and atendime.cd_paciente     = paciente.cd_paciente
+   and reg_fat.cd_con_pla      = con_pla.cd_con_pla
+   and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and reg_fat.cd_convenio     = con_pla.cd_convenio
+   and atendime.cd_ori_ate      = ori_ate.cd_ori_ate(+)
+   and atendime.cd_prestador    = prestador.cd_prestador(+)
+   and reg_fat.cd_convenio      = CONVENIO.cd_convenio
+   and atendime.cd_cid          = cid.cd_cid(+)
+   and reg_fat.cd_tip_acom      = tip_acom.cd_tip_acom(+)
+   and reg_fat.cd_remessa       = remessa_fatura.cd_remessa
+   and remessa_fatura.cd_fatura = fatura.cd_fatura
+   and nvl(reg_fat.vl_total_conta,0) >0
+   and to_char( fatura.dt_competencia, 'mm/yyyy' ) = :CAMPO_DT_COMPET
+   and itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+   and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+   and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)
+   and nvl(nvl(itlan_med.tp_pagamento,itreg_fat.tp_pagamento),'X') <> 'C'
+   AND   CONVENIO.TP_CONVENIO in ('P','C') 
+   AND   nvl(ITREG_FAT.SN_PERTENCE_PACOTE,'N') = 'N'
+   AND   REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+group by convenio.cd_convenio
+     , convenio.nm_convenio
+     , reg_fat.cd_reg_fat
+     , reg_fat.cd_remessa
+     , reg_fat.cd_atendimento
+     , paciente.nm_paciente
+     , cid.ds_cid
+     , con_pla.ds_con_pla
+     , ori_ate.ds_ori_ate
+     , prestador.nm_prestador
+     , tip_acom.ds_tip_acom
+     , reg_fat.dt_inicio
+     , reg_fat.dt_final
+     , nvl( trunc(reg_fat.dt_final), trunc(sysdate) ) - trunc(reg_fat.dt_inicio)
+Union All
+     Select convenio.cd_convenio                         cd_convenio
+          , convenio.nm_convenio                         ds_convenio
+          , reg_amb.cd_reg_amb                           cd_reg_fat
+          , reg_amb.cd_remessa                           cd_remessa
+          , itreg_amb.cd_atendimento
+          , paciente.nm_paciente                         nm_paciente
+          , cid.ds_cid                                   ds_cid
+           , sum(itreg_amb.vl_total_conta)                vl_total_conta
+          , con_pla.ds_con_pla                           ds_con_pla
+          , ori_ate.ds_ori_ate                           ds_ori_ate
+          , prestador.nm_prestador                       nm_prestador
+          , Null                                         ds_tip_acom
+          , atendime.dt_atendimento                      dt_inicio
+          , atendime.dt_atendimento                      dt_final
+          , nvl( trunc(atendime.dt_atendimento), trunc(sysdate) ) - trunc(atendime.dt_atendimento) dias_internado
+      From dbamv.reg_amb
+         , dbamv.itreg_amb
+         , dbamv.paciente
+         , dbamv.atendime
+         , dbamv.con_pla
+         , dbamv.ori_ate
+         , dbamv.prestador
+         , dbamv.convenio
+         , dbamv.remessa_fatura
+         , dbamv.fatura
+         , dbamv.cid
+Where itreg_amb.cd_atendimento = atendime.cd_atendimento
+   and reg_amb.cd_reg_amb       = itreg_amb.cd_reg_amb
+   and atendime.cd_paciente     = paciente.cd_paciente
+    and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and reg_amb.cd_convenio      = itreg_amb.cd_convenio
+   and itreg_amb.cd_convenio    = con_pla.cd_convenio
+   and itreg_amb.cd_con_pla     = con_pla.cd_con_pla
+   and atendime.cd_ori_ate      = ori_ate.cd_ori_ate(+)
+   and atendime.cd_prestador    = prestador.cd_prestador(+)
+   and atendime.cd_cid          = cid.cd_cid(+)
+   and reg_amb.cd_remessa       = remessa_fatura.cd_remessa
+   and remessa_fatura.cd_fatura = fatura.cd_fatura
+   and convenio.cd_convenio = con_pla.cd_convenio
+   and to_char( fatura.dt_competencia, 'mm/yyyy' ) = :CAMPO_DT_COMPET
+   and     nvl(itreg_amb.tp_pagamento,'X') <> 'C'
+   AND   CONVENIO.TP_CONVENIO in ('P','C')
+   AND   nvl(ITREG_AMB.SN_PERTENCE_PACOTE,'N') = 'N'
+   AND   REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+Group By
+    convenio.cd_convenio
+  , convenio.nm_convenio
+  , reg_amb.cd_reg_amb
+  , reg_amb.cd_remessa
+  , itreg_amb.cd_atendimento
+  , paciente.nm_paciente
+  , cid.ds_cid
+  , con_pla.ds_con_pla
+  , ori_ate.ds_ori_ate
+  , prestador.nm_prestador
+  , Null
+  , atendime.dt_atendimento
+  , atendime.dt_atendimento
+  , nvl( trunc(atendime.dt_atendimento), trunc(sysdate) ) - trunc(atendime.dt_atendimento)
+:CAMPO_CF_ORDEM
+)

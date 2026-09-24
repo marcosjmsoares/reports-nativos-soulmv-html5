@@ -1,0 +1,70 @@
+/*----------------------------------------------------------------------------*/
+--R_GUIAS_CONVENIO
+SELECT 1 FROM DUAL
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GUIAS_CONVENIO_R_CONVENIO_Q_1
+SELECT * FROM
+  (SELECT guia.cd_convenio ,
+          convenio.nm_convenio ,
+          decode(:CAMPO_TP_RELATORIO, 'I', atendime.dt_atendimento, atendime.dt_alta) dt_quebra ,
+          guia.cd_atendimento ,
+          paciente.nm_paciente ,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          to_char(atendime.dt_atendimento, 'dd/mm/yyyy hh24') dt_atendimento ,
+          to_char(atendime.dt_alta, 'dd/mm/yyyy hh24') dt_alta ,
+          mot_alt.ds_mot_alt ,
+          especialid.ds_especialid ,
+          atendime.cd_pro_int ,
+          pro_fat.ds_pro_fat ,
+          nvl(Trunc(atendime.dt_alta), Trunc(sysdate)) - Nvl(Trunc(atendime.dt_atendimento), Trunc(sysdate)) dias_internado ,
+          Sum(Nvl(guia.nr_dias_autorizados, 0)) nr_dias_autorizados ,
+          Sum(Nvl(guia2.qt_n_autoriz, 0)) qt_n_autoriz ,
+          count(guia.cd_guia) qtd_guia
+   FROM dbamv.guia ,
+        dbamv.convenio ,
+        dbamv.atendime ,
+        dbamv.paciente ,
+        dbamv.mot_alt ,
+        dbamv.especialid ,
+        dbamv.pro_fat ,
+     (SELECT guia2.cd_guia ,
+             count(guia2.cd_guia) qt_n_autoriz
+      FROM dbamv.guia guia2 ,
+           dbamv.atendime
+      WHERE guia2.cd_atendimento = atendime.cd_atendimento
+        AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+        AND guia2.dt_autorizacao IS NULL
+      GROUP BY guia2.cd_guia) guia2,
+        Dbamv.Empresa_Convenio
+   WHERE Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+     AND Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND  atendime.cd_paciente = paciente.cd_paciente
+     AND atendime.cd_mot_alt = mot_alt.cd_mot_alt(+)
+     AND atendime.cd_especialid = especialid.cd_especialid(+)
+     AND atendime.cd_atendimento = guia.cd_atendimento
+     AND atendime.cd_convenio = convenio.cd_convenio
+     AND atendime.tp_atendimento = 'I'
+     AND Guia.tp_guia In ('I', 'R', 'P')
+     AND atendime.cd_convenio = guia.cd_convenio
+     AND guia2.cd_guia(+) = guia.cd_guia
+     AND pro_fat.cd_pro_fat(+) = atendime.cd_pro_int
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA   
+   GROUP BY guia.cd_convenio ,
+            convenio.nm_convenio ,
+            decode(:CAMPO_TP_RELATORIO, 'I', atendime.dt_atendimento, atendime.dt_alta) ,
+            guia.cd_atendimento ,
+            paciente.cd_paciente ,
+            paciente.nm_paciente ,
+            NM_SOCIAL_PACIENTE ,
+            atendime.dt_atendimento ,
+            atendime.dt_alta ,
+            mot_alt.ds_mot_alt ,
+            especialid.ds_especialid ,
+            atendime.cd_pro_int ,
+            pro_fat.ds_pro_fat ,
+            nvl(Trunc(atendime.dt_alta), Trunc(sysdate)) - Nvl(Trunc(atendime.dt_atendimento), Trunc(sysdate))
+   ORDER BY 1, 3, 4)
+ORDER BY CD_CONVENIO, NM_CONVENIO, DT_QUEBRA

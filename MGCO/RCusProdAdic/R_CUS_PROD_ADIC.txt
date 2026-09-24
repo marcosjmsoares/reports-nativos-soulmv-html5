@@ -1,0 +1,60 @@
+/*----------------------------------------------------------------------------*/
+--R_CUS_PROD_ADIC
+SELECT * FROM (
+Select    cd_produto
+         ,ds_produto
+         ,Data
+         ,sum(nvl(Qtd_itens,0)) Qtd_itens
+         ,sum(nvl(Vl_total,0)) Vl_total
+         ,sum(nvl(Vl_desconto,0)) Vl_desconto
+         ,sum(nvl(Vl_imposto,0)) Vl_imposto
+From     (Select    Produto.cd_produto cd_produto
+                   ,Produto.ds_produto ds_produto
+                   ,to_date(to_char(Ord_com.dt_ord_com, 'mm/yyyy'), 'mm/yyyy') Data
+                   ,Count ( Itord_pro.cd_ord_com ) Qtd_itens
+                   ,(( sum(nvl(Itord_pro.Vl_total,0)) - sum(nvl(Itord_pro.Vl_desconto,0))) +
+                                                         sum(nvl(Itord_pro.Vl_Imposto,0)))  Vl_total
+                   ,sum(nvl(Itord_pro.Vl_desconto,0)) Vl_desconto
+                   ,sum(nvl(Itord_pro.Vl_Imposto,0))   Vl_Imposto
+          From  Dbamv.Itord_pro
+                   ,Dbamv.Estoque
+                   ,Dbamv.Ord_com
+                   ,Dbamv.Produto
+          Where     Itord_pro.cd_produto          = Produto.cd_produto
+          And       Itord_pro.cd_ord_com          = ord_com.cd_ord_com
+          And       ord_com.cd_estoque            = Estoque.cd_estoque
+          And       Estoque.cd_Multi_Empresa  = :CAMPO_CD_MULTI_EMPRESA
+          And       nvl(Ord_com.tp_contrato, 'O') = 'O'
+          And       Ord_com.tp_situacao not in ('N','C')
+          And       to_date(to_char(Ord_com.dt_ord_com, 'mm/yyyy'), 'mm/yyyy') between  :CAMPO_DT_INI Group by  Produto.cd_produto
+                        ,Produto.ds_produto
+                        ,to_date(to_char(Ord_com.dt_ord_com, 'mm/yyyy'), 'mm/yyyy')
+          Union all
+          Select    Produto.cd_produto
+                   ,Produto.ds_produto
+                   ,to_date(to_char(Ent_pro.dt_entrada, 'mm/yyyy'), 'mm/yyyy') Data
+                   ,Count(Itent_pro.cd_ent_pro) Qtd_itens
+                   ,((sum(nvl(Itent_pro.Vl_total,0)) - sum(nvl(Itent_pro.Vl_desconto,0))) +
+                                                        sum(nvl(Itent_pro.Vl_Imposto,0)))  Vl_total
+                   ,sum(nvl(Itent_pro.Vl_desconto,0)) Vl_desconto
+                   ,sum(nvl(Itent_pro.Vl_Imposto,0))   Vl_Imposto
+          From      Dbamv.Itent_pro
+                   ,Dbamv.Ent_pro
+                   ,Dbamv.Estoque
+                   ,Dbamv.Ord_com
+                   ,Dbamv.Produto
+          Where     Itent_pro.cd_produto        = Produto.cd_produto
+          And       Itent_pro.cd_ent_pro        = ent_pro.cd_ent_pro
+          And       ent_pro.cd_estoque          = Estoque.cd_estoque
+          And       Estoque.cd_Multi_Empresa   =  :CAMPO_CD_MULTI_EMPRESA
+          And       Ent_pro.cd_ord_com          = Ord_com.cd_ord_com
+          And       nvl(Ord_com.tp_contrato, 'O') <> 'O'
+          And       Ord_com.tp_situacao not in ('N','C')
+          And       to_date(to_char(Ent_pro.dt_entrada, 'mm/yyyy'), 'mm/yyyy') between :CAMPO_DT_INI Group by  Produto.cd_produto
+                   ,Produto.ds_produto
+                   ,to_date(to_char(Ent_pro.dt_entrada, 'mm/yyyy'), 'mm/yyyy'))
+ Group by cd_produto
+         ,ds_produto
+         ,Data
+:CAMPO_CF_ORDEM
+)

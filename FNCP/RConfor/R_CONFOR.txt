@@ -1,0 +1,472 @@
+/*----------------------------------------------------------------------------*/
+--R_CONFOR
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONFOR_R_EMPRESA1_Q_CONTA_CORRENTE
+SELECT tp
+      , nm_fornec
+      , cd_fornec
+      , dt_lancamento
+      , CASE
+          WHEN  '' = 'S' THEN to_char(dt_vencimento, 'dd/mm/yyyy')
+          ELSE ' '
+        END dt_venc
+      , CASE
+          WHEN  '' = 'S' THEN to_char(dt_pagamento, 'dd/mm/yyyy')
+          ELSE ' '
+        END dt_pagto
+      , ds_hist
+      , nr_doc
+      , vl_credito
+      , vl_debito
+      , cd_multi_empresa
+      , (Nvl((SELECT SUM(Nvl(Decode(con_pag.cd_con_pag_dev,NULL,(con_pag.vl_bruto_conta - NVL(detalhe.vl_detalhamento,0)),0),0)-
+                          Nvl(Decode(con_pag.cd_con_pag_dev,NULL,0,(con_pag.vl_bruto_conta - NVL(detalhe.vl_detalhamento,0))),0)) vl_soma
+                  FROM dbamv.con_pag
+                    , dbamv.processo
+					          , dbamv.historico_padrao hist_p
+                    , dbamv.fornecedor fornec
+					          , (SELECT t.cd_con_pag_pai cd_con_pag_pai, SUM(NVL(t.vl_detalhamento,0)) vl_detalhamento
+                        FROM dbamv.tip_detcon_pag t, dbamv.tip_detalhe td
+                        WHERE t.cd_detalhamento = td.cd_detalhamento
+                        GROUP BY t.cd_con_pag_pai) detalhe
+			          WHERE con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+			            AND  con_pag.cd_processo = processo.cd_processo
+                  AND con_pag.tp_adiantamento IS NULL
+				          AND con_pag.cd_con_pag = detalhe.cd_con_pag_pai(+)
+                  AND con_pag.cd_fornecedor = cd_fornec
+                  AND con_pag.vl_bruto_conta <> 0
+                  AND NOT EXISTS(SELECT 'X' FROM dbamv.itcon_pag itcp WHERE itcp.cd_con_pag_agrup = con_pag.cd_con_pag)
+                  :CAMPO_CF_CONTA_DEV),0)
+			          +
+		            Nvl((SELECT Sum(Nvl(pagamento.vl_estorno,0)) vl_soma
+                  FROM dbamv.con_pag
+                    , dbamv.historico_padrao hist_p
+					          , dbamv.fornecedor fornec
+                    , (SELECT pagcon_pag.cd_itcon_pag cd_itcon_pag
+					                  , it.cd_con_pag
+                            , con_cor.nr_conta nr_ccorrente
+					                  , pagcon_pag.vl_pago - NVL(pagcon_pag.vl_acrescimo,0) + NVL(pagcon_pag.vl_desconto,0) vl_estorno
+					                  , pagcon_pag.ds_estorno ds_estorno  , TRUNC(pagcon_pag.dt_estorno) dt_estorno
+					                  , DECODE( pagcon_pag.tp_pagamento, '1', 'ESTORNO BORDERO'  , '2', 'ESTORNO BORDERO'
+					                          , '3', 'ESTORNO CHQ'  , '4', 'ESTORNO DINHEIRO'  , '5', 'ESTORNO DEBITO C/C'
+					                          , '6', 'ESTORNO PRT. CONTAS'  , '7', 'ESTORNO QUIT. DEVOL'  , '8', 'ESTORNO TED'
+					                          , 'B', 'ESTORNO BX CONTABIL'  , 'Q', 'ESTORNO BX DESC'
+					                          , 'E', 'ESTORNO ENC. CONTAS','10', 'PIX')  ds_doc_pagto
+					                  , decode(pagcon_pag.tp_pagamento,'1',bordero.cd_bordero  ,'2',bordero.cd_bordero,'3',cheque.nr_cheque  ,'4',to_number(null),'10',to_number(null)) cd_doc_pagto
+                          FROM dbamv.pagcon_pag
+                            , dbamv.itcon_pag it
+                            , dbamv.con_cor
+                            , dbamv.bordero
+                            , dbamv.cheque
+                            , dbamv.mov_caixa
+                        WHERE pagcon_pag.cd_con_cor = con_cor.cd_con_cor(+)
+					                AND pagcon_pag.cd_bordero = bordero.cd_bordero(+)
+					                AND pagcon_pag.cd_cheque = cheque.cd_cheque(+)
+					                AND it.cd_itcon_pag = pagcon_pag.cd_itcon_pag(+)
+                          AND NOT EXISTS(SELECT 'X' FROM dbamv.itcon_pag itcp WHERE itcp.cd_con_pag_agrup = it.cd_con_pag)
+					                AND pagcon_pag.cd_pagcon_pag = mov_caixa.cd_pagcon_pag(+)
+					                AND NVL(pagcon_pag.sn_estorno,'N') = 'S'
+                          AND ((pagcon_pag.cd_con_cor IS NOT NULL
+                                :CAMPO_CF_MULTI_EMPRESA_CONCOR ) OR  pagcon_pag.cd_con_cor IS NULL)
+					                AND ((pagcon_pag.cd_caixa IS NOT NULL
+                                :CAMPO_CF_MULTI_EMPRESA_CAIXA) or  pagcon_pag.cd_caixa IS NULL)
+                        ) pagamento
+			          WHERE con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+				          AND con_pag.cd_con_pag_dev IS NULL
+                  AND con_pag.tp_adiantamento IS NULL
+				          AND con_pag.vl_bruto_conta <> 0
+                  AND con_pag.cd_con_pag = pagamento.cd_con_pag(+)
+				          and con_pag.cd_fornecedor = cd_fornec
+                  :CAMPO_CF_COND_REDUZIDO),0)
+			          +
+			          Nvl((SELECT Sum(Nvl(pagamento.vl_pago,0)) + (-1) vl_soma
+                  FROM dbamv.con_pag
+                    , dbamv.historico_padrao hist_p
+					          , dbamv.fornecedor fornec
+                    , (SELECT pagcon_pag.cd_itcon_pag cd_itcon_pag
+					                  , it.cd_con_pag
+                            , pagcon_pag.vl_pago - nvl(pagcon_pag.vl_acrescimo,0) + nvl(pagcon_pag.vl_desconto,0) + Nvl(imposto_pg.vl_detalhamento,0) vl_pago
+                            , pagcon_pag.vl_pago vl_pago_liquido
+                            , TRUNC(pagcon_pag.dt_pagamento) dt_pagamento
+                            , TRUNC(pagcon_pag.dt_baixa) dt_baixa
+                            , DECODE(pagcon_pag.tp_pagamento, '1', 'BORDERO'
+					                          , '2', 'BORDERO'  , '3', 'CHQ'  , '4', 'DINHEIRO'  , '5', 'DEBITO C/C'
+					                          , '6', 'PRT. CONTAS'  , '7', 'QUIT. DEVOL'  , '8', 'TED'  , 'B', 'BX CONTABIL'
+					                          , 'Q', 'BX DESC'  , 'E', 'ENC. CONTAS','10', 'PIX')  ds_doc_pagto
+					                  , DECODE(pagcon_pag.tp_pagamento,'1',bordero.cd_bordero  ,'2',bordero.cd_bordero,'3',cheque.nr_cheque  ,'4',to_number(null) ,'10',to_number(null)) cd_doc_pagto
+					                  , pagcon_pag.cd_pagcon_pag  cd_pagcon_pag
+                            , pagcon_pag.ds_pagcon_pag
+					                  , pagcon_pag.cd_multi_empresa
+                          FROM dbamv.pagcon_pag
+                            , dbamv.itcon_pag it
+                            , dbamv.con_cor
+                            , dbamv.bordero
+                            , dbamv.cheque
+                            , dbamv.mov_caixa
+					                  , (SELECT cd_pagcon_pag, Sum(VL_DETALHAMENTO) vl_detalhamento  FROM dbamv.tip_detcon_pag GROUP BY cd_pagcon_pag) imposto_pg
+                        WHERE pagcon_pag.cd_con_cor = con_cor.cd_con_cor(+)
+					                AND pagcon_pag.cd_bordero = bordero.cd_bordero(+)
+					                AND pagcon_pag.cd_cheque = cheque.cd_cheque(+)
+					                AND it.cd_itcon_pag = pagcon_pag.cd_itcon_pag(+)
+					                AND pagcon_pag.cd_pagcon_pag = imposto_pg.cd_pagcon_pag(+)
+                          AND NOT EXISTS(SELECT 'X' FROM dbamv.itcon_pag itcp WHERE itcp.cd_con_pag_agrup = it.cd_con_pag)
+					                AND pagcon_pag.cd_pagcon_pag = mov_caixa.cd_pagcon_pag(+)
+					                AND ((pagcon_pag.cd_con_cor IS NOT NULL
+                                :CAMPO_CF_MULTI_EMPRESA_CONCOR) or  pagcon_pag.cd_con_cor IS NULL)
+                          AND ((pagcon_pag.cd_caixa IS NOT NULL
+                                :CAMPO_CF_MULTI_EMPRESA_CAIXA) or  pagcon_pag.cd_caixa IS NULL)
+                        ) pagamento
+			          WHERE con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+				          AND con_pag.cd_con_pag_dev IS NULL
+                  AND con_pag.tp_adiantamento IS NULL
+				          AND con_pag.vl_bruto_conta <> 0
+                  AND con_pag.cd_con_pag = pagamento.cd_con_pag
+				          AND con_pag.cd_fornecedor = cd_fornec
+                  :CAMPO_CF_COND_REDUZIDO),0)
+        ) SALDO_ANTERIOR_FORNEC
+  FROM (
+  SELECT 'C'                                                              tp
+      ,Decode (con_pag.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_FOR, 'S', 'FORNECEDOR NÃO CADASTRADO',CON_PAG.DS_FORNECEDOR),fornec.nm_fornecedor) nm_fornec
+      , Nvl(fornec.cd_fornecedor,0)                                             cd_fornec
+      , con_pag.dt_lancamento                                            dt_lancamento
+      , NULL dt_vencimento
+      , NULL dt_pagamento
+      ,hist_p.ds_historico_padrao || ' ' || con_pag.ds_con_pag || Decode(con_pag.cd_fornecedor,'', Decode(:CAMPO_CF_PSN_N_CAD_FOR, 'S',' - Fornecedor: ' || CON_PAG.DS_FORNECEDOR,''),'' )    ds_hist
+      , con_pag.nr_documento || '-' || con_pag.nr_serie                  nr_doc
+	    , Decode(con_pag.cd_con_pag_dev,NULL,(con_pag.vl_bruto_conta  - nvl(detalhe.vl_detalhamento,0)),0) vl_credito
+      , Decode(con_pag.cd_con_pag_dev,NULL,0,(con_pag.vl_bruto_conta  - nvl(detalhe.vl_detalhamento,0))) vl_debito
+      , con_pag.cd_multi_empresa                                         cd_multi_empresa
+    FROM dbamv.con_pag
+      , dbamv.processo
+      , dbamv.historico_padrao hist_p
+      , dbamv.fornecedor fornec
+      , (select t.cd_con_pag_pai cd_con_pag_pai
+              , sum(nvl(t.vl_detalhamento,0)) vl_detalhamento
+            from dbamv.tip_detcon_pag t
+              , dbamv.tip_detalhe td
+          where t.cd_detalhamento = td.cd_detalhamento
+          group by t.cd_con_pag_pai) detalhe
+  where con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+    AND con_pag.cd_processo = processo.cd_processo
+    AND con_pag.tp_adiantamento IS NULL
+    and con_pag.cd_con_pag = detalhe.cd_con_pag_pai(+)
+    AND con_pag.vl_bruto_conta <> 0
+    And Not Exists(Select 'X'
+                      from dbamv.itcon_pag itcp
+                    where itcp.cd_con_pag_agrup = con_pag.cd_con_pag
+                  )
+  union all
+  select 'E'                                                              tp
+      ,Decode (con_pag.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_FOR, 'S', 'FORNECEDOR NÃO CADASTRADO',CON_PAG.DS_FORNECEDOR),fornec.nm_fornecedor) nm_fornec
+      , Nvl(fornec.cd_fornecedor,0)                                             cd_fornec
+      , pagamento.dt_estorno                                             dt_lancamento
+      , itcon_pag.dt_vencimento
+      , pagcon_pag.dt_pagamento
+      , pagamento.ds_estorno                                             ds_hist
+      , con_pag.nr_documento || '-' || con_pag.nr_serie                  nr_doc
+      , pagamento.vl_estorno                                             vl_credito
+      , 0                                                                vl_debito
+      , con_pag.cd_multi_empresa                                         cd_multi_empresa
+    FROM dbamv.con_pag
+      , dbamv.itcon_pag
+      , dbamv.pagcon_pag
+      , dbamv.historico_padrao hist_p
+      , dbamv.fornecedor fornec
+      , (SELECT pagcon_pag.cd_itcon_pag cd_itcon_pag
+              , it.cd_con_pag
+              , con_cor.nr_conta nr_ccorrente
+              , pagcon_pag.vl_pago - nvl(pagcon_pag.vl_acrescimo,0) + nvl(pagcon_pag.vl_desconto,0) vl_estorno
+              , pagcon_pag.ds_estorno ds_estorno
+              , trunc(pagcon_pag.dt_estorno) dt_estorno
+              , decode( pagcon_pag.tp_pagamento, '1', 'ESTORNO BORDERO'
+                                                , '2', 'ESTORNO BORDERO'
+                                                , '3', 'ESTORNO CHQ'
+                                                , '4', 'ESTORNO DINHEIRO'
+                                                , '5', 'ESTORNO DEBITO C/C'
+                                                , '6', 'ESTORNO PRT. CONTAS'
+                                                , '7', 'ESTORNO QUIT. DEVOL'
+                                                , '8', 'ESTORNO TED'
+                                                , 'B', 'ESTORNO BX CONTABIL'
+                                                , 'Q', 'ESTORNO BX DESC'
+                                                , 'E', 'ESTORNO ENC. CONTAS'
+                                                ,'10', 'PIX')  ds_doc_pagto
+              , decode(pagcon_pag.tp_pagamento,'1',bordero.cd_bordero
+                                              ,'2',bordero.cd_bordero
+                                              ,'3',cheque.nr_cheque
+                                              ,'4',to_number(null)
+                                              ,'10',to_number(null)) cd_doc_pagto
+            FROM dbamv.pagcon_pag
+              , dbamv.itcon_pag it
+              , dbamv.con_cor
+              , dbamv.bordero
+              , dbamv.cheque
+              , dbamv.mov_caixa
+          WHERE pagcon_pag.cd_con_cor = con_cor.cd_con_cor(+)
+            AND pagcon_pag.cd_bordero = bordero.cd_bordero(+)
+            AND pagcon_pag.cd_cheque = cheque.cd_cheque(+)
+            and it.cd_itcon_pag = pagcon_pag.cd_itcon_pag(+)
+		    And Not Exists(Select 'X'
+                              from dbamv.itcon_pag itcp
+                            where itcp.cd_con_pag_agrup = it.cd_con_pag
+                          )
+            AND pagcon_pag.cd_pagcon_pag =  mov_caixa.cd_pagcon_pag(+)
+            AND nvl(pagcon_pag.sn_estorno,'N') = 'S'
+            AND ((pagcon_pag.cd_con_cor is not null :CAMPO_CF_MULTI_EMPRESA_CONCOR) or  pagcon_pag.cd_con_cor is null)
+            AND ((pagcon_pag.cd_caixa is not null :CAMPO_CF_MULTI_EMPRESA_CAIXA) or  pagcon_pag.cd_caixa is null)
+            :CAMPO_CF_BAIXA_DEVOLUCAO) pagamento
+  where con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+    AND con_pag.cd_con_pag = itcon_pag.cd_con_pag
+    AND itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+    AND con_pag.cd_con_pag_dev IS NULL
+    AND con_pag.tp_adiantamento IS NULL
+    AND con_pag.vl_bruto_conta <> 0
+    and con_pag.cd_con_pag = pagamento.cd_con_pag(+)
+  union all
+  SELECT 'P'                                                              tp
+      ,Decode (con_pag.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_FOR, 'S', 'FORNECEDOR NÃO CADASTRADO',CON_PAG.DS_FORNECEDOR),fornec.nm_fornecedor) nm_fornec
+      , Nvl(fornec.cd_fornecedor,0)                                             cd_fornec
+      , decode(:CAMPO_TP_DATA,'P',pagamento.dt_pagamento,pagamento.dt_baixa)                dt_lancamento
+      , NULL dt_vencimento
+      , NULL dt_pagamento
+      , pagamento.ds_pagcon_pag                                          ds_hist
+      , con_pag.nr_documento || '-' || con_pag.nr_serie                  nr_doc
+      , 0                                                                vl_credito
+      , pagamento.vl_pago                                                vl_debito
+      , con_pag.cd_multi_empresa                                         cd_multi_empresa
+    FROM dbamv.con_pag
+      , dbamv.historico_padrao hist_p
+      , dbamv.fornecedor fornec
+      , (SELECT pagcon_pag.cd_itcon_pag cd_itcon_pag
+              , it.cd_con_pag
+              , pagcon_pag.vl_pago - nvl(pagcon_pag.vl_acrescimo,0) + nvl(pagcon_pag.vl_desconto,0) + Nvl(imposto_pg.vl_detalhamento,0) vl_pago
+              , pagcon_pag.vl_pago vl_pago_liquido
+              , TRUNC(pagcon_pag.dt_pagamento) dt_pagamento
+              , TRUNC(pagcon_pag.dt_baixa) dt_baixa
+              , decode( pagcon_pag.tp_pagamento, '1', 'BORDERO'
+                                                , '2', 'BORDERO'
+                                                , '3', 'CHQ'
+                                                , '4', 'DINHEIRO'
+                                                , '5', 'DEBITO C/C'
+                                                , '6', 'PRT. CONTAS'
+                                                , '7', 'QUIT. DEVOL'
+                                                , '8', 'TED'
+                                                , 'B', 'BX CONTABIL'
+                                                , 'Q', 'BX DESC'
+                                                , 'E', 'ENC. CONTAS'
+                                                ,'10', 'PIX')  ds_doc_pagto
+              , decode(pagcon_pag.tp_pagamento,'1',bordero.cd_bordero
+                                              ,'2',bordero.cd_bordero
+                                              ,'3',cheque.nr_cheque
+                                              ,'4',to_number(null)
+                                              ,'10',to_number(null)) cd_doc_pagto
+              , pagcon_pag.cd_pagcon_pag  cd_pagcon_pag
+              , pagcon_pag.ds_pagcon_pag
+              , pagcon_pag.cd_multi_empresa
+            FROM dbamv.pagcon_pag
+              , dbamv.itcon_pag it
+              , dbamv.con_cor
+              , dbamv.bordero
+              , dbamv.cheque
+              , dbamv.mov_caixa
+			  , (SELECT cd_pagcon_pag, Sum(VL_DETALHAMENTO) vl_detalhamento
+                    FROM dbamv.tip_detcon_pag
+                GROUP BY cd_pagcon_pag) imposto_pg
+          WHERE pagcon_pag.cd_con_cor = con_cor.cd_con_cor(+)
+            AND pagcon_pag.cd_bordero = bordero.cd_bordero(+)
+            AND pagcon_pag.cd_cheque = cheque.cd_cheque(+)
+            and it.cd_itcon_pag = pagcon_pag.cd_itcon_pag(+)
+            AND pagcon_pag.cd_pagcon_pag =  imposto_pg.cd_pagcon_pag(+)
+            And Not Exists(Select 'X'
+                              from dbamv.itcon_pag itcp
+                            where itcp.cd_con_pag_agrup = it.cd_con_pag
+                          )
+            AND pagcon_pag.cd_pagcon_pag =  mov_caixa.cd_pagcon_pag(+)
+            AND ((pagcon_pag.cd_con_cor is not null :CAMPO_CF_MULTI_EMPRESA_CONCOR) or  pagcon_pag.cd_con_cor is null)
+            AND ((pagcon_pag.cd_caixa is not null :CAMPO_CF_MULTI_EMPRESA_CAIXA) or  pagcon_pag.cd_caixa is null)
+            :CAMPO_CF_BAIXA_DEVOLUCAO) pagamento
+  where con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+    AND con_pag.cd_con_pag_dev IS NULL
+    AND con_pag.tp_adiantamento IS NULL
+    AND con_pag.vl_bruto_conta <> 0
+    and con_pag.cd_con_pag = pagamento.cd_con_pag
+  UNION ALL
+  SELECT tp
+      , nm_fornec
+      , Nvl(cd_fornec,0)
+      , dt_lancamento
+      , dt_vencimento
+      , dt_pagamento
+      , ds_hist
+      , nr_doc
+      , vl_credito
+      , vl_debito
+      , cd_multi_empresa
+  FROM (
+  SELECT 'C'                                                              tp
+      ,Decode (con_pag.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_FOR, 'S', 'FORNECEDOR NÃO CADASTRADO',CON_PAG.DS_FORNECEDOR),fornec.nm_fornecedor) nm_fornec
+      , fornec.cd_fornecedor                                             cd_fornec
+      , Trunc(:CAMPO_DT_INIC)                              dt_lancamento
+      , NULL dt_vencimento
+      , NULL dt_pagamento
+      , 'SALDO MÊS ANTERIOR'                                             ds_hist
+      , NULL                                                             nr_doc
+      , 0                                                                vl_credito
+      , 0                                                                vl_debito
+      , con_pag.cd_multi_empresa                                         cd_multi_empresa
+    FROM dbamv.con_pag
+      ,dbamv.processo
+      , dbamv.historico_padrao hist_p
+      , dbamv.fornecedor fornec
+      , (select t.cd_con_pag_pai cd_con_pag_pai
+              , sum(nvl(t.vl_detalhamento,0)) vl_detalhamento
+            from dbamv.tip_detcon_pag t
+              , dbamv.tip_detalhe td
+          where t.cd_detalhamento = td.cd_detalhamento
+            and td.tp_data <> 'P'
+          group by t.cd_con_pag_pai) detalhe
+  where con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+    AND  con_pag.cd_processo = processo.cd_processo
+    AND con_pag.tp_adiantamento IS NULL
+    and con_pag.cd_con_pag = detalhe.cd_con_pag_pai(+)
+    AND con_pag.vl_bruto_conta <> 0
+    And Not Exists(Select 'X'
+                      from dbamv.itcon_pag itcp
+                    where itcp.cd_con_pag_agrup = con_pag.cd_con_pag
+                  )
+  UNION
+  select 'C'                                                              tp
+      ,Decode (con_pag.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_FOR, 'S', 'FORNECEDOR NÃO CADASTRADO',CON_PAG.DS_FORNECEDOR),fornec.nm_fornecedor) nm_fornec
+      , fornec.cd_fornecedor                                             cd_fornec
+      , Trunc(:CAMPO_DT_INIC)                              dt_lancamento
+      , NULL dt_vencimento
+      , NULL dt_pagamento
+      , 'SALDO MÊS ANTERIOR'                                             ds_hist
+      , NULL                                                             nr_doc
+      , 0                                                                vl_credito
+      , 0                                                                vl_debito
+      , con_pag.cd_multi_empresa                                         cd_multi_empresa
+    FROM dbamv.con_pag
+      , dbamv.historico_padrao hist_p
+      , dbamv.fornecedor fornec
+      , (SELECT pagcon_pag.cd_itcon_pag cd_itcon_pag
+              , it.cd_con_pag
+              , con_cor.nr_conta nr_ccorrente
+              , pagcon_pag.vl_pago - nvl(pagcon_pag.vl_acrescimo,0) + nvl(pagcon_pag.vl_desconto,0) vl_estorno
+              , pagcon_pag.ds_estorno ds_estorno
+              , trunc(pagcon_pag.dt_estorno) dt_estorno
+              , decode( pagcon_pag.tp_pagamento, '1', 'ESTORNO BORDERO'
+                                                , '2', 'ESTORNO BORDERO'
+                                                , '3', 'ESTORNO CHQ'
+                                                , '4', 'ESTORNO DINHEIRO'
+                                                , '5', 'ESTORNO DEBITO C/C'
+                                                , '6', 'ESTORNO PRT. CONTAS'
+                                                , '7', 'ESTORNO QUIT. DEVOL'
+                                                , '8', 'ESTORNO TED'
+                                                , 'B', 'ESTORNO BX CONTABIL'
+                                                , 'Q', 'ESTORNO BX DESC'
+                                                , 'E', 'ESTORNO ENC. CONTAS'
+                                                ,'10', 'PIX')  ds_doc_pagto
+              , decode(pagcon_pag.tp_pagamento,'1',bordero.cd_bordero
+                                              ,'2',bordero.cd_bordero
+                                              ,'3',cheque.nr_cheque
+                                              ,'4',to_number(null)
+                                              ,'10',to_number(null)) cd_doc_pagto
+            FROM dbamv.pagcon_pag
+              , dbamv.itcon_pag it
+              , dbamv.con_cor
+              , dbamv.bordero
+              , dbamv.cheque
+              , dbamv.mov_caixa
+          WHERE pagcon_pag.cd_con_cor = con_cor.cd_con_cor(+)
+            AND pagcon_pag.cd_bordero = bordero.cd_bordero(+)
+            AND pagcon_pag.cd_cheque = cheque.cd_cheque(+)
+            and it.cd_itcon_pag = pagcon_pag.cd_itcon_pag(+)
+            And Not Exists(Select 'X'
+                              from dbamv.itcon_pag itcp
+                            where itcp.cd_con_pag_agrup = it.cd_con_pag
+                          )
+            AND pagcon_pag.cd_pagcon_pag =  mov_caixa.cd_pagcon_pag(+)
+            AND nvl(pagcon_pag.sn_estorno,'N') = 'S'
+            AND ((pagcon_pag.cd_con_cor is not null :CAMPO_CF_MULTI_EMPRESA_CONCOR) or  pagcon_pag.cd_con_cor is null)  
+            AND ((pagcon_pag.cd_caixa is not null :CAMPO_CF_MULTI_EMPRESA_CAIXA) or  pagcon_pag.cd_caixa is null)
+            :CAMPO_CF_BAIXA_DEVOLUCAO) pagamento  
+  where con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+    AND con_pag.cd_con_pag_dev IS NULL
+    AND con_pag.tp_adiantamento IS NULL
+    AND con_pag.vl_bruto_conta <> 0
+    and con_pag.cd_con_pag = pagamento.cd_con_pag(+)
+  UNION
+  SELECT 'C'                                                              tp
+      ,Decode (con_pag.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_FOR, 'S', 'FORNECEDOR NÃO CADASTRADO',CON_PAG.DS_FORNECEDOR),fornec.nm_fornecedor) nm_fornec
+      , fornec.cd_fornecedor                                             cd_fornec
+      , Trunc(:CAMPO_DT_INIC)                              dt_lancamento
+      , NULL dt_vencimento
+      , NULL dt_pagamento
+      , 'SALDO MÊS ANTERIOR'                                             ds_hist
+      , NULL                                                             nr_doc
+      , 0                                                                vl_credito
+      , 0                                                                vl_debito
+      , con_pag.cd_multi_empresa                                         cd_multi_empresa
+    FROM dbamv.con_pag
+      , dbamv.historico_padrao hist_p
+      , dbamv.fornecedor fornec
+      , (SELECT pagcon_pag.cd_itcon_pag cd_itcon_pag
+              , it.cd_con_pag
+              , pagcon_pag.vl_pago - nvl(pagcon_pag.vl_acrescimo,0) + nvl(pagcon_pag.vl_desconto,0) + Nvl(imposto_pg.vl_detalhamento,0) vl_pago
+              , pagcon_pag.vl_pago vl_pago_liquido
+              , TRUNC(pagcon_pag.dt_pagamento) dt_pagamento
+              , TRUNC(pagcon_pag.dt_baixa) dt_baixa
+              , decode( pagcon_pag.tp_pagamento, '1', 'BORDERO'
+                                                , '2', 'BORDERO'
+                                                , '3', 'CHQ'
+                                                , '4', 'DINHEIRO'
+                                                , '5', 'DEBITO C/C'
+                                                , '6', 'PRT. CONTAS'
+                                                , '7', 'QUIT. DEVOL'
+                                                , '8', 'TED'
+                                                , 'B', 'BX CONTABIL'
+                                                , 'Q', 'BX DESC'
+                                                , 'E', 'ENC. CONTAS'
+                                                ,'10', 'PIX')  ds_doc_pagto
+              , decode(pagcon_pag.tp_pagamento,'1',bordero.cd_bordero
+                                              ,'2',bordero.cd_bordero
+                                              ,'3',cheque.nr_cheque
+                                              ,'4',to_number(null)
+                                              ,'10',to_number(null)) cd_doc_pagto
+              , pagcon_pag.cd_pagcon_pag  cd_pagcon_pag
+              , pagcon_pag.ds_pagcon_pag
+              , pagcon_pag.cd_multi_empresa
+            FROM dbamv.pagcon_pag
+              , dbamv.itcon_pag it
+              , dbamv.con_cor
+              , dbamv.bordero
+              , dbamv.cheque
+              , dbamv.mov_caixa
+              , (SELECT cd_pagcon_pag, Sum(VL_DETALHAMENTO) vl_detalhamento
+                    FROM dbamv.tip_detcon_pag
+                GROUP BY cd_pagcon_pag) imposto_pg
+          WHERE pagcon_pag.cd_con_cor = con_cor.cd_con_cor(+)
+            AND pagcon_pag.cd_bordero = bordero.cd_bordero(+)
+            AND pagcon_pag.cd_cheque = cheque.cd_cheque(+)
+            and it.cd_itcon_pag = pagcon_pag.cd_itcon_pag(+)
+            AND pagcon_pag.cd_pagcon_pag =  imposto_pg.cd_pagcon_pag(+)
+            And Not Exists(Select 'X'
+                              from dbamv.itcon_pag itcp
+                            where itcp.cd_con_pag_agrup = it.cd_con_pag
+                          )
+            AND pagcon_pag.cd_pagcon_pag =  mov_caixa.cd_pagcon_pag(+)
+            AND ((pagcon_pag.cd_con_cor is not null :CAMPO_CF_MULTI_EMPRESA_CONCOR) or  pagcon_pag.cd_con_cor is null)  
+            AND ((pagcon_pag.cd_caixa is not null :CAMPO_CF_MULTI_EMPRESA_CAIXA) or  pagcon_pag.cd_caixa is null)
+            :CAMPO_CF_BAIXA_DEVOLUCAO) pagamento 
+  where con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+    AND con_pag.cd_con_pag_dev IS NULL
+    AND con_pag.tp_adiantamento IS NULL
+    AND con_pag.vl_bruto_conta <> 0
+    and con_pag.cd_con_pag = pagamento.cd_con_pag
+    :CAMPO_CF_COND_REDUZIDO
+    )
+  )

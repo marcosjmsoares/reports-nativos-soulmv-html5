@@ -1,0 +1,51 @@
+/*----------------------------------------------------------------------------*/
+--R_ENTRADA_CONSIGNADO
+SELECT * FROM (
+SELECT  ent_pro.dt_entrada,
+               Decode((SELECT Nvl(SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N') FROM DBAMV.CONFIGEST WHERE CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA), 'S', ent_pro.nr_ncf, nvl(ent_pro.nr_documento,0)) nr_documento,
+               tip_doc.ds_tip_doc,
+               ent_pro.cd_fornecedor,
+               ent_pro.cd_fornecedor||' '||fornecedor.nm_fornecedor fornecedor,
+               itent_pro.cd_produto,
+               produto.ds_produto,
+               uni_pro.ds_unidade,
+               Itent_pro.qt_entrada  qt_entrada,
+               itent_pro.vl_total_custo_real  / Itent_pro.qt_entrada vl_unitario,
+               itent_pro.vl_custo_real  vl_real,
+               itent_pro.vl_total_custo_real vl_entrada,
+               log_mvto.cd_mvto_estoque,
+               mvto_estoque.dt_mvto_estoque,
+               log_mvto.qt_movimento qt_saida,
+               (log_mvto.vl_unitario*log_mvto.qt_movimento) vl_saida
+FROM         dbamv.mvto_estoque,
+             dbamv.log_mvto_consignado log_mvto,
+             dbamv.log_mvto_consignado log_mvto_tem,
+             dbamv.tip_doc,
+             dbamv.fornecedor,
+             dbamv.produto,
+             dbamv.uni_pro,
+             dbamv.ent_pro,
+             dbamv.itent_pro,
+             dbamv.estoque
+WHERE log_mvto.cd_fornecedor = fornecedor.cd_fornecedor
+and log_mvto.cd_produto = produto.cd_produto
+and log_mvto.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+and ent_pro.cd_ent_pro    = itent_pro.cd_ent_pro
+and log_mvto.cd_log_mvto_consignado_tem = log_mvto_tem.cd_log_mvto_consignado(+)
+and ent_pro.cd_ent_pro(+) = log_mvto_tem.cd_ent_pro
+and log_mvto_tem.cd_ent_pro = itent_pro.cd_ent_pro(+)
+and log_mvto_tem.cd_produto = itent_pro.cD_produto(+)
+AND ent_pro.cd_fornecedor = fornecedor.cd_fornecedor
+AND	fornecedor.tp_cliente_Forn in ( 'F', 'A', 'R', 'T' )
+AND ent_pro.cd_estoque = estoque.cd_estoque
+AND ent_pro.cd_tip_doc  = tip_doc.cd_tip_doc
+AND itent_pro.cd_produto  = produto.cd_produto(+)
+AND itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+AND        trunc(ent_pro.dt_entrada) BETWEEN :CAMPO_DTINIC  AND 
+AND        estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        ent_pro.cd_fornecedor is not null
+:CAMPO_CF_TP_DOC_ENT
+)
+ORDER BY DT_ENTRADA,
+NR_DOCUMENTO,CD_FORNECEDOR,FORNECEDOR,DS_TIP_DOC,
+CD_PRODUTO,DS_UNIDADE,DS_PRODUTO,VL_UNITARIO,QT_ENTRADA,VL_REAL,VL_ENTRADA

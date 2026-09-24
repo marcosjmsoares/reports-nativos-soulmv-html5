@@ -1,0 +1,79 @@
+/*----------------------------------------------------------------------------*/
+--R_CONF_LANC_HONOR
+SELECT * FROM (
+select  nf.cd_nota_fiscal                           cd_nota_fiscal
+       ,nf.nr_id_nota_fiscal                        nr_id_nota_fiscal
+       ,nf.dt_emissao                               dt_emissao
+			 ,tnf.vl_total_nf                             vl_total_nf
+   		 ,nvl(it.vl_itfat_nf,0)                       vl_itfat_nf
+			 ,nvl(it.vl_glosa,0)                          vl_glosa
+			 ,case when it.vl_glosa != 0 then
+			    nvl(it.vl_itfat_nf,0) - nvl(it.vl_glosa,0)
+				else 0
+				end                                         vl_repasse
+			 ,it.dt_movimentacao                          dt_movimentacao
+			 ,'Contas a Pagar: ' || pr.nm_prestador       ds_lacamento_1
+       ,'Geração Repasse '                          ds_lacamento_2
+       ,'Aceite de Glosa '                          ds_lacamento_3
+       ,'H'                                         tp_repasse
+       ,it.cd_processo                              cd_processo
+       ,nf.cd_convenio                              cd_convenio
+			 ,cv.nm_convenio                       		    nm_convenio
+   		 ,it.cd_conta                                 cd_conta
+			 ,it.cd_atendimento                           cd_atendimento
+			 ,it.cd_pro_fat                               cd_pro_fat
+			 ,null                                        vl_null
+   from (select nf.cd_nota_fiscal
+	 						 ,nf.nr_id_nota_fiscal
+							 ,trunc(nf.dt_emissao) dt_emissao
+							 ,nf.cd_convenio
+	         from dbamv.nota_fiscal nf
+					where nf.cd_status = 'E'
+					  and nf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) nf
+			 ,(select it.cd_nota_fiscal
+			         ,nvl(sum(it.vl_itfat_nf),0) vl_total_nf
+			     from dbamv.nota_fiscal nf
+					     ,dbamv.itfat_nota_fiscal it
+					where nf.cd_nota_fiscal = it.cd_nota_fiscal
+					group by it.cd_nota_fiscal) tnf
+   		 ,(select it.cd_nota_fiscal
+			 				 ,nvl(sum(it.vl_itfat_nf),0)        vl_itfat_nf
+						   ,trunc(mh.dt_movimentacao)         dt_movimentacao
+							 ,mh.cd_processo
+   		         ,nvl(mh.vl_movimentacao,0)         vl_glosa
+							 ,nvl(it.cd_reg_amb, it.cd_reg_fat) cd_conta
+							 ,mh.cd_convenio
+         	 		 ,it.cd_atendimento
+         	     ,it.cd_pro_fat
+							 ,it.cd_prestador
+         	 from dbamv.itfat_nota_fiscal it
+         	     ,dbamv.mov_honorario_passivo mh
+           where it.cd_nota_fiscal = mh.cd_nota_fiscal
+         	  and nvl(it.cd_reg_amb, it.cd_reg_fat) = mh.cd_conta
+         	  and it.cd_atendimento = mh.cd_atendimento
+         	  and it.cd_pro_fat = mh.cd_pro_fat
+						and mh.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+						and mh.cd_mov_glosas is not null
+				  group by it.cd_nota_fiscal
+   						    ,trunc(mh.dt_movimentacao)
+   							  ,mh.cd_processo
+									,nvl(mh.vl_movimentacao,0)
+   							  ,nvl(it.cd_reg_amb, it.cd_reg_fat)
+									,mh.cd_convenio
+            	 		,it.cd_atendimento
+            	    ,it.cd_pro_fat
+									,it.cd_prestador) it
+			 ,(select cv.cd_convenio
+               ,cv.nm_convenio
+           from dbamv.convenio cv) cv
+       ,(select pr.cd_prestador
+               ,pr.nm_prestador
+           from dbamv.prestador pr
+					where pr.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) pr
+	 where  nf.cd_nota_fiscal = it.cd_nota_fiscal
+		  and   nf.cd_nota_fiscal = tnf.cd_nota_fiscal
+		 and nf.cd_convenio = cv.cd_convenio
+		 and it.cd_prestador = pr.cd_prestador  (+)
+)
+ORDER BY CD_CONVENIO,NM_CONVENIO,
+CD_NOTA_FISCAL,VL_TOTAL_NF,DT_EMISSAO,NR_ID_NOTA_FISCAL

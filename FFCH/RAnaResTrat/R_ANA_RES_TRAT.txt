@@ -1,0 +1,84 @@
+/*----------------------------------------------------------------------------*/
+--R_ANA_RES_TRAT
+SELECT * FROM (
+SELECT   a.analise
+        ,SUM (a.receita) receita
+        ,SUM (a.diaria) diaria
+        ,SUM (a.qtd_diaria) qtd_diaria
+        ,SUM (a.honorario) honorario
+        ,SUM (a.procedimento) procedimento
+        ,SUM (a.matmed) matmed
+        ,SUM (a.terceiro) terceiro
+        ,MAX (a.tx_adm) tx_adm
+        ,MAX (a.tx_imposto) tx_imposto
+        ,SUM (a.vl_resultado) vl_resultado
+        ,SUM (a.vl_rentabilidade) vl_rentabilidade
+        ,'x' quebra
+        ,COUNT (a.qtd_atendimento) qtd_atendimento
+        ,NVL (SUM (vl_rentabilidade) / COUNT (a.qtd_atendimento), 0) vl_tratamento
+    FROM (SELECT cd_atendimento
+                ,analise
+                ,receita
+                ,diaria
+                ,qtd_diaria
+                ,honorario
+                ,procedimento
+                ,matmed
+                ,terceiro
+                ,tx_adm
+                ,tx_imposto
+                ,vl_resultado
+                ,vl_rentabilidade
+                ,1 qtd_atendimento
+            FROM (SELECT   fa.cd_atendimento
+                          ,DECODE (''
+                                  ,'1', fa.cd_pro_fat
+                                  ,'2', fa.cd_especialid
+                                  ,'3', fa.cd_cirurgia
+                                  ,'4', fa.cd_prestador
+                                  ) analise
+                          ,SUM (NVL (fa.vl_receita, 0)) receita
+                          ,SUM (NVL (fa.vl_cus_diaria, 0)) diaria
+                          ,SUM (NVL (fa.qtd_diaria, 0)) qtd_diaria
+                          ,SUM (NVL (fa.vl_cus_honorario, 0)) honorario
+                          ,SUM (NVL (fa.vl_cus_procedimento, 0)+NVL (fa.vl_cus_cencir, 0)) procedimento
+                          ,SUM (NVL (fa.vl_cus_matmed, 0)) matmed
+                          ,SUM (NVL (fa.vl_cus_terceiro, 0)) terceiro
+                          ,SUM (NVL (fa.tx_adm, 0)) tx_adm
+                          ,SUM (NVL (fa.tx_imposto, 0)) tx_imposto
+                          ,SUM (NVL (fa.vl_resultado, 0)) vl_resultado
+                          ,SUM (NVL (fa.vl_rentabilidade, 0)) vl_rentabilidade
+                          ,'X' dummy
+                      FROM dbamv.fa_custo_tratamento fa
+                          ,dbamv.atendime ate
+                          ,dbamv.paciente pc
+                          ,dbamv.pro_fat pf
+                          ,dbamv.convenio conv
+                          ,dbamv.prestador pr
+                          ,dbamv.cid
+                          ,dbamv.cirurgia
+                          ,dbamv.tipo_internacao tp_int
+                          ,dbamv.especialid esp
+                     WHERE fa.dt_alta >= TO_DATE (:CAMPO_DT_INI, 'yyyy/mm/dd')
+                       AND fa.dt_alta <= TO_DATE (:CAMPO_DT_FIM, 'yyyy/mm/dd')
+                       AND fa.cd_paciente = pc.cd_paciente
+                       AND ate.cd_atendimento = fa.cd_atendimento
+                       AND fa.cd_pro_fat = pf.cd_pro_fat
+                       AND fa.cd_cid = cid.cd_cid(+)
+                       AND fa.cd_cirurgia = cirurgia.cd_cirurgia(+)
+                       AND ate.cd_convenio = conv.cd_convenio
+                       AND fa.cd_prestador = pr.cd_prestador
+                       AND fa.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                       AND ate.cd_tipo_internacao = tp_int.cd_tipo_internacao(+)
+                       AND fa.cd_especialid = esp.cd_especialid(+)
+                       AND fa.fase <> '05-Alta'
+                  GROUP BY fa.cd_atendimento
+                          ,DECODE (''
+                                  ,'1', fa.cd_pro_fat
+                                  ,'2', fa.cd_especialid
+                                  ,'3', fa.cd_cirurgia
+                                  ,'4', fa.cd_prestador
+                                  ))) a
+GROUP BY a.analise
+)
+ORDER BY ANALISE,VL_RESULTADO,RECEITA,DIARIA,PROCEDIMENTO,MATMED,TERCEIRO,TX_ADM,HONORARIO,TX_IMPOSTO,VL_RENTABILIDADE,QTD_DIARIA,QTD_ATENDIMENTO,VL_TRATAMENTO

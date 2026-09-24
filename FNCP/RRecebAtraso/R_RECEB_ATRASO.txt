@@ -1,0 +1,107 @@
+/*----------------------------------------------------------------------------*/
+--R_RECEB_ATRASO
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RECEB_ATRASO_R_2_Q_CTA_RECEBIDAS
+SELECT * FROM (
+select trunc( reccon_rec.dt_recebimento)     	data_mov
+        ,fornecedor.cd_fornecedor              	cd_cliente
+        ,ltrim(hist_p.ds_historico_padrao||' '||con_rec.ds_con_rec)             ds_hist_p
+        ,itcon_rec.dt_prevista_recebimento   	dt_prevista
+        ,con_rec.cd_con_rec                                      cd_con_rec
+        ,con_rec.nr_documento                  		doc
+        ,itcon_rec.vl_duplicata                        	vl_previsto
+       ,reccon_rec.vl_recebido       	valor
+       ,decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente,fornecedor.nm_fantasia) cliente
+       ,decode( con_rec.tp_con_rec, 'C', 'Convênio', 'P', 'Paciente', 'F', 'Funcionário', 'A', 'Fin. Cartão Crédito', 'R', 'Farmacia', 'D', 'Diversos' )  tp_con_rec
+       , con_rec.dt_emissao
+,reccon_rec.cd_moeda cd_moeda_rec1
+,reccon_rec.vl_moeda vl_moeda_rec1
+,itcon_rec.cd_moeda cd_moeda_prev1
+,itcon_rec.vl_moeda vl_moeda_prev1
+,con_rec.dt_lancamento dt_lancamento1
+from   dbamv.itcon_rec
+         ,dbamv.con_rec
+     , (select f.cd_fornecedor, f.nm_fantasia
+        from dbamv.fornecedor f
+        where f.tp_cliente_forn in ('C','A', 'N', 'T')) fornecedor
+         ,dbamv.historico_padrao hist_p
+         ,dbamv.reccon_rec
+where  :CAMPO_ORDEM = '2'
+and      con_rec.cd_fornecedor                     = fornecedor.cd_fornecedor(+)
+and     con_rec.cd_historico_padrao             = hist_p.cd_historico_padrao(+)
+and     itcon_rec.cd_con_rec =                       con_rec.cd_con_rec
+and     con_rec.cd_previsao is null
+and     con_rec.cd_multi_empresa                 =  :CAMPO_CD_MULTI_EMPRESA
+and     itcon_rec.cd_itcon_rec                          =  reccon_rec.cd_itcon_rec(+)
+and     itcon_rec.cd_con_rec_agrup is null
+and     reccon_rec.dt_estorno is null
+and     trunc( itcon_rec.dt_prevista_recebimento ) 	< trunc( reccon_rec.dt_recebimento)
+and     trunc(reccon_rec.dt_recebimento	) 	>=  trunc(:CAMPO_DT_INIC)
+and     trunc(reccon_rec.dt_recebimento )              <= trunc(:CAMPO_DT_FIM )
+:CAMPO_CF_MOEDA
+)
+ORDER BY DATA_MOV,
+TP_CON_REC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RECEB_ATRASO_R_CLIENTE_Q_CLIENTE
+SELECT * FROM (
+select trunc( reccon_rec.dt_recebimento)     data_mov_cli
+        ,fornecedor.cd_fornecedor              cd_cliente_cli
+        ,decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente,fornecedor.nm_fantasia) cliente_cli
+        ,ltrim(hist_p.ds_historico_padrao||' '||reccon_rec.ds_reccon_rec)             ds_hist_p_cli
+        ,itcon_rec.dt_prevista_recebimento    dt_prevista_cli
+        ,con_rec.cd_con_rec                      cd_con_rec_cli
+        ,con_rec.nr_documento                  doc_cli
+        ,sum(itcon_rec.vl_duplicata)                        vl_previsto_cli
+       ,sum(reccon_rec.vl_recebido)                        valor_cli
+       ,decode( con_rec.tp_con_rec, 'C', 'Convênio', 'P', 'Paciente', 'F', 'Funcionário', 'A', 'Fin. Cartão Crédito', 'R', 'Farmacia', 'D', 'Diversos' )
+tp_con_rec_cli
+       ,con_rec.dt_emissao dt_emissao_cli
+,reccon_rec.cd_moeda cd_moeda_rec2
+,sum(reccon_rec.vl_moeda) vl_moeda_rec2
+,itcon_rec.cd_moeda cd_moeda_prev2
+,sum(itcon_rec.vl_moeda) vl_moeda_prev2
+,con_rec.dt_lancamento dt_lancamento2
+from   dbamv.itcon_rec
+        , dbamv.con_rec
+     , (select f.cd_fornecedor, f.nm_fantasia
+        from dbamv.fornecedor f
+        where f.tp_cliente_forn in ('C','A', 'N', 'T')) fornecedor
+       ,dbamv.historico_padrao hist_p
+       ,dbamv.reccon_rec
+where  :CAMPO_ORDEM = '1'
+and     con_rec.cd_fornecedor                     = fornecedor.cd_fornecedor(+)
+and     con_rec.cd_historico_padrao             = hist_p.cd_historico_padrao(+)
+and     con_rec.cd_previsao is null
+and     con_rec.cd_multi_empresa                 =  :CAMPO_CD_MULTI_EMPRESA
+and     itcon_rec.cd_itcon_rec                          =  reccon_rec.cd_itcon_rec(+)
+and     itcon_rec.cd_con_rec                            = con_rec.cd_con_rec
+and     itcon_rec.cd_con_rec_agrup is null
+and     reccon_rec.dt_estorno is null
+and     trunc( itcon_rec.dt_prevista_recebimento)   < trunc( reccon_rec.dt_recebimento)
+and     trunc(reccon_rec.dt_recebimento ) 	>= Trunc(:CAMPO_DT_INIC)
+and     trunc(reccon_rec.dt_recebimento )              <= Trunc(:CAMPO_DT_FIM )
+group by
+trunc( reccon_rec.dt_recebimento)
+        ,fornecedor.cd_fornecedor
+        ,decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente,fornecedor.nm_fantasia)
+        ,ltrim(hist_p.ds_historico_padrao||' '||reccon_rec.ds_reccon_rec)
+        ,itcon_rec.dt_prevista_recebimento
+        ,con_rec.cd_con_rec
+        ,con_rec.nr_documento
+       ,decode( con_rec.tp_con_rec, 'C', 'Convênio', 'P', 'Paciente', 'F', 'Funcionário', 'A', 'Fin. Cartão Crédito', 'R', 'Farmacia', 'D', 'Diversos' )
+       ,con_rec.dt_emissao
+,reccon_rec.cd_moeda
+,itcon_rec.cd_moeda
+,con_rec.dt_lancamento
+)
+ORDER BY CLIENTE_CLI,CD_CLIENTE_CLI,
+TP_CON_REC_CLI,
+DATA_MOV_CLI

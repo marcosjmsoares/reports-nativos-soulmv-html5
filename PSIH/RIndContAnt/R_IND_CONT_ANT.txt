@@ -1,0 +1,307 @@
+/*----------------------------------------------------------------------------*/
+--R_IND_CONT_ANT
+SELECT  nvl(SUM(PROFILATICO) +  SUM(TERAPEUTICO) - SUM(DEVOLUCAO), 0) TOTAL_ANT           
+        FROM(
+                 SELECT     ANTIMICROB.CD_ANTIMICROB,
+                                    ANTIMICROB.NM_ANTIMICROB,
+                                    SUM((ITMVTO_ESTOQUE.QT_MOVIMENTACAO * nvl(UNI_PRO.VL_FATOR,0))*nvl(ANT_PRO.QT_GRAMA,0))    PROFILATICO,
+                                    0                            TERAPEUTICO,
+                                    0                             DEVOLUCAO                            
+                    FROM     DBAMV.ANTIMICROB
+            		  ,DBAMV.ANT_PRO
+            		  ,DBAMV.ITMVTO_ESTOQUE
+                                  ,DBAMV.UNI_PRO
+            	                  ,DBAMV.MVTO_ESTOQUE
+            	                  ,DBAMV.ATENDIME
+            	                  ,DBAMV.LEITO
+		  ,DBAMV.ESTOQUE 
+                         WHERE      ITMVTO_ESTOQUE.CD_PRODUTO       = ANT_PRO.CD_PRODUTO
+                         AND            ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE     = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                         AND            NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N')     = 'P'
+                         AND            ANTIMICROB.CD_ANTIMICROB     = ANT_PRO.CD_ANTIMICROB
+        	         AND            ATENDIME.CD_ATENDIMENTO     = MVTO_ESTOQUE.CD_ATENDIMENTO
+                         AND            MVTO_ESTOQUE.TP_MVTO_ESTOQUE <> 'C'                           
+                         AND   MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                         AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                         AND            TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL AND 
+                         AND            ATENDIME.CD_LEITO = LEITO.CD_LEITO
+                         AND            ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                           GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB
+                     UNION ALL
+                      SELECT     ANTIMICROB.CD_ANTIMICROB,
+                                         ANTIMICROB.NM_ANTIMICROB,
+                                         0 PROFILATICO,
+                                         SUM((ITMVTO_ESTOQUE.QT_MOVIMENTACAO* nvl(UNI_PRO.VL_FATOR,0))*nvl(ANT_PRO.QT_GRAMA,0))   TERAPEUTICO,
+                                         0                             DEVOLUCAO                                       
+                           FROM        DBAMV.ANTIMICROB
+            	                            ,DBAMV.ANT_PRO
+            	                            ,DBAMV.ITMVTO_ESTOQUE
+	                            ,DBAMV.MVTO_ESTOQUE
+            		            ,DBAMV.ATENDIME
+                                            ,DBAMV.UNI_PRO
+            		            ,DBAMV.LEITO
+	                            ,DBAMV.ESTOQUE 
+                             WHERE   ITMVTO_ESTOQUE.CD_PRODUTO      = ANT_PRO.CD_PRODUTO
+                             AND         ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                             AND         NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') = 'T'
+                             AND         ANTIMICROB.CD_ANTIMICROB       = ANT_PRO.CD_ANTIMICROB
+        	             AND         ATENDIME.CD_ATENDIMENTO        = MVTO_ESTOQUE.CD_ATENDIMENTO
+                             AND         MVTO_ESTOQUE.TP_MVTO_ESTOQUE <> 'C'                          
+                             AND   MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                             AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                             AND        TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL AND 
+                             AND        ATENDIME.CD_LEITO = LEITO.CD_LEITO
+                             AND        ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                           GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB
+                     UNION ALL                  
+                      SELECT     ANTIMICROB.CD_ANTIMICROB,
+                                         ANTIMICROB.NM_ANTIMICROB,
+                                         0 PROFILATICO,
+                                         0 TERAPEUTICO,
+                                         SUM((ITMVTO_ESTOQUE.QT_MOVIMENTACAO * UNI_PRO.VL_FATOR) * QT_GRAMA) DEVOLUCAO
+                           FROM     DBAMV.ANTIMICROB
+            	                          ,DBAMV.ANT_PRO
+            	                          ,DBAMV.ITMVTO_ESTOQUE
+		          ,DBAMV.MVTO_ESTOQUE
+            		          ,DBAMV.ATENDIME
+                                          ,DBAMV.UNI_PRO
+            		          ,DBAMV.LEITO
+	                          ,DBAMV.ESTOQUE 
+                             WHERE   ITMVTO_ESTOQUE.CD_PRODUTO      = ANT_PRO.CD_PRODUTO
+                             AND         ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                             AND         NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') IN ('T','P')
+                             AND         ANTIMICROB.CD_ANTIMICROB       = ANT_PRO.CD_ANTIMICROB
+        	             AND         ATENDIME.CD_ATENDIMENTO        = MVTO_ESTOQUE.CD_ATENDIMENTO
+                             AND         MVTO_ESTOQUE.TP_MVTO_ESTOQUE = 'C'
+                             AND   MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                             AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                             AND        TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL AND 
+                             AND        ATENDIME.CD_LEITO = LEITO.CD_LEITO
+                             AND        ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                           GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB      
+                      )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IND_CONT_ANT_R_3_Q_3
+SELECT ROUND(SUM(TOTAL_ANT)  / DECODE(SUM(NUM_TOT),0,1, SUM(NUM_TOT)),2)  MEDIA
+       FROM(
+            SELECT     COUNT(*) NUM_TOT,
+                       0 TOTAL_ANT
+              FROM     DBAMV.ATENDIME
+                       ,DBAMV.LEITO
+               WHERE
+                  ATENDIME.DT_ALTA BETWEEN :CAMPO_DT_INICIAL AND 
+                  AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                 AND ATENDIME.CD_LEITO                 = LEITO.CD_LEITO
+                 AND ATENDIME.TP_ATENDIMENTO = 'I'
+                       UNION ALL
+                      SELECT      0  NUM_TOT
+                                  ,SUM(PROFILATICO) +  SUM(TERAPEUTICO) - SUM(DEVOLUCOES) TOTAL_ANT              
+                        FROM(
+                            SELECT ANTIMICROB.CD_ANTIMICROB,
+                                   ANTIMICROB.NM_ANTIMICROB,
+                                   SUM(QT_MOVIMENTACAO*QT_GRAMA)  PROFILATICO,
+                                   0   TERAPEUTICO,
+                                   0   DEVOLUCOES                                                                                                    
+                             FROM  DBAMV.ANTIMICROB
+                                   ,DBAMV.ANT_PRO
+                                   ,DBAMV.ITMVTO_ESTOQUE
+                                   ,DBAMV.MVTO_ESTOQUE
+                                   ,DBAMV.ATENDIME
+                                   ,DBAMV.LEITO
+                             WHERE ITMVTO_ESTOQUE.CD_PRODUTO                   = ANT_PRO.CD_PRODUTO
+                               AND ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE             = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                               AND NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') = 'P'
+                               AND ANTIMICROB.CD_ANTIMICROB                               = ANT_PRO.CD_ANTIMICROB
+                               AND ATENDIME.CD_ATENDIMENTO                              = MVTO_ESTOQUE.CD_ATENDIMENTO
+                               AND ATENDIME.CD_LEITO                                              = LEITO.CD_LEITO
+                               AND TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL AND 
+                               AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE <> 'C'    
+                               AND ATENDIME.TP_ATENDIMENTO = 'I'
+                          GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB
+                             UNION ALL
+                                        SELECT ANTIMICROB.CD_ANTIMICROB,
+                                               ANTIMICROB.NM_ANTIMICROB,
+                                               0 PROFILATICO,
+                                               SUM(QT_MOVIMENTACAO*QT_GRAMA)TERAPEUTICO,
+                                               0 DEVOLUCOES                                                                                                         
+                                          FROM DBAMV.ANTIMICROB
+                                               ,DBAMV.ANT_PRO
+                                               ,DBAMV.ITMVTO_ESTOQUE
+                                               ,DBAMV.MVTO_ESTOQUE
+                                               ,DBAMV.ATENDIME
+                                               ,DBAMV.LEITO
+                                         WHERE ITMVTO_ESTOQUE.CD_PRODUTO                      =  ANT_PRO.CD_PRODUTO
+                                           AND ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE              = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                                           AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                                           AND NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N')   = 'T'
+                                           AND ANTIMICROB.CD_ANTIMICROB                                = ANT_PRO.CD_ANTIMICROB
+                                           AND ATENDIME.CD_ATENDIMENTO                               = MVTO_ESTOQUE.CD_ATENDIMENTO
+                                           AND TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL AND 
+                                           AND ATENDIME.CD_LEITO = LEITO.CD_LEITO
+                                           AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE <> 'C'       
+                                           AND ATENDIME.TP_ATENDIMENTO = 'I'
+                                              GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB
+                                                 UNION ALL
+                                                 SELECT ANTIMICROB.CD_ANTIMICROB,
+                                                        ANTIMICROB.NM_ANTIMICROB,
+                                                        0 PROFILATICO,
+                                                        0 TERAPEUTICO,
+                                                        SUM ( ITMVTO_ESTOQUE.QT_MOVIMENTACAO * QT_GRAMA ) DEVOLUCAO  
+                                                   FROM DBAMV.ANTIMICROB
+            	                                        ,DBAMV.ANT_PRO
+            	                                        ,DBAMV.ITMVTO_ESTOQUE
+                 		                                ,DBAMV.MVTO_ESTOQUE
+            		                                    ,DBAMV.ATENDIME
+                                                        ,DBAMV.UNI_PRO
+            		                                    ,DBAMV.LEITO
+                                                  WHERE ITMVTO_ESTOQUE.CD_PRODUTO                     = ANT_PRO.CD_PRODUTO
+                                                    AND ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE             = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                                                    AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                                                    AND ANTIMICROB.CD_ANTIMICROB                              = ANT_PRO.CD_ANTIMICROB
+        	                                    AND ATENDIME.CD_ATENDIMENTO                              = MVTO_ESTOQUE.CD_ATENDIMENTO
+                                                    AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE                 = 'C'
+                                                    AND ATENDIME.CD_LEITO                                              = LEITO.CD_LEITO
+                                                    AND ITMVTO_ESTOQUE.CD_UNI_PRO                          = UNI_PRO.CD_UNI_PRO
+                                                    AND ATENDIME.TP_ATENDIMENTO                               = 'I'
+                                                    AND NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') IN ('T','P')
+                                                   AND TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB      
+                                 )
+             )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IND_CONT_ANT_R_5_Q_7
+SELECT     nvl(ROUND(SUM(PROFILATICO)*100 / SUM(PROFILATICO+TERAPEUTICO) ,2), 0)    PROFILATICA,
+                    nvl(ROUND(SUM(TERAPEUTICO)*100 / SUM(PROFILATICO+TERAPEUTICO) ,2), 0) TERAPEUTICA
+              FROM(
+                          SELECT      ANTIMICROB.CD_ANTIMICROB,
+                                              ANTIMICROB.NM_ANTIMICROB,
+                                              SUM((ITMVTO_ESTOQUE.QT_MOVIMENTACAO* UNI_PRO.VL_FATOR) * ANT_PRO.QT_GRAMA)   PROFILATICO,
+                                              0 TERAPEUTICO
+                                FROM      DBAMV.ANTIMICROB
+                                               ,DBAMV.ANT_PRO
+                                               ,DBAMV.ITMVTO_ESTOQUE
+                                               ,DBAMV.MVTO_ESTOQUE
+                                               ,DBAMV.ATENDIME
+                                               ,DBAMV.LEITO
+                                               ,DBAMV.UNI_PRO
+					       ,DBAMV.ESTOQUE 
+                                   WHERE     ITMVTO_ESTOQUE.CD_PRODUTO      = ANT_PRO.CD_PRODUTO
+                                   AND           ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                                   AND           ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                                   AND           NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') = 'P'
+                                   AND           ANTIMICROB.CD_ANTIMICROB       = ANT_PRO.CD_ANTIMICROB
+                                   AND           ATENDIME.CD_ATENDIMENTO        = MVTO_ESTOQUE.CD_ATENDIMENTO
+                                   AND           ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                                   AND           TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL AND 
+                                   AND           ATENDIME.CD_LEITO = LEITO.CD_LEITO
+                                   AND   MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                                   AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                    GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB
+                          UNION ALL
+                         SELECT        ANTIMICROB.CD_ANTIMICROB,
+                                               ANTIMICROB.NM_ANTIMICROB,
+                                               0   PROFILATICO,
+                                               SUM((ITMVTO_ESTOQUE.QT_MOVIMENTACAO * UNI_PRO.VL_FATOR) * ANT_PRO.QT_GRAMA)   TERAPEUTICO
+                             FROM      DBAMV.ANTIMICROB
+                                            ,DBAMV.ANT_PRO
+                                            ,DBAMV.ITMVTO_ESTOQUE
+                                            ,DBAMV.MVTO_ESTOQUE
+                                            ,DBAMV.ATENDIME
+                                            ,DBAMV.LEITO
+                                            ,DBAMV.UNI_PRO
+					    ,DBAMV.ESTOQUE 
+                              WHERE      ITMVTO_ESTOQUE.CD_PRODUTO      = ANT_PRO.CD_PRODUTO
+                              AND            ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                              AND             ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                              AND            NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') = 'T'
+                              AND            ANTIMICROB.CD_ANTIMICROB       = ANT_PRO.CD_ANTIMICROB
+                              AND            ATENDIME.CD_ATENDIMENTO        = MVTO_ESTOQUE.CD_ATENDIMENTO
+                              AND            ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                              AND            TRUNC(ATENDIME.DT_ALTA) BETWEEN :CAMPO_DT_INICIAL AND 
+                              AND            ATENDIME.CD_LEITO = LEITO.CD_LEITO
+                              AND   MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                              AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                GROUP BY ANTIMICROB.CD_ANTIMICROB, ANTIMICROB.NM_ANTIMICROB
+                     )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IND_CONT_ANT_R_6_Q_6
+SELECT ROUND((SUM(NUM_TOT) - SUM(TOTAL)) * 100 / DECODE(SUM(NUM_TOT), 0, 1, SUM(NUM_TOT)) ,2)SEM_INFEC
+         FROM(
+              SELECT  COUNT(*) NUM_TOT
+                     ,0 TOTAL
+               FROM  DBAMV.ATENDIME
+                    ,DBAMV.LEITO
+               WHERE  ATENDIME.TP_ATENDIMENTO = 'I'
+                     AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                     AND  ATENDIME.CD_LEITO                 = LEITO.CD_LEITO
+                    AND  ATENDIME.DT_ALTA BETWEEN :CAMPO_DT_INICIAL UNION ALL
+                 SELECT  SUM(NUM_TOT) NUM_TOT
+                        ,SUM(TOTAL)  TOTAL
+                  FROM(
+                       SELECT   0 NUM_TOT
+                                ,COUNT(CD_PACIENTE) TOTAL
+                       FROM(
+                            SELECT DISTINCT ATENDIME.CD_PACIENTE
+                             FROM  DBAMV.ATENDIME
+                                  ,DBAMV.MVTO_ESTOQUE
+                                  ,DBAMV.ITMVTO_ESTOQUE
+                                  ,DBAMV.ANT_PRO
+                                  ,DBAMV.LEITO
+                             WHERE ATENDIME.CD_ATENDIMENTO           = MVTO_ESTOQUE.CD_ATENDIMENTO
+                               AND MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                               AND ITMVTO_ESTOQUE.CD_PRODUTO          = ANT_PRO.CD_PRODUTO
+                               AND ATENDIME.CD_LEITO                               = LEITO.CD_LEITO(+)
+                               AND ATENDIME.TP_ATENDIMENTO               = 'I'
+                               AND NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') IN ('P', 'T')
+                               AND ATENDIME.DT_ALTA BETWEEN :CAMPO_DT_INICIAL AND 
+                                                     )
+               )
+       )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IND_CONT_ANT_R_7_Q_8
+SELECT ROUND(SUM(TOTAL_PRO)* 100 / DECODE(SUM(NUM_TOT), 0,1,SUM(NUM_TOT)),2)  TAXA_PRO
+       FROM(
+                  SELECT   COUNT(*) NUM_TOT ,
+                                   0 TOTAL_PRO
+                        FROM       DBAMV.ATENDIME,
+                                         DBAMV.LEITO
+                          WHERE    
+                          ATENDIME.DT_ALTA BETWEEN :CAMPO_DT_INICIAL AND 
+                          AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                          AND          ATENDIME.TP_ATENDIMENTO = 'I'
+                          AND          ATENDIME.CD_LEITO = LEITO.CD_LEITO
+	UNION ALL
+                SELECT   0 NUM_TOT,
+                                 COUNT(CD_PACIENTE) TOTAL_PRO
+                        FROM(
+                                    SELECT DISTINCT ATENDIME.CD_PACIENTE
+                                          FROM      DBAMV.ATENDIME
+                                                        , DBAMV.LEITO
+                                                         ,DBAMV.MVTO_ESTOQUE
+                                                         ,DBAMV.ITMVTO_ESTOQUE
+                                                         ,DBAMV.ANT_PRO
+							 ,DBAMV.ESTOQUE 
+                                           WHERE       ATENDIME.CD_ATENDIMENTO      = MVTO_ESTOQUE.CD_ATENDIMENTO
+                                           AND             MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                                           AND             ITMVTO_ESTOQUE.CD_PRODUTO    = ANT_PRO.CD_PRODUTO
+                                           AND             ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                                           AND             NVL(ITMVTO_ESTOQUE.TP_USO_PRODUTO,'N') = 'P'
+                                           AND             ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+         	                           AND             ATENDIME.DT_ALTA BETWEEN :CAMPO_DT_INICIAL AND 
+                                           AND   MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                                           AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                  )
+         )

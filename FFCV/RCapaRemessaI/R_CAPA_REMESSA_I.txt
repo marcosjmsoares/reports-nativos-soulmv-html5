@@ -1,0 +1,137 @@
+/*----------------------------------------------------------------------------*/
+--R_CAPA_REMESSA_I
+SELECT COUNT(*) Tot_Contas , SUM(QT_ITENS+qt_outros) Tot_Itens, SUM(vL_TOTAL+vl_Outros) Vl_Total
+FROM
+(
+  Select   reg_fat.cd_reg_fat cd_conta,
+               REG_FAT.CD_ATENDIMENTO,
+               0                    Qt_Outros,
+              SUM(Nvl(TotItens.Qt_lancamento,0))  QT_ITENS,
+              SUM(Nvl(TotItens.vl_total_conta,0)) VL_TOTAL,
+              0                      Vl_Outros
+  From
+         (   Select itreg_fat2.cd_reg_fat cd_conta,
+             itreg_fat2.qt_lancamento,
+             decode(itlan_med2.cd_reg_fat, null, itreg_fat2.vl_total_conta, itlan_med2.vl_ato) vl_total_conta
+             From  dbamv.itreg_fat itreg_fat2,
+                   dbamv.reg_fat  reg_fat2,
+                   dbamv.pro_fat,
+                   dbamv.gru_pro,
+                   dbamv.itlan_med itlan_med2
+             Where reg_fat2.cd_remessa = :CAMPO_CD_REMESSA
+                   AND REG_FAT2.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                   and reg_fat2.cd_reg_fat = itreg_fat2.cd_reg_fat  and
+                   pro_fat.cd_pro_fat = itreg_fat2.cd_pro_fat
+                   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                   and itlan_med2.cd_reg_fat (+) = itreg_fat2.cd_reg_fat
+                   and itlan_med2.cd_lancamento (+) = itreg_fat2.cd_lancamento
+                   and Nvl( itreg_fat2.sn_pertence_pacote, 'N' ) = 'N'
+                   and gru_pro.tp_gru_pro in ( 'SP', 'SH', 'MT', 'OP', 'SD', 'OL')
+                   and itreg_fat2.cd_lancamento_pai is null
+                   and itreg_fat2.cd_reg_fat_pai is null
+             Union All
+             select itreg_fat3.cd_reg_fat cd_conta,
+                    itreg_fat3.qt_lancamento qt_lancamento,
+                    decode(itlan_med2.cd_reg_fat, null, itreg_fat3.vl_total_conta, itlan_med2.vl_ato) vl_total_conta
+             From  dbamv.itreg_fat itreg_fat3,
+                   dbamv.reg_fat   reg_fat2,
+                  dbamv.pro_fat,
+                  dbamv.gru_pro,
+                  dbamv.itlan_med itlan_med2,
+                  dbamv.imp_bra
+             Where reg_fat2.cd_remessa = :CAMPO_CD_REMESSA
+               AND REG_FAT2.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                and reg_fat2.cd_reg_fat = itreg_fat3.cd_reg_fat  and
+                   pro_fat.cd_pro_fat = itreg_fat3.cd_pro_fat
+               and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+               and itlan_med2.cd_reg_fat (+) = itreg_fat3.cd_reg_fat
+               and itlan_med2.cd_lancamento (+) = itreg_fat3.cd_lancamento
+               and Nvl( itreg_fat3.sn_pertence_pacote, 'N' ) = 'N'
+               and gru_pro.tp_gru_pro = 'MD'
+               and imp_bra.cd_pro_fat = itreg_fat3.cd_pro_fat
+               and itreg_fat3.cd_lancamento_pai is null
+               and itreg_fat3.cd_reg_fat_pai is null
+             UNION ALL
+             select itreg_fat4.cd_reg_fat cd_conta,
+                    itreg_fat4.qt_lancamento qt_lancamento,
+                    decode(itlan_med2.cd_reg_fat, null, itreg_fat4.vl_total_conta, itlan_med2.vl_ato) vl_total_conta
+             From  dbamv.itreg_fat itreg_fat4,
+                   dbamv.reg_fat  reg_fat2,
+                  dbamv.pro_fat,
+                  dbamv.gru_pro,
+                  dbamv.itlan_med itlan_med2
+             Where reg_fat2.cd_remessa = :CAMPO_CD_REMESSA
+                AND REG_FAT2.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                and reg_fat2.cd_reg_fat = itreg_fat4.cd_reg_fat  and
+                    pro_fat.cd_pro_fat = itreg_fat4.cd_pro_fat
+                and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+                and itlan_med2.cd_reg_fat (+) = itreg_fat4.cd_reg_fat
+                and itlan_med2.cd_lancamento (+) = itreg_fat4.cd_lancamento
+                and Nvl( itreg_fat4.sn_pertence_pacote, 'N' ) = 'N'
+                and gru_pro.tp_gru_pro = 'MD'
+                and itreg_fat4.cd_lancamento_pai is null
+                and itreg_fat4.cd_reg_fat_pai is null
+                and itreg_fat4.cd_pro_fat not in ( Select imp_bra_2.cd_pro_fat
+                                               from dbamv.imp_bra imp_bra_2 )
+             Union All
+             select itreg_fat5.cd_reg_fat cd_conta,
+                    itreg_fat5.qt_lancamento qt_lancamento,
+                     decode( itlan_med2.cd_reg_fat, null, itreg_fat5.vl_total_conta, itlan_med2.vl_ato) vl_total_conta
+             From  dbamv.itreg_fat itreg_fat5,
+                   dbamv.reg_fat  reg_fat2,
+                  dbamv.pro_fat,
+                  dbamv.itlan_med itlan_med2
+             Where reg_fat2.cd_remessa = :CAMPO_CD_REMESSA
+              AND REG_FAT2.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+              and reg_fat2.cd_reg_fat = itreg_fat5.cd_reg_fat  and
+                  pro_fat.cd_pro_fat = itreg_fat5.cd_pro_fat
+              and itlan_med2.cd_reg_fat (+) = itreg_fat5.cd_reg_fat
+              and itlan_med2.cd_lancamento (+) = itreg_fat5.cd_lancamento
+              and Nvl( itreg_fat5.sn_pertence_pacote, 'N' ) = 'N'
+              and itreg_fat5.cd_lancamento_pai is not null
+              and itreg_fat5.cd_reg_fat = itreg_fat5.cd_reg_fat_pai
+         )  TotItens ,
+         dbamv.reg_fat,
+         dbamv.carteira,
+         dbamv.atendime,
+         dbamv.convenio,
+         dbamv.prestador,
+         dbamv.paciente,
+         dbamv.ori_ate,
+         dbamv.multi_empresas,
+         dbamv.guia,
+		 (select 	distinct pres_con.cd_prestador,
+					pres_con.cd_prestador_conveniado,
+					pres_con.cd_convenio
+		   from dbamv.reg_fat
+				,dbamv.pres_con
+			where 	reg_fat.cd_reg_fat         = :CAMPO_CD_REG_FAT
+			and 	reg_fat.cd_atendimento     = :CAMPO_CD_ATENDIMENTO
+			and 	(pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA or pres_con.cd_multi_empresa is null )
+			and 	(pres_con.cd_con_pla	= reg_fat.cd_con_pla or pres_con.cd_con_pla is null)
+			and 	(pres_con.cd_regra	 	= reg_fat.cd_regra or pres_con.cd_regra is null)
+			and 	pres_con.cd_convenio 	= reg_fat.cd_convenio) pres_con,
+	 dbamv.empresa_convenio
+  Where  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+    and reg_fat.cd_remessa = :CAMPO_CD_REMESSA
+    and  reg_fat.cd_reg_fat   = TotItens.cd_conta
+    and  reg_fat.cd_atendimento = atendime.cd_atendimento
+    and  paciente.cd_paciente = atendime.cd_paciente
+    and  convenio.cd_convenio = reg_fat.cd_convenio
+    and  carteira.cd_convenio = reg_fat.cd_convenio
+    and  carteira.cd_paciente = atendime.cd_paciente
+    and  prestador.cd_prestador = atendime.cd_prestador
+    and  pres_con.cd_prestador(+) = atendime.cd_prestador
+    and  pres_con.cd_convenio(+) = atendime.cd_convenio
+	and  ori_ate.cd_ori_ate = atendime.cd_ori_ate
+    and  multi_empresas.cd_multi_empresa = atendime.cd_multi_empresa
+    and  guia.cd_atendimento = atendime.cd_atendimento
+    and  guia.tp_guia = 'I'
+    and  convenio.cd_apr_conta_meio_mag = convenio.cd_apr_conta_meio_mag
+    and  atendime.tp_atendimento = :CAMPO_TP_NOTA
+    and  atendime.cd_cid is not null
+GROUP BY REG_FAT.CD_REG_FAT
+        ,REG_FAT.CD_ATENDIMENTO
+)

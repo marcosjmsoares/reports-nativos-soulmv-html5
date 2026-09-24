@@ -1,0 +1,59 @@
+/*----------------------------------------------------------------------------*/
+--R_DOC_TRANSF
+SELECT * FROM (
+select  mov_concor.cd_mov_concor
+       ,mov_concor.ds_movimentacao
+       ,mov_concor.vl_moeda vl_movimentacao
+       ,mov_concor.cd_moeda
+       ,trunc(mov_concor.dt_movimentacao)   dt_movimentacao
+       ,mov_concor.nr_documento_identificacao
+       ,mov_concor.cd_con_cor
+       ,mov_concor.cd_bordero
+       ,mov_concor.cd_con_cor_transferencia
+       ,Decode(SubStr(concor.cd_agencia,3,1),'-',concor.cd_agencia||'-'||concor.cd_DIGITO_AGENCIA,Decode(InStr(concor.cd_agencia,'-'),0, concor.cd_agencia||'-'||concor.cd_DIGITO_AGENCIA,concor.cd_agencia) ) cd_agencia_orig
+       ,concor.ds_agencia ds_agencia_orig
+       ,Decode(SubStr(concor.nr_conta,3,1),'-',concor.nr_conta||'-'||concor.cd_DIGITO_CONTA_CORRENTE,Decode(InStr(concor.nr_conta,'-'),0, concor.nr_conta||'-'||concor.cd_digito_conta_corrente,concor.nr_conta) ) nr_conta_orig
+       ,concor.cd_banco cd_banco_orig
+       ,banco.nm_banco nm_banco_orig
+       ,Decode(SubStr(concor2.cd_agencia,3,1),'-',concor2.cd_agencia||'-'||concor2.cd_DIGITO_AGENCIA,Decode(InStr(concor2.cd_agencia,'-'),0, concor2.cd_agencia||'-'||concor2.cd_DIGITO_AGENCIA,concor2.cd_agencia) ) cd_agencia_dest
+       ,concor2.ds_agencia ds_agencia_dest
+       ,Decode(SubStr(concor2.nr_conta,3,1),'-',concor2.nr_conta||'-'||concor2.cd_DIGITO_CONTA_CORRENTE,Decode(InStr(concor2.nr_conta,'-'),0, concor2.nr_conta||'-'||concor2.cd_digito_conta_corrente,concor2.nr_conta) ) nr_conta_dest
+       ,concor2.cd_banco cd_banco_dest
+       ,banco2.nm_banco nm_banco_dest
+       ,multi_empresas.ds_razao_social ds_razao_orig
+       ,substr(multi_empresas.cd_cgc,1,2) || '.' ||
+       substr(multi_empresas.cd_cgc,3,3) || '.' ||
+       substr(multi_empresas.cd_cgc,6,3) || '/' ||
+       substr(multi_empresas.cd_cgc,9,4) || '-' ||
+       substr(multi_empresas.cd_cgc,13,2) cd_cgc_orig
+       ,multi_empresas2.ds_razao_social ds_razao_dest
+       ,substr(multi_empresas2.cd_cgc,1,2) || '.' ||
+       substr(multi_empresas2.cd_cgc,3,3) || '.' ||
+       substr(multi_empresas2.cd_cgc,6,3) || '/' ||
+       substr(multi_empresas2.cd_cgc,9,4) || '-' ||
+       substr(multi_empresas2.cd_cgc,13,2) cd_cgc_dest
+from dbamv.mov_concor
+     ,dbamv.mov_concor mov_concor2
+     ,dbamv.con_cor concor
+     ,dbamv.con_cor concor2
+     ,dbamv.bordero
+     ,dbamv.banco banco
+     ,dbamv.banco banco2
+     ,dbamv.multi_empresas multi_empresas
+     ,dbamv.multi_empresas multi_empresas2
+where
+     bordero.cd_bordero like :CAMPO_CD_BORDERO
+     and bordero.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and mov_concor.cd_con_cor = concor.cd_con_cor
+     and mov_concor.cd_bordero = bordero.cd_bordero
+     and concor.cd_banco = banco.cd_banco
+     and concor.cd_multi_empresa     = PKG_MV2000.LE_EMPRESA 
+     and mov_concor.cd_con_cor_transferencia is not null
+     and concor2.cd_con_cor = mov_concor.cd_con_cor_transferencia
+     and concor2.cd_banco = banco2.cd_banco
+     and mov_concor.cd_multi_empresa     = multi_empresas.cd_multi_empresa
+     and mov_concor2.cd_mov_concor_transferencia = mov_concor.cd_mov_concor
+     and mov_concor2.cd_multi_empresa    = multi_empresas2.cd_multi_empresa
+)
+ORDER BY CD_BORDERO,DT_MOVIMENTACAO,
+CD_BANCO_DEST,CD_MOV_CONCOR,DS_AGENCIA_DEST,NR_CONTA_DEST,CD_AGENCIA_DEST,NM_BANCO_DEST,CD_BANCO_ORIG,NM_BANCO_ORIG,DS_AGENCIA_ORIG,CD_AGENCIA_ORIG,NR_CONTA_ORIG,CD_CON_COR_TRANSFERENCIA,NR_DOCUMENTO_IDENTIFICACAO,DS_RAZAO_ORIG,CD_CGC_ORIG,DS_RAZAO_DEST,CD_CGC_DEST

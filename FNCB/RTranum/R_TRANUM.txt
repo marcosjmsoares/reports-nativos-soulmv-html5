@@ -1,0 +1,39 @@
+/*----------------------------------------------------------------------------*/
+--R_TRANUM
+SELECT * FROM (
+SELECT  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+      ,to_char(e.cd_multi_empresa)  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+       ,  MOV_CONCOR.DT_MOVIMENTACAO          DT_MOVIMENTACAO
+               ,MOV_CONCOR.CD_MOV_CONCOR             CD_MOV_CONCOR
+               ,MOV_CONCOR.DS_MOVIMENTACAO         DS_MOVIMENTACAO
+               ,MOV_CONCOR.VL_MOVIMENTACAO          VL_ENTRADA
+               ,DECODE(MOV_CONCOR.TP_TRANSFERENCIA,1,'BORDERÔ',2,'CHEQUE',3,'DÉBITO C/C / TED') TP_TRANSFERENCIA
+              ,DECODE(MOV_CONCOR.TP_TRANSFERENCIA,1,MOV_CONCOR.CD_BORDERO,2,CHEQUE.NR_CHEQUE) CD_CH_BORD
+               ,CON_COR.NR_CONTA                                  NR_CONTA_ORI
+               ,CON_COR.DS_CON_COR                             DS_CONTA_ORI
+               ,CON_COR.CD_AGENCIA                            CD_AGENCIA_ORI
+               ,CON_COR.DS_AGENCIA                             DS_AGENCIA_ORI
+               ,CON_COR1.NR_CONTA                                NR_CONTA_DEST
+               ,CON_COR1.DS_CON_COR                           DS_CONTA_DEST
+               ,CON_COR1.CD_AGENCIA                            CD_AGENCIA_DEST
+               ,CON_COR1.DS_AGENCIA                            DS_AGENCIA_DEST
+               ,DECODE(:CAMPO_CONVERTE,1,:CAMPO_CD_MOEDA,MOV_CONCOR.CD_MOEDA)                        CD_MOEDA
+               ,MOV_CONCOR.VL_MOEDA                          VL_MOEDA
+FROM    dbamv.MOV_CONCOR                    MOV_CONCOR
+             ,dbamv.CON_COR                            CON_COR
+             ,dbamv.CON_COR                            CON_COR1
+             ,dbamv.CHEQUE                              CHEQUE
+             ,dbamv.multi_empresas e
+WHERE CON_COR.CD_CON_COR        =  MOV_CONCOR.CD_CON_COR
+AND       CON_COR1.CD_CON_COR      =  MOV_CONCOR.CD_CON_COR_TRANSFERENCIA
+and   CON_COR.cd_multi_empresa = e.cd_multi_empresa
+AND       MOV_CONCOR.CD_CHEQUE     =  CHEQUE.CD_CHEQUE(+)
+AND TO_CHAR(MOV_CONCOR.DT_MOVIMENTACAO, 'YYYY/MM/DD') BETWEEN TO_CHAR(:CAMPO_DATA_INICIAL, 'YYYY/MM/DD') AND TO_CHAR(:CAMPO_DATA_FINAL, 'YYYY/MM/DD')
+ORDER BY DT_MOVIMENTACAO,
+                    CD_MOV_CONCOR
+)
+ORDER BY EMPRESA,CD_MULTI_EMPRESA,
+CD_MOEDA,
+EMPRESA_O,CD_AGENCIA_ORI,DS_CONTA_ORI,DS_AGENCIA_ORI,NR_CONTA_ORI,
+DT_MOVIMENTACAO

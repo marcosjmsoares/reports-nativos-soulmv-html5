@@ -1,0 +1,81 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_UNID_INT_PRO_INV
+SELECT * FROM (
+SELECT cd_unid_int           cd_unid_int,
+               ds_unid_int           ds_unid_int,
+               cd_pro_invasivo   cd_pro_invasivo,
+               ds_pro_invasivo   ds_pro_invasivo,
+               SUM(total)            total
+FROM (
+     SELECT unid_int.cd_unid_int                        cd_unid_int,
+                    unid_int.ds_unid_int                        ds_unid_int,
+                    pro_invasivo.cd_pro_invasivo         cd_pro_invasivo,
+                    pro_invasivo.ds_pro_invasivo         ds_pro_invasivo,
+                    COUNT(mov_inv.cd_mov_inv)        total
+      FROM   dbamv.pro_invasivo,
+                   dbamv.atendime,
+                   dbamv.unid_int,
+                   dbamv.leito,
+                   dbamv.convenio,
+                   DBAMV.EMPRESA_CONVENIO,
+                   DBAMV.MOV_INV
+   WHERE  EMPRESA_CONVENIO.CD_CONVENIO              = CONVENIO.CD_CONVENIO
+         AND  EMPRESA_CONVENIO.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+         and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+          and   mov_inv.cd_pro_invasivo                                      = pro_invasivo.cd_pro_invasivo
+         AND  MOV_INV.CD_ATENDIMENTO                            = ATENDIME.CD_ATENDIMENTO
+         AND  convenio.cd_convenio                                          = atendime.cd_convenio
+         AND  mov_inv.cd_leito                                                   = leito.cd_leito 
+         AND  leito.cd_unid_int                                                  = unid_int.cd_unid_int
+         AND  atendime.tp_atendimento                                      = 'I'
+         AND  convenio.tp_convenio                                          IN ('C','P','A','H')
+GROUP BY unid_int.cd_unid_int,
+                    unid_int.ds_unid_int,
+                    pro_invasivo.cd_pro_invasivo,
+                    pro_invasivo.ds_pro_invasivo
+      UNION ALL
+      SELECT CEN_CIR.CD_CEN_CIR                 cd_unid_int,
+                     CEN_CIR.DS_CEN_CIR                 ds_unid_int,
+                     pro_invasivo.cd_pro_invasivo        cd_pro_invasivo,
+                     pro_invasivo.ds_pro_invasivo        ds_pro_invasivo,
+                     COUNT(*)                                       total
+      FROM    dbamv.pro_invasivo,
+                    dbamv.atendime,
+                    dbamv.unid_int,
+                    dbamv.leito,
+                    dbamv.aviso_cirurgia,
+                    dbamv.cirurgia_aviso,
+                    dbamv.cirurgia,
+                    dbamv.convenio,
+                    DBAMV.MOV_INV,
+                    DBAMV.PRO_INV_PSIH,
+                    DBAMV.EMPRESA_CONVENIO,
+                    DBAMV.CEN_CIR
+       WHERE EMPRESA_CONVENIO.CD_CONVENIO             = CONVENIO.CD_CONVENIO
+             AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+             AND convenio.cd_convenio                                         = atendime.cd_convenio
+             AND aviso_cirurgia.cd_atendimento                             = atendime.cd_atendimento
+             AND aviso_cirurgia.cd_aviso_cirurgia                           = cirurgia_aviso.cd_aviso_cirurgia
+             AND cirurgia_aviso.cd_cirurgia                                     = cirurgia.cd_cirurgia
+             AND CIRURGIA.TP_CLASSIF_PSIH                           = 'P'
+             AND CIRURGIA.CD_CIRURGIA                                  = PRO_INV_PSIH.CD_CIRURGIA
+             AND AVISO_CIRURGIA.CD_CEN_CIR                       = CEN_CIR.CD_CEN_CIR
+             AND  mov_inv.cd_leito                               = leito.cd_leito 
+             AND  leito.cd_unid_int                              = unid_int.cd_unid_int
+             AND PRO_INV_PSIH.CD_PRO_INVASIVO                = PRO_INVASIVO.CD_PRO_INVASIVO
+             and   mov_inv.cd_pro_invasivo                    = pro_invasivo.cd_pro_invasivo
+             AND MOV_INV.CD_ATENDIMENTO                     = ATENDIME.CD_ATENDIMENTO
+             AND atendime.tp_atendimento                                    = 'I'
+             AND convenio.tp_convenio                                        IN ('C','P','A','H')
+GROUP BY CEN_CIR.CD_CEN_CIR,
+               CEN_CIR.DS_CEN_CIR,
+               pro_invasivo.cd_pro_invasivo,
+               pro_invasivo.ds_pro_invasivo
+)
+GROUP BY cd_unid_int,
+         ds_unid_int,
+         cd_pro_invasivo,
+         ds_pro_invasivo
+ORDER by ds_Unid_Int, Ds_Pro_Invasivo
+)
+ORDER BY CD_UNID_INT,DS_UNID_INT, ds_pro_invasivo, cd_pro_invasivo, total

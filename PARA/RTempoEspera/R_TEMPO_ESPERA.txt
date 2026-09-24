@@ -1,0 +1,249 @@
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_ESPERA
+SELECT ATENDIME.CD_ATENDIMENTO,
+              PACIENTE.NM_PACIENTE,
+              (SELECT PA.NM_SOCIAL_PACIENTE
+          		FROM DBAMV.PACIENTE PA
+          		WHERE PA.CD_PACIENTE = PACIENTE.CD_PACIENTE
+            	  AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE,
+              To_Number(Substr(ATENDIME.CD_PRESTADOR, 1, 12)) CD_PRESTADOR, 
+              PRESTADOR.NM_PRESTADOR,
+              DECODE(ATENDIME.TP_ATENDIMENTO, 'A', ATENDIME.CD_SER_DIS, ATENDIME.CD_SERVICO) CD_SERVICO, 
+              DECODE(ATENDIME.TP_ATENDIMENTO, 'A', SER_DIS.DS_SER_DIS, SERVICO.DS_SERVICO) DS_SERVICO, 
+              ATENDIME.CD_CONVENIO,
+              CONVENIO.NM_CONVENIO,
+              to_char(ATENDIME.DT_CHEGADA_PACIENTE, 'dd/mm/yyyy HH24') DT_CHEGADA_PACIENTE,
+              TO_CHAR(HR_ATENDIMENTO, 'HH24') HR_ATENDIMENTO,
+              to_char(ATENDIME.DT_ATENDIMENTO, 'dd/mm/yyyy') || ' ' || TO_CHAR(HR_ATENDIMENTO, 'HH24') DT_ATENDIMENTO,
+             to_char(to_date(:CAMPO_DT_INICIAL, 'dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24') TEMPO_TRANSCORRIDO
+   FROM DBAMV.ATENDIME,
+              DBAMV.PRESTADOR,
+              DBAMV.ORI_ATE,
+              DBAMV.SERVICO,
+              DBAMV.PACIENTE,
+              DBAMV.CONVENIO,
+              DBAMV.SER_DIS 
+WHERE ATENDIME.DT_CHEGADA_PACIENTE IS NOT NULL
+      AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+      AND ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+      AND ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO(+)
+      AND ATENDIME.CD_SER_DIS   = SER_DIS.CD_SER_DIS(+) 
+      AND ATENDIME.CD_PACIENTE  = PACIENTE.CD_PACIENTE
+      AND ATENDIME.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+      AND ATENDIME.DT_ATENDIMENTO BETWEEN to_date(to_char(:CAMPO_DT_INICIAL, 'dd/mm/yyyy') || ' 00', 'dd/mm/yyyy HH24') AND 
+     								      to_date(to_char(:CAMPO_DT_FINAL, 'dd/mm/yyyy') || ' 23', 'dd/mm/yyyy HH24')
+      AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY ATENDIME.CD_ATENDIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_ESPERA_subreport1
+SELECT SUM(TEMPO_TRANSCORRIDO_05) TEMPO_TRANSCORRIDO_05,
+               SUM(TEMPO_TRANSCORRIDO_10) TEMPO_TRANSCORRIDO_10,
+               SUM(TEMPO_TRANSCORRIDO_15) TEMPO_TRANSCORRIDO_15,
+               SUM(TEMPO_TRANSCORRIDO_20) TEMPO_TRANSCORRIDO_20,
+               SUM(TEMPO_TRANSCORRIDO_30) TEMPO_TRANSCORRIDO_30,
+               SUM(TEMPO_TRANSCORRIDO_40) TEMPO_TRANSCORRIDO_40,
+               (SUM(TEMPO_TRANSCORRIDO_05) +
+               SUM(TEMPO_TRANSCORRIDO_10) +
+               SUM(TEMPO_TRANSCORRIDO_15) +
+               SUM(TEMPO_TRANSCORRIDO_20) +
+               SUM(TEMPO_TRANSCORRIDO_30) +
+               SUM(TEMPO_TRANSCORRIDO_40)) TOTAL
+ FROM (
+SELECT count(cd_atendimento) TEMPO_TRANSCORRIDO_05,
+              0 TEMPO_TRANSCORRIDO_10,
+              0 TEMPO_TRANSCORRIDO_15,
+              0 TEMPO_TRANSCORRIDO_20,
+              0 TEMPO_TRANSCORRIDO_30,
+              0 TEMPO_TRANSCORRIDO_40
+FROM DBAMV.ATENDIME,
+         DBAMV.PRESTADOR,
+         DBAMV.ORI_ATE,
+         DBAMV.SERVICO,
+         DBAMV.SER_DIS, 
+         DBAMV.PACIENTE,
+         DBAMV.CONVENIO
+   WHERE ATENDIME.DT_CHEGADA_PACIENTE IS NOT NULL
+     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+     AND ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+     AND ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO(+)
+     AND ATENDIME.CD_SER_DIS  = SER_DIS.CD_SER_DIS(+) 
+     AND ATENDIME.CD_PACIENTE  = PACIENTE.CD_PACIENTE
+     AND ATENDIME.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+     AND ATENDIME.DT_ATENDIMENTO between to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+     								     to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+    AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+     AND to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24') between '00' and '00'
+group by to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24')
+UNION ALL
+SELECT  0 TEMPO_TRANSCORRIDO_05,
+               count(cd_atendimento) TEMPO_TRANSCORRIDO_10,
+               0 TEMPO_TRANSCORRIDO_15,
+               0 TEMPO_TRANSCORRIDO_20,
+               0 TEMPO_TRANSCORRIDO_30,
+               0 TEMPO_TRANSCORRIDO_40
+    FROM DBAMV.ATENDIME,
+         DBAMV.PRESTADOR,
+         DBAMV.ORI_ATE,
+         DBAMV.SERVICO,
+         DBAMV.SER_DIS, 
+         DBAMV.PACIENTE,
+         DBAMV.CONVENIO
+   WHERE ATENDIME.DT_CHEGADA_PACIENTE IS NOT NULL
+     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+     AND ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+     AND ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO(+)
+     AND ATENDIME.CD_SER_DIS  = SER_DIS.CD_SER_DIS(+) 
+     AND ATENDIME.CD_PACIENTE  = PACIENTE.CD_PACIENTE
+     AND ATENDIME.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+     AND ATENDIME.DT_ATENDIMENTO BETWEEN to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+     								     to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+     AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+    AND to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24') between '00' and '00'
+group by to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24')
+UNION ALL
+SELECT  0 TEMPO_TRANSCORRIDO_05,
+                0 TEMPO_TRANSCORRIDO_10,
+                count(cd_atendimento) TEMPO_TRANSCORRIDO_15,
+                0 TEMPO_TRANSCORRIDO_20,
+                0 TEMPO_TRANSCORRIDO_30,
+                0 TEMPO_TRANSCORRIDO_40
+    FROM DBAMV.ATENDIME,
+         DBAMV.PRESTADOR,
+         DBAMV.ORI_ATE,
+         DBAMV.SERVICO,
+         DBAMV.SER_DIS, 
+         DBAMV.PACIENTE,
+         DBAMV.CONVENIO
+   WHERE ATENDIME.DT_CHEGADA_PACIENTE IS NOT NULL
+     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+     AND ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+     AND ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO(+)
+     AND ATENDIME.CD_SER_DIS  = SER_DIS.CD_SER_DIS(+) 
+     AND ATENDIME.CD_PACIENTE  = PACIENTE.CD_PACIENTE
+     AND ATENDIME.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+     AND ATENDIME.DT_ATENDIMENTO BETWEEN to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+     								     to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+     AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+AND to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24') between '00' and '00'
+group by to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+              nvl(dt_chegada_paciente,hr_atendimento))), 'hh24')
+UNION ALL
+SELECT  0 TEMPO_TRANSCORRIDO_05,
+                0 TEMPO_TRANSCORRIDO_10,
+                0 TEMPO_TRANSCORRIDO_15,
+                count(cd_atendimento) TEMPO_TRANSCORRIDO_20,
+                0 TEMPO_TRANSCORRIDO_30,
+                0 TEMPO_TRANSCORRIDO_40
+    FROM DBAMV.ATENDIME,
+         DBAMV.PRESTADOR,
+         DBAMV.ORI_ATE,
+         DBAMV.SERVICO,
+         DBAMV.SER_DIS, 
+         DBAMV.PACIENTE,
+         DBAMV.CONVENIO
+   WHERE ATENDIME.DT_CHEGADA_PACIENTE IS NOT NULL
+     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+     AND ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+     AND ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO(+)
+     AND ATENDIME.CD_SER_DIS  = SER_DIS.CD_SER_DIS(+) 
+     AND ATENDIME.CD_PACIENTE  = PACIENTE.CD_PACIENTE
+     AND ATENDIME.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+     AND ATENDIME.DT_ATENDIMENTO BETWEEN to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+     								     to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+     AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+AND to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24') between '00' and '00'
+group by to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24')
+UNION ALL
+SELECT  0 TEMPO_TRANSCORRIDO_05,
+                0 TEMPO_TRANSCORRIDO_10,
+                0 TEMPO_TRANSCORRIDO_15,
+                0 TEMPO_TRANSCORRIDO_20,
+                count(cd_atendimento) TEMPO_TRANSCORRIDO_30,
+                0 TEMPO_TRANSCORRIDO_40
+    FROM DBAMV.ATENDIME,
+         DBAMV.PRESTADOR,
+         DBAMV.ORI_ATE,
+         DBAMV.SERVICO,
+         DBAMV.SER_DIS, 
+         DBAMV.PACIENTE,
+         DBAMV.CONVENIO
+   WHERE ATENDIME.DT_CHEGADA_PACIENTE IS NOT NULL
+     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+     AND ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+     AND ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO(+)
+     AND ATENDIME.CD_SER_DIS  = SER_DIS.CD_SER_DIS(+) 
+     AND ATENDIME.CD_PACIENTE  = PACIENTE.CD_PACIENTE
+     AND ATENDIME.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+     AND ATENDIME.DT_ATENDIMENTO BETWEEN to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+     								     to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+     AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+     AND to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24') between '00' and '00'
+group by to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24')
+UNION ALL
+SELECT  0 TEMPO_TRANSCORRIDO_05,
+                0 TEMPO_TRANSCORRIDO_10,
+                0 TEMPO_TRANSCORRIDO_15,
+                0 TEMPO_TRANSCORRIDO_20,
+                0 TEMPO_TRANSCORRIDO_30,
+                count(cd_atendimento) TEMPO_TRANSCORRIDO_40
+    FROM DBAMV.ATENDIME,
+         DBAMV.PRESTADOR,
+         DBAMV.ORI_ATE,
+         DBAMV.SERVICO,
+         DBAMV.SER_DIS, 
+         DBAMV.PACIENTE,
+         DBAMV.CONVENIO
+   WHERE ATENDIME.DT_CHEGADA_PACIENTE IS NOT NULL
+     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+     AND ATENDIME.CD_ORI_ATE   = ORI_ATE.CD_ORI_ATE
+     AND ATENDIME.CD_SERVICO   = SERVICO.CD_SERVICO(+)
+     AND ATENDIME.CD_SER_DIS  = SER_DIS.CD_SER_DIS(+) 
+     AND ATENDIME.CD_PACIENTE  = PACIENTE.CD_PACIENTE
+     AND ATENDIME.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+     AND ATENDIME.DT_ATENDIMENTO BETWEEN to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+     								     to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+     AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+     AND to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24')  > '00'
+group by to_char(to_date('01/12/2005 00','dd/mm/yyyy hh24') + (
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento, hr_atendimento) -
+             dbamv.fnc_mv_recupera_data_hora(dt_atendimento,
+             nvl(dt_chegada_paciente,hr_atendimento))), 'hh24')
+)

@@ -1,0 +1,52 @@
+/*----------------------------------------------------------------------------*/
+--R_PARTO_MAE_RN
+SELECT distinct a.cd_atendimento cd_atendimento
+     , r.nr_guia nr_aih
+     , c.nm_paciente nm_paciente_mae
+     , a.cd_paciente cd_prontuario
+     , r.cd_procedimento_realizado cd_realizado
+     , dbamv.pkg_sus_regra_procedimento.f_descricao(r.cd_procedimento_realizado) ds_realizado
+     , r.cd_mot_alt cd_motivo
+     , To_Char(r.dt_inicio,'dd/mm') ||' a '|| To_Char(r.dt_final,'dd/mm') ds_periodo_mae
+     , Decode(r.nr_aih_posterior,NULL,'NÃO','SIM') nr_aih_posterior
+     , Nvl(p.qt_rn_vivo,0)||' '
+     || Nvl(p.qt_rn_morto,0)||' '
+     || Nvl(p.qt_rn_alta,0) ||' '
+     || Nvl(p.qt_rn_transferido,0)||' '
+     || Nvl(p.qt_rn_obito,0) ds_vmato
+     , b.cd_atendimento cd_atendimento_rn_pos
+     , i.cd_paciente cd_prontuario_rn
+     , i.nm_paciente cd_paciente_rn
+     , To_Char(b.dt_atendimento,'dd/mm') ||' a ' || To_Char(b.dt_alta,'dd/mm') ds_periodo_rn
+     , u.cd_mot_alt cd_motivo_rn
+     , Decode(u.cd_reg_fat,NULL,'NÃO','SIM') sn_conta_rn
+     , u.nr_guia nr_aih_rn
+     , decode(u.nr_aih_anterior,null,'NÃO','SIM') nr_aih_anterior_rn
+  FROM dbamv.reg_fat   r
+     , dbamv.it_parto  p
+     , dbamv.atendime  a
+     , dbamv.paciente  c
+     , dbamv.atendime  f
+     , dbamv.paciente  i
+     , dbamv.fatura    t
+     , dbamv.remessa_fatura e
+     , dbamv.atendime  b
+     , dbamv.reg_fat   u
+     , dbamv.fatura    z
+ WHERE p.cd_reg_fat         = r.cd_reg_fat
+   AND a.cd_atendimento     = r.cd_atendimento
+   AND a.cd_paciente        = c.cd_paciente
+   AND a.cd_atendimento     = f.cd_atendimento_pai(+)
+   AND f.cd_paciente        = i.cd_paciente(+)
+   AND t.cd_fatura          = e.cd_fatura
+   AND e.cd_remessa         = r.cd_remessa
+   AND b.cd_paciente        = f.cd_paciente
+   AND i.cd_paciente        = f.cd_paciente
+   AND i.cd_paciente        = b.cd_paciente
+   AND u.cd_atendimento(+)  = b.cd_atendimento
+   AND z.cd_fatura          = e.cd_fatura
+   AND a.cd_convenio        = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+   AND To_Char(z.dt_competencia,'mm/yyyy') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+   AND Nvl(p.qt_rn_vivo,0)
+     + Nvl(p.qt_rn_morto,0) > 0
+ORDER BY r.cd_procedimento_realizado,a.cd_atendimento, b.cd_atendimento

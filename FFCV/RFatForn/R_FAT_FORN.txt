@@ -1,0 +1,143 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_FORN
+SELECT CD_FORNECEDOR
+             ,NM_FORNECEDOR
+             ,SUM(TOTAL)  TOTAL
+FROM
+(
+SELECT FORN.CD_FORNECEDOR
+              ,FORN.NM_FORNECEDOR
+              ,ITREG_FAT.VL_TOTAL_CONTA  TOTAL
+FROM    DBAMV.ITCOB_PRE                  ITCOB
+             ,DBAMV.FORNECEDOR             FORN
+             ,DBAMV.REG_FAT                      REG_FAT
+             ,DBAMV.REMESSA_FATURA    REMESSA
+             ,DBAMV.FATURA                        FATURA
+             ,DBAMV.ITREG_FAT                   ITREG_FAT
+             ,DBAMV.CONVENIO                    CONVENIO
+	     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ITCOB.CD_FORNECEDOR = FORN.CD_FORNECEDOR
+AND        ITCOB.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITCOB.CD_LANCAMENTO = ITREG_FAT.CD_LANCAMENTO
+AND        ITREG_FAT.CD_REG_FAT = REG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        CONVENIO.TP_CONVENIO <> 'H'
+UNION ALL
+SELECT FORN.CD_FORNECEDOR
+              ,FORN.NM_FORNECEDOR
+              ,ITREG_AMB.VL_TOTAL_CONTA      TOTAL
+FROM    DBAMV.ITCOB_PRE_AMBU      ITCOB
+             ,DBAMV.FORNECEDOR             FORN
+             ,DBAMV.REG_AMB                     REG_AMB
+             ,DBAMV.REMESSA_FATURA    REMESSA
+             ,DBAMV.FATURA                        FATURA
+             ,DBAMV.ITREG_AMB                  ITREG_AMB
+             ,DBAMV.CONVENIO                    CONVENIO
+	     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ITCOB.CD_FORNECEDOR         = FORN.CD_FORNECEDOR
+AND        ITCOB.CD_REG_AMB                 = ITREG_AMB.CD_REG_AMB
+AND        ITCOB.CD_LANCAMENTO         = ITREG_AMB.CD_LANCAMENTO
+AND        ITREG_AMB.CD_REG_AMB      = REG_AMB.CD_REG_AMB
+AND        REG_AMB.CD_REMESSA          = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA            = FATURA.CD_FATURA
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        REG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        CONVENIO.TP_CONVENIO <> 'H'
+:CAMPO_CF_COND_CONV_AMBU
+)
+GROUP BY  CD_FORNECEDOR
+                   ,NM_FORNECEDOR
+ORDER BY TOTAL DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_FORN_R_1_Q_ANALITICO
+SELECT * FROM (
+SELECT REMESSA.CD_REMESSA                 CD_REMESSA
+              ,REG_FAT.CD_REG_FAT                   CONTA
+              ,ATENDIME.CD_ATENDIMENTO      CD_ATENDIMENTO
+              ,PACIENTE.NM_PACIENTE               NM_PACIENTE
+              ,PRO_FAT.DS_PRO_FAT                   DS_PRO_FAT
+              ,ITCOB.NR_DOCUMENTO                 NR_DOCUMENTO
+              ,ITREG_FAT.DT_LANCAMENTO       DT_LANCAMENTO
+              ,ITREG_FAT.QT_LANCAMENTO       QT_LANCAMENTO
+              ,ITREG_FAT.VL_UNITARIO               VL_PRECO_UNITARIO
+              ,ITREG_FAT.VL_TOTAL_CONTA       VL_PRECO_TOTAL
+              ,DECODE(:CAMPO_QUEBRA, 'F', FORN.CD_FORNECEDOR, CONVENIO.CD_CONVENIO)      CODIGO
+              ,DECODE(:CAMPO_QUEBRA, 'F', FORN.NM_FORNECEDOR, CONVENIO.NM_CONVENIO)     DESCRICAO
+              ,TO_CHAR(FATURA.DT_COMPETENCIA,'MM/YYYY')  DT_COMPET
+FROM    DBAMV.ITCOB_PRE                  ITCOB
+             ,DBAMV.FORNECEDOR             FORN
+             ,DBAMV.REG_FAT                      REG_FAT
+             ,DBAMV.REMESSA_FATURA    REMESSA
+             ,DBAMV.FATURA                        FATURA
+             ,DBAMV.ATENDIME                    ATENDIME
+             ,DBAMV.PACIENTE                     PACIENTE
+             ,DBAMV.ITREG_FAT                   ITREG_FAT
+             ,DBAMV.PRO_FAT                      PRO_FAT
+             ,DBAMV.CONVENIO                    CONVENIO
+	     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ITCOB.CD_FORNECEDOR         = FORN.CD_FORNECEDOR
+AND        ITCOB.CD_REG_FAT                 = ITREG_FAT.CD_REG_FAT
+AND        ITCOB.CD_LANCAMENTO         = ITREG_FAT.CD_LANCAMENTO
+AND        ITREG_FAT.CD_REG_FAT        = REG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_REMESSA          = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA            = FATURA.CD_FATURA
+AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_PACIENTE       = PACIENTE.CD_PACIENTE
+AND         ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+AND        ITREG_FAT.CD_PRO_FAT       = PRO_FAT.CD_PRO_FAT
+AND        REG_FAT.CD_CONVENIO        = CONVENIO.CD_CONVENIO
+AND        CONVENIO.TP_CONVENIO <> 'H'
+UNION ALL
+SELECT REMESSA.CD_REMESSA                 CD_REMESSA
+              ,REG_AMB.CD_REG_AMB                CONTA
+              ,ATENDIME.CD_ATENDIMENTO      CD_ATENDIMENTO
+              ,PACIENTE.NM_PACIENTE               NM_PACIENTE
+              ,PRO_FAT.DS_PRO_FAT                   DS_PRO_FAT
+              ,ITCOB.NR_DOCUMENTO                 NR_DOCUMENTO
+              ,ATENDIME.DT_ATENDIMENTO      DT_LANCAMENTO
+              ,ITREG_AMB.QT_LANCAMENTO      QT_LANCAMENTO
+              ,ITREG_AMB.VL_UNITARIO              VL_PRECO_UNITARIO
+              ,ITREG_AMB.VL_TOTAL_CONTA      VL_PRECO_TOTAL
+              ,DECODE(:CAMPO_QUEBRA, 'F', FORN.CD_FORNECEDOR, CONVENIO.CD_CONVENIO)      CODIGO
+              ,DECODE(:CAMPO_QUEBRA, 'F', FORN.NM_FORNECEDOR, CONVENIO.NM_CONVENIO)     DESCRICAO
+              ,TO_CHAR(FATURA.DT_COMPETENCIA,'MM/YYYY')  DT_COMPET
+FROM    DBAMV.ITCOB_PRE_AMBU      ITCOB
+             ,DBAMV.FORNECEDOR             FORN
+             ,DBAMV.REG_AMB                     REG_AMB
+             ,DBAMV.REMESSA_FATURA    REMESSA
+             ,DBAMV.FATURA                        FATURA
+             ,DBAMV.ATENDIME                    ATENDIME
+             ,DBAMV.PACIENTE                     PACIENTE
+             ,DBAMV.ITREG_AMB                  ITREG_AMB
+             ,DBAMV.PRO_FAT                      PRO_FAT
+             ,DBAMV.CONVENIO                    CONVENIO
+	     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ITCOB.CD_FORNECEDOR         = FORN.CD_FORNECEDOR
+AND        ITCOB.CD_REG_AMB                 = ITREG_AMB.CD_REG_AMB
+AND        ITCOB.CD_LANCAMENTO         = ITREG_AMB.CD_LANCAMENTO
+AND        ITREG_AMB.CD_REG_AMB      = REG_AMB.CD_REG_AMB
+AND        REG_AMB.CD_REMESSA          = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA            = FATURA.CD_FATURA
+AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_PACIENTE       = PACIENTE.CD_PACIENTE
+AND        ITREG_AMB.CD_PRO_FAT       = PRO_FAT.CD_PRO_FAT
+AND        REG_AMB.CD_CONVENIO        = CONVENIO.CD_CONVENIO
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+ORDER BY VL_PRECO_TOTAL DESC
+)
+ORDER BY CODIGO,DESCRICAO,
+CD_REMESSA,CONTA,CD_ATENDIMENTO,NM_PACIENTE,DT_COMPET

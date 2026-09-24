@@ -1,0 +1,140 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_AGENDADOS_DATA_SINT
+SELECT * FROM (
+SELECT  DATA_AGENDA                 DATA_AGENDA
+     ,  HORA_AGENDA                 HORA_AGENDA
+     ,  COD_AGENDA                  COD_AGENDA
+     ,  COD_HORARIO_AGENDA          COD_HORARIO_AGENDA
+     ,  COD_PACIENTE                COD_PACIENTE
+     ,  NM_PACIENTE                 NM_PACIENTE
+     ,  IDADE_PACIENTE              IDADE_PACIENTE
+     ,  DATA_NASCIMENTO             DATA_NASCIMENTO 
+     ,  PESO_PACIENTE               PESO_PACIENTE
+     ,  COD_CONVENIO                COD_CONVENIO
+     ,  NM_CONVENIO                 NM_CONVENIO
+     ,  COD_PRESTADOR               COD_PRESTADOR
+     ,  NM_PRESTADOR                NM_PRESTADOR
+     ,  COD_GRUPO_AGENDAMENTO       COD_GRUPO_AGENDAMENTO
+     ,  DS_GRUPO_AGENDAMENTO        DS_GRUPO_AGENDAMENTO
+     ,  FONE_PACIENTE               FONE_PACIENTE
+     ,  COD_ITEM_AGENDAMENTO        COD_ITEM_AGENDAMENTO
+     ,  DS_ITEM_AGENDAMENTO         DS_ITEM_AGENDAMENTO
+     ,  TIPO_SITUACAO               TIPO_SITUACAO
+     ,  SN_AGENDA_ATIVA             SN_AGENDA_ATIVA
+     ,  COD_TURMA                   COD_TURMA
+     ,  DS_TURMA                        DS_TURMA
+     ,  COD_ATENDIMENTO        COD_ATENDIMENTO
+     ,  COD_SETOR                      COD_SETOR
+     ,  COD_RECURSO                 COD_RECURSO
+     ,  COD_UNIDADE_ATENDIMENTO  COD_UNIDADE_ATENDIMENTO
+     ,  DS_SERVICO DS_SERVICO1
+     ,  DS_TIPO_MARCACAO DS_TIPO_MARCACAO1
+     ,  NR_CELULAR NR_CELULAR1
+     ,  SN_ENCAIXE SN_ENCAIXE1
+  FROM (
+        select vdic.data_agenda                                                    DATA_AGENDA
+              ,vdic.hora_agenda                                                    HORA_AGENDA
+              ,vdic.cod_agenda                                                     COD_AGENDA
+              ,vdic.cod_horario_agenda                                             COD_HORARIO_AGENDA
+              ,vdic.cod_paciente                                                   COD_PACIENTE
+              ,vdic.nm_paciente                                                    NM_PACIENTE
+              ,(select TO_CHAR(trunc((sysdate - vdic.data_nascimento)/365.25))
+              || 'a ' ||
+              TO_CHAR(trunc(mod((sysdate - vdic.data_nascimento),365.25)/30.4))
+              || 'm ' ||
+              TO_CHAR(round(mod(mod((sysdate - vdic.data_nascimento ),365.25),30.4)))
+              || 'd'
+       from   sys.dual)                                                            IDADE_PACIENTE
+              ,vdic.data_nascimento                                                DATA_NASCIMENTO  
+              ,vdic.peso_paciente                                                  PESO_PACIENTE
+              ,vdic.cod_convenio                                                   COD_CONVENIO
+              ,vdic.nm_convenio                                                    NM_CONVENIO
+              ,vdic.cod_prestador                                                  COD_PRESTADOR
+              ,vdic.nm_prestador                                                   NM_PRESTADOR
+              ,vdic.cod_grupo_agendamento                                COD_GRUPO_AGENDAMENTO
+              ,vdic.ds_grupo_agendamento                                   DS_GRUPO_AGENDAMENTO
+              ,decode(vdic.nr_ddd_fone,null,'',vdic.nr_ddd_fone||' ')||
+               decode(vdic.fone_paciente,null,'',vdic.fone_paciente)     FONE_PACIENTE
+              ,vdic.cod_item_agendamento                                  COD_ITEM_AGENDAMENTO
+              ,vdic.ds_item_agendamento                                    DS_ITEM_AGENDAMENTO
+              ,vdic.tipo_situacao                                                  TIPO_SITUACAO
+              ,vdic.sn_agenda_ativa                                            SN_AGENDA_ATIVA
+              ,To_Number(null)                                                    COD_TURMA
+              ,to_char(null)                                                           DS_TURMA
+              ,vdic.cod_atendimento                                           COD_ATENDIMENTO
+              ,vdic.cod_setor                                                        COD_SETOR
+              ,vdic.cod_recurso                                                   COD_RECURSO
+              ,vdic.cod_unidade_atendimento                             COD_UNIDADE_ATENDIMENTO
+              ,vdic.ds_servico ds_servico
+              ,vdic.ds_tipo_marcacao ds_tipo_marcacao
+              ,decode(vdic.nr_ddd_celular,NULL,'',vdic.nr_ddd_celular||' ')||
+               decode(vdic.nr_celular,NULL,'',vdic.nr_celular)   nr_celular
+              ,vdic.sn_falta SN_FALTA
+              ,DECODE(vdic.sn_encaixe,
+              'S', 'Sim',
+              'N', 'Não',
+              vdic.sn_encaixe) sn_encaixe
+        from dbamv.vdic_horarios_agenda_scma vdic
+        UNION ALL
+        select agenda_turma.dt_agenda                                                 DATA_AGENDA
+              ,agenda_turma.dt_horario_inicial                                        HORA_AGENDA
+              ,agenda_turma.cd_agenda_turma                                           COD_AGENDA
+              ,To_Number(null)                                                        COD_HORARIO_AGENDA
+              ,agenda_turma_paciente.cd_paciente                                      COD_PACIENTE
+              ,agenda_turma_paciente.nm_paciente                                      NM_PACIENTE
+              ,dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,sysdate)  IDADE_PACIENTE
+              ,paciente.dt_nascimento                                                 DATA_NASCIMENTO  
+              ,To_Number(null)                                                        PESO_PACIENTE
+              ,agenda_turma_paciente.cd_convenio                                      COD_CONVENIO
+              ,convenio.nm_convenio                                                   NM_CONVENIO
+              ,agenda_turma_prestador.cd_prestador                                    COD_PRESTADOR
+              ,turma.ds_turma                                                         NM_PRESTADOR
+              ,To_Number(null)                                                        COD_GRUPO_AGENDAMENTO
+              ,''                                                                     DS_GRUPO_AGENDAMENTO
+              ,paciente.nr_ddd_fone ||' '|| paciente.nr_fone                          FONE_PACIENTE
+              ,To_Number(null)                                                        COD_ITEM_AGENDAMENTO
+              ,''                                                                     DS_ITEM_AGENDAMENTO
+              ,Decode(agenda_turma_paciente.tp_situacao, 'G' , 'M'
+                                                       , 'P' , 'A'
+                                                       , 'C' , 'C'
+                                                       , 'A'  ,'E')                   TIPO_SITUACAO
+              ,agenda_turma.sn_ativo                                                  SN_AGENDA_ATIVA
+              ,turma.cd_turma                                                         COD_TURMA
+              ,turma.ds_turma                                                  DS_TURMA
+              ,agenda_turma_paciente.cd_atendimento         COD_ATENDIMENTO
+               ,agenda_turma.cd_setor                                     COD_SETOR
+              ,-1                                                                        COD_RECURSO
+              ,agenda_turma.cd_unidade_atendimento           COD_UNIDADE_ATENDIMENTO
+              ,'' ds_servico
+              ,'' ds_tipo_marcacao
+              ,'' nr_celular
+              ,'' SN_FALTA
+              ,'Não' sn_encaixe
+        from dbamv.agenda_turma
+           , dbamv.agenda_turma_paciente
+           , dbamv.paciente
+           , dbamv.agenda_turma_prestador
+           , dbamv.prestador
+           , dbamv.convenio
+           , dbamv.turma
+           , dbamv.ser_dis
+           , dbamv.unidade_atendimento
+           , dbamv.setor
+       where agenda_turma.cd_agenda_turma        = agenda_turma_paciente.cd_agenda_turma
+         and agenda_turma.cd_agenda_turma        = agenda_turma_prestador.cd_agenda_turma
+         and agenda_turma.cd_turma               = turma.cd_turma
+         and agenda_turma_prestador.cd_prestador = prestador.cd_prestador
+         and agenda_turma_paciente.cd_convenio   = convenio.cd_convenio
+         and agenda_turma_paciente.cd_paciente   = paciente.cd_paciente
+         and agenda_turma.cd_ser_dis             = ser_dis.cd_ser_dis
+         and agenda_turma.cd_unidade_atendimento = unidade_atendimento.cd_unidade_atendimento
+         and agenda_turma.cd_setor               = setor.cd_setor
+         and agenda_turma_prestador.sn_principal = 'S'
+       )  agendamentos
+ where nvl(agendamentos.nm_paciente,agendamentos.cod_grupo_agendamento) is not null
+ and nvl(agendamentos.tipo_situacao,'M') <> 'C'
+ and nvl(agendamentos.sn_agenda_ativa,'N') = 'S'
+ and agendamentos.data_agenda between :CAMPO_DT_INICIAL and 
+ :CAMPO_CF_P_SN_IMPRIME_FALTA_MEDICA
+)
+order by data_agenda, :CAMPO_CF_TIPO_ORDENACAO

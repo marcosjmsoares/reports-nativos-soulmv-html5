@@ -1,0 +1,88 @@
+/*----------------------------------------------------------------------------*/
+--R_REM_ENVIADA
+Select  cd_remessa
+          , dt_entrega_da_fatura
+          , dt_pagamento
+          , cd_convenio
+          , nm_convenio
+          , tp_convenio
+          , remessa_nota_fiscal.nota
+          , Sum( vl_total_conta )  vl_total_conta
+From  (  Select remessa_fatura.cd_remessa
+                       ,remessa_fatura.dt_entrega_da_fatura
+                       ,remessa_fatura.dt_prevista_para_pgto   dt_pagamento
+                       ,convenio.cd_convenio
+                       ,convenio.nm_convenio
+                       ,convenio.tp_convenio
+                       ,sum(reg_fat.vl_total_conta) vl_total_conta
+             From   dbamv.fatura
+                       ,dbamv.remessa_fatura
+                       ,dbamv.reg_fat
+                       ,dbamv.convenio
+           Where  fatura.cd_fatura = remessa_fatura.cd_fatura
+            and       remessa_fatura.sn_fechada = 'S'
+            and       remessa_fatura.cd_remessa = reg_fat.cd_remessa
+            and       reg_fat.cd_convenio = convenio.cd_convenio
+            and       reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            and       reg_fat.sn_fechada = 'S'
+            and       convenio.tp_convenio <> 'H'
+            group by remessa_fatura.cd_remessa
+                          ,remessa_fatura.dt_entrega_da_fatura
+                          ,remessa_fatura.dt_prevista_para_pgto
+                          ,convenio.cd_convenio
+                          ,convenio.nm_convenio
+                          ,convenio.tp_convenio
+            Union all
+            Select remessa_fatura.cd_remessa
+                      ,remessa_fatura.dt_entrega_da_fatura
+                      ,remessa_fatura.dt_prevista_para_pgto   dt_pagamento
+                      ,convenio.cd_convenio
+                      ,convenio.nm_convenio
+                      ,convenio.tp_convenio
+                      ,sum(itreg_amb.vl_total_conta)  vl_total_conta
+            From   dbamv.fatura
+                      ,dbamv.remessa_fatura
+                      ,dbamv.reg_amb
+                      ,dbamv.itreg_amb
+                      ,dbamv.convenio
+            Where   fatura.cd_fatura = remessa_fatura.cd_fatura
+            and       remessa_fatura.sn_fechada = 'S'
+            and       remessa_fatura.cd_remessa = reg_amb.cd_remessa
+            and       reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+            and       itreg_amb.sn_pertence_pacote = 'N'
+            and       itreg_amb.cd_convenio = convenio.cd_convenio
+            and       nvl(itreg_amb.tp_pagamento,'X') <> 'C'
+            and       reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            and       convenio.tp_convenio <> 'H'
+            group by remessa_fatura.cd_remessa
+                          ,remessa_fatura.dt_entrega_da_fatura
+                          ,remessa_fatura.dt_prevista_para_pgto
+                          ,convenio.cd_convenio
+                          ,convenio.nm_convenio
+                          ,convenio.tp_convenio
+                 )  CONVENIO
+,(Select x.cd_remessa1
+        ,max(x.Nota) Nota
+    From (Select itfat_nota_fiscal.cd_remessa cd_remessa1, max(nota_fiscal.nr_id_nota_fiscal) Nota
+            from dbamv.itfat_nota_fiscal,
+                 dbamv.nota_fiscal
+           where itfat_nota_fiscal.cd_nota_fiscal = nota_fiscal.cd_nota_fiscal
+             and Nota_Fiscal.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and nvl(nota_fiscal.cd_status, 'E') = 'E'
+        group by itfat_nota_fiscal.cd_remessa
+           Union
+          Select nota_fiscal.cd_remessa, max(nota_fiscal.nr_id_nota_fiscal) Nota
+            from dbamv.nota_fiscal
+           where Nota_Fiscal.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and nvl(nota_fiscal.cd_status, 'E') = 'E'
+        group by nota_fiscal.cd_remessa) x
+group by x.cd_remessa1) remessa_nota_fiscal
+Where convenio.cd_remessa = remessa_nota_fiscal.cd_remessa1 (+)
+and ((:CAMPO_SITUACAO_NF = 'G' and remessa_nota_fiscal.nota is not null) or (:CAMPO_SITUACAO_NF = 'N' and remessa_nota_fiscal.nota is null) or :CAMPO_SITUACAO_NF = 'T')
+Group by cd_remessa
+             , cd_convenio
+             , dt_entrega_da_fatura
+             , dt_pagamento
+             , nm_convenio
+             , convenio.tp_convenio
+             , remessa_nota_fiscal.nota

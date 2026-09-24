@@ -1,0 +1,70 @@
+/*----------------------------------------------------------------------------*/
+--R_SPED_REINF_RES_TRANS
+SELECT eventos.CD_MULTI_EMPRESA,
+          empresa.DS_MULTI_EMPRESA,
+          empresa.CD_CGC,
+          trans_ret.DS_PROTOCOLO
+     FROM dbamv.reinf_eventos eventos,
+          dbamv.multi_empresas empresa,
+          dbamv.reinf_trans_retorno trans_ret
+    WHERE eventos.CD_MULTI_EMPRESA = empresa.CD_MULTI_EMPRESA
+      AND eventos.CD_REINF_EVENTOS = trans_ret.CD_REINF_EVENTOS(+)
+      AND eventos.CD_EVENTO = 'R-1000'
+      AND (empresa.CD_MULTI_EMPRESA = :CAMPO_MULTI_EMPRESA OR empresa.CD_MULTI_EMPRESA = pkg_transacao_entre_empresas.GetMatriz(:CAMPO_MULTI_EMPRESA))
+      AND eventos.DT_COMPETENCIA = to_date('','mm/yyyy')
+      AND trans_ret.CD_REINF_TRANS_RETORNO = (SELECT Max(trans_ret_1.CD_REINF_TRANS_RETORNO)
+                                                FROM dbamv.reinf_trans_retorno trans_ret_1
+                                               WHERE trans_ret_1.CD_REINF_EVENTOS(+) =  eventos.CD_REINF_EVENTOS)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SPED_REINF_R_T_R2010
+SELECT tomado.CD_MULTI_EMPRESA_EST_TOMADOR,
+          tomado.CD_FORNECEDOR,
+	  empresa.DS_MULTI_EMPRESA DS_MULTI_EMPRESA_EST_TOMADOR,
+          forn.NM_FORNECEDOR,
+          tomado.CD_NUM_INSCR_ESTABELECIMENTO,
+          tomado.CD_CNPJ_PRESTADOR,
+          trans_ret.DS_PROTOCOLO
+     FROM dbamv.reinf_servico_tomado tomado,
+          dbamv.reinf_eventos eventos,
+          dbamv.multi_empresas empresa,
+          dbamv.fornecedor forn,
+          dbamv.reinf_trans_retorno trans_ret
+    WHERE eventos.CD_REINF_EVENTOS = tomado.CD_REINF_EVENTOS
+      AND tomado.CD_FORNECEDOR = forn.CD_FORNECEDOR
+      AND eventos.CD_REINF_EVENTOS = trans_ret.CD_REINF_EVENTOS(+)
+      AND tomado.CD_REINF_SERVICO_TOMADO = trans_ret.CD_REINF_REGISTRO
+      AND eventos.CD_EVENTO = 'R-2010'
+      AND empresa.CD_MULTI_EMPRESA = :CAMPO_MULTI_EMPRESA
+      AND eventos.DT_COMPETENCIA = to_date('','mm/yyyy')
+      AND trans_ret.CD_REINF_TRANS_RETORNO = (SELECT Max(trans_ret_1.CD_REINF_TRANS_RETORNO)
+                                                FROM dbamv.reinf_trans_retorno trans_ret_1
+                                               WHERE trans_ret_1.CD_REINF_EVENTOS(+) =  eventos.CD_REINF_EVENTOS
+                                                 AND tomado.CD_REINF_SERVICO_TOMADO = trans_ret_1.CD_REINF_REGISTRO)
+  UNION
+SELECT tomado.CD_MULTI_EMPRESA_EST_TOMADOR,
+          tomado.CD_FORNECEDOR,
+      	  empresa.DS_MULTI_EMPRESA DS_MULTI_EMPRESA_EST_TOMADOR,
+          forn.NM_FORNECEDOR,
+          tomado.CD_NUM_INSCR_ESTABELECIMENTO,
+          tomado.CD_CNPJ_PRESTADOR,
+          trans_ret.DS_PROTOCOLO
+     FROM dbamv.reinf_servico_tomado tomado,
+          dbamv.reinf_eventos eventos,
+          dbamv.multi_empresas empresa,
+	  dbamv.fornecedor forn,
+          dbamv.reinf_trans_retorno trans_ret
+    WHERE eventos.CD_REINF_EVENTOS = tomado.CD_REINF_EVENTOS
+      AND tomado.CD_MULTI_EMPRESA_EST_TOMADOR = empresa.CD_MULTI_EMPRESA
+      AND tomado.CD_FORNECEDOR = forn.CD_FORNECEDOR
+      AND eventos.CD_REINF_EVENTOS = trans_ret.CD_REINF_EVENTOS(+)
+      AND tomado.CD_REINF_SERVICO_TOMADO = trans_ret.CD_REINF_REGISTRO
+      AND eventos.CD_EVENTO = 'R-2010'
+      AND pkg_transacao_entre_empresas.Isfilial(empresa.cd_multi_empresa, :CAMPO_MULTI_EMPRESA) = 1 AND '' = 'S'
+      AND eventos.DT_COMPETENCIA = to_date('','mm/yyyy')
+      AND trans_ret.CD_REINF_TRANS_RETORNO = (SELECT Max(trans_ret_1.CD_REINF_TRANS_RETORNO)
+                                                FROM dbamv.reinf_trans_retorno trans_ret_1
+                                               WHERE trans_ret_1.CD_REINF_EVENTOS(+) =  eventos.CD_REINF_EVENTOS
+                                                 AND tomado.CD_REINF_SERVICO_TOMADO = trans_ret_1.CD_REINF_REGISTRO)

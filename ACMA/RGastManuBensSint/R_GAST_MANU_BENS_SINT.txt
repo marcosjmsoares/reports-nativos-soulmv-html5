@@ -1,0 +1,62 @@
+/*----------------------------------------------------------------------------*/
+--R_GAST_MANU_BENS_SINT
+SELECT  CD_BEM
+        ,DS_PLAQUETA
+        ,DS_MARCA
+        ,DS_MODELO
+        ,DS_BEM
+        ,Sum(Round(Nvl(valor_mdo,0),2)) +  Sum(Round(Nvl(valor_mdo_ext,0),2)) valor_mdo
+       ,Sum(Round(Nvl(valor_mdo_ext,0),2))valor_mdo_ext
+       ,Sum(Round(Nvl(valor_prod_ext,0),2)) + Sum(Round(Nvl(valor_produto,0),2))   valor_produto
+       ,Sum(Round(Nvl(valor_prod_ext,0),2))valor_prod_ext
+       ,Sum(Round(Nvl(valor_mdo,0),2)) +  Sum(Round(Nvl(valor_mdo_ext,0),2)) + Sum(Round(Nvl(valor_prod_ext,0),2)) + Sum(Round(Nvl(valor_produto,0),2))   custo_total
+  FROM (
+    SELECT distinct B.CD_BEM
+      ,B.DS_PLAQUETA
+      ,B.DS_MARCA
+      ,B.DS_MODELO
+      ,B.DS_BEM
+      ,(SELECT sum(valor)
+	        FROM (SELECT (sum(((nvl(it.vl_tempo_gasto, 0) * 60 + nvl(it.vl_tempo_gasto_min, 0) - nvl(it.vl_extra, 0) * 60 - nvl(it.vl_extra_min, 0)) * 1 / 60 * nvl(it.vl_hora, 0)) + ((nvl(it.vl_extra, 0) * 60 + nvl(it.vl_extra_min, 0)) * 1 / 60 * nvl(it.vl_hora_extra, 0)))) valor, it.cd_os cd_os, it.vl_hora, vl_hora_extra
+	        FROM itsolicitacao_os it
+	        WHERE it.cd_os = SOS.CD_OS
+	        GROUP BY it.cd_os, it.vl_hora, vl_hora_extra )
+	        GROUP BY cd_os )  valor_mdo
+      ,( SELECT nvl(ite.vl_mao_obra, 0) valor_mdo_ext
+	        FROM itsolicitacao_ext ite
+	         WHERE ite.cd_os = SOS.CD_OS )  valor_mdo_ext
+      ,(SELECT SUM( ITS.QT_SOLICITADO * VERIF_VL_CUSTO_MEDIO(ITS.CD_PRODUTO
+                      , SS.DT_SOLSAI_PRO, 'H', NULL, SS.HR_SOLSAI_PRO) * U.VL_FATOR) VALOR
+	            FROM SOLSAI_PRO SS
+                  , ITSOLSAI_PRO ITS
+                  , PRODUTO P
+                  , UNI_PRO U
+                  , ESTOQUE
+	            WHERE SS.CD_OS IS NOT NULL AND SS.CD_SOLSAI_PRO = ITS.CD_SOLSAI_PRO
+                  AND ITS.CD_PRODUTO = P.CD_PRODUTO
+                  AND ITS.CD_UNI_PRO = U.CD_UNI_PRO
+                  AND ESTOQUE.CD_ESTOQUE = SS.CD_ESTOQUE
+                  AND ESTOQUE.CD_MULTI_EMPRESA = dbamv.pkg_mv2000.le_empresa
+                  AND ss.cd_os = SOS.CD_OS
+	            GROUP BY SS.CD_OS ) valor_produto
+      ,(SELECT sum(nvl(vl_item * qt_item, 0)) valor_prod_ext
+             FROM det_sol_ext dse , itsolicitacao_ext ite
+	            WHERE ite.cd_os = SOS.CD_OS
+              AND    dse.cd_os_ext = ite.cd_os_ext)  valor_prod_ext
+FROM DBAMV.SOLICITACAO_OS SOS
+    ,DBAMV.BENS B
+WHERE SOS.CD_BEM                 = B.CD_BEM
+    AND SOS.CD_OS IS NOT NULL
+    AND SOS.TP_SITUACAO = 'C'
+     AND sos.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+:CAMPO_CF_CD_BEM
+)
+GROUP BY CD_BEM,
+        DS_PLAQUETA,
+        DS_MARCA,
+        DS_MODELO,
+        DS_BEM
+ORDER BY CD_BEM,
+DS_BEM,
+DS_PLAQUETA,
+DS_MARCA,DS_MODELO

@@ -1,0 +1,27 @@
+/*----------------------------------------------------------------------------*/
+--R_OCUP_LEITOS
+SELECT
+ ROUND(DECODE((A.LEITOS_EXTRAS + A.LEITOS_FIXOS),0,100,A.LEITOS_OCUPADOS*(100 / leito_total)),2) PERCENT_OCUPACAO,
+ ROUND(DECODE((A.LEITOS_EXTRAS + A.LEITOS_FIXOS),0,0,A.LEITOS_VAGOS*(100 / leito_total)),2) PERCENT_VAGO,
+ A.*
+FROM  (SELECT UNID_INT.DS_UNID_INT DS_UNID_INT,
+       UNID_INT.CD_UNID_INT                                                                                                                                    CD_UNID_INT,
+       COUNT( DECODE( LEITO.SN_EXTRA   , 'S', DECODE( LEITO.TP_OCUPACAO, 'O', 1, 'A', 1, NULL ), NULL ) ) LEITOS_EXTRAS,
+       COUNT( DECODE( LEITO.SN_EXTRA   , 'N', 1, NULL ) )                                                                                      LEITOS_FIXOS,
+       COUNT( DECODE( LEITO.SN_EXTRA   , 'S', DECODE( LEITO.TP_OCUPACAO, 'O', 1, 'A', 1, NULL ), NULL ) ) +
+       COUNT( DECODE( LEITO.SN_EXTRA   , 'N', 1, NULL ) ) leito_total,
+       COUNT( DECODE( LEITO.SN_EXTRA   , 'N', DECODE( LEITO.TP_OCUPACAO, 'V', 1, 'L', 1, NULL ), NULL ) ) LEITOS_VAGOS,
+       COUNT( DECODE( LEITO.TP_OCUPACAO, 'O', 1, NULL ) )                                                                                  LEITOS_OCUPADOS,
+       COUNT( DECODE( LEITO.TP_OCUPACAO, 'R', 1, NULL ) )                                                                                   LEITOS_RESERVADOS,
+       COUNT( DECODE( LEITO.TP_OCUPACAO, 'A', 1, NULL ) )                                                                                   LEITOS_ACOMP,
+       COUNT( DECODE( LEITO.TP_OCUPACAO, 'I', 1, NULL ) )                                                                                     LEITOS_INFECTADOS,
+       COUNT( DECODE( LEITO.TP_OCUPACAO, 'M', 1, NULL ) )                                                                                    LEITOS_REFORMA
+FROM   DBAMV.UNID_INT,
+             DBAMV.LEITO,
+             DBAMV.SETOR
+WHERE  ( LEITO.TP_SITUACAO = DECODE( :CAMPO_INATIVO, 'S', 'I', 'N', '1' ) or LEITO.TP_SITUACAO <> 'I' )
+AND    LEITO.CD_UNID_INT        =  UNID_INT.CD_UNID_INT
+AND    UNID_INT.SN_ATIVO        = 'S'
+AND    UNID_INT.CD_SETOR = SETOR.CD_SETOR
+GROUP BY UNID_INT.DS_UNID_INT, UNID_INT.CD_UNID_INT
+ORDER BY UNID_INT.DS_UNID_INT) A

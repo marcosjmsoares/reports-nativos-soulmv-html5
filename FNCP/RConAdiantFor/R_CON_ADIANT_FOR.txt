@@ -1,0 +1,56 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_ADIANT_FOR
+select   a.cd_fornecedor
+        ,a.nm_fornecedor
+        ,a.dt_lancamento
+        ,a.historico
+        ,a.nr_parcela
+        ,a.vl_adiantamento
+        ,a.vl_prestacao
+from
+(
+select   cp.cd_fornecedor                                                       cd_fornecedor
+        ,decode( fornec.nm_fornecedor,'',cp.ds_fornecedor,fornec.nm_fornecedor) nm_fornecedor
+        ,cp.dt_lancamento                                                       dt_lancamento
+        ,ltrim( cp.ds_con_pag || ' ' ) || hp.ds_historico_padrao                historico
+        ,it.nr_parcela                                                          nr_parcela
+        ,it.vl_duplicata                                                        vl_adiantamento
+        ,0                                                                      vl_prestacao
+from     dbamv.con_pag           cp
+        ,dbamv.itcon_pag         it
+        ,dbamv.pagcon_pag        pc
+        ,dbamv.historico_padrao  hp
+        ,dbamv.fornecedor        fornec
+where    cp.tp_adiantamento      in ('F','P')
+and      cp.cd_multi_empresa     =  :CAMPO_CD_MULTI_EMPRESA
+and      pc.dt_pagamento         >= to_date( to_char( :CAMPO_DT_INIC, 'dd/MM/yyyy' ) || ' 00', 'dd/MM/yyyy HH24' )
+and      pc.dt_pagamento         <= to_date( to_char( :CAMPO_DT_FIM , 'dd/MM/yyyy' ) || ' 23', 'dd/MM/yyyy HH24' )
+and      cp.cd_historico_padrao  =  hp.cd_historico_padrao(+)
+and      cp.cd_con_pag           =  it.cd_con_pag
+and      it.cd_itcon_pag         =  pc.cd_itcon_pag
+and      cp.cd_fornecedor        =  fornec.cd_fornecedor(+)
+union all
+select   cp.cd_fornecedor                                                       cd_fornecedor
+        ,decode( fornec.nm_fornecedor,'',cp.ds_fornecedor,fornec.nm_fornecedor) nm_fornecedor
+        ,prest.dt_prestacao_contas                                              dt_lancamento
+        ,ltrim( cp.ds_con_pag || ' ' ) || hp.ds_historico_padrao                historico
+        ,it.nr_parcela                                                          nr_parcela
+        ,0                                                                      vl_adiantamento
+        ,prest.vl_prestacao                                                     vl_prestacao
+from     dbamv.con_pag             cp
+        ,dbamv.itcon_pag           it
+        ,dbamv.pagcon_pag          pc
+        ,dbamv.prestacao_de_contas prest
+        ,dbamv.historico_padrao    hp
+        ,dbamv.fornecedor          fornec
+where    cp.tp_adiantamento      in ('F','P')
+and      cp.cd_multi_empresa       =  :CAMPO_CD_MULTI_EMPRESA
+and      prest.dt_prestacao_contas >= to_date( to_char( :CAMPO_DT_INIC, 'dd/MM/yyyy' ) || ' 00', 'dd/MM/yyyy HH24' )
+and      prest.dt_prestacao_contas <= to_date( to_char( :CAMPO_DT_FIM , 'dd/MM/yyyy' ) || ' 23', 'dd/MM/yyyy HH24' )
+and      cp.cd_historico_padrao    =  hp.cd_historico_padrao(+)
+and      cp.cd_con_pag             =  it.cd_con_pag
+and      it.cd_itcon_pag           =  pc.cd_itcon_pag
+and      cp.cd_fornecedor          =  fornec.cd_fornecedor(+)
+and      prest.cd_con_pag          =  cp.cd_con_pag
+) a
+order by a.nm_fornecedor, a.dt_lancamento

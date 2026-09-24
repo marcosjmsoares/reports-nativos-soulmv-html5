@@ -1,0 +1,79 @@
+/*----------------------------------------------------------------------------*/
+--R_FFAG_M_GLOSAS
+SELECT * FROM (
+SELECT   con.cd_convenio,
+         con.nm_convenio,
+         con.cd_remessa,
+         con.nr_documento,
+         con.tp_conta,
+         con.cd_conta_ffcv,
+         con.cd_atendimento,
+         con.nm_paciente,
+         con.vl_total_conta,
+         glo.cd_glosas,
+         glo.cd_glosas_pai,
+         glo.cd_pro_fat,
+         glo.cd_motivo_glosa,
+         glo.cd_justifica_glosa,
+         glo.cd_setor,
+         glo.cd_setor_apoio,
+         glo.cd_motivo_aceite,
+         glo.cd_prestador,
+         glo.cd_ati_med,
+         glo.dt_glosa,
+         glo.qt_glosa,
+         glo.vl_glosa,
+         (SELECT trunc(MAX(m.dt_movimentacao))
+            FROM dbamv.itmov_glosas i,
+                 dbamv.mov_glosas   m
+           WHERE i.cd_mov_glosas = m.cd_mov_glosas
+             AND i.cd_itfat_nf = glo.cd_itfat_nf
+             AND i.cd_glosas = glo.cd_glosas
+             AND trunc(m.dt_movimentacao) <= Trunc(:CAMPO_DT_REFERENCIA)) dt_aceite,
+         Nvl((SELECT SUM(vl_glosa)
+            FROM dbamv.itmov_glosas i,
+                 dbamv.mov_glosas   m
+           WHERE i.cd_mov_glosas = m.cd_mov_glosas
+             AND i.cd_itfat_nf = glo.cd_itfat_nf
+             AND i.cd_glosas = glo.cd_glosas
+             AND trunc(m.dt_movimentacao) <= Trunc(:CAMPO_DT_REFERENCIA)),0) vl_aceite,
+         Nvl(glo.vl_glosa_pre_aceita,0) vl_glosa_pre_aceita,
+         glo.qt_reapresentada,
+         Nvl(glo.vl_reapresentado ,0) vl_reapresentado,
+         (CASE WHEN ( Trunc(glo.dt_recebido) <= Trunc(:CAMPO_DT_REFERENCIA) ) THEN glo.dt_recebido
+         ELSE NULL END) dt_recebido,
+         (CASE WHEN ( Trunc(glo.dt_recebido) <= Trunc(:CAMPO_DT_REFERENCIA) ) THEN Nvl(glo.vl_recebido,0)
+         ELSE 0 END) vl_recebido,
+         glo.cd_remessa_glosa,
+         (SELECT cd_remessa_glosa_pai
+            FROM dbamv.remessa_glosa
+           WHERE cd_remessa_glosa = glo.cd_remessa_glosa) cd_remessa_origem,
+         (SELECT Min(cd_glosas)
+	          FROM dbamv.glosas
+	         WHERE cd_glosas_pai = glo.cd_glosas) cd_glosas_filho
+    FROM dbamv.v_consulta_contas_paciente con,
+         dbamv.glosas glo
+   WHERE con.cd_conta_ffcv = NVL (glo.cd_reg_fat, glo.cd_reg_amb)
+     AND con.cd_atendimento = glo.cd_atendimento
+     AND glo.cd_pro_fat IS NOT NULL
+     AND trunc(glo.dt_glosa) <= Trunc(:CAMPO_DT_REFERENCIA)
+ORDER BY con.cd_convenio,
+         con.cd_remessa,
+         con.cd_conta_ffcv,
+         con.cd_atendimento,
+         glo.cd_pro_fat,
+         NVL(glo.cd_glosas_pai, glo.cd_glosas),
+	 glo.cd_glosas,
+         glo.cd_remessa_glosa
+)
+ORDER BY CD_CONVENIO,
+         NM_CONVENIO,
+         NR_DOCUMENTO,
+         CD_REMESSA,
+         TP_CONTA,
+         CD_CONTA_FFCV,
+         CD_ATENDIMENTO,
+         NM_PACIENTE,
+         CD_PRO_FAT,
+         Nvl(CD_GLOSAS_PAI,CD_GLOSAS),
+	 CD_GLOSAS

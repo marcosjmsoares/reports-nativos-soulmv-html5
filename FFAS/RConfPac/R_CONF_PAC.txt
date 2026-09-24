@@ -1,0 +1,66 @@
+/*----------------------------------------------------------------------------*/
+--R_CONF_PAC
+SELECT * FROM (
+SELECT  FAT_SIA.CD_FAT_SIA                                                 CD_FAT_SIA
+       ,EVE_SIASUS.cd_prestador||'-'||prestador.nm_prestador               cd_prestador
+       ,lpad(EVE_SIASUS.cd_cbo_prestador,2,0)||'-'||CBO.ds_cbos           CD_CBO
+       ,FAT_SIA.DS_FAT_SIA                                                 DS_FAT_SIA
+       ,EVE_SIASUS.CD_PROCEDIMENTO||'-'||PROCEDIMENTO_SUS.DS_PROCEDIMENTO     DS_TITULO
+       ,EVE_SIASUS.CD_TIP_ATE                                              CD_TIP_ATE
+       ,EVE_SIASUS.CD_GRU_ATE                                              CD_GRU_ATE
+       ,EVE_SIASUS.CD_FAIXA_ETARIA                                         CD_FAIXA_ETARIA
+       ,EVE_SIASUS.CD_SERVICO                                              CD_SERVICO
+       ,SUM(EVE_SIASUS.QT_LANCADA)                                         QT_LANCADA
+       ,EVE_SIASUS.CD_FAT_SIA                                              CD_FAT_SIA2
+       ,PROCEDIMENTO_SUS_VALOR.vl_total_ambulatorial                       VL_GERAL
+       ,(nvl(PROCEDIMENTO_SUS_VALOR.vl_total_ambulatorial,0) * SUM(EVE_SIASUS.QT_LANCADA)) VL_TOTAL
+       ,lpad(eve_siasus.cd_paciente,8,0)||'-'||dbamv.pkg_sus_regra_paciente.F_NOME_PACIENTE(eve_siasus.CD_PACIENTE)    cd_paciente
+       ,ATENDIME.dt_atendimento                                            dt_atendimento
+       ,ATENDIME.cd_atendimento                                            cd_atendimento
+  FROM dbamv.FAT_SIA                 FAT_SIA
+      ,dbamv.EVE_SIASUS              EVE_SIASUS
+      ,dbamv.PROCEDIMENTO_SUS        PROCEDIMENTO_SUS
+      ,dbamv.PROCEDIMENTO_SUS_VALOR  PROCEDIMENTO_SUS_VALOR
+      ,dbamv.CBO              CBO
+      ,dbamv.PACIENTE                PACIENTE
+      ,dbamv.PRESTADOR               PRESTADOR
+      ,dbamv.ATENDIME                ATENDIME
+ WHERE FAT_SIA.CD_FAT_SIA               = :CAMPO_FAT_SIA
+   AND EVE_SIASUS.CD_FAT_SIA            = FAT_SIA.CD_FAT_SIA
+   AND EVE_SIASUS.CD_PROCEDIMENTO       = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+   AND EVE_SIASUS.CD_PROCEDIMENTO       = PROCEDIMENTO_SUS_VALOR.CD_PROCEDIMENTO
+   AND PROCEDIMENTO_SUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS_VALOR.CD_PROCEDIMENTO
+   AND PROCEDIMENTO_SUS_VALOR.dt_vigencia in (select max(PROCEDIMENTO_SUS_VALOR.dt_vigencia)
+                  				                from dbamv.PROCEDIMENTO_SUS_VALOR
+                	  			               where cd_procedimento = EVE_SIASUS.CD_PROCEDIMENTO)
+   AND CBO.cd_cbos   = EVE_SIASUS.cd_cbo_prestador
+   AND eve_siasus.cd_apac is null
+   AND EVE_SIASUS.cd_paciente     = PACIENTE.cd_paciente
+   AND PACIENTE.cd_paciente       = :CAMPO_PACIENTE
+   AND PRESTADOR.cd_prestador     = eve_siasus.cd_prestador
+   AND ATENDIME.cd_atendimento(+) = eve_siasus.cd_atendimento
+ GROUP BY FAT_SIA.CD_FAT_SIA
+         ,EVE_SIASUS.cd_prestador
+         ,PRESTADOR.nm_prestador
+         ,EVE_SIASUS.cd_cbo_prestador
+         ,CBO.ds_cbos
+         ,FAT_SIA.DS_FAT_SIA
+         ,EVE_SIASUS.CD_PROCEDIMENTO
+         ,PROCEDIMENTO_SUS.DS_PROCEDIMENTO
+         ,EVE_SIASUS.CD_GRU_ATE
+         ,EVE_SIASUS.CD_TIP_ATE
+         ,EVE_SIASUS.CD_FAIXA_ETARIA
+         ,EVE_SIASUS.CD_SERVICO
+         ,EVE_SIASUS.CD_FAT_SIA
+         ,PROCEDIMENTO_SUS_VALOR.vl_total_ambulatorial
+         ,eve_siasus.cd_paciente
+         ,PACIENTE.nm_paciente
+         ,ATENDIME.dt_atendimento
+         ,ATENDIME.cd_atendimento
+ORDER BY EVE_SIASUS.cd_prestador
+        ,EVE_SIASUS.cd_cbo_prestador
+        ,EVE_SIASUS.CD_PROCEDIMENTO
+)
+ORDER BY CD_PACIENTE,CD_FAT_SIA,DS_FAT_SIA,
+CD_PRESTADOR,
+CD_CBO

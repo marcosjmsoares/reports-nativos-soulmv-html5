@@ -1,0 +1,57 @@
+/*----------------------------------------------------------------------------*/
+--R_C_G_SERVICO
+SELECT * FROM (
+select
+      ds_servico
+      ,Sum(total_infec) total_infec
+      ,cd_servico , tp_infec
+     ,(Sum(total_infec) * 100 / Decode(Sum(total_atendimento),0,1,Sum(total_atendimento)) ) taxa_infec
+     ,Sum(total_atendimento) total_atendimento
+FROM (
+      select Decode(Nvl(atendime.cd_ser_dis,0),0, nvl(servico.ds_servico,'Serviço Não informado'),ser_dis.ds_ser_dis) ds_servico
+            ,count(reg_inf.cd_reg_inf) total_infec
+            ,Decode(Nvl(atendime.cd_ser_dis,0),0, Nvl(servico.cd_servico,0) ,atendime.cd_ser_dis) cd_servico
+           ,  decode(reg_inf.tp_infec,'L','Colonização','C','Comunitária','H','Hospitalar','') tp_infec
+            ,0 total_atendimento
+      from dbamv.atendime
+             ,dbamv.servico
+             ,dbamv.ser_dis
+            ,dbamv.reg_inf
+      where atendime.cd_atendimento = reg_inf.cd_atendimento
+            and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            And atendime.tp_atendimento IN  ('I', 'A', 'E', 'U')
+            And reg_inf.tp_sit = 'C'
+            And  atendime.cd_servico  = servico.cd_servico  (+)
+           AND atendime.cd_ser_dis = ser_dis.cd_ser_dis (+)
+           AND trunc( reg_inf.dt_reg_inf)  between trunc( to_date( '01/' || to_char ( :CAMPO_DT_INICIAL,   'mm/yyyy' ), 'dd/mm/yyyy' ))
+           And trunc( to_date( to_char( LAST_DAY( :CAMPO_DT_FINAL ),'dd/mm/yyyy' ), 'dd/mm/yyyy' ))
+           AND trunc( atendime.dt_atendimento) between trunc( to_date( '01/' || to_char ( :CAMPO_DT_INICIAL,   'mm/yyyy' ), 'dd/mm/yyyy' ))
+           And trunc( to_date( to_char( LAST_DAY( :CAMPO_DT_FINAL ),'dd/mm/yyyy' ), 'dd/mm/yyyy' ))
+     group by servico.cd_servico, servico.ds_servico, reg_inf.tp_infec,atendime.cd_ser_dis,ser_dis.ds_ser_dis
+      UNION all
+      select   Decode(Nvl(atendime.cd_ser_dis,0),0, nvl(servico.ds_servico,'Serviço Não informado'),ser_dis.ds_ser_dis) ds_servico
+            ,0 total_infec
+            ,Decode(Nvl(atendime.cd_ser_dis,0),0, Nvl(servico.cd_servico,0) ,atendime.cd_ser_dis) cd_servico
+          ,  decode(reg_inf.tp_infec,'L','Colonização','C','Comunitária','H','Hospitalar','') tp_infec
+            ,count(atendime.cd_atendimento) total_atendime
+      from  (
+              SELECT atendime.cd_atendimento, atendime.cd_servico,atendime.cd_ser_dis
+                  FROM dbamv.atendime
+              WHERE atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                        And atendime.tp_atendimento IN  ('I', 'A', 'E', 'U')
+                        AND trunc( atendime.dt_atendimento) between trunc( to_date( '01/' || to_char ( :CAMPO_DT_INICIAL,   'mm/yyyy' ), 'dd/mm/yyyy' ))
+           And trunc( to_date( to_char( LAST_DAY( :CAMPO_DT_FINAL ),'dd/mm/yyyy' ), 'dd/mm/yyyy' ))
+                  ) atendime
+                  ,dbamv.servico
+                 ,dbamv.reg_inf
+                 ,dbamv.ser_dis
+      where atendime.cd_servico  = servico.cd_servico (+)
+         AND atendime.cd_ser_dis = ser_dis.cd_ser_dis(+)
+         AND atendime.cd_atendimento = reg_inf.cd_atendimento
+      group BY servico.cd_servico, servico.ds_servico, reg_inf.tp_infec,atendime.cd_ser_dis,ser_dis.ds_ser_dis
+		  )
+GROUP by ds_servico
+            ,cd_servico
+            ,tp_infec
+)
+ORDER BY TP_INFEC, cd_servico

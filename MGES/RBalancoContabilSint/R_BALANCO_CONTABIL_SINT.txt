@@ -1,0 +1,81 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCO_CONTABIL_SINT
+SELECT * FROM (
+Select  CD_MULTI_EMPRESA,
+        Codigo Codigo,
+             Especie Especie,
+             SUM( nvl(VL_ESTOQUE_INICIAL,0) )                               VL_ESTOQUE_INICIAL,
+             SUM( nvl(VL_ESTOQUE_INICIAL_SEM_TRANSF,0) )     VL_ESTOQUE_INICIAL_SEM_TRANSF,
+             SUM( nvl(VL_ESTOQUE_FINAL,0) )                                  VL_ESTOQUE_FINAL,
+             SUM( nvl(VL_ESTOQUE_FINAL_SEM_TRANSF,0) )        VL_ESTOQUE_FINAL_SEM_TRANSF,
+             SUM( nvl(VL_ENTRADA_TRANSFERIDO,0) )                   VL_ENTRADA_TRANSFERIDO,
+              SUM( Entradas + Decode(:CAMPO_TP_CONTAGEM,'M',nvl(vl_contagem_entrada,0),Decode( Sign(nvl(Vl_Contagem_Entrada,0) - nvl(Vl_Contagem_Saida,0)), 1, nvl(Vl_Contagem_Entrada,0) - nvl(Vl_Contagem_Saida,0), 0 ) ) )ENTRADAS,
+              Sum( nvl(VL_CONTAGEM_ENTRADA,0) ) VL_CONTAGEM_ENTRADA,
+              SUM( Decode( Sign( nvl(VL_AJUSTE_ENTRADA,0) - nvl(VL_AJUSTE_SAIDA,0) ), 1, nvl(VL_AJUSTE_ENTRADA,0) - nvl(VL_AJUSTE_SAIDA,0), 0 ) ) VL_AJUSTE_ENTRADA,
+              SUM( VL_TRANSFERENCIA_SAIDA )                                                                        VL_TRANSFERENCIA_SAIDA,
+              SUM( Saidas + Decode(:CAMPO_TP_CONTAGEM,'M',nvl(vl_contagem_saida,0),Decode( Sign(nvl(Vl_Contagem_Saida,0) - nvl(Vl_Contagem_Entrada,0)), 1, nvl(Vl_Contagem_Saida,0) - nvl(Vl_Contagem_Entrada,0), 0 ) )) SAIDAS,
+              Sum( nvl(VL_CONTAGEM_SAIDA,0) ) VL_CONTAGEM_SAIDA,
+             SUM( Decode( Sign( nvl(VL_AJUSTE_SAIDA,0) - nvl(VL_AJUSTE_ENTRADA,0) ), 1, nvl(VL_AJUSTE_SAIDA,0) - nvl(VL_AJUSTE_ENTRADA,0), 0 ) ) VL_AJUSTE_SAIDA
+From(
+SELECT ESTOQUE.CD_MULTI_EMPRESA,
+      ESPECIE.CD_ESPECIE codigo,
+              ESPECIE.DS_ESPECIE especie,
+              SUM( NVL(decode(produto.sn_consignado, 'S', nvl(VL_ESTOQUE_INICIAL_CONSIG,0), nvl(VL_ESTOQUE_INICIAL,0)),0))                             VL_ESTOQUE_INICIAL,
+              SUM( NVL(decode(produto.sn_consignado, 'S', nvl(VL_ESTOQUE_INICIAL_CONSIG,0), nvl(VL_ESTOQUE_INICIAL_SEM_TRANSF,0)),0))   VL_ESTOQUE_INICIAL_SEM_TRANSF,
+              SUM( NVL(decode(produto.sn_consignado, 'S', nvl(VL_ESTOQUE_FINAL_CONSIG,0), nvl(VL_ESTOQUE_FINAL,0)),0))                                  VL_ESTOQUE_FINAL,
+              SUM( NVL(decode(produto.sn_consignado, 'S', nvl(VL_ESTOQUE_FINAL_CONSIG,0), nvl(VL_ESTOQUE_FINAL_SEM_TRANSF,0)),0))        VL_ESTOQUE_FINAL_SEM_TRANSF,
+              SUM( NVL(decode(produto.sn_consignado, 'S', 0, nvl(VL_ENTRADA_TRANSFERIDO,0)),0))                                                                    VL_ENTRADA_TRANSFERIDO,
+              SUM( NVL(VL_ENTRADA,0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, VL_ENTRADA_TRANSFERIDO),0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, VL_DEVOLUCAO_VENDA),0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, c_conest.vl_emprestimo_entrada),0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, c_conest.vl_entrada_pag_emprestimo),0) +
+                        NVL(C_CONEST.vl_nota_fiscal_nao_cobrada,0)+
+                        NVL(VL_DEVOLUCAO_SETOR,0) +
+                        NVL(VL_DEVOLUCAO_PACIENTE,0) +
+                        NVL(VL_DOACAO,0) +
+			NVL(VL_BONIFICACAO,0) +
+                        nvl(C_CONEST.vl_VALE,0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, VL_MANIPULADA_ENTRADA),0)  +
+                        nvl(c_conest.vl_transf_emp_ent,0)
+                        + nvl(c_conest.vl_acerto_entrada,0)   
+                        )  ENTRADAS,
+              Sum(NVL(decode(produto.sn_consignado, 'S', 0, VL_CONTAGEM_ENTRADA),0)) VL_CONTAGEM_ENTRADA,
+     SUM(decode ( dbamv.fnc_mges_retorna_processo ( to_date(to_char(C_CONEST.CD_MES) ||'/'|| to_char(:CAMPO_DT_ANO) ,'MM/YYYY') ),'S', NVL(C_CONEST.VL_ENTRADA_AJUSTE_CONTABIL,0),
+               decode(:CAMPO_ESTOQUE,'%',nvl(c_conest.vl_entrada_ajuste_contabil_sem,0), NVL(C_CONEST.VL_ENTRADA_AJUSTE_CONTABIL,0)))                                    )                                                VL_AJUSTE_ENTRADA,
+     SUM( decode ( dbamv.fnc_mges_retorna_processo ( to_date(to_char(C_CONEST.CD_MES) ||'/'|| to_char(:CAMPO_DT_ANO) ,'MM/YYYY') ),'S',NVL(C_CONEST.VL_SAIDA_AJUSTE_CONTABIL,0),
+              decode(:CAMPO_ESTOQUE,'%',nvl(c_conest.vl_saida_ajuste_contabil_sem,0), NVL(C_CONEST.VL_SAIDA_AJUSTE_CONTABIL,0))) )                                                                                                                            VL_AJUSTE_SAIDA,
+              SUM( NVL(decode(produto.sn_consignado, 'S', 0, VL_TRANSFERENCIA_SAIDA),0))                                                                                      VL_TRANSFERENCIA_SAIDA,
+              SUM( NVL(VL_SAIDA_SETOR,0) +
+                        NVL(VL_SAIDA_PACIENTE,0)  +
+                        NVL(decode(produto.sn_consignado, 'S', 0, VL_VENDA),0)  +
+                        NVL(decode(produto.sn_consignado, 'S', 0, vl_BAIXA),0)  +
+                        NVL(decode(produto.sn_consignado, 'S', 0, VL_MANIPULADA_SAIDA),0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, VL_TRANSFERENCIA_SAIDA),0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, c_conest.vl_emprestimo),0) +
+                        NVL(decode(produto.sn_consignado, 'S', 0, c_conest.vl_saida_pag_emprestimo),0) +
+                        NVL(VL_DEVOLVIDA_FORNEC,0) +
+                        nvl(c_conest.vl_transf_emp_sai,0))   SAIDAS,
+               Sum(NVL(decode(produto.sn_consignado, 'S', 0, VL_CONTAGEM_SAIDA),0)) VL_CONTAGEM_SAIDA 
+FROM   DBAMV.C_CONEST,
+       DBAMV.ESPECIE,
+       DBAMV.PRODUTO,
+      DBAMV.ESTOQUE
+      ,DBAMV.TIP_ATIV
+WHERE  ESTOQUE.CD_ESTOQUE    = C_CONEST.CD_ESTOQUE
+  AND  PRODUTO.CD_ESPECIE    = ESPECIE.CD_ESPECIE
+  AND C_CONEST.CD_PRODUTO    = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.SN_MESTRE           = 'N'
+  AND C_CONEST.CD_MES     BETWEEN :CAMPO_DT_INICIO AND 
+  AND C_CONEST.CD_ANO     = :CAMPO_DT_ANO
+  AND PRODUTO.CD_TIP_ATIV = TIP_ATIV.CD_TIP_ATIV(+)
+GROUP BY ESTOQUE.CD_MULTI_EMPRESA,
+ESPECIE.CD_ESPECIE,
+         ESPECIE.DS_ESPECIE,
+        produto.cd_produto
+ORDER BY DS_ESPECIE
+)
+GROUP BY CD_MULTI_EMPRESA, ESPECIE, CODIGO
+ORDER BY ESPECIE
+)
+ORDER BY CD_MULTI_EMPRESA,CODIGO,ESPECIE

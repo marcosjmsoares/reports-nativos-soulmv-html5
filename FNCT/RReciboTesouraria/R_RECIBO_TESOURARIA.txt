@@ -1,0 +1,153 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_TESOURARIA
+SELECT '1' VIA
+       ,'1ª VIA CLIENTE' DS_VIA
+       ,(SELECT 'Este recibo só terá valor de quitação após compensação bancária do cheque mencionado neste documento.' TEXTO
+           FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+          WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+            AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+            AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND CD_TIPO_RECEB = '1'
+            AND ROWNUM = 1) TEXTO
+       ,CD_ATENDIMENTO CODIGO
+       ,NM_PACIENTE NOME
+       ,RPS RPS
+       ,DT_EMISSAO DT_EMISSAO
+       ,VL_DUPLICATA VL_TITULO
+       ,(VL_DUPLICATA - VL_RECEBIDO - VL_DESCONTO ) SALDO
+       ,VL_RECEBIDO VL_RECEBIDO_CAB
+       ,VL_RECEBIDO VL_RECEBIDO_CAB1
+       ,VL_ACRESCIMO
+       ,VL_DESCONTO
+       ,dbamv.PACK_FNCP.EXTENSOS((SELECT SUM(Nvl(VL_RECEBIDO,0))
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+                                   WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+                                     AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) EXTENSO
+       ,(SELECT SUM(Nvl(VL_RECEBIDO,0))
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+                                   WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+                                     AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))) VL_TOTAL
+		,(SELECT Nvl(SUM(Nvl(VL_RECEBIDO,0)),0) FROM DBAMV.RECCON_REC vrt
+           WHERE (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR vrt.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+             AND vrt.CD_CONTRATO_ADIANT IS NOT NULL)  VL_ADIANTAMENTO
+FROM (SELECT CD_ATENDIMENTO
+             ,Nvl(NM_CLIENTE,Nvl(NM_PACIENTE, NM_RESPONSAVEL)) NM_PACIENTE
+             ,RPS
+             ,DT_EMISSAO
+             ,(SELECT Sum(VL_DUPLICATA) FROM (SELECT DISTINCT CD_CON_REC, CD_ITCON_REC, Sum(Nvl(VL_DUPLICATA,0)) VL_DUPLICATA
+                                                FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+                                               WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+                                                 AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+                                                 AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+																 GROUP BY CD_CON_REC, CD_ITCON_REC, RPS)) VL_DUPLICATA
+             ,SUM(Nvl(VL_RECEBIDO,0)) VL_RECEBIDO
+             ,SUM(Nvl(VL_DESCONTO,0)) VL_DESCONTO
+             ,SUM(Nvl(VL_ACRESCIMO,0)) VL_ACRESCIMO
+        FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+       WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+         AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+         AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+       GROUP BY  CD_ATENDIMENTO
+                 ,Nvl(NM_CLIENTE,Nvl(NM_PACIENTE, NM_RESPONSAVEL))
+                 ,RPS
+                 ,DT_EMISSAO)
+UNION ALL
+SELECT '2' VIA
+       ,'2ª VIA FINANCEIRO' DS_VIA
+       ,(SELECT 'Este recibo só terá valor de quitação após compensação bancária do cheque mencionado neste documento.' TEXTO
+           FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+          WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+            AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+            AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND CD_TIPO_RECEB = '1'
+            AND ROWNUM = 1) TEXTO
+       ,CD_ATENDIMENTO CODIGO
+       ,NM_PACIENTE NOME
+       ,RPS RPS
+       ,DT_EMISSAO DT_EMISSAO
+       ,VL_DUPLICATA VL_TITULO
+       ,(VL_DUPLICATA - VL_RECEBIDO - VL_DESCONTO ) SALDO
+       ,VL_RECEBIDO VL_RECEBIDO_CAB
+       ,VL_RECEBIDO VL_RECEBIDO_CAB1
+       ,VL_ACRESCIMO
+       ,VL_DESCONTO
+       ,dbamv.PACK_FNCP.EXTENSOS((SELECT SUM(Nvl(VL_RECEBIDO,0))
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA  VRT
+                                   WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+                                     AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) EXTENSO
+       ,(SELECT SUM(Nvl(VL_RECEBIDO,0))
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+                                   WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+                                     AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))) VL_TOTAL
+   	   ,(SELECT Nvl(SUM(Nvl(VL_RECEBIDO,0)),0) FROM DBAMV.RECCON_REC vrt
+          WHERE (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR vrt.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND vrt.CD_CONTRATO_ADIANT IS NOT NULL)  VL_ADIANTAMENTO
+FROM (SELECT CD_ATENDIMENTO
+             ,Nvl(NM_CLIENTE,Nvl(NM_PACIENTE, NM_RESPONSAVEL)) NM_PACIENTE
+             ,RPS
+             ,DT_EMISSAO
+             ,(SELECT Sum(VL_DUPLICATA) FROM (SELECT DISTINCT CD_CON_REC, CD_ITCON_REC, Sum(Nvl(VL_DUPLICATA,0)) VL_DUPLICATA
+                                                FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+                                               WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+                                                 AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+                                                 AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+																 GROUP BY CD_CON_REC, CD_ITCON_REC, RPS)) VL_DUPLICATA
+             ,SUM(Nvl(VL_RECEBIDO,0)) VL_RECEBIDO
+             ,SUM(Nvl(VL_DESCONTO,0)) VL_DESCONTO
+             ,SUM(Nvl(VL_ACRESCIMO,0)) VL_ACRESCIMO
+        FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+       WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+         AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+         AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+       GROUP BY  CD_ATENDIMENTO
+                 ,Nvl(NM_CLIENTE,Nvl(NM_PACIENTE, NM_RESPONSAVEL))
+                 ,RPS
+                 ,DT_EMISSAO)
+ORDER BY VIA, DT_EMISSAO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_TESOURARIA_DET
+SELECT
+NR_DOCUMENTO_RECEB ,
+				   NR_PARCELA ,
+				   DT_VENCIMENTO ,
+				   VL_RECEBIDO_DET
+			  FROM
+				(SELECT  NR_DOCUMENTO_RECEB
+          ,ROWNUM NR_PARCELA
+          ,DT_VENCIMENTO
+          ,VL_RECEBIDO_DET
+   FROM ( SELECT VRT.CD_ATENDIMENTO
+                 ,VRT.RPS
+                 ,NVL(VRT.NR_DOCUMENTO_RECEB, VRT.DS_TIPO_RECEB) NR_DOCUMENTO_RECEB
+                 ,TO_CHAR(DECODE(VRT.CD_TIPO_RECEB,'2',DECODE(RCR.CD_CAIXA,NULL,MC.DT_MOVIMENTACAO,DC.DT_VENCIMENTO),NVL(VRT.DT_RECEBIMENTO,VRT.DT_CHEQUE)),'DD/MM/YYYY') DT_VENCIMENTO
+                 ,SUM(NVL(VRT.VL_RECEBIDO,0)) VL_RECEBIDO_DET
+            FROM DBAMV.VDIC_RECIBO_TESOURARIA VRT
+                  ,DBAMV.RECCON_REC RCR
+                  ,DBAMV.DOC_CAIXA DC
+                  ,DBAMV.REC_MOV_CON RMC
+                  ,DBAMV.MOV_CONCOR MC
+           WHERE RCR.CD_RECCON_REC = VRT.CD_RECCON_REC
+             AND RCR.CD_DOC_CAIXA = DC.CD_DOC_CAIXA (+)
+             AND RCR.CD_RECCON_REC = RMC.CD_RECCON_REC (+)
+             AND RMC.CD_MOV_CONCOR = MC.CD_MOV_CONCOR (+)
+             AND CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+             AND (RPS = :CAMPO_RPS OR RPS IS NULL)
+             AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR VRT.CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+             AND VRT.VL_RECEBIDO > 0
+           GROUP BY VRT.CD_ATENDIMENTO
+                    ,VRT.RPS
+              ,DECODE(VRT.CD_TIPO_RECEB,'2',VRT.CD_RECCON_REC,NULL)
+              ,NVL(VRT.NR_DOCUMENTO_RECEB, VRT.DS_TIPO_RECEB)
+              ,NVL(VRT.DT_RECEBIMENTO,VRT.DT_CHEQUE)
+              ,TO_CHAR(DECODE(VRT.CD_TIPO_RECEB,'2',DECODE(RCR.CD_CAIXA,NULL,MC.DT_MOVIMENTACAO,DC.DT_VENCIMENTO),NVL(VRT.DT_RECEBIMENTO,VRT.DT_CHEQUE)),'DD/MM/YYYY')
+           ORDER BY DT_VENCIMENTO
+  ) ORDER BY ROWNUM
+)
+WHERE

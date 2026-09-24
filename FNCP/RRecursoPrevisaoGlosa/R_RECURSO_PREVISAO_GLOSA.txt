@@ -1,0 +1,61 @@
+/*----------------------------------------------------------------------------*/
+--R_RECURSO_PREVISAO_GLOSA
+SELECT * FROM (
+SELECT   convenio.nm_convenio 	                      nm_convenio
+               ,trunc(con_rec.dt_emissao)	                      dt_emissao
+               ,trunc(itcon_rec.dt_prevista_recebimento )    dt_prevista_pagamento
+               ,itcon_rec.vl_duplicata                                   vl_previsto
+               ,itcon_rec.vl_glosa                                         vl_glosa_fnfi
+               ,nvl(itcon_rec.vl_recurso,0)                            vl_recurso_fnfi
+               ,nvl(remessa_glosa.vl_total_remessa,0)          vl_recurso
+               ,nvl(remessa_glosa.vl_recurso_recebido,0)     vl_recurso_recebido
+               ,nota_fiscal.nr_id_nota_fiscal                         nr_documento
+               ,con_rec.cd_con_rec     		      cd_con_rec
+               ,itcon_rec.cd_itcon_rec 		      cd_itcon_rec
+               ,itfat_nota_fiscal.cd_remessa                         cd_remessa
+               ,remessa_glosa.cd_remessa_glosa	      cd_remessa_glosa
+               ,trunc(remessa_glosa.dt_prevista_para_pgto) dt_prevista_para_pgto
+                ,remessa_glosa.vl_total_remessa                  vl_total_remessa_glosa
+                ,remessa_glosa.cd_remessa_glosa_pai       cd_remessa_glosa_pai
+                , nvl(itcon_rec.vl_glosa_aceita , 0 )              vl_glosa_aceita
+  FROM   dbamv.itcon_rec
+             , dbamv.con_rec
+             , dbamv.convenio
+             , dbamv.remessa_glosa
+             , dbamv.nota_fiscal
+             , dbamv.itfat_nota_fiscal
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa
+And con_rec.cd_nota_fiscal          = nota_fiscal.cd_nota_fiscal
+      AND nota_fiscal.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+      AND nota_fiscal.cd_nota_fiscal      = itfat_nota_fiscal.cd_nota_fiscal
+      AND nota_fiscal.cd_convenio        = convenio.cd_convenio
+      AND con_rec.tp_con_rec              = 'C'
+      AND con_rec.cd_previsao             IS NULL
+      AND itcon_rec.cd_con_rec           = con_rec.cd_con_rec
+      and itfat_nota_fiscal.cd_remessa = remessa_glosa.cd_remessa(+)
+     and con_rec.dt_cancelamento is null
+GROUP BY convenio.nm_convenio
+               ,itfat_nota_fiscal.cd_remessa
+                   ,trunc(con_rec.dt_emissao)
+                   ,trunc(itcon_rec.dt_prevista_recebimento )
+                   ,itcon_rec.vl_duplicata
+                   ,itcon_rec.vl_glosa
+                   ,itcon_rec.vl_recurso
+                  ,remessa_glosa.vl_total_remessa
+                  ,remessa_glosa.vl_recurso_recebido
+                  ,nota_fiscal.nr_id_nota_fiscal
+                  ,con_rec.cd_con_rec
+                  ,itcon_rec.cd_itcon_rec
+                  ,remessa_glosa.cd_remessa_glosa
+               ,trunc(remessa_glosa.dt_prevista_para_pgto)
+                  ,remessa_glosa.vl_total_remessa
+                  ,cd_remessa_glosa_pai
+                 , nvl(itcon_rec.vl_glosa_aceita , 0 )
+ORDER BY nm_convenio, cd_remessa
+                  , dt_prevista_pagamento
+)
+ORDER BY NM_CONVENIO,
+DT_PREVISTA_PAGAMENTO,
+CD_ITCON_REC,CD_REMESSA,DT_EMISSAO,NR_DOCUMENTO,VL_PREVISTO,CD_CON_REC,VL_GLOSA_FNFI,VL_RECURSO_FNFI,VL_GLOSA_ACEITA

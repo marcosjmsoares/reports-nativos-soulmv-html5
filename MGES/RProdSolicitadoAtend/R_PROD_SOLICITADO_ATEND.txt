@@ -1,0 +1,26 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_SOLICITADO_ATEND
+select solsai_pro.cd_atendimento,
+       solsai_pro.cd_solsai_pro solicitacao,
+       solsai_pro.dt_solsai_pro,
+       decode(solsai_pro.tp_situacao, 'P','Pendentes', 'S', 'Confirmados') tp_situacao,
+       itsolsai_pro.cd_produto ||  ' - '  || produto.ds_produto  ds_produto,
+       itsolsai_pro.cd_produto,
+       uni_pro.ds_unidade ds_unidade_sol,
+       (NVL(itsolsai_pro.qt_solicitado, 0) * UNI_PRO.VL_FATOR / dbamv.verif_vl_fator_prod(itsolsai_pro.cd_produto)) qt_solicitado,
+       (NVL(itsolsai_pro.qt_atendida, 0) * UNI_PRO.VL_FATOR / dbamv.verif_vl_fator_prod(itsolsai_pro.cd_produto)) qt_atendida
+from  dbamv.solsai_pro
+     ,dbamv.itsolsai_pro
+     ,dbamv.produto
+     ,dbamv.estoque
+     ,dbamv.uni_pro
+where solsai_pro.cd_solsai_pro 	= itsolsai_pro.cd_solsai_pro
+   and produto.cd_produto 		= itsolsai_pro.cd_produto
+   and  solsai_pro.dt_solsai_pro 	between to_date(:CAMPO_DTINIC, 'dd/mm/yyyy') and to_date(:CAMPO_DTFIM,  'dd/mm/yyyy')
+   and solsai_pro.cd_estoque 		= estoque.cd_estoque
+   and itsolsai_pro.cd_uni_pro 		= uni_pro.cd_uni_pro
+   and estoque.cd_multi_empresa 	= :CAMPO_CD_MULTI_EMPRESA
+order by dt_solsai_pro,
+              solsai_pro.cd_atendimento,
+              solsai_pro.cd_solsai_pro,
+              produto.cd_produto

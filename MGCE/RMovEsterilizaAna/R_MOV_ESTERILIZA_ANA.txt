@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_ESTERILIZA_ANA
+SELECT * FROM (
+Select Distinct Cx_Kit.Cd_Kit NrCaixaKit
+       ,Cx_Kit.ds_cd_barras
+       ,Cx_Kit.Ds_Kit KitouCaixa
+       ,Esterilizacao.cd_carga_lote Carga
+       ,Esterilizacao.cd_esteriliza cd_esteriliza
+       ,To_char(esterilizacao.dt_inic_esteriliza,'DD/MM/YYYY HH24')InicioData
+       ,To_char(esterilizacao.dt_fim_esteriliza,'DD/MM/YYYY HH24')FimData
+ ,Decode(Esterilizacao.sn_fisico,'S', 'Conforme',
+                                       'N', 'Não Conforme',
+                                        '', 'Teste não realizado')TesteFisico
+       ,Decode(Esterilizacao.sn_biologico , 'S', 'Conforme',
+                                            'N', 'Não Conforme',
+                                             '', 'Teste não realizado') TesteBiologico
+      ,Decode(Esterilizacao.sn_quimico , 'S', 'Conforme',
+                                         'N', 'Não Conforme',
+                                          '', 'Teste não realizado') TesteQuimico
+      ,To_char( ( Esterilizacao.dt_inic_esteriliza
+                  + Cx_Kit.dt_val_esterilizacao),'DD/MM/YYYY') Vencimento
+      ,Esterilizacao.Cd_Esteriliza Cd_Esteriliza_Qui
+      ,Esterilizacao.Cd_Esteriliza Cd_Esteriliza_Bio
+      ,It_Mvto_Cme.Cd_Usuario_Inc NaoIdentifica
+      ,Prestador.nm_prestador     Identificacao
+      ,Maq_esterilizador.cd_esterilizador Esterilizadora
+      ,Bens.Ds_Bem Descricao
+      ,Config_Cme.Sn_Identi_Geral
+  From Dbamv.Esterilizacao
+     ,Dbamv.Maq_Esterilizador
+     ,Dbamv.Prestador
+     ,Dbamv.It_Mvto_Cme
+     ,Dbamv.Cx_Kit
+     ,Dbamv.Bens
+     ,Dbamv.Mvto_Cme
+     ,Dbamv.Config_Cme
+Where Esterilizacao.Cd_Esterilizador = Maq_Esterilizador.Cd_Esterilizador
+  And Esterilizacao.Cd_Esteriliza    = It_Mvto_Cme.Cd_Esteriliza
+  And Prestador.Cd_Prestador (+)        = It_Mvto_Cme.Cd_Prestador_Identifica
+  And Cx_Kit.Cd_Kit                  = It_Mvto_Cme.Cd_Kit
+  And Bens.Cd_Bem                    = Maq_Esterilizador.Cd_Bem
+  And Esterilizacao.sn_est_completa  = 'S'
+  And (Esterilizacao.Sn_Biologico    <> 'N'
+       Or Esterilizacao.Sn_Quimico   <> 'N'
+       Or Esterilizacao.Sn_Fisico    = 'S')
+  And (Trunc(Esterilizacao.dt_inic_esteriliza) between :CAMPO_DATA_INI AND :CAMPO_DATA_FIM 
+  	        )
+  And Mvto_Cme.Cd_Mvto_Cme = It_Mvto_Cme.Cd_Mvto_Cme
+  And Mvto_Cme.Cd_Setor_Principal = Config_Cme.Cd_Setor_Principal(+)
+  and (config_cme.cd_setor_principal in (select cd_setor
+                                                                  from dbamv.setor
+                                                               where cd_multi_empresa =:CAMPO_CD_MULTI_EMPRESA)
+          or config_cme.cd_setor_principal is null)
+:CAMPO_CF_ESTERILIZA
+)
+ORDER BY ESTERILIZADORA,
+         DESCRICAO,
+         CARGA,
+         CD_ESTERILIZA,
+         IDENTIFICACAO,
+         SN_IDENTI_GERAL,
+         NAOIDENTIFICA,
+         INICIODATA,
+         FIMDATA,
+         TESTEFISICO,
+         CD_ESTERILIZA_QUI,
+         TESTEBIOLOGICO,
+         CD_ESTERILIZA_BIO,
+         TESTEQUIMICO,
+         NRCAIXAKIT,
+         KITOUCAIXA

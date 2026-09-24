@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_PROD_MAMADEIRA
+SELECT * FROM (
+SELECT tipo_refeicao.cd_tipo_refeicao,
+       tipo_refeicao.ds_tipo_refeicao,
+       prato.cd_prato,
+       prato.ds_prato ds_prato ,
+       trunc(mov_cardapio.dt_mov_cardapio) data,
+       ficha_de_preparo.cd_produto,
+       produto.ds_produto || ' (' || dbamv.verif_ds_unid_prod(produto.cd_produto, 'R')  || ')' produto,
+       SUM((ficha_de_preparo.qt_ficha_de_preparo * uni_pro.vl_fator * itmov_lactario.nr_volume) / 1000),
+       SUM(itmov_lactario.nr_volume) nr_volume
+FROM   dbamv.tipo_refeicao,
+       dbamv.mov_cardapio,
+       dbamv.prato,
+       dbamv.ficha_de_preparo,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmov_lactario
+WHERE  tipo_refeicao.cd_tipo_refeicao = mov_cardapio.cd_tipo_refeicao
+AND    itmov_lactario.cd_prato = prato.cd_prato(+)
+AND    mov_cardapio.cd_mov_cardapio = itmov_lactario.cd_mov_cardapio(+)
+AND    mov_cardapio.tp_movimentacao = 'M'
+AND    prato.cd_prato = ficha_de_preparo.cd_prato
+AND    ficha_de_preparo.cd_produto = produto.cd_produto
+AND    ficha_de_preparo.cd_uni_pro = uni_pro.cd_uni_pro
+AND    trunc(mov_cardapio.dt_mov_cardapio) = :CAMPO_DATA
+And Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = nvl(dbamv.pkg_mv2000.le_empresa,Cd_Multi_Empresa)
+                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+GROUP BY tipo_refeicao.cd_tipo_refeicao,
+       tipo_refeicao.ds_tipo_refeicao,
+       prato.cd_prato,
+       prato.ds_prato,
+       trunc(mov_cardapio.dt_mov_cardapio),
+       ficha_de_preparo.cd_produto,
+       produto.ds_produto || ' (' || dbamv.verif_ds_unid_prod(produto.cd_produto, 'R')  || ')' ,
+       uni_pro.cd_unidade
+)
+ORDER BY CD_TIPO_REFEICAO,DS_TIPO_REFEICAO,
+CD_PRATO,DS_PRATO,NR_VOLUME,
+CD_PRODUTO,PRODUTO

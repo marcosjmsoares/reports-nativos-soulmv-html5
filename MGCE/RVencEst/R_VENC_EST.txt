@@ -1,0 +1,55 @@
+/*----------------------------------------------------------------------------*/
+--R_VENC_EST
+SELECT * FROM (
+Select distinct
+     Max(it_mvto_cme.cd_mvto_cme) Movimentacao
+    ,Max(Esterilizacao.Cd_Carga_Lote) Carga
+    ,To_Date(To_Char((Esterilizacao.Dt_Inic_Esteriliza + Cx_Kit.Dt_Val_Esterilizacao),'DD/MM/YYYY'), 'dd/mm/yyyy') Vencimento
+    ,Cx_kit.cd_kit CodBarras
+    ,Cx_kit.ds_kit KitouCaixa
+    ,Setor.Nm_Setor Setor
+    ,(arsenal.Ds_Corredor ||' - '|| arsenal.Ds_Armario ||' - '|| arsenal.Ds_Prateleira) Localidade
+    ,(SELECT  distinct Nvl(Max(It_Mvto_Cme.Cd_Mvto_Cme),0)
+	          FROM It_Mvto_Cme, Config_Cme
+	          WHERE It_Mvto_Cme.Cd_Localidade = Config_Cme.Cd_Localidade_Expurgo
+              AND It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Expurgo
+              AND it_mvto_cme.cd_kit = Cx_kit.cd_kit ) TOT_EXP
+From
+    Dbamv.Maq_Esterilizador
+   ,Dbamv.Esterilizacao
+   ,Dbamv.Prestador
+   ,Dbamv.Cx_Kit
+   ,Dbamv.Lote_Ampola
+   ,Dbamv.It_Mvto_Cme
+   ,Dbamv.Config_Cme
+   ,Dbamv.Setor
+   ,Dbamv.Localidade
+   ,Dbamv.arsenal
+Where Maq_Esterilizador.Cd_Esterilizador = Esterilizacao.Cd_Esterilizador
+  and Prestador.Cd_Prestador(+) = It_Mvto_Cme.Cd_Prestador_Identifica
+  and Cx_Kit.Cd_Kit = It_Mvto_Cme.Cd_Kit
+  and Lote_Ampola.Cd_Esteriliza(+) = Esterilizacao.Cd_Esteriliza
+  and Esterilizacao.Cd_Esteriliza = It_Mvto_Cme.Cd_Esteriliza
+  and Setor.CD_MULTI_EMPRESA = dbamv.PKG_MV2000.LE_EMPRESA
+  and Setor.Cd_Setor = it_Mvto_Cme.Cd_Setor
+  and Localidade.Cd_Localidade = It_Mvto_Cme.Cd_Localidade
+  and arsenal.cd_arsenal(+) = It_Mvto_Cme.cd_arsenal
+  and Esterilizacao.Sn_Est_Completa = 'S'
+  and (Esterilizacao.Sn_Biologico <> 'N' or Esterilizacao.Sn_Quimico <> 'N' or Esterilizacao.Sn_Fisico = 'S')
+  and To_Date(To_Char((Esterilizacao.Dt_Inic_Esteriliza + Cx_Kit.Dt_Val_Esterilizacao),'DD/MM/YYYY'), 'dd/mm/yyyy')  between :CAMPO_DATA_INI and :CAMPO_DATA_FIM + Nvl(config_cme.qt_dias_esteriliza,0)
+  and (esterilizacao.cd_carga_lote,it_mvto_cme.cd_kit) in (select distinct max(esterilizacao.cd_carga_lote)
+                                                              ,it_mvto_cme.cd_kit
+                                                            from dbamv.esterilizacao, dbamv.it_mvto_cme
+                                                            where esterilizacao.cd_esteriliza = it_mvto_cme.cd_esteriliza
+                                                            group by it_mvto_cme.cd_kit)
+group by
+     it_mvto_cme.cd_prestador_retirante
+    ,Esterilizacao.Dt_Inic_Esteriliza
+    ,Cx_Kit.Dt_Val_Esterilizacao
+    ,Cx_kit.cd_kit
+    ,Cx_kit.ds_kit
+    ,Setor.Nm_Setor
+    ,(arsenal.Ds_Corredor ||' - '|| arsenal.Ds_Armario ||' - '|| arsenal.Ds_Prateleira)
+order by to_date(To_char((Esterilizacao.dt_inic_esteriliza + cx_kit.dt_val_esterilizacao),'DD/MM/YYYY'), 'dd/mm/yyyy'), Carga
+)
+ORDER BY VENCIMENTO

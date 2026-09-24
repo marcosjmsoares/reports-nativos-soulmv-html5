@@ -1,0 +1,126 @@
+/*----------------------------------------------------------------------------*/
+--R_AGENDA
+select * from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_AGENDA_R_DATA1_Q_AGENDA
+SELECT * FROM (
+SELECT  (ESCALA_DIA.DT_ESCALA_DIA + (IT_ESC_DIA.HR_AGENDA-TRUNC(IT_ESC_DIA.HR_AGENDA))) HORA
+			  ,IT_ESC_DIA.CD_ESCALA_DIA          CD_ESCALA_DIA
+              ,ESCALA_DIA.DT_ESCALA_DIA        DT_ESCALA_DIA
+              ,ESCALA_DIA.CD_RECURSO            CD_RECURSO
+              ,RECURSO.NM_RECURSO                NM_RECURSO
+              ,SET_EXA.NM_SET_EXA                   NM_SET_EXA
+              ,ESCALA_DIA.CD_PRESTADOR        CD_PRESTADOR
+              ,PRESTADOR.NM_MNEMONICO       NM_MNEMONICO
+              ,ESCALA_DIA.SN_ATIVO                    SN_ATIVO
+              ,IT_ESC_DIA.CD_PACIENTE              CD_PACIENTE
+              ,IT_ESC_DIA.NM_PACIENTE             NM_PACIENTE
+              ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND paciente.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE             
+              ,to_char(IT_ESC_DIA.HR_AGENDA,'hh24')      HR_AGENDA
+              ,IT_ESC_DIA.NR_TELEFONE            NR_TELEFONE
+              ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+	      , (
+                  SELECT  COUNT(EXA_RX.CD_EXA_RX)
+                     FROM     dbamv.EXA_RX_IT_ESCALA_DIA
+                     ,dbamv.EXA_RX EXA_RX
+                  WHERE EXA_RX.CD_EXA_RX = EXA_RX_IT_ESCALA_DIA.CD_EXA_RX
+                  AND EXA_RX_IT_ESCALA_DIA.CD_ESCALA_DIA =  IT_ESC_DIA.CD_ESCALA_DIA
+                )QTD
+              ,DECODE( IT_ESC_DIA.NR_IDADE, NULL, SUBSTR(PACK_INTERNAMENTO.RETORNA_IDADE( PACIENTE.DT_NASCIMENTO, SYSDATE),1,3), TO_CHAR(IT_ESC_DIA.NR_IDADE) )  NR_IDADE
+               ,PRESTADOR.NM_PRESTADOR     NM_PRESTADOR
+               ,ATENDIME.TP_ATENDIMENTO     TP_ATENDIMENTO
+               ,IT_ESC_DIA.TP_SITUACAO         TP_SITUACAO
+               ,UNIDADE_REGIONAL.CD_UNIDADE_REGIONAL
+               ,UNIDADE_REGIONAL.DS_UNIDADE_REGIONAL
+               ,To_Char(PACIENTE.DT_NASCIMENTO, 'dd/mm/yyyy') DT_NASCIMENTO
+               ,PACIENTE.TP_SEXO
+FROM    dbamv.IT_ESCALA_DIA      IT_ESC_DIA
+             ,dbamv.PACIENTE
+             ,dbamv.ESCALA_DIA
+             ,dbamv.RECURSO
+             ,dbamv.SET_EXA
+             ,dbamv.PRESTADOR
+             ,dbamv.CONVENIO
+             ,dbamv.ATENDIME
+             ,dbamv.UNIDADE_REGIONAL
+Where ESCALA_DIA.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+And TRUNC(ESCALA_DIA.DT_ESCALA_DIA)  BETWEEN :CAMPO_DT_INIC AND 
+AND       NVL(IT_ESC_DIA.TP_SITUACAO, 'A' ) 
+AND       IT_ESC_DIA.CD_PACIENTE =  PACIENTE.CD_PACIENTE(+)
+AND       ESCALA_DIA.CD_ESCALA_DIA  =  IT_ESC_DIA.CD_ESCALA_DIA
+AND       NVL(ESCALA_DIA.SN_ATIVO,'S')  =  'S'
+AND       PRESTADOR.CD_PRESTADOR(+) = ESCALA_DIA.CD_PRESTADOR
+AND       RECURSO.CD_RECURSO  =  ESCALA_DIA.CD_RECURSO
+AND       SET_EXA.CD_SET_EXA  =  RECURSO.CD_SET_EXA
+AND        SET_EXA.CD_SET_EXA IN (SELECT PSDI_SET_EXA.CD_SET_EXA
+                                                               FROM DBAMV.PSDI_SET_EXA
+                                                               WHERE NM_USUARIO = USER)
+AND       CONVENIO.CD_CONVENIO(+)  =  IT_ESC_DIA.CD_CONVENIO
+AND       ATENDIME.CD_ATENDIMENTO(+) = IT_ESC_DIA.CD_ATENDIMENTO
+AND       ESCALA_DIA.CD_UNIDADE_REGIONAL = UNIDADE_REGIONAL.CD_UNIDADE_REGIONAL(+)
+ORDER BY DT_ESCALA_DIA
+                   ,CD_RECURSO
+                   ,to_char(HR_AGENDA, 'hh24')
+)
+ORDER BY DT_ESCALA_DIA,HORA,CD_RECURSO,NM_RECURSO,CD_PRESTADOR,NM_PRESTADOR,CD_UNIDADE_REGIONAL,DS_UNIDADE_REGIONAL
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_AGENDA_R_DATA_Q_AGENDA
+SELECT * FROM (
+SELECT  (ESCALA_DIA.DT_ESCALA_DIA + (IT_ESC_DIA.HR_AGENDA-TRUNC(IT_ESC_DIA.HR_AGENDA))) HORA
+			  ,IT_ESC_DIA.CD_ESCALA_DIA          CD_ESCALA_DIA
+              ,ESCALA_DIA.DT_ESCALA_DIA        DT_ESCALA_DIA
+              ,ESCALA_DIA.CD_RECURSO            CD_RECURSO
+              ,RECURSO.NM_RECURSO                NM_RECURSO
+              ,SET_EXA.NM_SET_EXA                   NM_SET_EXA
+              ,ESCALA_DIA.CD_PRESTADOR        CD_PRESTADOR
+              ,PRESTADOR.NM_MNEMONICO       NM_MNEMONICO
+              ,ESCALA_DIA.SN_ATIVO                    SN_ATIVO
+              ,IT_ESC_DIA.CD_PACIENTE              CD_PACIENTE
+              ,IT_ESC_DIA.NM_PACIENTE             NM_PACIENTE
+              ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND paciente.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE 
+              ,to_char(IT_ESC_DIA.HR_AGENDA,'hh24')      HR_AGENDA
+              ,IT_ESC_DIA.NR_TELEFONE            NR_TELEFONE
+              ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+              ,DECODE( IT_ESC_DIA.NR_IDADE, NULL, SUBSTR(PACK_INTERNAMENTO.RETORNA_IDADE( PACIENTE.DT_NASCIMENTO, SYSDATE),1,3), TO_CHAR(IT_ESC_DIA.NR_IDADE) )  NR_IDADE
+               ,PRESTADOR.NM_PRESTADOR     NM_PRESTADOR
+               ,ATENDIME.TP_ATENDIMENTO                         TP_ATENDIMENTO
+               ,IT_ESC_DIA.TP_SITUACAO                   TP_SITUACAO
+               ,UNIDADE_REGIONAL.CD_UNIDADE_REGIONAL
+               ,UNIDADE_REGIONAL.DS_UNIDADE_REGIONAL
+               ,To_Char(PACIENTE.DT_NASCIMENTO, 'dd/mm/yyyy') DT_NASCIMENTO
+               ,PACIENTE.TP_SEXO
+FROM    dbamv.IT_ESCALA_DIA      IT_ESC_DIA
+             ,dbamv.PACIENTE
+             ,dbamv.ESCALA_DIA
+             ,dbamv.RECURSO
+             ,dbamv.SET_EXA
+             ,dbamv.PRESTADOR
+             ,dbamv.CONVENIO
+             ,dbamv.ATENDIME
+             ,dbamv.UNIDADE_REGIONAL
+Where ESCALA_DIA.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+And TRUNC(ESCALA_DIA.DT_ESCALA_DIA)  BETWEEN :CAMPO_DT_INIC AND 
+AND       NVL(IT_ESC_DIA.TP_SITUACAO, 'A' ) 
+AND       IT_ESC_DIA.CD_PACIENTE =  PACIENTE.CD_PACIENTE(+)
+AND       ESCALA_DIA.CD_ESCALA_DIA  =  IT_ESC_DIA.CD_ESCALA_DIA
+AND       NVL(ESCALA_DIA.SN_ATIVO,'S')  =  'S'
+AND       PRESTADOR.CD_PRESTADOR(+) = ESCALA_DIA.CD_PRESTADOR
+AND       RECURSO.CD_RECURSO  =  ESCALA_DIA.CD_RECURSO
+AND       SET_EXA.CD_SET_EXA  =  RECURSO.CD_SET_EXA
+AND        SET_EXA.CD_SET_EXA IN (SELECT PSDI_SET_EXA.CD_SET_EXA
+                                                               FROM DBAMV.PSDI_SET_EXA
+                                                               WHERE NM_USUARIO = USER)
+AND       CONVENIO.CD_CONVENIO(+)  =  IT_ESC_DIA.CD_CONVENIO
+AND       ATENDIME.CD_ATENDIMENTO(+) = IT_ESC_DIA.CD_ATENDIMENTO
+AND       ESCALA_DIA.CD_UNIDADE_REGIONAL = UNIDADE_REGIONAL.CD_UNIDADE_REGIONAL(+)
+ORDER BY DT_ESCALA_DIA
+                   ,CD_RECURSO
+                   ,to_char(HR_AGENDA, 'hh24')
+)
+ORDER BY DT_ESCALA_DIA ,HORA,CD_RECURSO,NM_RECURSO,CD_PRESTADOR,NM_PRESTADOR,CD_UNIDADE_REGIONAL,DS_UNIDADE_REGIONAL

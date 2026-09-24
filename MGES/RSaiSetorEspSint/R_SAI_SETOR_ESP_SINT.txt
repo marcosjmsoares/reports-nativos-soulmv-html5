@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_SAI_SETOR_ESP_SINT
+SELECT * FROM (
+Select     setor.cd_setor
+              ,setor.nm_setor
+              ,especie.cd_especie
+              ,especie.ds_especie
+              ,itmvto_estoque.cd_produto
+              ,produto.ds_produto ds_produto
+              ,verif_ds_unid_prod(itmvto_estoque.cd_produto)  ds_unidade
+              ,sum( ((itmvto_estoque.qt_movimentacao * uni_pro.vl_fator) / verif_vl_fator_prod(itmvto_estoque.cd_produto))  * decode( mvto_Estoque.tp_mvto_estoque, 'C', -1, 'D', -1, 'N',-1,1 ) )   qt_movimento
+             ,sum( round( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator  * decode( mvto_Estoque.tp_mvto_estoque, 'C', -1, 'D', -1, 'N',-1,1 ) * verif_vl_custo_medio( itmvto_estoque.cd_produto,               mvto_estoque.dt_mvto_estoque, :CAMPO_TP_CUSTO, produto.vl_custo_medio, Mvto_Estoque.Hr_Mvto_Estoque ), 2 ) ) vl_total
+   From   dbamv.mvto_estoque
+            , dbamv.itmvto_estoque
+            , dbamv.setor
+            , dbamv.produto
+            , dbamv.uni_pro
+            , dbamv.especie
+	    , dbamv.estoque
+, dbamv.ent_pro
+Where   Trunc(mvto_estoque.dt_mvto_estoque) between :CAMPO_DTINIC and 
+AND mvto_estoque.cd_ent_pro  = ent_pro.cd_ent_pro (+)
+   and      mvto_Estoque.tp_mvto_Estoque in ( 'P', 'C', 'D', 'S','V','N' )
+   and       mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+   and       mvto_estoque.cd_setor                = setor.cd_setor
+   AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+   AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and       produto.cd_produto                      = itmvto_estoque.cd_produto
+   and       produto.cd_especie                      = especie.cd_especie
+   and       uni_pro.cd_uni_pro                       = itmvto_estoque.cd_uni_pro
+group by setor.cd_setor
+              ,setor.nm_setor
+              ,especie.cd_especie
+              ,especie.ds_especie
+              ,itmvto_estoque.cd_produto
+              ,produto.ds_produto
+              ,produto.vl_custo_medio
+Order by  produto.ds_produto,
+               setor.cd_setor,
+               especie.cd_especie
+)
+ORDER BY CD_SETOR,NM_SETOR,
+CD_ESPECIE,DS_ESPECIE, ds_produto

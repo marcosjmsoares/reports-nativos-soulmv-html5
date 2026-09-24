@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_CURFOR
+select   a.cd_fornecedor,
+         a.nm_fantasia,
+         sum( a.vl_total ) vl_total,
+         sum( a.vl_acumulado ) vl_acumulado
+    from ( select con_pag.cd_fornecedor cd_fornecedor,
+                  decode( fornecedor.cd_fornecedor, null, con_pag.ds_fornecedor, fornecedor.nm_fantasia ) nm_fantasia,
+                  round(  nvl( ratcon_pag.vl_rateio,0 )
+                                 / (  nvl( con_pag.vl_bruto_conta, 0 )
+                                    + nvl( con_pag.vl_desconto, 0 )
+                                    - nvl( con_pag.vl_acrescimo, 0 ) )
+                           * nvl( pagcon_pag.vl_pago, 0 ) , 2 )  vl_total,
+                  round( (  nvl( ratcon_pag.vl_rateio,0 )
+                                 / (  nvl( con_pag.vl_bruto_conta, 0 )
+                                    + nvl( con_pag.vl_desconto, 0 )
+                                    - nvl( con_pag.vl_acrescimo, 0 ) ) )
+                           * nvl( pagcon_pag.vl_pago, 0 ) , 2 ) vl_acumulado
+            from dbamv.con_pag con_pag,
+                 dbamv.fornecedor fornecedor,
+                 dbamv.itcon_pag itcon_pag,
+                 dbamv.pagcon_pag pagcon_pag,
+                 dbamv.ratcon_pag ratcon_pag,
+                 dbamv.item_res item_res,
+                 dbamv.gru_res gru_res,
+                 dbamv.processo
+           where con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and con_pag.cd_con_pag = itcon_pag.cd_con_pag
+             and itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+             and fornecedor.cd_fornecedor(+) = con_pag.cd_fornecedor
+             and con_pag.cd_con_pag = ratcon_pag.cd_con_pag(+)
+             and ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+             and pagcon_pag.dt_baixa is not null
+             and itcon_pag.cd_con_pag_agrup is null
+             and nvl( con_pag.vl_bruto_conta, 0 ) > 0
+             and nvl( itcon_pag.vl_duplicata, 0 ) > 0
+            and con_pag.cd_con_pag_dev is null
+            and con_pag.cd_previsao is null
+            and pagcon_pag.cd_processo = processo.cd_processo
+:CAMPO_CF_CD_PROCESSO
+         ) a
+group by a.cd_fornecedor,
+         a.nm_fantasia
+order by vl_total desc

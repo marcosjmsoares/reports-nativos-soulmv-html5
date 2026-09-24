@@ -1,0 +1,86 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_ATENDIDOS
+SELECT ORIG.CD_ORI_ATE,
+               ORIG.DS_ORI_ATE,
+               PACI.CD_PACIENTE,
+               PACI.NM_PACIENTE,
+               (SELECT PA.NM_SOCIAL_PACIENTE
+              FROM DBAMV.PACIENTE PA
+              WHERE PA.CD_PACIENTE = PACI.CD_PACIENTE
+                AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE,
+               (PACI.DS_ENDERECO ||
+                        DECODE(TO_CHAR(PACI.NR_ENDERECO), NULL, TO_CHAR(PACI.NR_ENDERECO), ( '; Nº  '  ||  TO_CHAR(PACI.NR_ENDERECO))) ||
+                        DECODE(PACI.DS_COMPLEMENTO, NULL, PACI.DS_COMPLEMENTO, ( '; '  ||  PACI.DS_COMPLEMENTO)) )   DS_ENDERECO,
+               PACI.DS_COMPLEMENTO,
+               PACI.NM_BAIRRO,
+               PACI.NR_CEP,
+               dbamv.pkg_paciente.getContatoPacientePrincipal(PACI.cd_paciente) NR_FONE,
+               PACI.DT_NASCIMENTO,
+               PACI.NR_IDENTIDADE,
+               DBAMV.FNC_ESTADO_CIVIL(PACI.TP_ESTADO_CIVIL) TP_ESTADO_CIVIL1,
+               PACI.TP_SEXO,
+               PACI.CD_RELIGIAO,
+               CONV.NM_CONVENIO,
+               CON_PLA.CD_CON_PLA,
+               CON_PLA.DS_CON_PLA,
+               CARTEIRA.NR_CARTEIRA,
+               CARTEIRA.NM_EMPRESA,
+               CARTEIRA.DT_VALIDADE,
+               LEIT.DS_RESUMO,
+               (CIDA.NM_CIDADE ||  '-'  ||  CIDA.CD_UF)   NM_CIDADE,
+               ATEN.CD_ATENDIMENTO,
+               ATEN.CD_MOT_ALT,
+               ATEN.CD_TIP_RES,
+               ATEN.TP_ATENDIMENTO,           
+               ATEN.DT_ATENDIMENTO,           
+               ATEN.HR_ATENDIMENTO,           
+               ATEN.DT_ALTA,
+               ATEN.HR_ALTA,
+               ATEN.CD_SERVICO,
+               SERV.DS_SERVICO,
+               NVL(RELI.DS_RELIGIAO,'NAO INFORMADA') AS DS_RELIGIAO,
+              DECODE(PACI.SN_UTIL_IDENTIDADE_GENERO,'S',DECODE((SELECT MAX(1) FROM DBASGU.CONFIG_ITEM_MODULO
+             WHERE CD_MODULO = 'CAD_PAC'
+             AND SN_VISIBLE = 'S'
+             AND CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+             AND CD_BLOCO = 'PACIENTE')
+             ,1,IDENTIDADE_GENERO.DS_IDENTIDADE_GENERO
+             ,NULL),NULL) AS IDENTIDADE_GENERO
+             ,DECODE(PACI.SN_UTIL_ORIENTACAO_SEXUAL,'S',DECODE((SELECT MAX(1) FROM DBASGU.CONFIG_ITEM_MODULO
+             WHERE CD_MODULO = 'CAD_PAC'
+             AND SN_VISIBLE = 'S'
+             AND CD_ITEM = 'DSP_DS_ORIENTACAO_SEXUAL'
+             AND CD_BLOCO = 'PACIENTE'
+             ),1,ORIENTACAO_SEXUAL.DS_ORIENTACAO_SEXUAL,NULL),NULL) AS ORIENTACAO_SEXUAL
+FROM  DBAMV.ATENDIME ATEN,
+            DBAMV.PACIENTE PACI,
+            DBAMV.CIDADE CIDA,
+            DBAMV.CONVENIO CONV,
+            DBAMV.CON_PLA,
+            DBAMV.LEITO LEIT,
+            DBAMV.ORI_ATE ORIG,
+            DBAMV.CARTEIRA,
+            DBAMV.SERVICO SERV,
+            DBAMV.RELIGIAO RELI,
+            DBAMV.IDENTIDADE_GENERO,
+            DBAMV.ORIENTACAO_SEXUAL
+WHERE ATEN.DT_ATENDIMENTO between to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND
+                  to_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+AND       ATEN.CD_PACIENTE                         =   PACI.CD_PACIENTE
+AND       PACI.CD_CIDADE                               =   CIDA.CD_CIDADE (+)
+AND       ATEN.CD_CONVENIO                        =   CONV.CD_CONVENIO (+)
+AND       ATEN.CD_SERVICO                           =   SERV.CD_SERVICO (+)
+AND       PACI.CD_RELIGIAO                            =   RELI.CD_RELIGIAO (+)
+AND       CON_PLA.CD_CON_PLA(+)                =   ATEN.CD_CON_PLA
+AND       CON_PLA.CD_CONVENIO(+)              =   ATEN.CD_CONVENIO
+AND       CARTEIRA.CD_CONVENIO(+)            =   ATEN.CD_CONVENIO
+AND       CARTEIRA.CD_PACIENTE(+)             =   ATEN.CD_PACIENTE
+AND       CARTEIRA.CD_CON_PLA(+)              =   ATEN.CD_CON_PLA
+AND       CARTEIRA.NR_CARTEIRA(+)            =   ATEN.NR_CARTEIRA
+AND       ATEN.CD_LEITO                                =   LEIT.CD_LEITO (+)
+AND       ATEN.CD_ORI_ATE                           =   ORIG.CD_ORI_ATE
+AND PACI.CD_IDENTIDADE_GENERO = IDENTIDADE_GENERO.CD_IDENTIDADE_GENERO(+)
+AND PACI.CD_ORIENTACAO_SEXUAL = ORIENTACAO_SEXUAL.CD_ORIENTACAO_SEXUAL(+)
+ORDER BY ORIG.DS_ORI_ATE,
+         ORIG.CD_ORI_ATE,
+         paci.NM_PACIENTE

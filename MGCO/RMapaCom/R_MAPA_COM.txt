@@ -1,0 +1,70 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COM
+Select Cd_Sol_Com
+          ,Tp_Sol_Com
+          ,Nvl((SELECT Max(coleta.dt_coleta) FROM coleta WHERE coleta.cd_sol_com = sol_com.cd_sol_com),sol_com.dt_sol_com) DT_LANCAMENTO
+  From Dbamv.Sol_Com,
+           Dbamv.Estoque
+ Where Sol_Com.Cd_Sol_Com = :CAMPO_CD_SOLIC
+      And Estoque.Cd_Estoque = Sol_Com.Cd_Estoque
+     And  Estoque.Cd_Multi_Empresa = Dbamv.Pkg_mv2000.le_empresa
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COM_X_3
+SELECT * FROM (
+SELECT DISTINCT
+       Produto.ds_produto || DECODE(Produto.ds_complemento, null,null,' ') || Produto.ds_complemento || DECODE(Produto.nr_referencia, null,null,' ') || Produto.nr_referencia ds_produto,
+       PRODUTO.CD_PRODUTO,
+       FORNECEDOR.NM_FANTASIA,
+       FORNECEDOR.CD_FORNECEDOR,
+       UNI_PRO.DS_UNIDADE DS_UNIDADE,
+       ITCOL_PRO.QT_COTADA,
+       ITCOL_PRO.VL_REAL,  
+       ITCOL_PRO.VL_UNITARIO,   	   
+        CASE
+        WHEN COLETA.TP_FRETE = 'F'    
+       then Sum(ITCOL_PRO.QT_COTADA * ITCOL_PRO.VL_UNITARIO) OVER( PARTITION BY FORNECEDOR.CD_FORNECEDOR ) + NVL(COLETA.VL_FRETE,0)
+       ELSE Sum(ITCOL_PRO.QT_COTADA * ITCOL_PRO.VL_UNITARIO) OVER( PARTITION BY FORNECEDOR.CD_FORNECEDOR ) 
+       end VL_TOTAL_REAL_GERAL,
+       ITCOL_PRO.VL_UNITARIO  * ITCOL_PRO.QT_COTADA VL_TOTAL_REAL,
+       CONDICOES_PAGAMENTO.DS_CONDICAO_PAGAMENTO,
+       COLETA.NR_DIAS_ENTREGA,
+       COLETA.DT_VALIDADE,
+       COLETA.TP_FRETE,
+       NVL(COLETA.VL_FRETE,0) VL_FRETE,
+       Produto.qt_ultima_entrada  ultima_qt_entrada,
+       (Produto.vl_ultima_entrada*nvl(uni_pro.vl_fator,1)) ultima_vl_entrada,
+       ( Produto.qt_ultima_entrada * (Produto.vl_ultima_entrada*nvl(uni_pro.vl_fator,1)) ) ultima_vl_total,
+       Produto.cd_ultimo_fornecedor ultimo_cd_fornecedor,
+       ULTIMO_FORNECEDOR.nm_Fornecedor ultima_nm_Fornecedor,
+       Produto.dt_ultima_entrada ultima_dt_entrada,
+       VERIF_DS_UNID_PROD(PRODUTO.CD_PRODUTO) ultima_DS_UNIDADE
+FROM   DBAMV.PRODUTO,
+       DBAMV.ITSOL_COM,
+       DBAMV.COLETA,
+       DBAMV.FORNECEDOR,
+       DBAMV.FORNECEDOR ULTIMO_FORNECEDOR,
+       DBAMV.ITCOL_PRO,
+       DBAMV.CONDICOES_PAGAMENTO,
+       DBAMV.uni_pro
+WHERE  :CAMPO_TP_SOL_COM1                      = 'P'  
+AND Exists ( SELECT Empresa_Produto.Cd_Produto
+               FROM Dbamv.Empresa_Produto
+              WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+AND    PRODUTO.CD_PRODUTO 	= ITSOL_COM.CD_PRODUTO
+AND    ITSOL_COM.CD_SOL_COM    	= COLETA.CD_SOL_COM(+)
+AND    COLETA.CD_FORNECEDOR  	= FORNECEDOR.CD_FORNECEDOR(+)
+AND    COLETA.CD_COLETA         = ITCOL_PRO.CD_COLETA(+)
+AND    ITCOL_PRO.CD_PRODUTO   	= PRODUTO.CD_PRODUTO
+AND    COLETA.CD_CONDICAO_PAGAMENTO = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+AND    ITSOL_COM.CD_SOL_COM    	= :CAMPO_CD_SOL_COM1
+AND    Produto.cd_ultimo_fornecedor = ultimo_fornecedor.CD_fornecedor(+)
+AND    UNI_PRO.CD_PRODUTO      	= ITSOL_COM.CD_PRODUTO
+AND    UNI_PRO.CD_UNI_PRO       = ITSOL_COM.CD_UNI_PRO
+AND    ITCOL_PRO.VL_UNITARIO        > 0
+)
+ORDER BY DS_PRODUTO,CD_PRODUTO,ULTIMA_QT_ENTRADA,ULTIMA_VL_ENTRADA,ULTIMA_VL_TOTAL,ULTIMO_CD_FORNECEDOR,ULTIMA_NM_FORNECEDOR,ULTIMA_DT_ENTRADA,ULTIMA_DS_UNIDADE,
+NM_FANTASIA,CD_FORNECEDOR,DS_CONDICAO_PAGAMENTO,NR_DIAS_ENTREGA,DT_VALIDADE,TP_FRETE,VL_FRETE

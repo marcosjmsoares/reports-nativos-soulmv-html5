@@ -1,0 +1,75 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_CC_ORIGEM
+SELECT * FROM (
+SELECT  NM_SETOR
+               ,DS_ORI_ATE
+               ,SUM(VL_TOTAL) VL_TOTAL
+FROM  ( SELECT DECODE(SETOR.NM_SETOR, NULL, 'Não Informado', SETOR.NM_SETOR) NM_SETOR
+                            ,ORI_ATE.DS_ORI_ATE
+                            ,NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA)  VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.REMESSA_FATURA     REMESSA
+                            ,DBAMV.FATURA
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.ORI_ATE
+  	            ,Dbamv.Empresa_Convenio
+                           , DBAMV.ITLAN_MED
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+              AND         ATENDIME.TP_ATENDIMENTO =  DECODE( :CAMPO_CONTA, 'T', ATENDIME.TP_ATENDIMENTO, :CAMPO_CONTA )
+               AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+               AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        CONVENIO.TP_CONVENIO  not in ( 'H', 'A')
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND ITLAN_MED.CD_REG_FAT(+) = ITREG_FAT.CD_REG_FAT
+               AND ITLAN_MED.CD_LANCAMENTO(+) = ITREG_FAT.CD_LANCAMENTO
+               AND NVL( NVL( ITLAN_MED.TP_PAGAMENTO,  ITREG_FAT.TP_PAGAMENTO ), 'P' ) <> 'C'
+               UNION ALL
+               SELECT DECODE(SETOR.NM_SETOR, NULL, 'Não Informado', SETOR.NM_SETOR) NM_SETOR
+                             ,ORI_ATE.DS_ORI_ATE
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.REMESSA_FATURA  REMESSA
+                             ,DBAMV.FATURA
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.ORI_ATE
+			     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND         ATENDIME.TP_ATENDIMENTO =  DECODE( :CAMPO_CONTA, 'T', ATENDIME.TP_ATENDIMENTO, :CAMPO_CONTA )
+                AND        REG_AMB.CD_REMESSA = REMESSA.CD_REMESSA
+                AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO not in ( 'H', 'A')
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                :CAMPO_CF_COND_GRUFAT_AMB
+                 )
+WHERE VL_TOTAL IS NOT NULL
+GROUP BY  NM_SETOR
+,DS_ORI_ATE
+)
+ORDER BY NM_SETOR,
+DS_ORI_ATE

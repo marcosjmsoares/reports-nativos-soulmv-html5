@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_NOTIFICACAO_LAUDO_PSDI
+SELECT
+       itusu.cd_itped_rx
+      ,itusu.nm_usuario
+      ,itusu.data
+      ,To_Char (itusu.data, 'dd/mm/yyyy hh24') data_char
+      ,DECODE ( itusu.status,'P',  'Solicitado'
+                            ,'D',  'Digitado'
+                            ,'I',  'Impresso'
+                            ,'E',  'Entregue'
+                            ,'C',  'Cancelado'
+                            ,'AD', 'Alterado'
+                            ,'A',  'Assinado') status
+      ,itusu.cd_laudo
+      ,itusu.sn_notificar
+      ,itusu.cd_documento
+      ,Decode ( itusu.tp_situacao_contato, 'P', 'Pendente'
+                                          ,'E','Em Contato'
+                                          ,'C','Concluído') tp_situacao_contato
+      ,itusu.cd_versao
+      ,dbamv.pkg_paciente.getNomePaciente(ate.cd_paciente) nm_paciente
+      ,dbamv.pkg_paciente.getContatoPacientePrincipal(ate.cd_paciente) contato_paciente
+      ,ate.cd_paciente
+      ,ped.cd_atendimento
+      ,ped.cd_ped_rx
+      ,exa.ds_exa_rx
+FROM dbamv.itped_usuario itusu
+    ,dbamv.paciente      pac
+    ,dbamv.atendime      ate
+    ,dbamv.exa_rx        exa
+    ,dbamv.ped_rx        ped
+    ,dbamv.itped_rx      itrx
+WHERE     itusu.cd_itped_rx          = itrx.cd_itped_rx(+)
+      AND itrx.cd_ped_rx             = ped.cd_ped_rx(+)
+      AND ped.cd_atendimento         = ate.cd_atendimento(+)
+      AND ate.cd_paciente            = pac.cd_paciente(+)
+      AND itrx.cd_exa_rx             = exa.cd_exa_rx(+)
+      AND ate.cd_paciente            = pac.cd_paciente(+)
+      AND itusu.sn_notificar         = 'S'
+      AND ate.cd_atendimento in ( select atendime.cd_atendimento
+				    from atendime
+				      where atendime.cd_atendimento = cd_atendimento
+				        and atendime.cd_multi_empresa = pkg_mv2000.le_empresa)
+ORDER BY data DESC, cd_ped_rx, ds_exa_rx

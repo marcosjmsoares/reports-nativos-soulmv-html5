@@ -1,0 +1,189 @@
+/*----------------------------------------------------------------------------*/
+--R_PLAN_AGD_SRV_UNID
+SELECT * FROM (
+Select  Cd_Unidade_Regional
+       ,Ds_Unidade_Regional
+       ,Cd_Ser_Dis
+       ,Nvl(Ds_Ser_Dis, '(sem serviço)') Ds_Ser_Dis
+       ,Sum(Marcados) Marcadas
+       ,Sum(Encaixe) Encaixes
+       ,Sum(Bloqueados) Bloqueadas
+       ,Sum(Cancelados) Canceladas
+       ,Sum((Total - (Marcados + Bloqueados + Cancelados + Encaixe))) Disponiveis
+       ,Sum((Total -  Encaixe ) ) Consultas
+       ,Sum(Total) Total
+ From ((
+     select unidade_regional.cd_unidade_regional
+       ,unidade_regional.ds_unidade_regional
+       ,ser_dis.cd_ser_dis
+       ,ser_dis.ds_ser_dis
+       ,count(*) Total
+       ,0 Marcados
+       ,0 Encaixe
+       ,0 Bloqueados
+       ,0 Cancelados
+      from dbamv.it_marcacao
+          ,dbamv.marcacao
+          ,dbamv.ser_dis
+          ,dbamv.unidade_regional
+      Where marcacao.cd_marcacao = it_marcacao.cd_marcacao
+        AND it_marcacao.cd_ser_dis = ser_dis.cd_ser_dis(+)
+        AND marcacao.CD_UNIDADE_REGIONAL = unidade_regional.CD_UNIDADE_REGIONAL(+)
+        AND marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+        								 to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+        And (It_Marcacao.Cd_Marcacao In (Select Cd_Marcacao
+                                           From Dbamv.Marcacao_Ser_Tipo
+                                          Where 1=1
+                                         )
+                                     Or not exists
+                                        (Select 1 From Dbamv.Marcacao_ser_Tipo Where Cd_Marcacao = It_Marcacao.Cd_Marcacao )
+            )
+    GROUP BY unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+    )
+  UNION ALL
+  (
+ select unidade_regional.cd_unidade_regional
+       ,unidade_regional.ds_unidade_regional
+       ,ser_dis.cd_ser_dis
+       ,ser_dis.ds_ser_dis
+       ,0 Total
+       ,count(*) Marcados
+       ,0 Encaixe
+       ,0 Bloqueados
+       ,0 Cancelados
+      from dbamv.it_marcacao
+          ,dbamv.marcacao
+          ,dbamv.ser_dis
+          ,dbamv.unidade_regional
+      Where marcacao.cd_marcacao = it_marcacao.cd_marcacao
+        AND it_marcacao.cd_ser_dis = ser_dis.cd_ser_dis(+)
+        AND marcacao.CD_UNIDADE_REGIONAL = unidade_regional.CD_UNIDADE_REGIONAL(+)
+        AND marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+        								 to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+        AND it_marcacao.nm_paciente is not null
+        AND NVL(it_marcacao.SN_ENCAIXE,'N') = 'N'
+        AND NVL(it_marcacao.SN_BLOQUEAR,'N') = 'N'
+        AND NVL(it_marcacao.TP_SITUACAO,'A') != 'C'
+        And (It_Marcacao.Cd_Marcacao In (Select Cd_Marcacao
+                                           From Dbamv.Marcacao_Ser_Tipo
+                                          Where 1=1
+                                         )
+                                     Or not exists
+                                        (Select 1 From Dbamv.Marcacao_ser_Tipo Where Cd_Marcacao = It_Marcacao.Cd_Marcacao )
+            )
+    GROUP BY unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+     )
+   UNION ALL
+   (
+ select unidade_regional.cd_unidade_regional
+       ,unidade_regional.ds_unidade_regional
+       ,ser_dis.cd_ser_dis
+       ,ser_dis.ds_ser_dis
+       ,0 Total
+       ,0 Marcados
+       ,count(*) Encaixe
+       ,0 Bloqueados
+       ,0 Cancelados
+      from dbamv.it_marcacao
+          ,dbamv.marcacao
+          ,dbamv.ser_dis
+          ,dbamv.unidade_regional
+      Where marcacao.cd_marcacao = it_marcacao.cd_marcacao
+        AND it_marcacao.cd_ser_dis = ser_dis.cd_ser_dis(+)
+        AND marcacao.CD_UNIDADE_REGIONAL = unidade_regional.CD_UNIDADE_REGIONAL(+)
+        AND marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+        								 to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+        AND it_marcacao.SN_ENCAIXE = 'S'
+        And (It_Marcacao.Cd_Marcacao In (Select Cd_Marcacao
+                                           From Dbamv.Marcacao_Ser_Tipo
+                                          Where 1=1
+                                         )
+                                     Or not exists
+                                        (Select 1 From Dbamv.Marcacao_ser_Tipo Where Cd_Marcacao = It_Marcacao.Cd_Marcacao )
+            )
+       GROUP BY unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+ )
+   UNION ALL
+   (
+ select unidade_regional.cd_unidade_regional
+       ,unidade_regional.ds_unidade_regional
+       ,ser_dis.cd_ser_dis
+       ,ser_dis.ds_ser_dis
+       ,0 Total
+       ,0 Marcados
+       ,0 Encaixe
+       ,count(*) Bloqueados
+       ,0 Cancelados
+      from dbamv.it_marcacao
+          ,dbamv.marcacao
+          ,dbamv.ser_dis
+          ,dbamv.unidade_regional
+      Where marcacao.cd_marcacao = it_marcacao.cd_marcacao
+        AND it_marcacao.cd_ser_dis = ser_dis.cd_ser_dis(+)
+        AND marcacao.CD_UNIDADE_REGIONAL = unidade_regional.CD_UNIDADE_REGIONAL(+)
+        AND marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+        								 to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+        AND it_marcacao.SN_BLOQUEAR = 'S'
+        AND NVL(it_marcacao.SN_ENCAIXE,'N') = 'N'
+        AND NVL(it_marcacao.TP_SITUACAO,'A') != 'C'
+        And (It_Marcacao.Cd_Marcacao In (Select Cd_Marcacao
+                                           From Dbamv.Marcacao_Ser_Tipo
+                                          Where 1=1
+                                         )
+                                     Or not exists
+                                        (Select 1 From Dbamv.Marcacao_ser_Tipo Where Cd_Marcacao = It_Marcacao.Cd_Marcacao )
+            )
+      GROUP BY unidade_regional.cd_unidade_regional
+               ,unidade_regional.ds_unidade_regional
+               ,ser_dis.cd_ser_dis
+               ,ser_dis.ds_ser_dis
+    )
+   UNION ALL
+   (
+ select unidade_regional.cd_unidade_regional
+       ,unidade_regional.ds_unidade_regional
+       ,ser_dis.cd_ser_dis
+       ,ser_dis.ds_ser_dis
+       ,0 Total
+       ,0 Marcados
+       ,0 Encaixe
+       ,0 Bloqueados
+       ,count(*) Cancelados
+      from dbamv.it_marcacao
+          ,dbamv.marcacao
+          ,dbamv.ser_dis
+          ,dbamv.unidade_regional
+      Where marcacao.cd_marcacao = it_marcacao.cd_marcacao
+        AND it_marcacao.cd_ser_dis = ser_dis.cd_ser_dis(+)
+        AND marcacao.CD_UNIDADE_REGIONAL = unidade_regional.CD_UNIDADE_REGIONAL(+)
+        AND it_marcacao.TP_SITUACAO = 'C'
+        AND NVL(it_marcacao.SN_ENCAIXE,'N') = 'N'
+        AND NVL(it_marcacao.SN_BLOQUEAR,'N') = 'N'
+        And (It_Marcacao.Cd_Marcacao In (Select Cd_Marcacao
+                                           From Dbamv.Marcacao_Ser_Tipo
+                                          Where 1=1
+                                         )
+                                     Or not exists
+                                        (Select 1 From Dbamv.Marcacao_ser_Tipo Where Cd_Marcacao = It_Marcacao.Cd_Marcacao )
+            )
+     GROUP BY unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+   )
+       )GROUP BY cd_unidade_regional
+             ,ds_unidade_regional
+             ,cd_ser_dis
+             ,ds_ser_dis
+)
+ORDER BY DS_SER_DIS,
+DS_UNIDADE_REGIONAL

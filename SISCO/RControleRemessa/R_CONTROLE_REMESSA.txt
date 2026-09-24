@@ -1,0 +1,54 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTROLE_REMESSA
+SELECT multi_empresas.DS_MULTI_EMPRESA
+     , multi_empresas.NR_CNES
+     , multi_empresas.CD_CGC
+     , hospital.DS_ORGAO_DESTINO
+     , hospital.DS_TIPO_ORGAO
+  FROM DBAMV.MULTI_EMPRESAS multi_empresas
+     , DBAMV.HOSPITAL hospital
+ WHERE hospital.CD_MULTI_EMPRESA       = multi_empresas.CD_MULTI_EMPRESA
+   AND multi_empresas.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTROLE_REMESSA_RF_CONTROLE_Q_CONTROLE
+select count(CD_FAIXA_ETARIA)+1 SEQUENCIA
+     , decode(mod(count(CD_FAIXA_ETARIA),20), 0 ,
+            trunc(count(CD_FAIXA_ETARIA)/20 , 0),
+            trunc(count(CD_FAIXA_ETARIA)/20 , 0)+1) PAGINAS
+     , mod(sum(CONTROLE),1111)+1111 CONTROLE
+     , sum(CITO) CITO
+     , sum(HISTO) HISTO
+  from (
+         SELECT faixa_etaria.CD_FAIXA_ETARIA
+              , (count(*) + 12011010) CONTROLE
+              ,  count(*) CITO
+              ,  0 HISTO
+           FROM DBAMV.SISCO_CITO sisco_cito
+              , DBAMV.PACIENTE paciente
+              , DBAMV.FAIXA_ETARIA faixa_etaria
+          WHERE sisco_cito.CD_PACIENTE      = paciente.CD_PACIENTE
+            AND paciente.CD_MULTI_EMPRESA   = :CAMPO_CD_MULTI_EMPRESA
+            AND sisco_cito.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            AND sisco_cito.CD_FAT_SIA       = :CAMPO_FAT_SIA
+            and trunc(months_between(sysdate,paciente.DT_NASCIMENTO)/12)            between faixa_etaria.NR_IDADE_INICIAL
+            and faixa_etaria.NR_IDADE_FINAL-1
+            and faixa_etaria.cd_faixa_etaria >= 61
+          GROUP BY faixa_etaria.CD_FAIXA_ETARIA
+      union all
+         SELECT faixa_etaria.CD_FAIXA_ETARIA
+              , (count(*) + 12012033) CONTROLE
+              , 0 CITO
+              , count(*) HISTO
+           FROM DBAMV.SISCO_HISTO sisco_histo
+              , DBAMV.PACIENTE paciente
+              , DBAMV.FAIXA_ETARIA faixa_etaria
+          WHERE sisco_histo.CD_PACIENTE      = paciente.CD_PACIENTE
+            AND paciente.CD_MULTI_EMPRESA    = :CAMPO_CD_MULTI_EMPRESA
+            AND sisco_histo.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            AND sisco_histo.CD_FAT_SIA       = :CAMPO_FAT_SIA
+            and trunc(months_between(sysdate,paciente.DT_NASCIMENTO)/12)        between faixa_etaria.NR_IDADE_INICIAL            and faixa_etaria.NR_IDADE_FINAL-1
+            and faixa_etaria.cd_faixa_etaria >= 61
+          GROUP BY faixa_etaria.CD_FAIXA_ETARIA )

@@ -1,0 +1,262 @@
+/*----------------------------------------------------------------------------*/
+--R_INT_NUTRICAO
+select a.atendimento                                atendimento,
+       a.cd_unid_int                                cd_unid_int,
+       a.ds_enfermaria                              ds_enfermaria,
+       a.ds_leito                                   ds_leito,
+       a.ds_unid_int                                ds_unid_int,
+       a.cd_copa                                    cd_copa,
+       a.cd_copa||' - '||a.ds_copa                  ds_copa,
+       a.cd_paciente                                cd_paciente,
+       a.cd_atendimento||' - '||a.nm_paciente                                nm_paciente,
+       a.nm_convenio                                nm_convenio,
+       a.nm_prestador                               nm_prestador,
+       a.dt_atendimento                             dt_atendimento,
+       a.cd_atendimento                             cd_atendimento,
+       a.nr_idade                                   nr_idade,
+       a.dt_nascimento                              dt_nascimento,
+       a.ds_cid                                     ds_cid,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_PESo(a.cd_atendimento) peso,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_ALTURA(a.cd_atendimento) altura,
+       a.obs_nutricao                                         obs_nutricao,
+       a.ds_observacao                                        ds_observacao,
+       a.cd_mov_cardapio                                      cd_mov_cardapio,
+       a.cd_itpre_med                                         cd_itpre_med
+  from (select 'Internacao'                     	atendimento,
+               leito.cd_unid_int                            cd_unid_int,
+               leito.ds_enfermaria                          ds_enfermaria,
+               leito.ds_resumo                              ds_leito,
+               unid_int.ds_unid_int                         ds_unid_int,
+               leito.cd_copa                                cd_copa,
+               copa.ds_copa                                 ds_copa,
+               paciente.cd_paciente                         cd_paciente,
+               dbamv.fnc_get_pac_nome(atendime.cd_atendimento)      nm_paciente,
+               convenio.nm_convenio                         nm_convenio,
+               prestador.nm_prestador                       nm_prestador,
+               atendime.dt_atendimento                      dt_atendimento,
+               atendime.cd_atendimento                      cd_atendimento,
+               rtrim(pack_internamento.retorna_idade(paciente.dt_nascimento,sysdate),' ')  nr_idade,
+               paciente.dt_nascimento                         dt_nascimento,
+               cid.ds_cid                                   ds_cid,
+               mov_cardapio.obs_nutricao,
+               mov_cardapio.ds_observacao,
+               mov_cardapio.cd_itpre_med,
+               max(mov_cardapio.cd_mov_cardapio)            cd_mov_cardapio
+          from dbamv.atendime,
+               dbamv.paciente,
+               dbamv.convenio,
+               dbamv.prestador,
+               dbamv.cid,
+               dbamv.leito,
+               dbamv.unid_int,
+               dbamv.copa,
+               dbamv.mov_cardapio,
+               dbamv.setor,
+               dbamv.v_internados
+         where atendime.cd_paciente            = paciente.cd_paciente
+           and atendime.cd_convenio            = convenio.cd_convenio
+           and atendime.cd_prestador           = prestador.cd_prestador (+)
+		and atendime.cd_cid                 = cid.cd_cid (+)
+           and v_internados.cd_leito            = leito.cd_leito
+           and leito.cd_unid_int               = unid_int.cd_unid_int
+           and leito.cd_copa                   = copa.cd_copa
+           and v_internados.cd_atendimento     = mov_cardapio.cd_atendimento
+           and setor.cd_setor                  = unid_int.cd_setor
+           and v_internados.cd_atendimento     = atendime.cd_atendimento
+           and setor.cd_multi_empresa          =  dbamv.pkg_mv2000.le_empresa 
+           and unid_int.sn_ativo               = 'S'
+           and mov_cardapio.sn_prescricao_suspensa = 'N'
+           and mov_cardapio.Tp_cardapio       = 'P'
+			and atendime.dt_alta is null
+       group by leito.cd_unid_int,
+               leito.ds_enfermaria,
+               leito.ds_resumo,
+               unid_int.ds_unid_int,
+               leito.cd_copa,
+               copa.ds_copa,
+               paciente.cd_paciente,
+               dbamv.fnc_get_pac_nome(atendime.cd_atendimento),
+               convenio.nm_convenio,
+               prestador.nm_prestador,
+               atendime.dt_atendimento,
+               atendime.cd_atendimento,
+               rtrim(pack_internamento.retorna_idade(paciente.dt_nascimento,sysdate),' '),
+               paciente.dt_nascimento,
+               cid.ds_cid,
+               mov_cardapio.obs_nutricao,
+               mov_cardapio.ds_observacao,
+               mov_cardapio.cd_itpre_med) a
+union all
+select 'Internacao'                     	atendimento,
+       leito.cd_unid_int                            cd_unid_int,
+       leito.ds_enfermaria                          ds_enfermaria,
+       leito.ds_resumo                              ds_leito,
+       unid_int.ds_unid_int                         ds_unid_int,
+       leito.cd_copa                                cd_copa,
+       leito.cd_copa||' - '||copa.ds_copa           ds_copa,
+       paciente.cd_paciente                         cd_paciente,
+       atendime.cd_atendimento||' - '||dbamv.fnc_get_pac_nome(atendime.cd_atendimento)        nm_paciente,
+       convenio.nm_convenio                         nm_convenio,
+       prestador.nm_prestador                       nm_prestador,
+       atendime.dt_atendimento                      dt_atendimento,
+       atendime.cd_atendimento                      cd_atendimento,
+       rtrim(pack_internamento.retorna_idade(paciente.dt_nascimento,sysdate),' ')  nr_idade,
+       paciente.dt_nascimento                       dt_nascimento,
+       cid.ds_cid                                   ds_cid,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_PESo(atendime.cd_atendimento) peso,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_ALTURA(atendime.cd_atendimento) altura,
+       null                                         obs_nutricao, 
+       null                                         ds_observacao,
+       to_number(null)                              cd_mov_cardapio,
+       to_number(null)                              cd_itpre_med
+  from dbamv.atendime,
+       dbamv.paciente,
+       dbamv.convenio,
+       dbamv.prestador,
+       dbamv.cid,
+       dbamv.leito,
+       dbamv.unid_int,
+       dbamv.copa,
+       dbamv.setor,
+       dbamv.v_internados
+ where atendime.cd_paciente            = paciente.cd_paciente
+   and atendime.cd_convenio            = convenio.cd_convenio
+   and atendime.cd_prestador           = prestador.cd_prestador (+)
+   and atendime.cd_cid                 = cid.cd_cid (+)
+   and v_internados.cd_leito            = leito.cd_leito
+   and leito.cd_unid_int               = unid_int.cd_unid_int
+	and leito.cd_copa                   = copa.cd_copa
+   and setor.cd_setor                  = unid_int.cd_setor
+   and v_internados.cd_atendimento     = atendime.cd_atendimento
+   and :CAMPO_SEM_DIETAS                 = 'S'
+   and setor.cd_multi_empresa          =  dbamv.pkg_mv2000.le_empresa 
+   and unid_int.sn_ativo               = 'S'
+   and atendime.dt_alta is null
+union all
+select 'AmbUrgExt'          			atendimento,
+       0                                            cd_unid_int,
+       null                                         ds_enfermaria,
+       null                                         ds_leito,
+       ori_ate.ds_ori_ate                           ds_unid_int,
+       ori_ate.cd_copa                              cd_copa,
+       ori_ate.cd_copa||' - '||copa.ds_copa         ds_copa,
+       paciente.cd_paciente                         cd_paciente,
+       atendime.cd_atendimento||' - '||dbamv.fnc_get_pac_nome(atendime.cd_atendimento)       nm_paciente,
+       convenio.nm_convenio                         nm_convenio,
+       prestador.nm_prestador                       nm_prestador,
+       atendime.dt_atendimento                      dt_atendimento,
+       atendime.cd_atendimento                      cd_atendimento,
+       rtrim(pack_internamento.retorna_idade(paciente.dt_nascimento,sysdate),' ')  nr_idade,
+       paciente.dt_nascimento                         dt_nascimento,
+       cid.ds_cid                                   ds_cid,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_PESo(atendime.cd_atendimento) peso,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_ALTURA(atendime.cd_atendimento) altura,
+       mov_cardapio.obs_nutricao                    obs_nutricao,
+       mov_cardapio.ds_observacao                   ds_observacao,
+       mov_cardapio.cd_mov_cardapio                 cd_mov_cardapio,
+       mov_cardapio.cd_itpre_med                    cd_itpre_med
+  from dbamv.atendime,
+       dbamv.paciente,
+       dbamv.convenio,
+       dbamv.prestador,
+       dbamv.cid,
+       dbamv.copa,
+       dbamv.mov_cardapio mov_cardapio,
+       dbamv.ori_ate,
+       dbamv.setor
+ where atendime.cd_paciente            = paciente.cd_paciente
+   and atendime.cd_convenio            = convenio.cd_convenio
+   and atendime.cd_prestador           = prestador.cd_prestador(+)
+   and setor.cd_setor                  = ori_ate.cd_setor
+   and setor.cd_multi_empresa          =  dbamv.pkg_mv2000.le_empresa 
+   and atendime.cd_cid                 = cid.cd_cid(+)
+   and atendime.cd_ori_ate             = ori_ate.cd_ori_ate
+   and ori_ate.cd_copa                 = copa.cd_copa
+   and atendime.cd_atendimento         = mov_cardapio.cd_atendimento
+   and :CAMPO_SEM_DIETAS                = 'N'
+   and atendime.tp_atendimento in ('A', 'U', 'E')
+   and  ( ( dbamv.fnc_mv_recupera_data_hora(atendime.dt_alta, atendime.hr_alta) > Sysdate  and atendime.dt_alta is not null )
+                    or ( Trunc(Sysdate) between atendime.dt_atendimento -1 and atendime.dt_atendimento + 2 ) )
+   and atendime.dt_alta is null
+	 and mov_cardapio.sn_prescricao_suspensa = 'N'
+   and mov_cardapio.tp_cardapio        = 'P'
+   and :CAMPO_URGENCIA = 'S'
+union all
+select 'AmbUrgExt'                                        	atendimento,
+       0                                                                          cd_unid_int,
+       Null                                                                       ds_enfermaria,
+       Null                                                                       ds_leito,
+       ori_ate.ds_ori_ate                                                         ds_unid_int,
+       ori_ate.cd_copa                                                            cd_copa,
+       ori_ate.cd_copa||' - '||copa.ds_copa                                                               ds_copa,
+       paciente.cd_paciente                                                       cd_paciente,
+       atendime.cd_atendimento||' - '||dbamv.fnc_get_pac_nome(atendime.cd_atendimento)         nm_paciente,
+       convenio.nm_convenio                                                       nm_convenio,
+       prestador.nm_prestador                                                     nm_prestador,
+       atendime.dt_atendimento                                                    dt_atendimento,
+       atendime.cd_atendimento                                                    cd_atendimento,
+       rtrim(pack_internamento.retorna_idade(paciente.dt_nascimento,sysdate),' ') nr_idade,
+       paciente.dt_nascimento                                                     dt_nascimento,
+       cid.ds_cid                                                                 ds_cid,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_PESO (atendime.cd_atendimento)               peso,
+       DBAMV.FNC_PAGU_SUPER_CORPOREA_ALTURA (atendime.cd_atendimento)             altura,
+       null                                         obs_nutricao,
+       NULL                                         ds_observacao,
+       to_number(null)                              cd_mov_cardapio,
+       to_number(null)                              cd_itpre_med
+  from dbamv.atendime,
+       dbamv.paciente,
+       dbamv.convenio,
+       dbamv.prestador,
+       dbamv.cid,
+       dbamv.copa,
+       dbamv.ori_ate,
+       dbamv.setor
+ where atendime.cd_paciente            = paciente.cd_paciente
+   and atendime.cd_convenio            = convenio.cd_convenio
+   and atendime.cd_prestador           = prestador.cd_prestador(+)
+   and setor.cd_setor                  = ori_ate.cd_setor
+   and setor.cd_multi_empresa           = dbamv.pkg_mv2000.le_empresa 
+   and atendime.cd_cid                 = cid.cd_cid(+)
+   and atendime.cd_ori_ate             = ori_ate.cd_ori_ate
+   and ori_ate.cd_copa                 = copa.cd_copa
+   and :CAMPO_SEM_DIETAS                = 'S'
+   and atendime.tp_atendimento in ('A', 'U', 'E')
+   and  ( ( dbamv.fnc_mv_recupera_data_hora(atendime.dt_alta, atendime.hr_alta) > Sysdate  and atendime.dt_alta is not null )
+                    or ( Trunc(Sysdate) between atendime.dt_atendimento -1 and atendime.dt_atendimento + 2 ) )
+   and atendime.dt_alta is null
+   and :CAMPO_URGENCIA = 'S'
+union all
+Select 'LeitoVago'                     	        atendimento,
+       leito.cd_unid_int                            	cd_unid_int,
+       leito.ds_enfermaria                          	ds_enfermaria,
+       leito.ds_resumo                              	ds_leito,
+       unid_int.ds_unid_int                            	ds_unid_int,
+       leito.cd_copa                                	cd_copa,
+       leito.cd_copa||' - '||copa.ds_copa               ds_copa,
+       null                         			cd_paciente,
+       null                         			nm_paciente,
+       null                         			nm_convenio,
+       null                      			nm_prestador,
+       null                      			dt_atendimento,
+       null                      			cd_atendimento,
+       null  						nr_idade,
+       null                       			dt_nascimento,
+       null                                   		ds_cid,
+       null 						peso,
+       null 						altura,
+       null                                         	obs_nutricao, 
+       null                                         	ds_observacao,
+       to_number(null)                              	cd_mov_cardapio,
+       to_number(null)                              	cd_itpre_med
+  from dbamv.leito,
+       dbamv.copa,
+       DBAMV.unid_int,
+       dbamv.setor
+ where leito.cd_unid_int              = unid_int.cd_unid_int
+   and leito.cd_copa                  = copa.cd_copa
+   and leito.tp_ocupacao              in ('V')
+   and setor.cd_setor                  = unid_int.cd_setor
+   and setor.cd_multi_empresa          = dbamv.pkg_mv2000.le_empresa 
+   and :CAMPO_VAGO = 'S'
+ORDER BY  1, 6, 5, 3, 4

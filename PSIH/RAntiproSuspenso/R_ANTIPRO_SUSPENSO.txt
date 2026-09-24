@@ -1,0 +1,87 @@
+/*----------------------------------------------------------------------------*/
+--R_ANTIPRO_SUSPENSO
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANTIPRO_SUSPENSO_R_1_Q_MOV_DIRETA
+Select ItMvto.Cd_Mvto_Estoque  Cd_Mvto_Estoque
+      ,ItMvto.Cd_Itmvto_Estoque Cd_Itmvto_Estoque
+      ,Mvto.Cd_Atendimento  Cd_Atendimento
+      ,Trunc(A.Dt_Atendimento) Dt_Atendimento
+      ,Pa.nm_paciente  nm_paciente
+      ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(P.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND Pa.CD_PACIENTE = P.CD_PACIENTE) NM_SOCIAL_PACIENTE
+      ,ItMvto.Cd_produto  Cd_produto
+      ,Prd.Ds_Produto Ds_Produto
+      ,ItMvto.Cd_Uni_Pro  Cd_Uni_Pro
+      ,Up.Ds_Unidade  Ds_Unidade
+      ,ItMvto.Cd_lote  Cd_lote
+      ,ItMvto.Dt_Validade  Dt_Validade
+      ,ItMvto.Qt_Movimentacao  Qt_Movimentacao
+      ,Mvto.cd_unid_int cd_unid_int
+      ,Ap.Cd_Antimicrob  Cd_Antimicrob
+      ,Ant.Nm_Antimicrob Nm_Antimicrob
+ From Dbamv.Mvto_Estoque Mvto
+     ,Dbamv.ItMvto_Estoque ItMvto
+     ,Dbamv.Atendime A
+     ,Dbamv.Paciente Pa
+     ,Dbamv.Produto Prd
+     ,Dbamv.Ant_pro Ap
+     ,Dbamv.Antimicrob Ant
+     ,Dbamv.Uni_Pro Up
+Where Mvto.Cd_Mvto_Estoque = ItMvto.Cd_Mvto_Estoque
+  And ItMvto.Cd_Produto    = Ap.Cd_Produto
+  And ItMvto.Cd_Produto    = Prd.Cd_Produto
+  And Mvto.Cd_Atendimento  = A.Cd_Atendimento
+  And A.cd_paciente        = Pa.cd_paciente
+  And Ap.Cd_Antimicrob     = Ant.Cd_Antimicrob
+  And Mvto.Cd_Atendimento  is not null
+  And ItMvto.Cd_Itsolsai_Pro is null
+  And ItMvto.Cd_Produto    = Up.Cd_Produto
+  And ItMvto.Cd_Uni_Pro    = Up.Cd_Uni_Pro
+  And to_date(To_Char(A.Dt_Atendimento,'dd/mm/yyyy') ,'dd/mm/yyyy') >= to_date(:CAMPO_DT_INICIAL,'dd/mm/yyyy')
+  And to_date(To_Char(A.Dt_Atendimento,'dd/mm/yyyy') ,'dd/mm/yyyy') <= to_date(:CAMPO_DT_FINAL,'dd/mm/yyyy')
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANTIPRO_SUSPENSO_R_2_Q_MENOR_PRESC
+Select P.Cd_Atendimento     Cd_Atendimento
+         ,P.Dt_Pre_Med            Dt_Pre_Med
+         ,Tp.Cd_Produto           Cd_Produto
+         ,Itp.Nr_dia	             Nr_dia
+         ,Itp.Qt_Dias	             Qt_Dias
+  From Dbamv.Pre_Med 	 P
+         ,Dbamv.ItPre_Med Itp
+         ,Dbamv.Tip_Presc Tp
+         ,Dbamv.Ant_Pro   Ap
+          ,Dbamv.Antimicrob A
+          ,(Select P.Cd_Atendimento      Cd_Atendimento
+      	      ,Min(Itp.Cd_Itpre_Med) Cd_Itpre_Med
+             From Dbamv.Pre_Med 	 P
+                    ,Dbamv.ItPre_Med Itp
+                    ,Dbamv.Tip_Presc Tp
+	    ,Dbamv.Ant_Pro   Ap
+        Where P.Cd_Pre_Med      = Itp.Cd_Pre_Med
+          And Itp.Qt_Dias       > 1
+          And Itp.Nr_Dia 			 Is Not Null
+          And P.Dt_Pre_med      >= (To_Date(:CAMPO_DT_INICIAL,'dd/mm/yyyy') - :CAMPO_CP_DIAS_LIMITE)
+          And P.Dt_Pre_med      <= To_Date(:CAMPO_DT_FINAL,'dd/mm/yyyy')
+          And Itp.Cd_Tip_Presc  = Tp.Cd_Tip_Presc
+          And Tp.Cd_Produto     = Ap.Cd_Produto
+  Group By P.Cd_Atendimento	 ) Menor_Presc
+      ,Dbamv.Prestador Prest
+ Where P.Cd_Pre_Med      = Itp.Cd_Pre_Med
+  And Itp.Qt_Dias       > 1
+ And Itp.Nr_Dia 	Is Not Null
+ And Itp.Cd_Tip_Presc  = Tp.Cd_Tip_Presc
+ And Tp.Cd_Produto     = Ap.Cd_Produto
+ And Ap.Cd_Antimicrob  = A.Cd_Antimicrob
+ And P.Cd_Atendimento  = Menor_Presc.Cd_Atendimento
+ And Itp.Cd_Itpre_Med  = Menor_Presc.Cd_Itpre_Med
+ And P.Cd_Prestador    = Prest.Cd_Prestador
+ And P.Dt_Pre_med      >= (To_Date(:CAMPO_DT_INICIAL,'dd/mm/yyyy') - :CAMPO_CP_DIAS_LIMITE)
+ And P.Dt_Pre_med      <= To_Date(:CAMPO_DT_FINAL,'dd/mm/yyyy')
+Order by P.Cd_atendimento
+	,Itp.Nr_Dia

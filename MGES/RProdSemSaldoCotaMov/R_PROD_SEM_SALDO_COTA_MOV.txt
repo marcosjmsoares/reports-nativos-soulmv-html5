@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_SEM_SALDO_COTA_MOV
+SELECT * FROM (
+					Select Crc.Cd_Estoque Cd_Estoque_Origem
+					,Est.Ds_Estoque Ds_Estoque_Origem
+					,Crc.Cd_Produto Cd_Produto
+					,Prd.Ds_Produto Ds_Produto
+					,Crc.Qt_Reposicao Qt_Reposicao
+					,Cota_Setor.Cd_Estoque Cd_Estoque_Solicitante
+					from dbamv.Cota_Reposicao_Consumo Crc
+					,dbamv.Estoque Est
+					,dbamv.Produto Prd
+					,dbamv.Uni_Pro Uni
+					,dbamv.ConfigEst ConfigEst
+					,dbamv.Cota_Setor Cota_Setor
+					,dbamv.Empresa_Produto Empresa_Produto
+					Where Crc.Cd_Estoque IS NOT NULL
+					and Crc.Cd_Estoque = Est.Cd_Estoque
+					and Crc.Cd_Produto = Prd.Cd_Produto
+					and ConfigEst.cd_multi_empresa = Dbamv.PKg_Mv2000.le_empresa
+					and Prd.Sn_Kit <> 'C'
+					and DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_MOVIMENTACAO,Prd.SN_MOVIMENTACAO) = 'S'
+					and Crc.Cd_Produto = Uni.Cd_Produto
+					and Uni.Tp_Relatorios = 'R'
+					and Empresa_Produto.Cd_Multi_Empresa = Pkg_Mv2000.Le_Empresa
+					and Empresa_Produto.Cd_Produto = Prd.Cd_Produto
+					And Crc.Qt_Reposicao > 0
+					And Crc.Sn_Sem_Saldo = 'S'
+					And Cota_Setor.Cd_Setor in ( Select Cd_Setor From dbamv.Estoque
+					                                             Where cd_estoque is not null
+					:CAMPO_CF_ESTOQUE_ORIGEM
+					)
+					And Cota_Setor.Cd_Setor In ( Select Cd_Setor From Dbamv.Usuario_Unid_Int
+					Where Usuario_Unid_Int.Cd_Id_Usuario = User )
+					And Crc.Cd_Produto = Cota_Setor.Cd_Produto
+					Order By Prd.Ds_Produto
+					)
+					ORDER BY CD_ESTOQUE_ORIGEM,DS_ESTOQUE_ORIGEM,CD_ESTOQUE_SOLICITANTE

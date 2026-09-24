@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_ENT_PRO_CONTABIL_DATA_EMIS
+SELECT * FROM (
+Select ent_pro.cd_ent_pro,
+       ent_pro.cd_estoque,
+       ent_pro.cd_fornecedor||' '||fornecedor.nm_fornecedor fornecedor,
+       to_char(ent_pro.dt_entrada, 'dd/mm/yyyy') dt_entrada,
+       tip_doc.ds_tip_doc,
+       nvl(ent_pro.nr_documento,'N/A') documento,
+       nvl(ent_pro.nr_serie,'N/A') serie,
+       ent_pro.vl_total vl_total_nota,
+       especie.cd_especie||' '||especie.ds_especie especie,
+       Sum( itent_pro.qt_entrada * itent_pro.vl_custo_real ) vl_total_especie
+  From dbamv.ent_pro,
+       dbamv.itent_pro,
+       dbamv.produto,
+       dbamv.especie,
+       dbamv.fornecedor,
+       dbamv.tip_doc
+Where ent_pro.cd_ent_pro    = itent_pro.cd_ent_pro
+  And ent_pro.cd_fornecedor = fornecedor.cd_fornecedor
+  And itent_pro.cd_produto  = produto.cd_produto
+  And produto.cd_Especie    = especie.cd_especie
+  And ent_pro.cd_tip_doc    = tip_doc.cd_tip_doc
+  And to_date(to_char(ent_pro.dt_entrada,'dd/mm/yyyy'),'dd/mm/yyyy') between :CAMPO_DTINIC and 
+  And Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			            From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+Group By  ent_pro.cd_ent_pro,
+         ent_pro.cd_fornecedor,
+         fornecedor.nm_fornecedor,
+         tip_doc.ds_tip_doc,
+         ent_pro.nr_documento,
+         ent_pro.nr_serie,
+         especie.cd_especie,
+         especie.ds_especie,
+         ent_pro.vl_total,
+         ent_pro.cd_estoque,
+         ent_pro.dt_entrada
+Order by ent_pro.dt_entrada, ent_pro.cd_ent_pro
+)
+ORDER BY DT_ENTRADA,CD_ENT_PRO,
+VL_TOTAL_NOTA,FORNECEDOR,SERIE,DOCUMENTO,CD_ESTOQUE,DS_TIP_DOC

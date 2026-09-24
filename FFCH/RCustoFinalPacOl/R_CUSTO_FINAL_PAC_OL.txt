@@ -1,0 +1,40 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_FINAL_PAC_OL
+SELECT * FROM (
+select ate.cd_atendimento cd_atendimento,
+       pc.cd_paciente  cd_paciente,
+       Initcap(pc.nm_paciente) nm_paciente,
+       Initcap(pf.ds_pro_fat) ds_pro_fat,
+       ate.dt_atendimento  dt_atendimento,
+       nvl(ate.dt_alta,dt_atendimento) dt_alta,
+       Initcap(cv.nm_convenio) nm_convenio,
+       Initcap(pr.nm_prestador) nm_prestador,
+       dbamv.pack_ffch.receita(ate.cd_atendimento)     receita,
+       dbamv.pack_ffch.diaria(ate.cd_atendimento,'O')      diaria,
+       '( '||dbamv.pack_ffch.qtd_diaria(ate.cd_atendimento)||' )'      qtd_diaria,
+       dbamv.pack_ffch.honorario(ate.cd_atendimento)      honorario,
+       dbamv.pack_ffch.procedimento(ate.cd_atendimento,'O', :CAMPO_CD_MULTI_EMPRESA)  procedimento,
+       dbamv.fnc_calc_matmed(ate.cd_atendimento,:CAMPO_CD_MULTI_EMPRESA) matmed,
+       dbamv.pack_ffch.terceiro(ate.cd_atendimento,'O')  terceiro,
+       dbamv.pack_ffch.tx_adm (to_char(add_months(ate.dt_atendimento,-1),'mm/yyyy'), :CAMPO_CD_MULTI_EMPRESA)         tx_adm,
+       dbamv.pack_ffch.tx_imposto (to_char(add_months(ate.dt_atendimento,-1),'mm/yyyy'), :CAMPO_CD_MULTI_EMPRESA)    tx_imposto,
+       'X'  dummy
+from dbamv.atendime ate,
+     dbamv.paciente pc,
+     dbamv.pro_fat pf,
+     dbamv.convenio cv,
+     dbamv.prestador pr,
+     dbamv.cid,
+     dbamv.gru_cid,
+     dbamv.sgru_cid
+where  ate.cd_paciente = pc.cd_paciente and
+      ate.cd_pro_int = pf.cd_pro_fat(+) and
+      cid.cd_cid(+) = ate.cd_cid and
+      cid.cd_sgru_cid = sgru_cid.cd_sgru_cid (+) and
+      sgru_cid.cd_gru_cid = gru_cid.cd_gru_cid (+) and
+      ate.cd_convenio = cv.cd_convenio and
+      ate.cd_prestador = pr.cd_prestador(+) and
+      ate.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_PROCEDIMENTO
+)
+ORDER BY NM_PACIENTE,CD_ATENDIMENTO,DS_PRO_FAT,DT_ATENDIMENTO,RECEITA,DIARIA,QTD_DIARIA,PROCEDIMENTO,MATMED,TERCEIRO,DT_ALTA,NM_CONVENIO,NM_PRESTADOR,CD_PACIENTE,TX_ADM,HONORARIO,TX_IMPOSTO

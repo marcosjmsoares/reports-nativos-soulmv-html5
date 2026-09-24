@@ -1,0 +1,51 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_UNID_GERME
+SELECT ds_unid_int, ds_germe , Sum(quantidade) QTDE
+FROM (
+select ds_unid_int, ds_germe ,Count(DISTINCT cd_itped_lab) quantidade
+ From dbamv.v_psih_cultura_cultura_manual v,
+          dbamv.atendime,
+          dbamv.leito,
+          dbamv.unid_int
+where v.cd_atendimento  = atendime.cd_atendimento
+    and  atendime.Cd_Multi_Empresa =  :CAMPO_CD_MULTI_EMPRESA
+    AND cd_itped_lab <> 0
+    and leito.cd_unid_int     = unid_int.cd_unid_int
+  and leito.cd_leito = nvl(( SELECT cd_leito
+                           FROM dbamv.mov_int
+                          WHERE cd_mov_int =
+                    	                     ( SELECT Max(cd_mov_int)
+                      				 FROM dbamv.mov_int
+                     				WHERE mov_int.cd_atendimento = atendime.cd_atendimento
+                            			  AND tp_mov in ('I','O','F')
+                                                  AND TRUNC(v.dt_exame) between TRUNC(MOV_INT.DT_MOV_INT) AND TRUNC(NVL(MOV_INT.DT_LIB_MOV,SYSDATE))
+                                              )
+                        ),atendime.cd_atendimento)
+     and ds_germe is not NULL
+group by v.ds_germe,
+               unid_int.ds_unid_int
+               UNION ALL
+select ds_unid_int, ds_germe ,Count(DISTINCT cd_cultura_manual) quantidade
+ From dbamv.v_psih_cultura_cultura_manual v,
+          dbamv.atendime,
+          dbamv.leito,
+          dbamv.unid_int
+where v.cd_atendimento  = atendime.cd_atendimento
+    and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND cd_cultura_manual <> 0
+    and leito.cd_unid_int     = unid_int.cd_unid_int
+  and leito.cd_leito = nvl(( SELECT cd_leito
+                           FROM dbamv.mov_int
+                          WHERE cd_mov_int =
+                    	                     ( SELECT Max(cd_mov_int)
+                      				 FROM dbamv.mov_int
+                     				WHERE mov_int.cd_atendimento = atendime.cd_atendimento
+                            			  AND tp_mov in ('I','O','F')
+                                                  AND TRUNC(v.dt_exame) between TRUNC(MOV_INT.DT_MOV_INT) AND TRUNC(NVL(MOV_INT.DT_LIB_MOV,SYSDATE))
+                                              )
+                        ),atendime.cd_atendimento)
+     and ds_germe is not NULL
+group by v.ds_germe,
+               unid_int.ds_unid_int
+ ) GROUP by ds_unid_int, ds_germe
+ ORDER BY ds_unid_int

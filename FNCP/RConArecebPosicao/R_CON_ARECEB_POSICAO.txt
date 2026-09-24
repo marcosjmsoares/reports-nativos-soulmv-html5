@@ -1,0 +1,958 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_ARECEB_POSICAO
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_ARECEB_POSICAO_R_EMPRESA1_Q_SINTETICO
+SELECT * FROM (
+SELECT x.tp_conta_ana tp_conta
+	  ,x.nm_cliente
+	  ,Decode(:CAMPO_SN_AGRUPADO, 'S', x.Cd_Multi_Empresa, NULL) Cd_multi_empresa
+	  ,pe.cd_reduzido
+	  ,pe.cd_contabil
+	  ,pe.ds_conta
+	  ,SUM (NVL (x.valor_previsto_v, 0) - NVL (x.valor_recebido_v, 0) - NVL(x.valor_glosa_v,0) + Nvl(x.valor_recurso_v,0)) valor_vencido
+	  ,SUM (NVL (x.valor_previsto_av, 0) - NVL (x.valor_recebido_av, 0) - NVL (x.valor_glosa_av,0) + Nvl(x.valor_recurso_av,0)) valor_a_vencer
+    FROM (SELECT con_rec.tp_con_rec        tp_conta_ana,
+                 con_rec.nm_cliente        nm_cliente,
+                 con_rec.nr_documento      nr_documento,
+                 con_rec.cd_multi_empresa  cd_multi_empresa,
+                 con_rec.cd_con_rec        cd_con_rec,
+                 con_rec.cd_reduzido       cd_reduzido,
+                 itcon_rec.vl_duplicata    valor_previsto_v,
+                 itcon_rec.dt_cancelamento,
+                 reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_v,
+                 (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_v,
+                 Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_v,
+                 TO_NUMBER (NULL) valor_previsto_av,
+                 TO_NUMBER (NULL) valor_recebido_av,
+                 TO_NUMBER (NULL) valor_glosa_av,
+                 TO_NUMBER (NULL) valor_recurso_av
+            FROM (SELECT  recebimento.cd_itcon_rec,
+                          SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                          SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa,
+                          Sum(Decode(Nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                    FROM (SELECT reccon_rec.cd_itcon_rec,
+                                 nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                                 reccon_rec.vl_recebido vl_liq_recebido,
+                                 reccon_rec.vl_acrescimo vl_acrescimo,
+                                 reccon_rec.vl_desconto vl_desconto,
+                                 SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                                 reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                            FROM dbamv.reccon_rec,
+                                 dbamv.it_recebimento
+                           WHERE trunc(reccon_rec.dt_recebimento) <= trunc(:CAMPO_DATA_BASE)
+                             AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > trunc(:CAMPO_DATA_BASE))
+                             AND reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                        GROUP BY  reccon_rec.cd_itcon_rec, reccon_rec.dt_recebimento,
+                                  reccon_rec.vl_recebido, reccon_rec.vl_desconto,
+                                  reccon_rec.vl_acrescimo, reccon_rec.vl_imposto_retido,
+                                  reccon_rec.cd_reccon_rec, reccon_rec.cd_remessa_glosa) recebimento
+                GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+                 (SELECT it.cd_itcon_rec,
+                         it.cd_con_rec,
+                         it.dt_vencimento,
+                         it.cd_con_rec_agrup,
+                         it.vl_duplicata,
+                         a.vl_recurso,
+                         a.vl_glosa,
+                         a.vl_aceite,
+						 it.dt_cancelamento,
+             it.dt_prevista_recebimento
+                    FROM ( SELECT cd_itcon_rec, Sum(vl_recurso) vl_recurso, Sum(vl_glosa) vl_glosa, Sum(vl_aceite) vl_aceite
+                           FROM ( SELECT mg.cd_itcon_rec, Sum(mg.vl_movimentacao) vl_recurso, 0 vl_glosa, 0 vl_aceite
+                                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                                  WHERE mg.cd_remessa_glosa in (SELECT rg.cd_remessa_glosa
+                                                                FROM dbamv.remessa_glosa rg
+                                                                WHERE rg.cd_remessa_glosa_pai IS NULL)
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural = '3.1.2.1.1'
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+								  GROUP BY mg.cd_itcon_rec
+								UNION ALL
+                                  SELECT mg.cd_itcon_rec, (Sum(mg.vl_movimentacao)*(-1)) vl_recurso, 0 vl_glosa, 0 vl_aceite
+                                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                                  WHERE mg.cd_remessa_glosa IS NOT NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural <> '3.1.2.1.1'
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S' )
+                                  GROUP BY mg.cd_itcon_rec
+                                UNION ALL
+                                  SELECT mg.cd_itcon_rec, 0 vl_recurso , (Sum(mg.vl_movimentacao)) vl_glosa , 0 vl_aceite
+                                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                                  WHERE mg.cd_remessa_glosa IS NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                                  GROUP BY mg.cd_itcon_rec
+								UNION ALL
+                                  SELECT mg.cd_itcon_rec, 0 vl_recurso , 0 vl_glosa, (Sum(mg.vl_movimentacao)) vl_aceite
+                                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                                  WHERE mg.cd_remessa_glosa IS NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural IN( '3.1.2.1.2')
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+								  GROUP BY mg.cd_itcon_rec
+                                ) GROUP BY cd_itcon_rec
+                        ) a, dbamv.itcon_rec it
+                    WHERE it.cd_itcon_rec = a.cd_itcon_rec(+)
+                ) itcon_rec, dbamv.con_rec
+			WHERE con_rec.cd_previsao IS NULL
+            AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+            AND trunc(itcon_rec.dt_vencimento) < trunc(:CAMPO_DATA_BASE)
+            AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+            AND Nvl (itcon_rec . vl_duplicata, 0) > (Nvl (reccon_rec . vl_recebido, 0) + Nvl (itcon_rec . vl_glosa, 0) - Nvl (reccon_rec . vl_recurso, 0) +
+			Nvl (itcon_rec . vl_recurso, 0))
+            AND itcon_rec.cd_con_rec_agrup IS NULL
+        UNION ALL
+            SELECT con_rec.tp_con_rec tp_conta_ana, con_rec.nm_cliente nm_cliente,
+                   con_rec.nr_documento, cd_multi_empresa cd_multi_empresa,
+                   con_rec.cd_con_rec cd_con_rec, con_rec.cd_reduzido cd_reduzido,
+                   TO_NUMBER (NULL) valor_previsto_v, itcon_rec.dt_cancelamento,
+                   TO_NUMBER (NULL) valor_recebido_v, TO_NUMBER (NULL) valor_glosa_v,
+                   TO_NUMBER (NULL) valor_recurso_v,  itcon_rec.vl_duplicata valor_previsto_av,
+                   reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_av,
+                   (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_av,
+                   Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_av
+            FROM (SELECT recebimento.cd_itcon_rec, SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                  SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa, SUM(DECODE(nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                  FROM (SELECT reccon_rec.cd_itcon_rec,
+                        nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                        reccon_rec.vl_recebido vl_liq_recebido, reccon_rec.vl_acrescimo vl_acrescimo,
+                        reccon_rec.vl_desconto vl_desconto, SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                        reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                        FROM  dbamv.reccon_rec, dbamv.it_recebimento
+                        WHERE trunc(reccon_rec.dt_recebimento) <= trunc(:CAMPO_DATA_BASE)
+                        AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > trunc(:CAMPO_DATA_BASE))
+                        AND reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                        GROUP BY reccon_rec.cd_itcon_rec,reccon_rec.dt_recebimento,reccon_rec.vl_recebido,reccon_rec.vl_desconto,reccon_rec.vl_acrescimo,reccon_rec.vl_imposto_retido, reccon_rec.cd_reccon_rec, reccon_rec.cd_remessa_glosa
+                       ) recebimento
+                GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+                (SELECT it.cd_itcon_rec, it.cd_con_rec,
+						it.dt_vencimento, it.cd_con_rec_agrup,
+						it.vl_duplicata, a.vl_recurso,
+						a.vl_glosa, a.vl_aceite,
+						it.dt_cancelamento,
+            it.dt_prevista_recebimento
+                 FROM (SELECT cd_itcon_rec, Sum(vl_recurso) vl_recurso, Sum(vl_glosa) vl_glosa, Sum(vl_aceite) vl_aceite
+                       FROM ( SELECT mg.cd_itcon_rec, Sum(mg.vl_movimentacao) vl_recurso, 0 vl_glosa, 0 vl_aceite
+							  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                              WHERE mg.cd_remessa_glosa in (select rg.cd_remessa_glosa
+                                                            from dbamv.remessa_glosa rg
+                                                            where rg.cd_remessa_glosa_pai is null)
+							  AND mg.cd_processo = pr.cd_processo
+                              AND pr.cd_estrutural = '3.1.2.1.1'
+                              AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                              AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+                              GROUP BY mg.cd_itcon_rec
+                          UNION ALL
+                            SELECT mg.cd_itcon_rec, (Sum(mg.vl_movimentacao)*(-1)) vl_recurso, 0 vl_glosa, 0 vl_aceite
+                            FROM dbamv.mov_glosas mg, dbamv.processo pr
+                            WHERE mg.cd_remessa_glosa IS NOT NULL
+                            AND mg.cd_processo = pr.cd_processo
+                            AND pr.cd_estrutural <> '3.1.2.1.1'
+                            AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                            AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S')
+                            GROUP BY mg.cd_itcon_rec
+                          UNION ALL
+                            SELECT mg.cd_itcon_rec, 0 vl_recurso , (Sum(mg.vl_movimentacao)) vl_glosa , 0 vl_aceite
+                            FROM dbamv.mov_glosas mg, dbamv.processo pr
+                            WHERE mg.cd_remessa_glosa IS NULL
+                            AND mg.cd_processo = pr.cd_processo
+                            AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                            AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                            AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                            GROUP BY mg.cd_itcon_rec
+                          UNION ALL
+                            SELECT mg.cd_itcon_rec, 0 vl_recurso , 0 vl_glosa, (Sum(mg.vl_movimentacao)) vl_aceite
+                            FROM dbamv.mov_glosas mg, dbamv.processo pr
+                            WHERE mg.cd_remessa_glosa IS NULL
+                            AND mg.cd_processo = pr.cd_processo
+                            AND pr.cd_estrutural IN( '3.1.2.1.2')
+                            AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                            AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+                            GROUP BY mg.cd_itcon_rec
+                          ) GROUP BY cd_itcon_rec
+                    ) a, dbamv.itcon_rec it
+                 WHERE it.cd_itcon_rec = a.cd_itcon_rec(+) ) itcon_rec, dbamv.con_rec
+          WHERE con_rec.cd_previsao IS NULL
+          AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+          AND trunc(itcon_rec.dt_vencimento) >= trunc(:CAMPO_DATA_BASE)
+          AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+          AND NVL (itcon_rec.vl_duplicata, 0) > (NVL(reccon_rec.vl_recebido,0) + NVL(itcon_rec.vl_glosa,0) -
+		  NVL(reccon_rec.vl_recurso,0) - NVL(itcon_rec.vl_recurso,0))
+          AND itcon_rec.cd_con_rec_agrup IS NULL
+		  :CAMPO_CF_CD_REDUZIDO)x,
+dbamv.plano_contabil pc,
+dbamv.plano_estr pe
+WHERE pc.cd_reduzido = x.cd_reduzido
+  AND pe.cd_plano_estr = pc.cd_plano_estr
+  AND pe.cd_plano = :CAMPO_CD_PLANO
+GROUP BY x.tp_conta_ana
+		,x.nm_cliente
+		,x.cd_multi_empresa
+		,pe.cd_reduzido
+		,pe.cd_contabil
+		,pe.ds_conta
+ORDER BY x.cd_multi_empresa
+		,pe.cd_reduzido
+		,x.tp_conta_ana
+)
+WHERE (valor_vencido > 0) OR (valor_a_vencer > 0)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_ARECEB_POSICAO_R_EMPRESA_ANA_Q_ANALITICO
+SELECT * FROM (
+SELECT  x.tp_conta_ana
+        ,x.nm_cliente nm_cliente_ana
+        ,x.nr_documento nr_documento_ana
+        ,x.cd_con_rec  cd_con_rec_ana
+        ,pe.cd_reduzido cd_reduzido_ana
+		,pe.cd_contabil cd_contabil_ana
+		,pe.ds_conta ds_conta_ana
+        ,Decode(:CAMPO_SN_AGRUPADO,'S',Cd_Multi_Empresa, NULL) Cd_multi_empresa_ana
+        ,SUM (NVL (valor_previsto_v, 0) - NVL (valor_recebido_v, 0) - NVL(valor_glosa_v,0) + Nvl(valor_recurso_v,0)) valor_vencido_ana
+        ,SUM (NVL (valor_previsto_av, 0) - NVL (valor_recebido_av, 0) - NVL (valor_glosa_av,0) + Nvl(valor_recurso_av,0)) valor_a_vencer_ana
+		,x.dt_emissao
+		,x.dt_prevista_recebimento
+		,x.nm_cliente1
+  FROM  ( SELECT con_rec.tp_con_rec tp_conta_ana,
+                 con_rec.nm_cliente nm_cliente,
+				 Decode (con_rec.cd_fornecedor,NULL,con_rec.nm_cliente,con_rec.cd_fornecedor||'-'||con_rec.nm_cliente) nm_cliente1,
+                 con_rec.nr_documento nr_documento,
+                 con_rec.cd_multi_empresa cd_multi_empresa,
+                 con_rec.cd_con_rec cd_con_rec,
+                 con_rec.cd_reduzido cd_reduzido,
+                 itcon_rec.vl_duplicata valor_previsto_v,
+                 itcon_rec.dt_cancelamento,
+                 reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_v,
+                 (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_v,
+                 Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_v,
+                 TO_NUMBER (NULL) valor_previsto_av,
+                 TO_NUMBER (NULL) valor_recebido_av,
+                 TO_NUMBER (NULL) valor_glosa_av,
+                 TO_NUMBER (NULL) valor_recurso_av,
+				 con_rec.dt_emissao,
+				 itcon_rec.dt_prevista_recebimento
+			FROM ( SELECT recebimento.cd_itcon_rec,
+                          SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                          SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa,
+                          Sum(Decode(Nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                     FROM ( SELECT reccon_rec.cd_itcon_rec,
+                                   nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                                   reccon_rec.vl_recebido vl_liq_recebido,
+                                   reccon_rec.vl_acrescimo vl_acrescimo,
+                                   reccon_rec.vl_desconto vl_desconto,
+                                   SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                                   reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                              FROM dbamv.reccon_rec,
+                                   dbamv.it_recebimento
+                             WHERE trunc(reccon_rec.dt_recebimento) <= trunc(:CAMPO_DATA_BASE)
+                               AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > trunc(:CAMPO_DATA_BASE))
+                               AND reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                             GROUP BY reccon_rec.cd_itcon_rec,
+                                      reccon_rec.dt_recebimento,
+                                      reccon_rec.vl_recebido,
+                                      reccon_rec.vl_desconto,
+                                      reccon_rec.vl_acrescimo,
+                                      reccon_rec.vl_imposto_retido,
+                                      reccon_rec.cd_reccon_rec,
+                                      reccon_rec.cd_remessa_glosa) recebimento 
+                    GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+                 ( SELECT it.cd_itcon_rec,
+                          it.cd_con_rec,
+                          it.dt_vencimento,
+                          it.cd_con_rec_agrup,
+                          it.vl_duplicata,
+                          a.vl_recurso,
+                          a.vl_glosa,
+                          a.vl_aceite,
+                          it.dt_cancelamento,
+                          it.dt_prevista_recebimento
+                     FROM ( SELECT cd_itcon_rec,
+                                   Sum(vl_recurso) vl_recurso,
+                                   Sum(vl_glosa) vl_glosa,
+                                   Sum(vl_aceite) vl_aceite
+                              FROM ( SELECT mg.cd_itcon_rec,
+                                            Sum(mg.vl_movimentacao) vl_recurso,
+                                            0 vl_glosa,
+                                            0 vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa in ( SELECT rg.cd_remessa_glosa
+                                                                       FROM dbamv.remessa_glosa rg
+                                                                      WHERE rg.cd_remessa_glosa_pai is null)
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural = '3.1.2.1.1'
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+                                      GROUP BY mg.cd_itcon_rec
+                                      UNION ALL
+                                     SELECT mg.cd_itcon_rec,
+                                            (Sum(mg.vl_movimentacao)*(-1)) vl_recurso,
+                                            0 vl_glosa,
+                                            0 vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa IS NOT NULL
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural <> '3.1.2.1.1'
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S' )
+                                      GROUP BY mg.cd_itcon_rec
+                                      UNION ALL
+                                     SELECT mg.cd_itcon_rec,
+                                            0 vl_recurso ,
+                                            (Sum(mg.vl_movimentacao)) vl_glosa ,
+                                            0 vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa IS NULL
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                                      GROUP BY mg.cd_itcon_rec
+                                      UNION ALL
+                                     SELECT mg.cd_itcon_rec,
+                                            0 vl_recurso ,
+                                            0 vl_glosa,
+                                            (Sum(mg.vl_movimentacao)) vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa IS NULL
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural IN( '3.1.2.1.2')
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+                                      GROUP BY mg.cd_itcon_rec)
+                             GROUP BY cd_itcon_rec) a,
+                          dbamv.itcon_rec it
+                    WHERE it.cd_itcon_rec = a.cd_itcon_rec(+)) itcon_rec
+              ,dbamv.con_rec
+        WHERE con_rec.cd_previsao IS NULL
+          AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+          AND trunc(itcon_rec.dt_vencimento) < trunc(:CAMPO_DATA_BASE)
+          AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+          AND Nvl (itcon_rec . vl_duplicata, 0) > (Nvl (reccon_rec . vl_recebido, 0) + Nvl (itcon_rec . vl_glosa, 0)     - Nvl (reccon_rec . vl_recurso, 0)  + Nvl (itcon_rec . vl_recurso, 0))
+          AND itcon_rec.cd_con_rec_agrup IS NULL
+        UNION ALL
+       SELECT con_rec.tp_con_rec tp_conta_ana,
+              con_rec.nm_cliente nm_cliente,
+			   Decode (con_rec.cd_fornecedor,NULL,con_rec.nm_cliente,con_rec.cd_fornecedor||'-'||con_rec.nm_cliente) nm_cliente1,
+              con_rec.nr_documento,
+              cd_multi_empresa cd_multi_empresa,
+              con_rec.cd_con_rec cd_con_rec,
+              con_rec.cd_reduzido cd_reduzido,
+              TO_NUMBER (NULL) valor_previsto_v,
+              itcon_rec.dt_cancelamento,
+              TO_NUMBER (NULL) valor_recebido_v,
+              TO_NUMBER (NULL) valor_glosa_v,
+              TO_NUMBER (NULL) valor_recurso_v,
+              itcon_rec.vl_duplicata valor_previsto_av,
+              reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_av,
+              (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_av,
+              Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_av,
+			  con_rec.dt_emissao,
+			  itcon_rec.dt_prevista_recebimento
+         FROM (SELECT recebimento.cd_itcon_rec,
+                      SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                      SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa,
+                      SUM(DECODE(nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                      FROM ( SELECT reccon_rec.cd_itcon_rec,
+                                    nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                                    reccon_rec.vl_recebido vl_liq_recebido,
+                                    reccon_rec.vl_acrescimo vl_acrescimo,
+                                    reccon_rec.vl_desconto vl_desconto,
+                                    SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                                    reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                               FROM dbamv.reccon_rec,
+                                    dbamv.it_recebimento
+                              WHERE trunc(reccon_rec.dt_recebimento) <= trunc(:CAMPO_DATA_BASE)
+                                AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > trunc(:CAMPO_DATA_BASE))
+                                AND   reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                              GROUP BY reccon_rec.cd_itcon_rec,
+                                       reccon_rec.dt_recebimento,
+                                       reccon_rec.vl_recebido,
+                                       reccon_rec.vl_desconto,
+                                       reccon_rec.vl_acrescimo,
+                                       reccon_rec.vl_imposto_retido,
+                                       reccon_rec.cd_reccon_rec,
+                                       reccon_rec.cd_remessa_glosa) recebimento 
+                     GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+              (SELECT it.cd_itcon_rec,
+                      it.cd_con_rec,
+                      it.dt_vencimento,
+                      it.cd_con_rec_agrup,
+                      it.vl_duplicata,
+                      a.vl_recurso,
+                      a.vl_glosa,
+                      a.vl_aceite,
+                      it.dt_cancelamento,
+                      it.dt_prevista_recebimento
+                FROM (SELECT cd_itcon_rec,
+                             Sum(vl_recurso) vl_recurso,
+                             Sum(vl_glosa) vl_glosa,
+                             Sum(vl_aceite) vl_aceite
+                        FROM ( SELECT mg.cd_itcon_rec,
+                                      Sum(mg.vl_movimentacao) vl_recurso,
+                                      0 vl_glosa,
+                                      0 vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa in ( SELECT rg.cd_remessa_glosa
+                                                                 FROM dbamv.remessa_glosa rg
+                                                                WHERE rg.cd_remessa_glosa_pai is null)
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural = '3.1.2.1.1'
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+                                GROUP BY mg.cd_itcon_rec
+                                UNION ALL
+                               SELECT mg.cd_itcon_rec,
+                                      (Sum(mg.vl_movimentacao)*(-1)) vl_recurso,
+                                      0 vl_glosa,
+                                      0 vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa IS NOT NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural <> '3.1.2.1.1'
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S')
+                                GROUP BY mg.cd_itcon_rec
+                                UNION ALL
+                               SELECT mg.cd_itcon_rec,
+                                      0 vl_recurso ,
+                                      (Sum(mg.vl_movimentacao)) vl_glosa ,
+                                      0 vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa IS NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                                GROUP BY mg.cd_itcon_rec
+                                UNION ALL
+                               SELECT mg.cd_itcon_rec,
+                                      0 vl_recurso ,
+                                      0 vl_glosa,
+                                      (Sum(mg.vl_movimentacao)) vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa IS NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural IN( '3.1.2.1.2')
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+                                GROUP BY mg.cd_itcon_rec )
+                       GROUP BY cd_itcon_rec) a,
+                     dbamv.itcon_rec it
+           WHERE it.cd_itcon_rec = a.cd_itcon_rec(+)) itcon_rec,
+        dbamv.con_rec
+  WHERE con_rec.cd_previsao IS NULL
+    AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+    AND trunc(itcon_rec.dt_vencimento) >= trunc(:CAMPO_DATA_BASE)
+    AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+    AND NVL (itcon_rec.vl_duplicata, 0) > (NVL(reccon_rec.vl_recebido,0) + NVL(itcon_rec.vl_glosa,0)     -  NVL(reccon_rec.vl_recurso,0)  -  NVL(itcon_rec.vl_recurso,0))
+    AND itcon_rec.cd_con_rec_agrup IS NULL
+        :CAMPO_CF_CD_REDUZIDO) x
+      ,dbamv.plano_contabil pc
+      ,dbamv.plano_estr pe
+   WHERE pc.cd_reduzido (+) = x.cd_reduzido
+     AND pe.cd_plano_estr  = pc.cd_plano_estr
+     AND pe.cd_plano (+) = :CAMPO_CD_PLANO
+  GROUP BY x.tp_conta_ana
+		 ,x.nm_cliente
+		 ,x.nr_documento
+		 ,x.cd_multi_empresa
+		 ,pe.cd_reduzido
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,x.cd_con_rec
+		 ,x.dt_prevista_recebimento
+		 ,x.dt_emissao,nm_cliente1
+  ORDER BY x.cd_multi_empresa
+		  ,pe.cd_reduzido
+		  ,x.tp_conta_ana
+		  ,x.nm_cliente
+		  ,x.cd_con_rec
+  )
+WHERE (valor_vencido_ana > 0) OR (valor_a_vencer_ana > 0)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_ARECEB_POSICAO_R_EMPRESA_ANA_Q_ANALITICO2
+select * from(
+SELECT  tp_conta_ana,
+        nm_cliente nm_cliente_ana,
+        nr_documento nr_documento_ana,
+        nr_ncf nr_ncf_ana,
+        cd_con_rec    cd_con_rec_ana,
+        cd_reduzido cd_reduzido_ana,
+        Decode(:CAMPO_SN_AGRUPADO,'S',Cd_Multi_Empresa, NULL) Cd_multi_empresa_ana,
+        SUM (NVL (valor_previsto_v, 0) - NVL (valor_recebido_v, 0) - NVL(valor_glosa_v,0) + Nvl(valor_recurso_v,0)) valor_vencido_ana,
+        SUM (NVL (valor_previsto_av, 0) - NVL (valor_recebido_av, 0) - NVL (valor_glosa_av,0) + Nvl(valor_recurso_av,0)) valor_a_vencer_ana,
+    dt_emissao,
+    dt_prevista_recebimento,
+    nm_cliente1
+  FROM  ( SELECT con_rec.tp_con_rec tp_conta_ana,
+                 con_rec.nm_cliente nm_cliente,
+         Decode (con_rec.cd_fornecedor,NULL,con_rec.nm_cliente,con_rec.cd_fornecedor||'-'||con_rec.nm_cliente) nm_cliente1,
+                 con_rec.nr_documento nr_documento,
+                 con_rec.nr_ncf nr_ncf,
+                 con_rec.cd_multi_empresa cd_multi_empresa,
+                 con_rec.cd_con_rec cd_con_rec,
+                 con_rec.cd_reduzido cd_reduzido,
+                 itcon_rec.vl_duplicata valor_previsto_v,
+                 itcon_rec.dt_cancelamento,
+                 reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_v,
+                 (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_v,
+                 Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_v,
+                 TO_NUMBER (NULL) valor_previsto_av,
+                 TO_NUMBER (NULL) valor_recebido_av,
+                 TO_NUMBER (NULL) valor_glosa_av,
+                 TO_NUMBER (NULL) valor_recurso_av,
+         con_rec.dt_emissao,
+         itcon_rec.dt_prevista_recebimento
+      FROM ( SELECT recebimento.cd_itcon_rec,
+                          SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                          SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa,
+                          Sum(Decode(Nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                     FROM ( SELECT reccon_rec.cd_itcon_rec,
+                                   nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                                   reccon_rec.vl_recebido vl_liq_recebido,
+                                   reccon_rec.vl_acrescimo vl_acrescimo,
+                                   reccon_rec.vl_desconto vl_desconto,
+                                   SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                                   reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                              FROM dbamv.reccon_rec,
+                                   dbamv.it_recebimento
+                             WHERE trunc(reccon_rec.dt_recebimento) <= trunc(:CAMPO_DATA_BASE)
+                               AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > trunc(:CAMPO_DATA_BASE))
+                               AND reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                             GROUP BY reccon_rec.cd_itcon_rec,
+                                      reccon_rec.dt_recebimento,
+                                      reccon_rec.vl_recebido,
+                                      reccon_rec.vl_desconto,
+                                      reccon_rec.vl_acrescimo,
+                                      reccon_rec.vl_imposto_retido,
+                                      reccon_rec.cd_reccon_rec,
+                                      reccon_rec.cd_remessa_glosa) recebimento 
+                    GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+                 ( SELECT it.cd_itcon_rec,
+                          it.cd_con_rec,
+                          it.dt_vencimento,
+                          it.cd_con_rec_agrup,
+                          it.vl_duplicata,
+                          a.vl_recurso,
+                          a.vl_glosa,
+                          a.vl_aceite,
+                          it.dt_cancelamento,
+                          it.dt_prevista_recebimento
+                     FROM ( SELECT cd_itcon_rec,
+                                   Sum(vl_recurso) vl_recurso,
+                                   Sum(vl_glosa) vl_glosa,
+                                   Sum(vl_aceite) vl_aceite
+                              FROM ( SELECT mg.cd_itcon_rec,
+                                            Sum(mg.vl_movimentacao) vl_recurso,
+                                            0 vl_glosa,
+                                            0 vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa in ( SELECT rg.cd_remessa_glosa
+                                                                       FROM dbamv.remessa_glosa rg
+                                                                      WHERE rg.cd_remessa_glosa_pai is null)
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural = '3.1.2.1.1'
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+                                      GROUP BY mg.cd_itcon_rec
+                                      UNION ALL
+                                     SELECT mg.cd_itcon_rec,
+                                            (Sum(mg.vl_movimentacao)*(-1)) vl_recurso,
+                                            0 vl_glosa,
+                                            0 vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa IS NOT NULL
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural <> '3.1.2.1.1'
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S' )
+                                      GROUP BY mg.cd_itcon_rec
+                                      UNION ALL
+                                     SELECT mg.cd_itcon_rec,
+                                            0 vl_recurso ,
+                                            (Sum(mg.vl_movimentacao)) vl_glosa ,
+                                            0 vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa IS NULL
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                                      GROUP BY mg.cd_itcon_rec
+                                      UNION ALL
+                                     SELECT mg.cd_itcon_rec,
+                                            0 vl_recurso ,
+                                            0 vl_glosa,
+                                            (Sum(mg.vl_movimentacao)) vl_aceite
+                                       FROM dbamv.mov_glosas mg,
+                                            dbamv.processo pr
+                                      WHERE mg.cd_remessa_glosa IS NULL
+                                        AND mg.cd_processo = pr.cd_processo
+                                        AND pr.cd_estrutural IN( '3.1.2.1.2')
+                                        AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                        AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+                                      GROUP BY mg.cd_itcon_rec)
+                             GROUP BY cd_itcon_rec) a,
+                          dbamv.itcon_rec it
+                    WHERE it.cd_itcon_rec = a.cd_itcon_rec(+)) itcon_rec
+              ,dbamv.con_rec
+        WHERE con_rec.cd_previsao IS NULL
+          AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+          AND trunc(itcon_rec.dt_vencimento) < trunc(:CAMPO_DATA_BASE)
+          AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+          AND Nvl (itcon_rec . vl_duplicata, 0) > (Nvl (reccon_rec . vl_recebido, 0) + Nvl (itcon_rec . vl_glosa, 0)     - Nvl (reccon_rec . vl_recurso, 0)  + Nvl (itcon_rec . vl_recurso, 0))
+          AND itcon_rec.cd_con_rec_agrup IS NULL
+        UNION ALL
+       SELECT con_rec.tp_con_rec tp_conta_ana,
+              con_rec.nm_cliente nm_cliente,
+         Decode (con_rec.cd_fornecedor,NULL,con_rec.nm_cliente,con_rec.cd_fornecedor||'-'||con_rec.nm_cliente) nm_cliente1,
+              con_rec.nr_documento,
+              con_rec.nr_ncf,
+              cd_multi_empresa cd_multi_empresa,
+              con_rec.cd_con_rec cd_con_rec,
+              con_rec.cd_reduzido cd_reduzido,
+              TO_NUMBER (NULL) valor_previsto_v,
+              itcon_rec.dt_cancelamento,
+              TO_NUMBER (NULL) valor_recebido_v,
+              TO_NUMBER (NULL) valor_glosa_v,
+              TO_NUMBER (NULL) valor_recurso_v,
+              itcon_rec.vl_duplicata valor_previsto_av,
+              reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_av,
+              (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_av,
+              Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_av,
+        con_rec.dt_emissao,
+        itcon_rec.dt_prevista_recebimento
+         FROM (SELECT recebimento.cd_itcon_rec,
+                      SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                      SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa,
+                      SUM(DECODE(nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                      FROM ( SELECT reccon_rec.cd_itcon_rec,
+                                    nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                                    reccon_rec.vl_recebido vl_liq_recebido,
+                                    reccon_rec.vl_acrescimo vl_acrescimo,
+                                    reccon_rec.vl_desconto vl_desconto,
+                                    SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                                    reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                               FROM dbamv.reccon_rec,
+                                    dbamv.it_recebimento
+                              WHERE trunc(reccon_rec.dt_recebimento) <= trunc(:CAMPO_DATA_BASE)
+                                AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > trunc(:CAMPO_DATA_BASE))
+                                AND   reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                              GROUP BY reccon_rec.cd_itcon_rec,
+                                       reccon_rec.dt_recebimento,
+                                       reccon_rec.vl_recebido,
+                                       reccon_rec.vl_desconto,
+                                       reccon_rec.vl_acrescimo,
+                                       reccon_rec.vl_imposto_retido,
+                                       reccon_rec.cd_reccon_rec,
+                                       reccon_rec.cd_remessa_glosa) recebimento 
+                     GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+              (SELECT it.cd_itcon_rec,
+                      it.cd_con_rec,
+                      it.dt_vencimento,
+                      it.cd_con_rec_agrup,
+                      it.vl_duplicata,
+                      a.vl_recurso,
+                      a.vl_glosa,
+                      a.vl_aceite,
+                      it.dt_cancelamento,
+                      it.dt_prevista_recebimento
+                FROM (SELECT cd_itcon_rec,
+                             Sum(vl_recurso) vl_recurso,
+                             Sum(vl_glosa) vl_glosa,
+                             Sum(vl_aceite) vl_aceite
+                        FROM ( SELECT mg.cd_itcon_rec,
+                                      Sum(mg.vl_movimentacao) vl_recurso,
+                                      0 vl_glosa,
+                                      0 vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa in ( SELECT rg.cd_remessa_glosa
+                                                                 FROM dbamv.remessa_glosa rg
+                                                                WHERE rg.cd_remessa_glosa_pai is null)
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural = '3.1.2.1.1'
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+                                GROUP BY mg.cd_itcon_rec
+                                UNION ALL
+                               SELECT mg.cd_itcon_rec,
+                                      (Sum(mg.vl_movimentacao)*(-1)) vl_recurso,
+                                      0 vl_glosa,
+                                      0 vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa IS NOT NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural <> '3.1.2.1.1'
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S')
+                                GROUP BY mg.cd_itcon_rec
+                                UNION ALL
+                               SELECT mg.cd_itcon_rec,
+                                      0 vl_recurso ,
+                                      (Sum(mg.vl_movimentacao)) vl_glosa ,
+                                      0 vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa IS NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                                GROUP BY mg.cd_itcon_rec
+                                UNION ALL
+                               SELECT mg.cd_itcon_rec,
+                                      0 vl_recurso ,
+                                      0 vl_glosa,
+                                      (Sum(mg.vl_movimentacao)) vl_aceite
+                                 FROM dbamv.mov_glosas mg,
+                                      dbamv.processo pr
+                                WHERE mg.cd_remessa_glosa IS NULL
+                                  AND mg.cd_processo = pr.cd_processo
+                                  AND pr.cd_estrutural IN( '3.1.2.1.2')
+                                  AND Trunc (mg.dt_movimentacao) <= trunc(:CAMPO_DATA_BASE)
+                                  AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+                                GROUP BY mg.cd_itcon_rec )
+                       GROUP BY cd_itcon_rec) a,
+                     dbamv.itcon_rec it
+           WHERE it.cd_itcon_rec = a.cd_itcon_rec(+)) itcon_rec,
+        dbamv.con_rec
+  WHERE con_rec.cd_previsao IS NULL
+    AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+    AND trunc(itcon_rec.dt_vencimento) >= trunc(:CAMPO_DATA_BASE)
+    AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+    AND NVL (itcon_rec.vl_duplicata, 0) > (NVL(reccon_rec.vl_recebido,0) + NVL(itcon_rec.vl_glosa,0)     -  NVL(reccon_rec.vl_recurso,0)  -  NVL(itcon_rec.vl_recurso,0))
+    AND itcon_rec.cd_con_rec_agrup IS NULL
+        :CAMPO_CF_CD_REDUZIDO)
+  GROUP BY tp_conta_ana, nm_cliente, nr_documento,nr_ncf, cd_multi_empresa , cd_reduzido ,  cd_con_rec, dt_prevista_recebimento,
+         dt_emissao,nm_cliente1
+  ORDER BY cd_multi_empresa, cd_reduzido, tp_conta_ana,nm_cliente, cd_con_rec )
+WHERE (valor_vencido_ana > 0) OR (valor_a_vencer_ana > 0)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_ARECEB_POSICAO_R_EMPRESA_ANA_Q_ANALITICO_DADOS_PACIENTE
+SELECT   tp_conta_ana,
+         nm_cliente nm_cliente_ana,
+         nr_documento nr_documento_ana,
+         cd_con_rec    cd_con_rec_ana,
+         cd_reduzido cd_reduzido_ana,
+         Decode(:CAMPO_SN_AGRUPADO,'S',Cd_Multi_Empresa, NULL) Cd_multi_empresa_ana
+         , SUM (NVL (valor_previsto_v, 0) - NVL (valor_recebido_v, 0) - NVL(valor_glosa_v,0) + Nvl(valor_recurso_v,0)) valor_vencido_ana
+         , SUM (NVL (valor_previsto_av, 0) - NVL (valor_recebido_av, 0) - NVL (valor_glosa_av,0) + Nvl(valor_recurso_av,0)) valor_a_vencer_ana
+    FROM (SELECT con_rec.tp_con_rec tp_conta_ana,
+                 con_rec.nm_cliente nm_cliente,
+                 con_rec.nr_documento nr_documento,
+                 con_rec.cd_multi_empresa cd_multi_empresa,
+                 con_rec.cd_con_rec cd_con_rec,
+                 con_rec.cd_reduzido cd_reduzido,
+                 itcon_rec.vl_duplicata valor_previsto_v,
+                 itcon_rec.dt_cancelamento,
+                 reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_v,
+                 (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_v,
+                 Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_v,
+                 TO_NUMBER (NULL) valor_previsto_av,
+                 TO_NUMBER (NULL) valor_recebido_av,
+                 TO_NUMBER (NULL) valor_glosa_av,
+                 TO_NUMBER (NULL) valor_recurso_av
+            FROM (SELECT   recebimento.cd_itcon_rec,
+                          SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                          SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa,
+                          Sum(Decode(Nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                      FROM (   SELECT reccon_rec.cd_itcon_rec,
+                                                    nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                                                    reccon_rec.vl_recebido vl_liq_recebido,
+                                                    reccon_rec.vl_acrescimo vl_acrescimo,
+                                                    reccon_rec.vl_desconto vl_desconto,
+                                                    SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                                                    reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                                       FROM   dbamv.reccon_rec,
+                                                    dbamv.it_recebimento
+                                    WHERE  trunc(reccon_rec.dt_recebimento) <= :CAMPO_DATA_BASE
+                                      AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > :CAMPO_DATA_BASE)
+                                      AND reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                               GROUP BY  reccon_rec.cd_itcon_rec,reccon_rec.dt_recebimento,reccon_rec.vl_recebido,reccon_rec.vl_desconto,reccon_rec.vl_acrescimo,reccon_rec.vl_imposto_retido, reccon_rec.cd_reccon_rec, reccon_rec.cd_remessa_glosa) recebimento 
+                GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+                 (SELECT it.cd_itcon_rec,
+                       it.cd_con_rec,
+                       it.dt_vencimento,
+                        it.cd_con_rec_agrup,
+                        it.vl_duplicata,
+                        a.vl_recurso,
+                        a.vl_glosa,
+                        a.vl_aceite,
+						            it.dt_cancelamento
+                  FROM (
+                  SELECT cd_itcon_rec, Sum(vl_recurso) vl_recurso, Sum(vl_glosa) vl_glosa, Sum(vl_aceite) vl_aceite
+                  FROM (
+                  SELECT mg.cd_itcon_rec, Sum(mg.vl_movimentacao) vl_recurso, 0 vl_glosa, 0 vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa in (select rg.cd_remessa_glosa from dbamv.remessa_glosa rg
+                                                                          where rg.cd_remessa_glosa_pai is null)
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural = '3.1.2.1.1'
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+                  GROUP BY mg.cd_itcon_rec
+                  UNION ALL
+                  SELECT mg.cd_itcon_rec, (Sum(mg.vl_movimentacao)*(-1)) vl_recurso, 0 vl_glosa, 0 vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa IS NOT NULL
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural <> '3.1.2.1.1'
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S' )
+                  GROUP BY mg.cd_itcon_rec
+                  UNION ALL
+                  SELECT mg.cd_itcon_rec, 0 vl_recurso , (Sum(mg.vl_movimentacao)) vl_glosa , 0 vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa IS NULL
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                  GROUP BY mg.cd_itcon_rec
+                  UNION ALL
+                  SELECT mg.cd_itcon_rec, 0 vl_recurso , 0 vl_glosa, (Sum(mg.vl_movimentacao)) vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa IS NULL
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural IN( '3.1.2.1.2')
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+                  GROUP BY mg.cd_itcon_rec
+                  ) GROUP BY cd_itcon_rec) a, dbamv.itcon_rec it
+                WHERE it.cd_itcon_rec = a.cd_itcon_rec(+)) itcon_rec,
+                 dbamv.con_rec
+           WHERE con_rec.cd_previsao IS NULL
+             AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+             AND trunc(itcon_rec.dt_vencimento) < :CAMPO_DATA_BASE
+             AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+             AND Nvl (itcon_rec . vl_duplicata, 0) > (Nvl (reccon_rec . vl_recebido, 0) +
+                                                      Nvl (itcon_rec . vl_glosa, 0)     -
+                                                      Nvl (reccon_rec . vl_recurso, 0)  -
+                                                      Nvl (itcon_rec . vl_recurso, 0))
+            AND itcon_rec.cd_con_rec_agrup IS NULL
+          UNION ALL
+          SELECT con_rec.tp_con_rec tp_conta_ana,
+                 con_rec.nm_cliente nm_cliente,
+                 con_rec.nr_documento,
+                 cd_multi_empresa cd_multi_empresa,
+                 con_rec.cd_con_rec cd_con_rec,
+                 con_rec.cd_reduzido cd_reduzido,
+                 TO_NUMBER (NULL) valor_previsto_v,
+				         itcon_rec.dt_cancelamento,
+                 TO_NUMBER (NULL) valor_recebido_v,
+                 TO_NUMBER (NULL) valor_glosa_v,
+                 TO_NUMBER (NULL) valor_recurso_v,
+                 itcon_rec.vl_duplicata valor_previsto_av,
+                 reccon_rec.vl_recebido - (Decode(:CAMPO_SN_CONTABILIZA_RECEB_RECURSO,'S',0,reccon_rec.vl_recurso))valor_recebido_av,
+                 (itcon_rec.vl_glosa + itcon_rec.vl_aceite) valor_glosa_av,
+                 Decode(:CAMPO_SN_CONTABILIZA_ENTREGA_REC,'S',itcon_rec.vl_recurso,0) valor_recurso_av
+            FROM (SELECT  recebimento.cd_itcon_rec,
+                          SUM (nvl(recebimento.vl_recebido,0)) vl_recebido,
+                          SUM(nvl(recebimento.vl_glosa ,0)) vl_glosa,
+                          SUM(DECODE(nvl(recebimento.cd_remessa_glosa,0),0,0,vl_recebido)) vl_recurso
+                      FROM (   SELECT reccon_rec.cd_itcon_rec,
+                                                    nvl(reccon_rec.vl_recebido,0) + nvl(reccon_rec.vl_desconto,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0) vl_recebido,
+                                                    reccon_rec.vl_recebido vl_liq_recebido,
+                                                    reccon_rec.vl_acrescimo vl_acrescimo,
+                                                    reccon_rec.vl_desconto vl_desconto,
+                                                    SUM(nvl(it_recebimento.vl_glosa ,0)) vl_glosa,
+                                                    reccon_rec.cd_remessa_glosa cd_remessa_glosa
+                                       FROM   dbamv.reccon_rec,
+                                                    dbamv.it_recebimento
+                                    WHERE  trunc(reccon_rec.dt_recebimento) <= :CAMPO_DATA_BASE
+                                      AND (reccon_rec.dt_estorno  IS NULL  OR trunc(reccon_rec.dt_estorno) > :CAMPO_DATA_BASE)
+                                      AND   reccon_rec.cd_reccon_rec  = it_recebimento.cd_reccon_rec (+)
+                               GROUP BY  reccon_rec.cd_itcon_rec,reccon_rec.dt_recebimento,reccon_rec.vl_recebido,reccon_rec.vl_desconto,reccon_rec.vl_acrescimo,reccon_rec.vl_imposto_retido, reccon_rec.cd_reccon_rec, reccon_rec.cd_remessa_glosa) recebimento 
+                 GROUP BY recebimento.cd_itcon_rec) reccon_rec,
+                 (SELECT it.cd_itcon_rec,
+                       it.cd_con_rec,
+                       it.dt_vencimento,
+                        it.cd_con_rec_agrup,
+                        it.vl_duplicata,
+                        a.vl_recurso,
+                        a.vl_glosa,
+                        a.vl_aceite,
+						            it.dt_cancelamento
+                  FROM (
+                  SELECT cd_itcon_rec, Sum(vl_recurso) vl_recurso, Sum(vl_glosa) vl_glosa, Sum(vl_aceite) vl_aceite
+                  FROM (
+                  SELECT mg.cd_itcon_rec, Sum(mg.vl_movimentacao) vl_recurso, 0 vl_glosa, 0 vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa in (select rg.cd_remessa_glosa from dbamv.remessa_glosa rg
+                                                                          where rg.cd_remessa_glosa_pai is null)
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural = '3.1.2.1.1'
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_ENTREGA_REC = 'S')
+                  GROUP BY mg.cd_itcon_rec
+                  UNION ALL
+                  SELECT mg.cd_itcon_rec, (Sum(mg.vl_movimentacao)*(-1)) vl_recurso, 0 vl_glosa, 0 vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa IS NOT NULL
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural <> '3.1.2.1.1'
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_RECEB_RECURSO = 'S')
+                  GROUP BY mg.cd_itcon_rec
+                  UNION ALL
+                  SELECT mg.cd_itcon_rec, 0 vl_recurso , (Sum(mg.vl_movimentacao)) vl_glosa , 0 vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa IS NULL
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural NOT IN( '3.1.2.1.2','3.1.2.1.3')
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_RECEB_GLOSA = 'S')
+                  GROUP BY mg.cd_itcon_rec
+                  UNION ALL
+                  SELECT mg.cd_itcon_rec, 0 vl_recurso , 0 vl_glosa, (Sum(mg.vl_movimentacao)) vl_aceite
+                  FROM dbamv.mov_glosas mg, dbamv.processo pr
+                  WHERE mg.cd_remessa_glosa IS NULL
+                  AND mg.cd_processo = pr.cd_processo
+                  AND pr.cd_estrutural IN( '3.1.2.1.2')
+                  AND Trunc (mg.dt_movimentacao) <= :CAMPO_DATA_BASE
+                  AND (:CAMPO_SN_CONTABILIZA_GLOSA_ACEITA = 'S')
+                  GROUP BY mg.cd_itcon_rec
+                  ) GROUP BY cd_itcon_rec) a, dbamv.itcon_rec it
+                WHERE it.cd_itcon_rec = a.cd_itcon_rec(+)) itcon_rec,
+                 dbamv.con_rec
+           WHERE con_rec.cd_previsao IS NULL
+             AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+             AND trunc(itcon_rec.dt_vencimento) >= :CAMPO_DATA_BASE
+             AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+             AND NVL (itcon_rec.vl_duplicata, 0) > (NVL(reccon_rec.vl_recebido,0) +
+                                                    NVL(itcon_rec.vl_glosa,0)     -
+                                                    NVL(reccon_rec.vl_recurso,0)  -
+                                                    NVL(itcon_rec.vl_recurso,0))
+            AND itcon_rec.cd_con_rec_agrup IS NULL
+:CAMPO_CF_CD_REDUZIDO)
+GROUP BY tp_conta_ana, nm_cliente, nr_documento, cd_multi_empresa , cd_reduzido ,  cd_con_rec

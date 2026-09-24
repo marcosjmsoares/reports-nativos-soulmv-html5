@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_AGENDA_CIRURGIA
+SELECT * FROM
+  (SELECT aviso_cirurgia.dt_realizacao dt_realizacao ,
+          aviso_cirurgia.cd_aviso_cirurgia cd_aviso_cirurgia ,
+          aviso_cirurgia.cd_paciente cd_paciente ,
+          paciente.nm_paciente nm_paciente ,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND AVISO_CIRURGIA.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          to_char(aviso_cirurgia.dt_inicio_cirurgia, 'hh24') dt_inicio_cirurgia ,
+          to_char(aviso_cirurgia.dt_fim_cirurgia, 'hh24') dt_fim_cirurgia ,
+          aviso_cirurgia.dt_confirmacao dt_confirmacao ,
+          trunc(aviso_cirurgia.dt_confirmacao - aviso_cirurgia.dt_realizacao) tempo_espera ,
+          aviso_cirurgia.cd_cen_cir cd_cen_cir ,
+          cen_cir.ds_cen_cir ds_cen_cir ,
+          aviso_cirurgia.cd_sal_cir cd_sal_cir ,
+          sal_cir.ds_sal_cir ds_sal_cir ,
+          aviso_cirurgia.tp_situacao,
+          usuarios.nm_usuario nm_usuario
+   FROM dbamv.aviso_cirurgia ,
+        dbamv.paciente ,
+        dbasgu.usuarios ,
+        dbamv.cen_cir ,
+        dbamv.sal_cir
+   WHERE aviso_cirurgia.cd_paciente = paciente.cd_paciente(+)
+     AND aviso_cirurgia.cd_cen_cir = cen_cir.cd_cen_cir
+     AND aviso_cirurgia.cd_sal_cir = sal_cir.cd_sal_cir(+)
+     AND aviso_cirurgia.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+     AND aviso_cirurgia.cd_usuario_confirma = usuarios.cd_usuario
+     AND aviso_cirurgia.tp_situacao = 'R'
+     AND aviso_cirurgia.dt_realizacao BETWEEN To_Date(Concat(To_Char(:CAMPO_DT_INICIAL,'dd/mm/yyyy'), '00'), 'dd/mm/yyyy hh24') AND To_Date(Concat(To_Char(:CAMPO_DT_FINAL,'dd/mm/yyyy'), '23'), 'dd/mm/yyyy hh24')  :CAMPO_CF_COND_CD_SAL_CIR )
+ORDER BY DS_CEN_CIR,
+         CD_CEN_CIR,
+         DS_SAL_CIR,
+         CD_SAL_CIR

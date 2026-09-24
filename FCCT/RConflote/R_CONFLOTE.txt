@@ -1,0 +1,100 @@
+/*----------------------------------------------------------------------------*/
+--R_CONFLOTE
+SELECT A.CD_LOTE       CD_LOTE
+          ,A.DS_LOTE           DS_LOTE
+          ,A.DT_LCTO          DT_LCTO
+          ,A.CD_MVTO         CD_MVTO
+          ,A.VL_LANCADO   VL_LANCADO
+          ,A.CD_DEB            CD_DEB
+          ,A.CD_CRE            CD_CRE
+          ,A.DS_DEB            DS_DEB
+          ,A.DS_CRE            DS_CRE
+          ,A.VL_DEB            VL_DEB
+          ,A.VL_CRE            VL_CRE
+          ,A.DS_COMP         DS_COMP
+FROM (
+SELECT     LOTE.CD_LOTE                 CD_LOTE
+          ,LOTE.DS_LOTE                 DS_LOTE
+          ,TRUNC( LCTO.DT_LCTO )        DT_LCTO
+          ,LCTO.CD_LCTO_MOVIMENTO       CD_MVTO
+          ,LCTO.VL_LANCADO              VL_LANCADO
+          ,PC_D.CD_CONTABIL             CD_DEB
+          ,PC_C.CD_CONTABIL             CD_CRE
+          ,PC_D.DS_CONTA             DS_DEB
+          ,PC_C.DS_CONTA             DS_CRE
+          ,DECODE( LCTO.CD_REDUZIDO_DEBITO, NULL, 0, LCTO.VL_LANCADO )  VL_DEB
+          ,DECODE( LCTO.CD_REDUZIDO_CREDITO, NULL, 0, LCTO.VL_LANCADO )  VL_CRE
+          ,LTRIM( HP.DS_HISTORICO_PADRAO || ' ' || LCTO.DS_COMPLEMENTO ) DS_COMP
+FROM       DBAMV.LOTE                   LOTE
+          ,DBAMV.LCTO_CONTABIL          LCTO
+          ,DBAMV.PLANO_CONTAS           PC_D
+          ,DBAMV.PLANO_CONTAS           PC_C
+          ,DBAMV.HISTORICO_PADRAO       HP
+WHERE     LCTO.CD_LOTE                 		= LOTE.CD_LOTE
+AND        LOTE.CD_MULTI_EMPRESA        	= :CAMPO_CD_MULTI_EMPRESA
+AND        LCTO.CD_REDUZIDO_DEBITO      	= PC_D.CD_REDUZIDO(+)
+AND        LCTO.CD_REDUZIDO_CREDITO     	= PC_C.CD_REDUZIDO(+)
+AND        LCTO.CD_HISTORICO_PADRAO     	= HP.CD_HISTORICO_PADRAO(+)
+AND        (LCTO.CD_LANC_AGRUP IS NULL AND :CAMPO_SN_AGRUPA_DEP = '1' OR :CAMPO_SN_AGRUPA_DEP = '0')
+UNION ALL
+SELECT     LOTE.CD_LOTE                 CD_LOTE
+          ,LOTE.DS_LOTE                 DS_LOTE
+          ,TRUNC( LCTO.DT_LCTO )        DT_LCTO
+          ,LCTO.CD_LCTO_MOVIMENTO       CD_MVTO
+          ,LCTO.VL_LANCADO              VL_LANCADO
+          ,PC_D.CD_CONTABIL             CD_DEB
+          ,PC_C.CD_CONTABIL             CD_CRE
+          ,PC_D.DS_CONTA             DS_DEB
+          ,PC_C.DS_CONTA             DS_CRE
+          ,DECODE( LCTO.CD_REDUZIDO_DEBITO, NULL, 0, LCTO.VL_LANCADO )  VL_DEB
+          ,DECODE( LCTO.CD_REDUZIDO_CREDITO, NULL, 0, LCTO.VL_LANCADO )  VL_CRE
+          ,LTRIM( HP.DS_HISTORICO_PADRAO || ' ' || LCTO.DS_COMPLEMENTO ) DS_COMP
+FROM       DBAMV.LOTE                   LOTE
+          ,DBAMV.PLANO_CONTAS           PC_D
+          ,DBAMV.PLANO_CONTAS           PC_C
+          ,DBAMV.HISTORICO_PADRAO       HP
+          ,(select lcto.dt_lcto,
+                       min(cd_lcto_movimento) cd_lcto_movimento,
+                       lcto.cd_reduzido_debito,
+                       lcto.cd_reduzido_credito,
+                       sum(vl_lancado) vl_lancado,
+                       lcto.cd_historico_padrao,
+                       'DEPOSITO AGRUPADO' ds_complemento,
+                       lcto.cd_lote,
+                       lcto.cd_lanc_agrup
+                from  dbamv.lcto_contabil lcto
+                where lcto.cd_lanc_agrup is not null
+                  and lcto.cd_reduzido_debito is not null
+                  and :CAMPO_SN_AGRUPA_DEP = '1'
+                group by lcto.dt_lcto,
+                         lcto.cd_reduzido_debito,
+                         lcto.cd_reduzido_credito,
+                         lcto.cd_historico_padrao,
+                         lcto.cd_lote,
+                         lcto.cd_lanc_agrup
+                UNION
+                select lcto.dt_lcto,
+                       min(lcto.cd_lcto_movimento) cd_lcto_movimento,
+                       lcto.cd_reduzido_debito,
+                       lcto.cd_reduzido_credito,
+                       sum(lcto.vl_lancado) vl_lancado,
+                       lcto.cd_historico_padrao,
+                       'DEPOSITO AGRUPADO' ds_complemento,
+                       lcto.cd_lote,
+                       lcto.cd_lanc_agrup
+                from  dbamv.lcto_contabil lcto
+                where lcto.cd_lanc_agrup is not null
+                  and  lcto.cd_reduzido_credito is not null
+                  and :CAMPO_SN_AGRUPA_DEP = '1'
+                group by lcto.dt_lcto,
+                         lcto.cd_reduzido_debito,
+                         lcto.cd_reduzido_credito,
+                         lcto.cd_historico_padrao,
+                         lcto.cd_lote,
+                         lcto.cd_lanc_agrup         ) LCTO
+WHERE       LCTO.CD_LOTE                 		= LOTE.CD_LOTE
+AND        LOTE.CD_MULTI_EMPRESA        	= :CAMPO_CD_MULTI_EMPRESA
+AND        LCTO.CD_REDUZIDO_DEBITO      	= PC_D.CD_REDUZIDO(+)
+AND        LCTO.CD_REDUZIDO_CREDITO     	= PC_C.CD_REDUZIDO(+)
+AND        LCTO.CD_HISTORICO_PADRAO     	= HP.CD_HISTORICO_PADRAO(+)
+:CAMPO_CF_ORDENACAO) A

@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_CONSOLIDACAO_DIARIA_CONTABIL
+SELECT   CONEST_EXT.DT_MOVIMENTACAO            DT_MOVIMENTACAO, 
+             CONEST_EXT.CD_PRODUTO                 CD_PRODUTO,
+             CONEST_EXT.CD_ESTOQUE                 CD_ESTOQUE,
+             PRD.DS_PRODUTO                        DS_PRODUTO,
+             CONEST_EXT.CD_REDUZIDO_DESPESA        CD_CONTA_DEBITO, 
+             CONEST_EXT.CD_REDUZIDO_RECEITA        CD_CONTA_CREDITO,
+             (SELECT  SUM(CASE WHEN TP_ESP_MOVIMENTACAO = 'E' 
+                                      OR (TP_MOVIMENTACAO = 'I' AND TP_ESP_MOVIMENTACAO = 'E')  
+                                        OR (TP_ESP_MOVIMENTACAO = 'S' AND TP_MOVIMENTACAO = 'C')  
+                                          OR (TP_ESP_MOVIMENTACAO = 'S' AND TP_MOVIMENTACAO = 'D')
+                                            OR (TP_ESP_MOVIMENTACAO = 'E' AND TP_MOVIMENTACAO = 'V')
+                                              THEN QT_MOVIMENTACAO ELSE 0 END) 
+                  FROM C_CONEST_DIARIO CONEST_INT  
+                     WHERE CONEST_INT.CD_PRODUTO = CONEST_EXT.CD_PRODUTO 
+                         AND   CONEST_INT.DT_MOVIMENTACAO = CONEST_EXT.DT_MOVIMENTACAO
+                            AND   CONEST_INT.CD_ESTOQUE = CONEST_EXT.CD_ESTOQUE 
+                               AND CONEST_INT.CD_SETOR = CONEST_EXT.CD_SETOR) 
+             QT_ENTRADA,
+             (SELECT  SUM(CASE WHEN (TP_ESP_MOVIMENTACAO = 'S'  
+                                        AND NOT (TP_MOVIMENTACAO = 'C' OR  TP_MOVIMENTACAO = 'D' OR   TP_MOVIMENTACAO = 'V'))              
+                                          THEN QT_MOVIMENTACAO ELSE 0 END)  
+                  FROM C_CONEST_DIARIO CONEST_INT 
+                      WHERE CONEST_INT.CD_PRODUTO = CONEST_EXT.CD_PRODUTO  
+                          AND   CONEST_INT.DT_MOVIMENTACAO = CONEST_EXT.DT_MOVIMENTACAO
+                            AND   CONEST_INT.CD_ESTOQUE = CONEST_EXT.CD_ESTOQUE 
+                               AND   CONEST_INT.CD_SETOR = CONEST_EXT.CD_SETOR) 
+             QT_SAIDA
+      FROM C_CONEST_DIARIO  CONEST_EXT,
+           PRODUTO          PRD
+              WHERE  CONEST_EXT.CD_PRODUTO = PRD.CD_PRODUTO 
+              	AND CONEST_EXT.DT_MOVIMENTACAO BETWEEN :CAMPO_DT_INICIO GROUP BY CONEST_EXT.CD_PRODUTO , PRD.DS_PRODUTO,  CONEST_EXT.CD_ESTOQUE, CONEST_EXT.DT_MOVIMENTACAO, CONEST_EXT.CD_SETOR , CONEST_EXT.CD_REDUZIDO_DESPESA, CONEST_EXT.CD_REDUZIDO_RECEITA
+      ORDER BY DT_MOVIMENTACAO , CD_PRODUTO, CD_ESTOQUE

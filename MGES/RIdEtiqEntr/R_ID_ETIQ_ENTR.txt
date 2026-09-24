@@ -1,0 +1,31 @@
+/*----------------------------------------------------------------------------*/
+--R_ID_ETIQ_ENTR
+select to_char(id.cd_identificador, 'fm9999900000000') cd_identificador
+      ,id.cd_produto
+      ,entrada.ds_produto
+      ,entrada.ds_unidade
+      ,id.cd_lote
+      ,id.dt_validade
+from   dbamv.identificador_etiqueta id
+      ,(select itent_pro.cd_produto,
+               Nvl( produto.ds_produto_resumido, produto.ds_produto ) ds_produto,
+               uni_pro.ds_unidade,
+               itlot_ent.cd_lote,
+               itlot_ent.dt_validade
+        from dbamv.itent_pro
+            ,dbamv.itlot_ent
+            ,dbamv.produto
+            ,dbamv.uni_pro
+        where Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+	and itent_pro.cd_ent_pro = :CAMPO_ENTRADA
+        and itent_pro.cd_itent_pro = itlot_ent.cd_itent_pro (+)
+        and itent_pro.cd_produto = produto.cd_produto
+        and itent_pro.cd_uni_pro = uni_pro.cd_uni_pro
+        and produto.sn_imprime_etiqueta in ( 'S', 'F')) entrada
+where  id.cd_produto = entrada.cd_produto
+AND    id.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    NVL(id.cd_lote, 'OK')    = NVL(entrada.cd_lote, 'OK')
+and    NVL(id.dt_validade, SYSDATE) = NVL(entrada.dt_validade, SYSDATE)

@@ -1,0 +1,36 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_SERVICO_FAIXA
+SELECT * FROM (
+SELECT   IT_MARCACAO.CD_SER_DIS  CD_SER_DIS,
+                SER_DIS.DS_SER_DIS             DS_SER_DIS,
+                IT_MARCACAO.CD_TIP_MAR  CD_TIP_MAR,
+                TIP_MAR.DS_TIP_MAR            DS_TIP_MAR,
+                decode(FAIXA_ETARIA.CD_FAIXA_ETARIA, null, 0,  FAIXA_ETARIA.CD_FAIXA_ETARIA) CD_FAIXA_ETARIA,
+                decode(FAIXA_ETARIA.DS_FAIXA_ETARIA, null, 'NÃO INFORMADA', FAIXA_ETARIA.DS_FAIXA_ETARIA) DS_FAIXA_ETARIA,
+                COUNT(*)  QT_AGENDA
+FROM     DBAMV.MARCACAO,
+               DBAMV.IT_MARCACAO,
+               DBAMV.SER_DIS,
+               DBAMV.TIP_MAR,
+               DBAMV.PACIENTE,
+               DBAMV.FAIXA_ETARIA
+WHERE  IT_MARCACAO.CD_ATENDIMENTO IS NOT NULL
+AND        MARCACAO.DT_MARCACAO between to_date(to_char(:CAMPO_DT_INI,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+										to_date(to_char(:CAMPO_DT_FIM,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+AND        MARCACAO.CD_MARCACAO  =  IT_MARCACAO.CD_MARCACAO
+AND        IT_MARCACAO.CD_SER_DIS  =  SER_DIS.CD_SER_DIS
+AND        IT_MARCACAO.CD_TIP_MAR  =  TIP_MAR.CD_TIP_MAR
+AND        IT_MARCACAO.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND        DBAMV.RETORNA_FAIXA_ETARIA(PACIENTE.DT_NASCIMENTO,'C') = FAIXA_ETARIA.CD_FAIXA_ETARIA(+)
+GROUP BY  IT_MARCACAO.CD_SER_DIS,
+                    SER_DIS.DS_SER_DIS,
+                     IT_MARCACAO.CD_TIP_MAR,
+                    TIP_MAR.DS_TIP_MAR,
+                    FAIXA_ETARIA.CD_FAIXA_ETARIA,
+                    FAIXA_ETARIA.DS_FAIXA_ETARIA,
+                    FAIXA_ETARIA.NR_IDADE_INICIAL,
+                    FAIXA_ETARIA.NR_IDADE_FINAL
+)
+ORDER BY CD_SER_DIS,DS_SER_DIS,
+CD_FAIXA_ETARIA,DS_FAIXA_ETARIA,
+CD_TIP_MAR,DS_TIP_MAR

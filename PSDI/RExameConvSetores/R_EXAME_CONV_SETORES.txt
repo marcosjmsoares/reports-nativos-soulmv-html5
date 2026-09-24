@@ -1,0 +1,211 @@
+/*----------------------------------------------------------------------------*/
+--R_EXAME_CONV_SETORES
+SELECT * FROM (
+SELECT SETOR.CD_SETOR                    CD_SETOR
+              ,SETOR.NM_SETOR            NM_SETOR
+              ,SET_EXA.CD_SET_EXA        CD_SET_EXA
+              ,SET_EXA.NM_SET_EXA        NM_SET_EXA
+              ,EXA_RX.CD_EXA_RX          CD_EXA_RX
+              ,EXA_RX.DS_EXA_RX          DS_EXA_RX
+              ,COUNT(*)                  QTDE_EXAME
+              ,(DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                                    ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'U')  +
+DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                          ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'F'))        VALOR_UNIT
+FROM   DBAMV.PED_RX
+            ,DBAMV.CONVENIO
+            ,DBAMV.SET_EXA
+            ,DBAMV.SETOR
+            ,DBAMV.ITPED_RX
+            ,DBAMV.EXA_RX
+            ,DBAMV.ATENDIME
+            ,DBAMV.PRESTADOR
+            ,DBAMV.LAUDO_RX
+WHERE  PED_RX.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        PED_RX.CD_SET_EXA  =  SET_EXA.CD_SET_EXA
+AND        PED_RX.CD_SETOR  =  SETOR.CD_SETOR
+AND        PED_RX.CD_PED_RX  =  ITPED_RX.CD_PED_RX
+AND        ITPED_RX.CD_EXA_RX  =  EXA_RX.CD_EXA_RX
+AND        PED_RX.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        ITPED_RX.CD_LAUDO      =  LAUDO_RX.CD_LAUDO(+)
+AND        NVL(LAUDO_RX.CD_PRESTADOR,NVL(ITPED_RX.CD_PRESTADOR,SET_EXA.CD_PRESTADOR)) = PRESTADOR.CD_PRESTADOR
+GROUP BY  SETOR.CD_SETOR
+                    ,SETOR.NM_SETOR
+                    ,SET_EXA.CD_SET_EXA
+                    ,SET_EXA.NM_SET_EXA
+                    ,EXA_RX.CD_EXA_RX
+                    ,EXA_RX.DS_EXA_RX
+                    ,(DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                                    ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'U')  +
+DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                          ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'F'))
+)
+ORDER BY NM_SETOR,CD_SETOR,
+NM_SET_EXA,CD_SET_EXA,CD_EXA_RX,DS_EXA_RX
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EXAME_CONV_SETORES_R_SET_EXA_RES1_Q_EXAMES_SINTETICO
+SELECT * FROM (
+SELECT CD_SET_EXA                       CD_SET_EXA_SINT
+              ,NM_SET_EXA                      NM_SET_EXA_SINT
+              ,CD_EXA_RX                         CD_EXA_RX_SINT
+              ,DS_EXA_RX                         DS_EXA_RX_SINT
+              ,COUNT(*)                              QTDE_EXAME_SINT
+              ,SUM( VALOR_EXAME)         VALOR_SINT
+FROM (
+SELECT SET_EXA.CD_SET_EXA
+              ,SET_EXA.NM_SET_EXA
+              ,EXA_RX.CD_EXA_RX
+              ,EXA_RX.DS_EXA_RX
+              ,(DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                                    ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'U')  +
+			DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                          ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'F'))      VALOR_EXAME
+FROM   DBAMV.PED_RX
+            ,DBAMV.CONVENIO
+            ,DBAMV.SET_EXA
+            ,DBAMV.SETOR
+            ,DBAMV.ITPED_RX
+            ,DBAMV.EXA_RX
+            ,DBAMV.ATENDIME
+            ,DBAMV.PRESTADOR
+            ,DBAMV.LAUDO_RX
+WHERE  PED_RX.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        PED_RX.CD_SET_EXA  =  SET_EXA.CD_SET_EXA
+AND        PED_RX.CD_SETOR  =  SETOR.CD_SETOR
+AND        PED_RX.CD_PED_RX  =  ITPED_RX.CD_PED_RX
+AND        ITPED_RX.CD_EXA_RX  =  EXA_RX.CD_EXA_RX
+AND        PED_RX.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        ITPED_RX.CD_LAUDO      =  LAUDO_RX.CD_LAUDO(+)
+AND        NVL(LAUDO_RX.CD_PRESTADOR,NVL(ITPED_RX.CD_PRESTADOR,SET_EXA.CD_PRESTADOR)) = PRESTADOR.CD_PRESTADOR
+:CAMPO_CF_SITU_EXAME
+)
+GROUP BY  CD_SET_EXA
+                    ,NM_SET_EXA
+                    ,CD_EXA_RX
+                    ,DS_EXA_RX
+)
+ORDER BY NM_SET_EXA_SINT,CD_SET_EXA_SINT
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EXAME_CONV_SETORES_R_SET_EXA_RES_Q_EXAMES_SINTETICO
+SELECT * FROM (
+SELECT CD_SET_EXA                       CD_SET_EXA_SINT
+              ,NM_SET_EXA                      NM_SET_EXA_SINT
+              ,CD_EXA_RX                         CD_EXA_RX_SINT
+              ,DS_EXA_RX                         DS_EXA_RX_SINT
+              ,COUNT(*)                              QTDE_EXAME_SINT
+              ,SUM( VALOR_EXAME)         VALOR_SINT
+FROM (
+SELECT SET_EXA.CD_SET_EXA
+              ,SET_EXA.NM_SET_EXA
+              ,EXA_RX.CD_EXA_RX
+              ,EXA_RX.DS_EXA_RX
+              ,(DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                                    ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'U')  +
+DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                          ,DECODE(CONVENIO.TP_CONVENIO,
+                                         'A', EXA_RX.CD_PROCEDIMENTO_SIA
+                                       , 'H', EXA_RX.CD_PROCEDIMENTO_SIH
+                                             ,EXA_RX.EXA_RX_CD_PRO_FAT)
+                                            ,PED_RX.DT_PEDIDO
+                                           ,PED_RX.HR_PEDIDO
+                                           ,CONVENIO.CD_CONVENIO
+                                           ,NVL(PED_RX.CD_CON_PLA,1)
+                                           ,ATENDIME.TP_ATENDIMENTO
+                                          ,ATENDIME.CD_TIP_ACOM, 'F'))      VALOR_EXAME
+FROM   DBAMV.PED_RX
+            ,DBAMV.CONVENIO
+            ,DBAMV.SET_EXA
+            ,DBAMV.SETOR
+            ,DBAMV.ITPED_RX
+            ,DBAMV.EXA_RX
+            ,DBAMV.ATENDIME
+            ,DBAMV.PRESTADOR
+            ,DBAMV.LAUDO_RX
+WHERE  PED_RX.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        PED_RX.CD_SET_EXA  =  SET_EXA.CD_SET_EXA
+AND        PED_RX.CD_SETOR  =  SETOR.CD_SETOR
+AND        PED_RX.CD_PED_RX  =  ITPED_RX.CD_PED_RX
+AND        ITPED_RX.CD_EXA_RX  =  EXA_RX.CD_EXA_RX
+AND        PED_RX.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        ITPED_RX.CD_LAUDO      =  LAUDO_RX.CD_LAUDO(+)
+AND        NVL(LAUDO_RX.CD_PRESTADOR,NVL(ITPED_RX.CD_PRESTADOR,SET_EXA.CD_PRESTADOR)) = PRESTADOR.CD_PRESTADOR
+:CAMPO_CF_SITU_EXAME
+)
+GROUP BY  CD_SET_EXA
+                    ,NM_SET_EXA
+                    ,CD_EXA_RX
+                    ,DS_EXA_RX
+)
+ORDER BY NM_SET_EXA_SINT,CD_SET_EXA_SINT

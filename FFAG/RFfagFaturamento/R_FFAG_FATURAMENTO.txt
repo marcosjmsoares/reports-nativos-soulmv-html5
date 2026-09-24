@@ -1,0 +1,70 @@
+/*----------------------------------------------------------------------------*/
+--R_FFAG_FATURAMENTO_R_ITEM_Q_CONTA
+SELECT rfat.*,
+	aten.dt_atendimento,
+        paci.nm_paciente,
+       (Nvl(rfat.vl_faturado, 0) - Nvl(rfat.vl_recebido,0))                                  vl_saldo_nota,
+       (Nvl(rfat.vl_glosa_fina, 0) - Nvl(rfat.vl_recuperado, 0) - Nvl(rfat.vl_aceite, 0) )   vl_saldo_glosa
+FROM   (SELECT n.cd_nota_fiscal,
+               i.cd_remessa,
+               i.cd_atendimento,
+               Decode(i.cd_reg_fat,NULL,'A','H')                 	  tp_conta,
+               Decode(i.cd_reg_fat,NULL,i.cd_reg_amb,i.cd_reg_fat)   	  cd_conta,
+               Nvl(i.vl_itfat_nf, 0)                                      vl_faturado,
+               Nvl((SELECT SUM(Nvl(x1.vl_recebido, 0) -
+                               Nvl(x1.vl_acrescimo, 0) +
+                               Nvl(x1.vl_desconto, 0))
+                    FROM   dbamv.it_recebimento x1,
+                           dbamv.reccon_rec x2
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND  x1.cd_reccon_rec = x2.cd_reccon_rec
+                      AND  x2.dt_estorno IS NULL), 0)                     vl_recebido,
+               Nvl((SELECT SUM(Nvl(x1.vl_acrescimo, 0))
+                    FROM   dbamv.it_recebimento x1,
+                           dbamv.reccon_rec x2
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND  x1.cd_reccon_rec = x2.cd_reccon_rec
+                      AND  x2.dt_estorno IS NULL), 0)                     vl_acrescimo,
+               Nvl((SELECT SUM(Nvl(x1.vl_desconto, 0))
+                    FROM   dbamv.it_recebimento x1,
+                           dbamv.reccon_rec x2
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND  x1.cd_reccon_rec = x2.cd_reccon_rec
+                      AND  x2.dt_estorno IS NULL), 0)                     vl_desconto,
+               Nvl((SELECT SUM(Nvl(x1.vl_imposto_retido, 0))
+                    FROM   dbamv.it_recebimento x1,
+                           dbamv.reccon_rec x2
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND  x1.cd_reccon_rec = x2.cd_reccon_rec
+                      AND  x2.dt_estorno IS NULL), 0)                     vl_imposto,
+               Nvl((SELECT SUM(Nvl(x1.vl_glosa, 0))
+                    FROM   dbamv.it_recebimento x1,
+                           dbamv.reccon_rec x2
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND  x1.cd_reccon_rec = x2.cd_reccon_rec
+                      AND  x2.dt_estorno IS NULL), 0)                     vl_glosa_fina,
+               Nvl((SELECT SUM(Nvl(x1.vl_glosa, 0))
+                    FROM   dbamv.glosas x1
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND  x1.cd_glosas_pai IS NULL), 0)                  vl_glosa_trab,
+               Nvl((SELECT SUM(Nvl(x1.vl_reapresentado, 0))
+                    FROM   dbamv.glosas x1
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND  x1.cd_remessa_glosa IS NOT NULL
+                      AND  x1.cd_glosas_pai IS NULL), 0)                  vl_recurso,
+               Nvl((SELECT SUM(Nvl(x1.vl_recebido, 0))
+                    FROM   dbamv.glosas x1
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf
+                      AND x1.cd_remessa_glosa IS NOT NULL), 0)            vl_recuperado,
+               Nvl((SELECT SUM(Nvl(x1.vl_glosa, 0))
+                    FROM   dbamv.itmov_glosas x1
+                    WHERE  x1.cd_itfat_nf = i.cd_itfat_nf), 0)            vl_aceite
+        FROM   dbamv.nota_fiscal n,
+               dbamv.itfat_nota_fiscal i
+        WHERE  n.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL
+          AND  i.cd_remessa = :CAMPO_CD_REMESSA
+          AND  n.cd_nota_fiscal = i.cd_nota_fiscal) rfat,
+        dbamv.atendime aten,
+        dbamv.paciente paci
+WHERE  rfat.cd_atendimento = aten.cd_atendimento
+  AND  aten.cd_paciente = paci.cd_paciente

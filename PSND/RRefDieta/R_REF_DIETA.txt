@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_REF_DIETA
+SELECT * FROM (
+select a.cd_tipo_dieta
+       ,a.ds_tipo_dieta
+       ,a.cd_copa
+       ,a.ds_copa
+       ,sum(a.qtd)
+from
+(
+(select tipo_dieta.cd_tipo_dieta cd_tipo_dieta
+       ,tipo_dieta.ds_tipo_dieta ds_tipo_dieta
+       ,copa.cd_copa  cd_copa
+       ,copa.ds_copa  ds_copa
+       ,0 qtd
+from  dbamv.copa
+     ,dbamv.tipo_dieta
+:CAMPO_COND_CD_COPA_1
+)
+union all
+(
+select mov_cardapio.cd_tipo_dieta cd_tipo_dieta
+       ,tipo_dieta.ds_tipo_dieta ds_tipo_dieta
+       ,mov_cardapio.cd_copa  cd_copa
+       ,copa.ds_copa ds_copa
+       ,count(mov_cardapio.cd_tipo_dieta) qtd
+from  dbamv.mov_cardapio
+      ,dbamv.tipo_dieta
+      ,dbamv.copa
+where mov_cardapio.cd_copa = copa.cd_copa
+      and mov_cardapio.cd_tipo_dieta = tipo_dieta.cd_tipo_dieta
+      and mov_cardapio.cd_copa is not null
+      and mov_cardapio.cd_tipo_dieta is not null
+      and mov_cardapio.cd_multi_empresa = nvl(dbamv.pkg_mv2000.le_empresa, mov_cardapio.cd_multi_empresa)
+      and to_char(mov_cardapio.dt_mov_cardapio, 'yyyy/mm/dd') between to_char(:CAMPO_DT_INIC, 'yyyy/mm/dd') and  to_char(:CAMPO_DT_FINAL, 'yyyy/mm/dd')
+group by
+        mov_cardapio.cd_tipo_dieta
+       ,tipo_dieta.ds_tipo_dieta
+       ,mov_cardapio.cd_copa
+       ,copa.ds_copa
+)) a
+group by
+        a.cd_tipo_dieta
+       ,a.ds_tipo_dieta
+       ,a.cd_copa
+       ,a.ds_copa
+)
+ORDER BY DS_TIPO_DIETA,CD_TIPO_DIETA,
+DS_COPA

@@ -1,0 +1,40 @@
+/*----------------------------------------------------------------------------*/
+--R_CONT_VALID_ESPE
+SELECT * FROM (
+SELECT Distinct estoque.cd_estoque,
+       estoque.ds_estoque,
+       especie.cd_especie,
+       especie.ds_especie,
+       produto.cd_produto,
+       produto.ds_produto,
+       DBAMV.Verif_Ds_Unid_Prod(PRODUTO.CD_PRODUTO) As DS_UNIDADE,
+       LOT_PRO.DT_VALIDADE,
+       LOT_PRO.CD_LOTE,
+       Decode('', 'N', Round(Nvl(LOT_PRO.QT_ESTOQUE_ATUAL, 0) /
+       DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO), 4), 0) As QT_ESTOQUE_ATUAL,
+       Decode('', 'N', Round(Nvl(LOT_PRO.QT_ESTOQUE_ATUAL, 0) *
+       DBAMV.VERIF_VL_CUSTO_MEDIO(PRODUTO.CD_PRODUTO, Trunc(SysDate), 'H', PRODUTO.VL_CUSTO_MEDIO, SysDate), 2), 0) As VL_TOTAL_PRODUTO
+FROM   dbamv.estoque,
+       dbamv.est_pro,
+       dbamv.produto,
+       dbamv.sub_clas,
+       dbamv.classe,
+       dbamv.especie,
+       dbamv.lot_pro
+WHERE  estoque.cd_estoque      = est_pro.cd_estoque
+      AND    est_pro.cd_produto      = produto.cd_produto
+      AND    produto.cd_sub_cla     = sub_clas.cd_sub_cla
+      AND    produto.cd_classe       = sub_clas.cd_classe
+      AND    produto.cd_especie     = sub_clas.cd_especie
+      AND    sub_clas.cd_classe     = classe.cd_classe
+      AND    sub_clas.cd_especie   = classe.cd_especie
+      AND    classe.cd_especie       = especie.cd_especie
+      AND    lot_pro.cd_produto       = produto.cd_produto
+      AND    lot_pro.cd_estoque      = estoque.cd_estoque
+      AND    Decode(:CAMPO_S_SN_RASTREIA_S_CONTROLAR_QUANT, 'N', Nvl(lot_pro.qt_estoque_atual, 0), Nvl(EST_PRO.QT_ESTOQUE_ATUAL, 0)) > 0
+     AND    to_char(lot_pro.dt_validade, 'YYYYMMDD') between substr( :CAMPO_DT_VLINICIAL, 7, 4 ) || substr( :CAMPO_DT_VLINICIAL, 4, 2 ) || substr( :CAMPO_DT_VLINICIAL, 1, 2 ) and substr( :CAMPO_DT_VLFINAL, 7, 4 ) || substr( :CAMPO_DT_VLFINAL, 4, 2 ) || substr( :CAMPO_DT_VLFINAL, 1, 2 )
+      AND    PRODUTO.SN_MESTRE =  'N'
+      AND    estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+)
+ORDER BY CD_ESPECIE,CD_ESTOQUE,DS_ESPECIE,DS_ESTOQUE,
+DS_PRODUTO,CD_PRODUTO,DS_UNIDADE

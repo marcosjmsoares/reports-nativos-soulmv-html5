@@ -1,0 +1,65 @@
+/*----------------------------------------------------------------------------*/
+--R_EXAME_SOLIC_CONV_EXA
+SELECT * FROM (
+SELECT  ATENDIME.CD_CONVENIO
+               ,CONVENIO.NM_CONVENIO
+               ,ITPED_RX.CD_EXA_RX
+               ,DECODE(CONVENIO.TP_CONVENIO,'A', EXA_RX.CD_PROCEDIMENTO_SIA,
+                                                                              'C', EXA_RX.EXA_RX_CD_PRO_FAT,
+                                                                              'P', EXA_RX.EXA_RX_CD_PRO_FAT,
+                                                                              'H', EXA_RX.CD_PROCEDIMENTO_SIH ) CD_EXAME
+               ,EXA_RX.DS_EXA_RX
+               ,COUNT(*)      QTD_EXAME
+               ,dbamv.calc_vl_proc_unit(  convenio.tp_convenio,
+                                                           decode( convenio.tp_convenio, 'A', exa_rx.cd_procedimento_sia
+                                                                                                            , 'H', exa_rx.cd_procedimento_sih
+                                                                                                            , 'C', exa_rx.exa_rx_cd_pro_fat
+                                                                                                            , 'P', exa_rx.exa_rx_cd_pro_fat
+                                                                                                            , '' ),
+                                                                          ped_rx.dt_pedido,
+                                                                          ped_rx.hr_pedido,
+                                                                          convenio.cd_convenio,
+                                                                          atendime.cd_con_pla,
+                                                                          atendime.tp_atendimento,
+                                                                          atendime.cd_tip_acom,
+                                                                           'U' )                     VL_UNITARIO
+FROM   DBAMV.ATENDIME
+            ,DBAMV.CONVENIO
+            ,DBAMV.PED_RX
+            ,DBAMV.ITPED_RX
+            ,DBAMV.EXA_RX
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND       ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+And        TRUNC(PED_RX.DT_PEDIDO) BETWEEN :CAMPO_DT_INICIAL  AND  
+AND       ATENDIME.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_ATENDIMENTO = PED_RX.CD_ATENDIMENTO
+AND       PED_RX.CD_PED_RX          = ITPED_RX.CD_PED_RX
+AND       ITPED_RX.CD_EXA_RX       = EXA_RX.CD_EXA_RX
+GROUP BY ATENDIME.CD_CONVENIO
+                  ,CONVENIO.NM_CONVENIO
+                  ,ITPED_RX.CD_EXA_RX
+                  ,DECODE(CONVENIO.TP_CONVENIO,'A', EXA_RX.cd_procedimento_sia,
+                                                                                 'C', EXA_RX.EXA_RX_CD_PRO_FAT,
+                                                                                 'P', EXA_RX.EXA_RX_CD_PRO_FAT,
+                                                                                 'H', EXA_RX.cd_procedimento_sih )
+                  ,EXA_RX.DS_EXA_RX
+                 ,dbamv.calc_vl_proc_unit(  convenio.tp_convenio,
+                                                             decode( convenio.tp_convenio, 'A', exa_rx.cd_procedimento_sia
+                                                                                                              , 'H', exa_rx.cd_procedimento_sih
+                                                                                                              , 'C', exa_rx.exa_rx_cd_pro_fat
+                                                                                                              , 'P', exa_rx.exa_rx_cd_pro_fat
+                                                                                                              , '' ),
+                                                                            ped_rx.dt_pedido,
+                                                                            ped_rx.hr_pedido,
+                                                                            convenio.cd_convenio,
+                                                                            atendime.cd_con_pla,
+                                                                            atendime.tp_atendimento,
+                                                                            atendime.cd_tip_acom,
+                                                                            'U' )
+ORDER BY  CONVENIO.NM_CONVENIO
+                    ,EXA_RX.DS_EXA_RX
+)
+ORDER BY CD_EXAME,CD_EXA_RX,DS_EXA_RX,
+CD_CONVENIO,NM_CONVENIO,VL_UNITARIO

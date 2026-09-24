@@ -1,0 +1,78 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_CONTA_ANUAL
+SELECT * FROM (
+select a.cd_setor
+         ,a.NIVEL1
+         ,a.NIVEL2
+         ,a.NIVEL3
+         ,a.NIVEL4
+         ,a.NIVEL5
+         ,a.NIVEL6
+         ,a.NIVEL7
+from (
+select nvl(s.cd_setor_debito, s.cd_setor_credito) cd_setor
+        ,DBAMV.MASCARA_CONTABIL(PL.CD_CONTABIL,PL.CD_MULTI_EMPRESA, 1 )     NIVEL1
+        ,DBAMV.MASCARA_CONTABIL(PL.CD_CONTABIL,PL.CD_MULTI_EMPRESA, 2 )     NIVEL2
+        ,DBAMV.MASCARA_CONTABIL(PL.CD_CONTABIL,PL.CD_MULTI_EMPRESA, 3 )     NIVEL3
+        ,DBAMV.MASCARA_CONTABIL(PL.CD_CONTABIL,PL.CD_MULTI_EMPRESA, 4 )     NIVEL4
+        ,DBAMV.MASCARA_CONTABIL(PL.CD_CONTABIL,PL.CD_MULTI_EMPRESA, 5 )     NIVEL5
+        ,DBAMV.MASCARA_CONTABIL(PL.CD_CONTABIL,PL.CD_MULTI_EMPRESA, 6 )     NIVEL6
+        ,DBAMV.MASCARA_CONTABIL(PL.CD_CONTABIL,PL.CD_MULTI_EMPRESA, 7 )     NIVEL7
+From dbamv.lcto_contabil l
+       , dbamv.plano_contas p
+       , dbamv.plano_contas pl
+       , dbamv.lcto_setor s
+       , dbamv.setor se
+where p.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    and ( l.cd_reduzido_debito = p.cd_reduzido
+             or l.cd_reduzido_credito = p.cd_reduzido )
+    and p.cd_reduzido_resultado = pl.cd_reduzido
+    and to_date(to_char(dt_lcto,'mm/yyyy'), 'mm/yyyy') >= :CAMPO_SALDO_MES
+    and to_date(to_char(dt_lcto,'mm/yyyy'), 'mm/yyyy') <= :CAMPO_SALDO_MES
+    and s.cd_lcto_contabil = l.cd_lcto_contabil(+)
+    and ( s.cd_setor_debito = se.cd_setor
+            or s.cd_setor_credito = se.cd_setor )
+union all
+select  se.cd_setor cd_setor
+        ,DBAMV.MASCARA_CONTABIL(P.CD_CONTABIL,P.CD_MULTI_EMPRESA, 1 )     NIVEL1
+        ,DBAMV.MASCARA_CONTABIL(P.CD_CONTABIL,P.CD_MULTI_EMPRESA, 2 )     NIVEL2
+        ,DBAMV.MASCARA_CONTABIL(P.CD_CONTABIL,P.CD_MULTI_EMPRESA, 3 )     NIVEL3
+        ,DBAMV.MASCARA_CONTABIL(P.CD_CONTABIL,P.CD_MULTI_EMPRESA, 4 )     NIVEL4
+        ,DBAMV.MASCARA_CONTABIL(P.CD_CONTABIL,P.CD_MULTI_EMPRESA, 5 )     NIVEL5
+        ,DBAMV.MASCARA_CONTABIL(P.CD_CONTABIL,P.CD_MULTI_EMPRESA, 6 )     NIVEL6
+        ,DBAMV.MASCARA_CONTABIL(P.CD_CONTABIL,P.CD_MULTI_EMPRESA, 7 )     NIVEL7
+From dbamv.plano_contas p
+      , dbamv.multi_empresas m
+      , dbamv.setor se
+where p.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    and p.cd_multi_empresa = m.cd_multi_empresa
+    and substr(p.cd_contabil,1,1) <> m.cd_ativo
+    and substr(p.cd_contabil,1,1) <> m.cd_passivo
+    and substr(p.cd_contabil,1,1) <> m.cd_receita
+    and substr(p.cd_contabil,1,1) <> m.cd_despesa
+   and exists  ( select  *
+                       from dbamv.lcto_contabil l
+                             , dbamv.lcto_setor s
+                       where p.cd_multi_empresa  = :CAMPO_CD_MULTI_EMPRESA
+                           and l.cd_lcto_contabil     = s.cd_lcto_contabil
+                           and s.cd_setor_debito     = se.cd_setor
+                           and to_date(to_char(dt_lcto,'mm/yyyy'), 'mm/yyyy') >= :CAMPO_SALDO_MES
+                           and to_date(to_char(dt_lcto,'mm/yyyy'), 'mm/yyyy') <= :CAMPO_SALDO_MES )
+) a
+group by a.cd_setor
+              ,a.NIVEL1
+              ,a.NIVEL2
+              ,a.NIVEL3
+              ,a.NIVEL4
+              ,a.NIVEL5
+              ,a.NIVEL6
+              ,a.NIVEL7
+order by a.cd_setor
+)
+ORDER BY CD_SETOR,
+NIVEL1,
+NIVEL2,
+NIVEL3,
+NIVEL4,
+NIVEL5,
+NIVEL6

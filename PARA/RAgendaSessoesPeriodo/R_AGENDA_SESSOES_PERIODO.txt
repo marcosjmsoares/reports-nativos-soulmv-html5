@@ -1,0 +1,54 @@
+/*----------------------------------------------------------------------------*/
+--R_AGENDA_SESSOES_PERIODO
+SELECT * FROM (
+SELECT atendime_sessao.dt_agendamento,
+       atendime_sessao.hr_agendamento,
+       atendime_sessao.cd_atendimento,
+       atendime_sessao.cd_atendimento_pai,
+       atendime.cd_paciente,
+       LPAD(paciente.cd_paciente,8,' ') || ' ' || paciente.nm_paciente nm_paciente,
+       (select pa.nm_social_paciente
+        from dbamv.paciente pa
+        where pa.cd_paciente = paciente.cd_paciente
+          and nvl(pa.sn_utiliza_nome_social, 'N') = 'S') nm_social_paciente,
+       atendime.cd_convenio,
+       convenio.nm_convenio,
+       atendime.cd_ori_ate,
+       ori_ate.ds_ori_ate,
+       paciente.nr_fone,
+       atendime.cd_tip_mar,
+       tip_mar.ds_tip_mar,
+       atendime.cd_ser_dis,
+       ser_dis.ds_ser_dis,
+       atendime.cd_prestador,
+       prestador.nm_prestador,
+       guia.nr_guia,
+       guia.cd_senha,
+       guia.tp_guia
+FROM   dbamv.atendime_sessao,
+       dbamv.atendime,
+       dbamv.convenio,
+       dbamv.paciente,
+       dbamv.ser_dis,
+       dbamv.tip_mar,
+       dbamv.prestador,
+       dbamv.ori_ate,
+       dbamv.guia
+WHERE  atendime_sessao.cd_atendimento_pai = atendime.cd_atendimento
+and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    atendime_sessao.dt_agendamento is not null
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_ori_ate = ori_ate.cd_ori_ate
+AND    atendime.cd_convenio = convenio.cd_convenio
+AND    atendime.cd_tip_mar = tip_mar.cd_tip_mar(+)
+AND    atendime.cd_ser_dis = ser_dis.cd_ser_dis(+)
+AND    atendime.cd_prestador = prestador.cd_prestador(+)
+AND    atendime_sessao.cd_atendimento = guia.cd_atendimento(+)
+AND    atendime_sessao.dt_agendamento between to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND
+	 									      to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+AND    Nvl(guia.tp_guia,'C') = 'C'
+AND NVL(atendime_sessao.sn_cancelado,'N') = 'N'
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+order by dt_agendamento, hr_agendamento
+)
+ORDER BY DT_AGENDAMENTO

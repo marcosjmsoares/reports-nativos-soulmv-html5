@@ -1,0 +1,36 @@
+/*----------------------------------------------------------------------------*/
+--R_LOG_ERRO_ARQMAG
+SELECT * FROM (
+select l_rem.cd_remessa, l_rem.dt_geracao, l_conta.cd_conta,
+       l_conta.tp_conta, l_conta.cd_atendimento, l_conta.ds_erro,
+       l_item.cd_lancamento,l_item.cd_pro_fat, l_item.ds_erro ds_erro_item
+  from dbamv.log_erro_arqmag_remessa l_rem,
+       dbamv.log_erro_arqmag_conta l_conta,
+       dbamv.log_erro_arqmag_item l_item
+ where l_rem.cd_remessa = :CAMPO_CD_REMESSA
+   and l_rem.cd_log_erro_arqmag_remessa = l_conta.cd_log_erro_arqmag_remessa
+   and l_conta.cd_log_erro_arqmag_conta = l_item.cd_log_erro_arqmag_conta(+)
+   and l_item.cd_pro_fat is not null
+group by l_rem.cd_remessa, l_rem.dt_geracao, l_conta.cd_conta,
+       l_conta.tp_conta, l_conta.cd_atendimento, l_conta.ds_erro,
+       l_item.cd_lancamento,l_item.cd_pro_fat,l_item.ds_erro
+union all
+select l_rem.cd_remessa, l_rem.dt_geracao, l_conta.cd_conta,
+l_conta.tp_conta, l_conta.cd_atendimento, l_conta.ds_erro,
+l_item.cd_lancamento,l_item.cd_pro_fat, l_item.ds_erro ds_erro_item
+from dbamv.log_erro_arqmag_remessa l_rem,
+dbamv.log_erro_arqmag_conta l_conta,
+dbamv.log_erro_arqmag_item l_item,
+dbamv.remessa_fatura remessa
+where remessa.cd_remessa_pai = :CAMPO_CD_REMESSA
+and l_rem.cd_remessa = remessa.cd_remessa
+and l_rem.cd_log_erro_arqmag_remessa = l_conta.cd_log_erro_arqmag_remessa
+and l_conta.cd_log_erro_arqmag_conta = l_item.cd_log_erro_arqmag_conta(+)
+and l_item.cd_pro_fat is not null
+group by l_rem.cd_remessa, l_rem.dt_geracao, l_conta.cd_conta,
+l_conta.tp_conta, l_conta.cd_atendimento, l_conta.ds_erro,
+l_item.cd_lancamento,l_item.cd_pro_fat,l_item.ds_erro
+order by 1, 7, 8
+)
+ORDER BY CD_REMESSA,DT_GERACAO,
+CD_CONTA,TP_CONTA,CD_ATENDIMENTO,DS_ERRO

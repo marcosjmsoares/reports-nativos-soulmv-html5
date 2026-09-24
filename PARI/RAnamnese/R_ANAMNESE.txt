@@ -1,0 +1,184 @@
+/*----------------------------------------------------------------------------*/
+--R_ANAMNESE
+SELECT DISTINCT PACIENTE.NM_PACIENTE
+       ,nvl((SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  CD_PACIENTE),'Sem nome social') NM_SOCIAL_PACIENTE
+       ,To_Char(PACIENTE.DT_NASCIMENTO,'dd/mm/rrrr') DT_NASCIMENTO
+       ,PACIENTE.TP_SEXO
+       ,PACIENTE.TP_COR
+       ,nvl(DBAMV.FNC_ESTADO_CIVIL(PACIENTE.TP_ESTADO_CIVIL),'Não informado') TP_ESTADO_CIVIL1
+       ,PACIENTE.NR_DOCUMENTO
+       ,PACIENTE.NM_MAE
+       ,PACIENTE.NM_PAI
+       ,PACIENTE.NM_CONJUGE
+       ,PACIENTE.DS_ENDERECO
+       ,PACIENTE.NR_ENDERECO
+       ,PACIENTE.DS_COMPLEMENTO
+       ,PACIENTE.NM_BAIRRO
+       ,PACIENTE.NR_CEP
+       ,PACIENTE.NR_DDD_FONE
+       ,PACIENTE.NR_FONE
+       ,PACIENTE.NR_DDD_CELULAR
+       ,PACIENTE.NR_CELULAR
+       ,PACIENTE.DT_CADASTRO
+       ,paciente.NR_CPF
+       ,PACIENTE.NR_IDENTIDADE
+       ,PACIENTE.DS_OM_IDENTIDADE
+       ,PACIENTE.NR_CNS
+       ,ATENDIME.CD_ATENDIMENTO
+       ,ATENDIME.CD_PACIENTE
+       ,To_Char(ATENDIME.DT_ATENDIMENTO,'dd/mm/rrrr') DT_ATENDIMENTO
+       ,to_char(ATENDIME.HR_ATENDIMENTO,'HH24') HR_ATENDIMENTO
+       ,ATENDIME.CD_SERVICO
+       ,ATENDIME.CD_SER_DIS
+       ,ATENDIME.TP_ATENDIMENTO
+       ,ATENDIME.NM_USUARIO
+       ,ATENDIME.CD_CONVENIO
+       ,ORI_ATE.DS_ORI_ATE
+       ,DECODE(CONVENIO.TP_CONVENIO,  'C', ATENDIME.CD_PRO_INT,
+                                      'P', ATENDIME.CD_PRO_INT,
+                                      'A', ATENDIME.CD_PROCEDIMENTO,
+                                      'H', ATENDIME.CD_PROCEDIMENTO ) CD_PRO_INT 
+       ,ATENDIME.CD_SUB_PLANO
+       ,DECODE(CONVENIO.TP_CONVENIO,  'C', PRO_FAT.DS_PRO_FAT,
+                                      'P', PRO_FAT.DS_PRO_FAT,
+                                      'A', PSS.DS_PROCEDIMENTO,
+                                      'H', PSS.DS_PROCEDIMENTO ) PROCED 
+        ,Decode(procedimento_sus_complexidade.TP_COMPLEXIDADE_PROCEDIMENTO
+                                                                          ,'AC','Alta Complexidade'
+                                                                          ,'MC','Média Complexidade'
+                                                                          ,'AB','Atenção Básica'
+                                                                          ,'Não se aplica') ds_complexidade
+       ,PRESTADOR.CD_PRESTADOR
+       ,PRESTADOR.NM_PRESTADOR
+       ,PRESTADOR.NR_CPF_CGC
+       ,PRESTADOR.DS_CODIGO_CONSELHO
+       ,PROFISSAO.NM_PROFISSAO PROFISSAO
+       ,LEITO.DS_ENFERMARIA
+       ,LEITO.DS_LEITO
+       ,UNID_INT.CD_UNID_INT
+       ,UNID_INT.DS_UNID_INT
+       ,UNID_INT.DS_LOCALIZACAO
+       ,CONVENIO.NM_CONVENIO
+       ,CID.DS_CID
+       ,SERVICO.DS_SERVICO
+       ,nvl(SERVICO.TP_ANAMNESE,1) TP_ANAM_SERVICO
+       ,SER_DIS.DS_SER_DIS
+       ,SER_DIS.TP_ANAMNESE TP_ANAM_SER_DIS
+       ,TIP_ACOM.DS_TIP_ACOM
+       ,RESPONSA.NM_RESPONSAVEL
+       ,RESPONSA.NR_FONE NR_FONE_RESPONSAVEL
+       ,RESPONSA.DS_DOCUMENTO DS_DOCUMENTO_RESPONSAVEL
+       ,RESPONSA.DS_ENDERECO DS_ENDERECO_RESP
+       ,RESPONSA.NR_CPF   NR_CPF_RESP
+       ,RESPONSA.DS_CONTATO_FAMILIA
+       ,CON_PLA.DS_CON_PLA
+       ,CON_PLA.CD_CON_PLA
+       ,SUBSTR( CIDADE.NM_CIDADE, 1, 100) NM_CIDADE
+       ,CIDADE.CD_UF
+       ,ATENDIME.CD_CID
+       ,RELIGIAO.DS_RELIGIAO
+       ,ESPECIALID.DS_ESPECIALID
+       ,GRAU_INS.DS_GRAU_INS
+       ,CIDADE2.NM_CIDADE   NATURALIDADE
+       ,CIDADANIAS.DS_CIDADANIA
+       ,GUIA.CD_SENHA
+       ,PRO_FAT.NR_DIAS_INTERNACAO DIAS_MAX_INTERNACAO
+       ,(FLOOR(PRO_FAT.NR_DIAS_INTERNACAO/2)) DIAS_MIN_INTERNACAO
+       ,paciente.ds_trabalho
+       ,responsa.nr_endereco    NR_ENDERECO_RESPONSAVEL
+       ,responsa.ds_complemento DS_COMPLEMENTO_RESPONSAVEL
+       ,TO_CHAR(PACIENTE.DS_OBSERVACAO) AS DS_OBSERVACAO
+       ,paciente.nr_rg_nasc
+       ,COBERTURA.DS_TIP_ACOM  DS_TIP_COBERTURA
+       ,ORI_ATE.CD_ORI_ATE
+       ,DECODE(PACIENTE.SN_UTIL_IDENTIDADE_GENERO,
+              'S',DECODE(
+                          (
+                          SELECT max(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE') ,
+                         1,'Id.Gênero.: '||IDENTIDADE_GENERO.DS_IDENTIDADE_GENERO,
+                         NULL),
+              NULL) AS IDENTIDADE_GENERO
+        ,DECODE(PACIENTE.SN_UTIL_ORIENTACAO_SEXUAL,
+              'S',DECODE(
+                          (
+                          SELECT Max(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_ORIENTACAO_SEXUAL'
+                          AND    CD_BLOCO = 'PACIENTE' ),
+                         1,'Orient.Sexual: '||ORIENTACAO_SEXUAL.DS_ORIENTACAO_SEXUAL,
+                         NULL),
+              NULL) AS ORIENTACAO_SEXUAL
+  FROM DBAMV.PACIENTE
+       ,DBAMV.CIDADE
+       ,DBAMV.CIDADE  CIDADE2
+       ,DBAMV.ATENDIME
+       ,DBAMV.PRO_FAT
+       ,DBAMV.PROCEDIMENTO_SUS PSS     
+       ,dbamv.procedimento_sus_complexidade
+       ,DBAMV.ORI_ATE
+       ,DBAMV.PRESTADOR
+       ,DBAMV.LEITO
+       ,DBAMV.UNID_INT
+       ,DBAMV.CONVENIO
+       ,DBAMV.CID
+       ,DBAMV.SERVICO
+       ,DBAMV.SER_DIS
+       ,DBAMV.TIP_ACOM
+       ,DBAMV.RESPONSA
+       ,DBAMV.CON_PLA
+       ,DBAMV.ATENDIME_INFO
+       ,DBAMV.RELIGIAO
+       ,DBAMV.ESPECIALID
+       ,DBAMV.GRAU_INS
+       ,DBAMV.CIDADANIAS
+       ,(Select cd_atendimento,
+                cd_guia,
+                cd_senha,
+                cd_convenio
+           from DBAMV.GUIA
+          Where Tp_Guia Is nUll
+             Or tp_guia = 'I') Guia
+       ,DBAMV. PROFISSAO
+       ,DBAMV.TIP_ACOM COBERTURA
+	   ,DBAMV.sub_plano
+	   ,DBAMV.IDENTIDADE_GENERO
+       ,DBAMV.ORIENTACAO_SEXUAL
+ WHERE ATENDIME.CD_ATENDIMENTO        =  TO_NUMBER( :CAMPO_PCD_ATENDIMENTO )
+   AND ATENDIME.CD_PACIENTE           =  PACIENTE.CD_PACIENTE
+   AND ATENDIME.CD_PRO_INT            =  PRO_FAT.CD_PRO_FAT(+)
+   AND ATENDIME.CD_PROCEDIMENTO       =  PSS.CD_PROCEDIMENTO(+)  
+   and pss.cd_procedimento            =   procedimento_sus_complexidade.cd_procedimento(+)
+   AND PACIENTE.CD_CIDADE             =  CIDADE.CD_CIDADE(+)
+   AND ATENDIME.CD_ORI_ATE            =  ORI_ATE.CD_ORI_ATE(+)
+   AND ATENDIME.CD_PRESTADOR          =  PRESTADOR.CD_PRESTADOR(+)
+   AND ATENDIME.CD_LEITO              =  LEITO.CD_LEITO(+)
+   AND LEITO.CD_UNID_INT              =  UNID_INT.CD_UNID_INT(+)
+   AND ATENDIME.CD_CID                =  CID.CD_CID (+)
+   AND ATENDIME.CD_SERVICO            =  SERVICO.CD_SERVICO (+)
+   AND ATENDIME.CD_SER_DIS            =  SER_DIS.CD_SER_DIS (+)
+   AND ATENDIME.CD_TIP_ACOM           =  TIP_ACOM.CD_TIP_ACOM (+)
+   AND ATENDIME.CD_TIP_ACOM_COBERTURA = COBERTURA.CD_TIP_ACOM (+)
+   AND ATENDIME.CD_ATENDIMENTO        =  RESPONSA.CD_ATENDIMENTO (+)
+   AND ATENDIME.CD_ATENDIMENTO        =  ATENDIME_INFO.CD_ATENDIMENTO(+)
+   AND ATENDIME.CD_ESPECIALID         =  ESPECIALID.CD_ESPECIALID(+)
+   AND PACIENTE.CD_RELIGIAO           = RELIGIAO.CD_RELIGIAO(+)
+   AND PACIENTE.CD_GRAU_INS           = GRAU_INS.CD_GRAU_INS(+)
+   AND PACIENTE.CD_NATURALIDADE       = CIDADE2.CD_CIDADE(+)
+   AND PACIENTE.CD_CIDADANIA          = CIDADANIAS.CD_CIDADANIA(+)
+   AND ATENDIME.CD_ATENDIMENTO        = GUIA.CD_ATENDIMENTO(+)
+   AND ATENDIME.CD_CONVENIO           = GUIA.CD_CONVENIO(+)
+   AND ATENDIME.TP_ATENDIMENTO in ( 'I','H','B')
+   AND PACIENTE.CD_PROFISSAO          =  PROFISSAO.CD_PROFISSAO(+)
+   AND ATENDIME.CD_CONVENIO           =  CON_PLA.CD_CONVENIO (+)
+   AND ATENDIME.CD_CON_PLA            =  CON_PLA.CD_CON_PLA (+)
+   AND ATENDIME.CD_MULTI_EMPRESA      = :CAMPO_CD_MULTI_EMPRESA  
+   AND PACIENTE.CD_IDENTIDADE_GENERO = IDENTIDADE_GENERO.CD_IDENTIDADE_GENERO(+)
+   AND PACIENTE.CD_ORIENTACAO_SEXUAL = ORIENTACAO_SEXUAL.CD_ORIENTACAO_SEXUAL(+)
+   AND atendime.cd_sub_plano = sub_plano.cd_sub_plano(+)

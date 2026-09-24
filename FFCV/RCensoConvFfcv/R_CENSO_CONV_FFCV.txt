@@ -1,0 +1,59 @@
+/*----------------------------------------------------------------------------*/
+--R_CENSO_CONV_FFCV
+SELECT * FROM (
+SELECT CD_CONVENIO
+              ,NM_CONVENIO
+              ,COUNT(CONTA)     QUANT
+FROM  ( SELECT ATENDIME.CD_ATENDIMENTO   CONTA
+                           , reg_fat.cd_reg_fat   cd_conta
+                            ,CONVENIO.CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO
+               FROM    DBAMV.ATENDIME
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.REG_FAT
+                             ,DBAMV.REMESSA_FATURA
+                             ,DBAMV.FATURA
+			     ,dbamv.empresa_convenio
+               WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+	       and REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO 
+               AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+               AND        REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+               AND        REMESSA_FATURA.CD_FATURA =  FATURA.CD_FATURA
+               AND        REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+              AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+               AND        CONVENIO.TP_CONVENIO IN ('P','C') 
+                 and nvl(reg_fat.vl_total_conta,0) > 0
+               UNION
+               SELECT ATENDIME.CD_ATENDIMENTO      CONTA
+                              , reg_amb.cd_reg_amb    cd_conta
+                             ,CONVENIO.CD_CONVENIO
+                             ,CONVENIO.NM_CONVENIO
+                FROM   DBAMV.ATENDIME
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.REG_AMB
+                            ,DBAMV.ITREG_AMB
+                            ,DBAMV.REMESSA_FATURA
+                            ,DBAMV.FATURA
+			    ,dbamv.empresa_convenio
+                WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+		and ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+                AND    ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+                AND    ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO 
+                AND    REG_AMB.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+                AND    REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA
+                AND    REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                 AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+                AND    CONVENIO.TP_CONVENIO IN ('P','C') 
+                   and    nvl(itreg_amb.tp_pagamento,'P') <> 'C'
+                   and    nvl(itreg_amb.sn_pertence_pacote,'N') <> 'S'
+                GROUP BY  ATENDIME.CD_ATENDIMENTO
+                                  ,reg_amb.cd_reg_amb
+                                   ,CONVENIO.CD_CONVENIO
+                                   ,CONVENIO.NM_CONVENIO  )
+GROUP BY CD_CONVENIO
+                   ,NM_CONVENIO
+ORDER BY QUANT  DESC
+)
+ORDER BY QUANT desc

@@ -1,0 +1,37 @@
+/*----------------------------------------------------------------------------*/
+--R_QUAL_FORNEC_MES
+SELECT Cd_Fornecedor, Nm_Fornecedor, Competencia, Vl_Media FROM (
+Select Distinct Retorno.Cd_Fornecedor
+       ,Retorno.Nm_Fornecedor
+      ,To_Date(To_Char(Retorno.Dt_Competencia,'mm/yyyy'),'mm/yyyy') Competencia
+      ,Iso_Avaliacao.Vl_Media  Vl_Media
+  From ( Select Fornecedor.Cd_Fornecedor
+				,Fornecedor.Nm_Fornecedor
+                ,Tab_Competencia.Dt_Competencia
+                ,Max(Iso_Avaliacao.Cd_Avaliacao) Cd_Aval  
+           From Dbamv.Fornecedor
+                ,Dbamv.Iso_Avaliacao
+                ,(Select Last_Day(Add_Months(:CAMPO_DTINI,RowNum -1 )) Dt_Competencia
+                    From Dbamv.Produto
+                   Where
+		   Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+		   AND RowNum <= Months_Between(:CAMPO_DTFIM
+                                                  ,Add_Months(:CAMPO_DTINI,-1))
+						  ) Tab_Competencia
+          Where Fornecedor.Cd_Fornecedor    = Iso_Avaliacao.Cd_Fornecedor
+            And TO_CHAR(Iso_Avaliacao.Dt_Avaliacao, 'MM/YYYY')  = TO_CHAR(Tab_Competencia.Dt_Competencia, 'MM/YYYY') 
+       Group By Fornecedor.Cd_Fornecedor
+                ,Fornecedor.Nm_Fornecedor
+                ,Tab_Competencia.Dt_Competencia) Retorno
+                ,Dbamv.Iso_Avaliacao
+  Where Retorno.Cd_Fornecedor = Iso_Avaliacao.Cd_Fornecedor
+    And Retorno.Cd_Aval = Iso_Avaliacao.Cd_Avaliacao
+    And Exists (Select Cd_Fornecedor
+                  From Dbamv.Tip_Ativ
+                       ,Dbamv.Ati_For
+                 Where Tip_Ativ.Cd_Tip_Ativ = Ati_For.Cd_Tip_Ativ
+                   And Ati_For.Cd_Fornecedor = Retorno.Cd_Fornecedor
+                  :CAMPO_CF_TP_CRITERIO)
+Order By Competencia, Retorno.Nm_Fornecedor
+)
+ORDER BY CD_FORNECEDOR,NM_FORNECEDOR, COMPETENCIA

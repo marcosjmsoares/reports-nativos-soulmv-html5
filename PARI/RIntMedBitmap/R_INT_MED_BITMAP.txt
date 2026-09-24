@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_INT_MED_BITMAP
+SELECT * FROM
+  (SELECT PRESTADOR.NM_PRESTADOR ,
+          PRESTADOR.CD_PRESTADOR ,
+          LEITO.DS_ENFERMARIA ,
+          LEITO.DS_RESUMO ,
+          PACIENTE.CD_PACIENTE ,
+          PACIENTE.NM_PACIENTE ,
+          (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          ATENDIME.TP_ATENDIMENTO ,
+          ATENDIME.CD_ATENDIMENTO ,
+          ATENDIME.DT_ATENDIMENTO ,
+          ATENDIME.HR_ATENDIMENTO ,
+          CID.CD_CID CD_CID ,
+          CID.DS_CID ,
+          PRO_FAT.CD_PRO_FAT ,
+          PRO_FAT.DS_PRO_FAT , 
+          nvl(atendime.cd_procedimento, pro_fat.cd_pro_fat) CD_PROCEDIMENTO , 
+          Decode(atendime.cd_procedimento, NULL, pro_fat.ds_pro_fat, procedimento_sus.ds_procedimento) DS_PROCEDIMENTO ,
+          CONVENIO.TP_CONVENIO
+   FROM dbamv.PRESTADOR ,
+        dbamv.ATENDIME ,
+        dbamv.LEITO ,
+        dbamv.PACIENTE ,
+        dbamv.CID ,
+        dbamv.PRO_FAT ,
+        dbamv.CONVENIO ,
+        dbamv.PROCEDIMENTO_SUS
+   WHERE ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+     AND LEITO.CD_LEITO(+) = ATENDIME.CD_LEITO
+     AND PACIENTE.CD_PACIENTE = ATENDIME.CD_PACIENTE
+     AND ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)
+     AND ATENDIME.CD_PRO_INT = PRO_FAT.CD_PRO_FAT(+)
+     AND ATENDIME.CD_CID = CID.CD_CID(+)
+     AND ATENDIME.TP_ATENDIMENTO IN ('I', 'H')
+     AND CONVENIO.CD_CONVENIO = ATENDIME.CD_CONVENIO
+     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND atendime.cd_atendimento_pai IS NULL 
+   ORDER BY PRESTADOR.NM_MNEMONICO ,
+            PRESTADOR.NM_PRESTADOR ,
+            LEITO.DS_ENFERMARIA ,
+            LEITO.DS_LEITO)
+ORDER BY DS_ENFERMARIA,
+         DS_RESUMO

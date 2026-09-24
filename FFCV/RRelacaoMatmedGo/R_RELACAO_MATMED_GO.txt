@@ -1,0 +1,659 @@
+/*----------------------------------------------------------------------------*/
+--R_RELACAO_MATMED_GO
+SELECT * FROM (
+  SELECT DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA ) DS_CODIGO_COBRANCA
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA ) DS_NOME_COBRANCA
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA ) DS_UNIDADE_COBRANCA
+       , SUM( ITREG_FAT.VL_TOTAL_CONTA )  / SUM( ITREG_FAT.QT_LANCAMENTO )  VL_TOTAL_CONTA
+       , SUM( ITREG_FAT.QT_LANCAMENTO )    QTD
+       , SUM( ITREG_FAT.VL_TOTAL_CONTA )   VALOR_FINAL
+       , REG_FAT.CD_ATENDIMENTO
+, DECODE( atendime.cd_convenio, 21,
+         DECODE(  ITREG_FAT.CD_SETOR, 148,   'MEDICAMENTOS CIRURGICOS',
+                                      119,   'MEDICAMENTOS CIRURGICOS',
+                                      150,   'MEDICAMENTOS UTI',
+                                             'MEDICAMENTOS QUARTOS'   ) ,
+         DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+           DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+             DECODE(  ITREG_FAT.CD_SETOR, 148,   'MEDICAMENTOS CIRURGICOS',
+                                          119,   'MEDICAMENTOS CIRURGICOS',
+                                          150,   'MEDICAMENTOS UTI',
+                                                 'MEDICAMENTOS QUARTOS'    ),
+           DECODE(  ITREG_FAT.CD_SETOR, 148,   'MEDICAMENTOS CIRURGICOS',
+                                        119,   'MEDICAMENTOS CIRURGICOS',
+                                        150,   'MEDICAMENTOS UTI',
+                                               'MEDICAMENTOS QUARTOS'   )) )
+)  ORIGEM
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO  CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO2
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , trunc(ITREG_FAT.DT_LANCAMENTO) DT_LANCAMENTO
+, DECODE( atendime.cd_convenio, 21,
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   '02',
+                     119,   '02',
+                     150,   '06',
+                            '04'   ),
+            DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+              DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                   DECODE(  ITREG_FAT.CD_SETOR,
+                            148,   '02',
+                            119,   '02',
+                            150,   '06',
+                                   '04'   ) ),
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   '02',
+                     119,   '02',
+                     150,   '06',
+                            '04'   )) ) ORDEM
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_FAT.VL_TOTAL_CONTA, 0 ) ) VL_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_FAT.VL_TOTAL_CONTA ) ) VL_MATERIAL
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_FAT.QT_LANCAMENTO, 0 ) ) QT_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_FAT.QT_LANCAMENTO ) ) QT_MATERIAL
+       ,CONVENIO.CD_CONVENIO
+    FROM DBAMV.REG_FAT
+        ,DBAMV.ITREG_FAT
+        ,DBAMV.GRU_FAT
+        ,(select distinct C.cd_pro_fat, C.ds_nome_cobranca, C.ds_codigo_cobranca, C.ds_unidade_cobranca
+            from   dbamv.reg_fat R
+                     ,dbamv.cod_pro C
+                     ,dbamv.atendime A
+           where R.cd_reg_fat  = :CAMPO_CD_REG_FAT
+              AND r.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+              and  R.cd_atendimento = :CAMPO_ATENDIME
+              and  C.cd_convenio = R.cd_convenio
+              and  A.cd_atendimento = R.cd_atendimento)   COD_PRO
+        ,DBAMV.PRO_FAT
+        ,DBAMV.PACIENTE
+        ,DBAMV.CONVENIO
+        ,DBAMV.ATENDIME
+        ,DBAMV.PRESTADOR
+   WHERE ATENDIME.CD_ATENDIMENTO        = :CAMPO_ATENDIME
+     AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND REG_FAT.CD_REG_FAT             = :CAMPO_CD_REG_FAT
+     AND REG_FAT.CD_REG_FAT               = ITREG_FAT.CD_REG_FAT
+     AND ITREG_FAT.CD_GRU_FAT           = GRU_FAT.CD_GRU_FAT
+     AND COD_PRO.cd_pro_fat(+)                = ITREG_FAT.cd_pro_fat
+     AND PRO_FAT.CD_PRO_FAT               = ITREG_FAT.CD_PRO_FAT
+     AND REG_FAT.CD_ATENDIMENTO     = ATENDIME.CD_ATENDIMENTO
+     AND PACIENTE.CD_PACIENTE            = ATENDIME.CD_PACIENTE
+     AND PRESTADOR.CD_PRESTADOR   = ATENDIME.CD_PRESTADOR
+     AND CONVENIO.CD_CONVENIO          = ATENDIME.CD_CONVENIO
+     AND GRU_FAT.TP_GRU_FAT              = 'MD'
+GROUP BY  DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA )
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA )
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA )
+,DECODE( atendime.cd_convenio, 21,
+         DECODE(  ITREG_FAT.CD_SETOR, 148,   'MEDICAMENTOS CIRURGICOS',
+                                      119,   'MEDICAMENTOS CIRURGICOS',
+                                      150,   'MEDICAMENTOS UTI',
+                                             'MEDICAMENTOS QUARTOS'   ) ,
+         DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+           DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+             DECODE(  ITREG_FAT.CD_SETOR, 148,   'MEDICAMENTOS CIRURGICOS',
+                                          119,   'MEDICAMENTOS CIRURGICOS',
+                                          150,   'MEDICAMENTOS UTI',
+                                                 'MEDICAMENTOS QUARTOS'    ),
+           DECODE(  ITREG_FAT.CD_SETOR, 148,   'MEDICAMENTOS CIRURGICOS',
+                                        119,   'MEDICAMENTOS CIRURGICOS',
+                                        150,   'MEDICAMENTOS UTI',
+                                               'MEDICAMENTOS QUARTOS'   )) )
+)
+       , REG_FAT.CD_ATENDIMENTO
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , trunc(ITREG_FAT.DT_LANCAMENTO)
+,DECODE( atendime.cd_convenio, 21,
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   '02',
+                     119,   '02',
+                     150,   '06',
+                            '04'   ),
+            DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+              DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                   DECODE(  ITREG_FAT.CD_SETOR,
+                            148,   '02',
+                            119,   '02',
+                            150,   '06',
+                                   '04'   ) ),
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   '02',
+                     119,   '02',
+                     150,   '06',
+                            '04'   )) )
+       ,CONVENIO.CD_CONVENIO
+union
+  SELECT DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA ) DS_CODIGO_COBRANCA
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA ) DS_NOME_COBRANCA
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA ) DS_UNIDADE_COBRANCA
+       , SUM( ITREG_FAT.VL_TOTAL_CONTA )  / SUM( ITREG_FAT.QT_LANCAMENTO )  VL_TOTAL_CONTA
+       , SUM( ITREG_FAT.QT_LANCAMENTO )    QTD
+       , SUM( ITREG_FAT.VL_TOTAL_CONTA )   VALOR_FINAL
+       , REG_FAT.CD_ATENDIMENTO
+       , DECODE ( atendime.cd_convenio, 21,
+           DECODE(  ITREG_FAT.CD_SETOR,
+                       148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                       119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                       150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                              DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')  ),
+         DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+                 DECODE(  ITREG_FAT.CD_SETOR,
+                          148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                                 DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')  )),
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                     119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                     150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                            DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')  ))
+         ) ORIGEM
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO   CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , trunc(ITREG_FAT.DT_LANCAMENTO)  DT_LANCAMENTO
+       ,  DECODE ( atendime.cd_convenio, 21,
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'04','03')  ),
+            DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+              DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                   DECODE(  ITREG_FAT.CD_SETOR,
+                            148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                            119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                            150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                      DECODE(CONVENIO.CD_CONVENIO,21,'04','03') )),
+               DECODE(  ITREG_FAT.CD_SETOR,
+                          148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                 DECODE(CONVENIO.CD_CONVENIO,21,'04','03')  ) )
+         ) ORDEM
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_FAT.VL_TOTAL_CONTA, 0 ) ) VL_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_FAT.VL_TOTAL_CONTA ) ) VL_MATERIAL
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_FAT.QT_LANCAMENTO, 0 ) ) QT_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_FAT.QT_LANCAMENTO ) ) QT_MATERIAL
+       ,CONVENIO.CD_CONVENIO
+    FROM DBAMV.REG_FAT
+        ,DBAMV.ITREG_FAT
+        ,DBAMV.GRU_FAT
+        ,(select distinct C.cd_pro_fat, C.ds_nome_cobranca, C.ds_codigo_cobranca, C.ds_unidade_cobranca
+           from   dbamv.reg_fat R
+                   ,dbamv.cod_pro C
+                   ,dbamv.atendime A
+         where R.cd_reg_fat  = :CAMPO_CD_REG_FAT
+           AND r.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           and  R.cd_atendimento = :CAMPO_ATENDIME
+           and  C.cd_convenio = R.cd_convenio
+           and  A.cd_atendimento = R.cd_atendimento)   COD_PRO
+        ,DBAMV.PRO_FAT
+        ,DBAMV.PACIENTE
+        ,DBAMV.CONVENIO
+        ,DBAMV.ATENDIME
+        ,DBAMV.PRESTADOR
+   WHERE ATENDIME.CD_ATENDIMENTO        = :CAMPO_ATENDIME
+     AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND REG_FAT.CD_REG_FAT             = :CAMPO_CD_REG_FAT
+     AND REG_FAT.CD_REG_FAT               = ITREG_FAT.CD_REG_FAT
+     AND ITREG_FAT.CD_GRU_FAT           = GRU_FAT.CD_GRU_FAT
+     AND COD_PRO.cd_pro_fat(+)                = ITREG_FAT.cd_pro_fat
+     AND PRO_FAT.CD_PRO_FAT               = ITREG_FAT.CD_PRO_FAT
+     AND REG_FAT.CD_ATENDIMENTO     = ATENDIME.CD_ATENDIMENTO
+     AND PACIENTE.CD_PACIENTE            = ATENDIME.CD_PACIENTE
+     AND PRESTADOR.CD_PRESTADOR   = ATENDIME.CD_PRESTADOR
+     AND CONVENIO.CD_CONVENIO          = ATENDIME.CD_CONVENIO
+     AND GRU_FAT.TP_GRU_FAT             IN ('MT','MM','OP')
+GROUP BY  DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA )
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA )
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA )
+       , DECODE ( atendime.cd_convenio, 21,
+           DECODE(  ITREG_FAT.CD_SETOR,
+                       148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                       119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                       150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                              DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')  ),
+         DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+                 DECODE(  ITREG_FAT.CD_SETOR,
+                          148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                                 DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')  )),
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                     119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                     150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                            DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')) )
+         )
+       , REG_FAT.CD_ATENDIMENTO
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , trunc(ITREG_FAT.DT_LANCAMENTO)
+       , DECODE ( atendime.cd_convenio, 21,
+            DECODE(  ITREG_FAT.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'04','03')  ),
+            DECODE( ITREG_FAT.CD_GRU_FAT, 5,
+              DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                   DECODE(  ITREG_FAT.CD_SETOR,
+                            148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                            119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                            150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                      DECODE(CONVENIO.CD_CONVENIO,21,'04','03') )),
+               DECODE(  ITREG_FAT.CD_SETOR,
+                          148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                 DECODE(CONVENIO.CD_CONVENIO,21,'04','03')  ) )
+         )
+       ,CONVENIO.CD_CONVENIO
+union
+  SELECT DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA ) DS_CODIGO_COBRANCA
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA ) DS_NOME_COBRANCA
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA ) DS_UNIDADE_COBRANCA
+       , SUM( ITREG_AMB.VL_TOTAL_CONTA )  / SUM( ITREG_AMB.QT_LANCAMENTO )  VL_TOTAL_CONTA
+       , SUM( ITREG_AMB.QT_LANCAMENTO )    QTD
+       , SUM( ITREG_AMB.VL_TOTAL_CONTA )   VALOR_FINAL
+       , ITREG_AMB.CD_ATENDIMENTO
+       ,DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   'MEDICAMENTOS CIRURGICOS',
+                   119,   'MEDICAMENTOS CIRURGICOS',
+                   150,   'MEDICAMENTOS UTI',
+                          'MEDICAMENTOS QUARTOS'   ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                          148,   'MEDICAMENTOS CIRURGICOS',
+                          119,   'MEDICAMENTOS CIRURGICOS',
+                          150,   'MEDICAMENTOS UTI',
+                          'MEDICAMENTOS QUARTOS'   ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   'MEDICAMENTOS CIRURGICOS',
+                     119,   'MEDICAMENTOS CIRURGICOS',
+                     150,   'MEDICAMENTOS UTI',
+                     'MEDICAMENTOS QUARTOS'   ) )
+        ) ORIGEM
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO  CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , DECODE (CONVENIO.CD_CONVENIO, 21, NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       ,8,  NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       , ATENDIME.DT_ATENDIMENTO) DT_LANCAMENTO
+       ,DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   '02',
+                   119,   '02',
+                   150,   '06',
+                          '04'   ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                          148,   '02',
+                          119,   '02',
+                          150,   '06',
+                                 '04'   ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   '02',
+                     119,   '02',
+                     150,   '06',
+                            '04'   ))
+          ) ORDEM
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_AMB.VL_TOTAL_CONTA, 0 ) ) VL_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_AMB.VL_TOTAL_CONTA ) ) VL_MATERIAL
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_AMB.QT_LANCAMENTO, 0 ) ) QT_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_AMB.QT_LANCAMENTO ) ) QT_MATERIAL
+       ,CONVENIO.CD_CONVENIO
+    FROM DBAMV.ITREG_AMB
+        ,DBAMV.GRU_FAT
+        ,(select distinct C.cd_pro_fat, C.ds_nome_cobranca, C.ds_codigo_cobranca, C.ds_unidade_cobranca
+           from   dbamv.ITREG_AMB R
+                   ,dbamv.cod_pro C
+                   ,dbamv.atendime A
+         where R.CD_REG_AMB  = :CAMPO_CD_REG_FAT
+           and  R.cd_atendimento = :CAMPO_ATENDIME
+           and  C.cd_convenio = R.cd_convenio
+           and  A.cd_atendimento = R.cd_atendimento)   COD_PRO
+        ,DBAMV.PRO_FAT
+        ,DBAMV.PACIENTE
+        ,DBAMV.CONVENIO
+        ,DBAMV.ATENDIME
+        ,DBAMV.PRESTADOR
+	,dbamv.empresa_convenio
+   WHERE ATENDIME.CD_ATENDIMENTO        = :CAMPO_ATENDIME
+     and empresa_convenio.cd_convenio = convenio.cd_convenio
+     AND empresa_convenio.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND ITREG_AMB.CD_REG_AMB           = :CAMPO_CD_REG_FAT
+     AND ITREG_AMB.CD_GRU_FAT           = GRU_FAT.CD_GRU_FAT
+     AND COD_PRO.cd_pro_fat(+)                = ITREG_AMB.cd_pro_fat
+     AND PRO_FAT.CD_PRO_FAT               = ITREG_AMB.CD_PRO_FAT
+     AND ITREG_AMB.CD_ATENDIMENTO     = ATENDIME.CD_ATENDIMENTO
+     AND PACIENTE.CD_PACIENTE            = ATENDIME.CD_PACIENTE
+     AND PRESTADOR.CD_PRESTADOR   = ATENDIME.CD_PRESTADOR
+     AND CONVENIO.CD_CONVENIO          = ATENDIME.CD_CONVENIO
+     AND GRU_FAT.TP_GRU_FAT              = 'MD'
+GROUP BY  DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA )
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA )
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA )
+       ,DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   'MEDICAMENTOS CIRURGICOS',
+                   119,   'MEDICAMENTOS CIRURGICOS',
+                   150,   'MEDICAMENTOS UTI',
+                          'MEDICAMENTOS QUARTOS'   ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                          148,   'MEDICAMENTOS CIRURGICOS',
+                          119,   'MEDICAMENTOS CIRURGICOS',
+                          150,   'MEDICAMENTOS UTI',
+                          'MEDICAMENTOS QUARTOS'   ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   'MEDICAMENTOS CIRURGICOS',
+                     119,   'MEDICAMENTOS CIRURGICOS',
+                     150,   'MEDICAMENTOS UTI',
+                     'MEDICAMENTOS QUARTOS'   ) )
+        )
+       , ITREG_AMB.CD_ATENDIMENTO
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , DECODE (CONVENIO.CD_CONVENIO, 21, NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       ,8,  NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       , ATENDIME.DT_ATENDIMENTO)
+       ,  DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   '02',
+                   119,   '02',
+                   150,   '06',
+                          '04'   ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                          148,   '02',
+                          119,   '02',
+                          150,   '06',
+                                 '04'   ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   '02',
+                     119,   '02',
+                     150,   '06',
+                            '04'   ))
+          )
+       ,CONVENIO.CD_CONVENIO
+union
+  SELECT DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA ) DS_CODIGO_COBRANCA
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA ) DS_NOME_COBRANCA
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA ) DS_UNIDADE_COBRANCA
+       , SUM( ITREG_AMB.VL_TOTAL_CONTA )  / SUM( ITREG_AMB.QT_LANCAMENTO )  VL_TOTAL_CONTA
+       , SUM( ITREG_AMB.QT_LANCAMENTO )    QTD
+       , SUM( ITREG_AMB.VL_TOTAL_CONTA )   VALOR_FINAL
+       , ITREG_AMB.CD_ATENDIMENTO
+       ,DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                   119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                   150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                          DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')  ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                          148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')   ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')) )
+        ) ORIGEM
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO   CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , DECODE (CONVENIO.CD_CONVENIO, 21, NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       ,8,  NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       , ATENDIME.DT_ATENDIMENTO) DT_LANCAMENTO
+       ,DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                   119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                   150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                          DECODE(CONVENIO.CD_CONVENIO,21,'04','03')   ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                         148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'04','03') ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'04','03')) )
+         ) ORDEM
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_AMB.VL_TOTAL_CONTA, 0 ) ) VL_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_AMB.VL_TOTAL_CONTA ) ) VL_MATERIAL
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', ITREG_AMB.QT_LANCAMENTO, 0 ) ) QT_MEDICAMENTO
+       ,SUM ( DECODE ( GRU_FAT.TP_GRU_FAT, 'MD', 0, ITREG_AMB.QT_LANCAMENTO ) ) QT_MATERIAL
+       ,CONVENIO.CD_CONVENIO
+    FROM DBAMV.ITREG_AMB
+        ,DBAMV.GRU_FAT
+        ,(select distinct C.cd_pro_fat, C.ds_nome_cobranca, C.ds_codigo_cobranca, C.ds_unidade_cobranca
+           from   dbamv.ITREG_AMB R
+                   ,dbamv.cod_pro C
+                   ,dbamv.atendime A
+         where R.CD_REG_AMB  = :CAMPO_CD_REG_FAT
+           and  R.cd_atendimento = :CAMPO_ATENDIME
+           and  C.cd_convenio = R.cd_convenio
+           and  A.cd_atendimento = R.cd_atendimento)   COD_PRO
+        ,DBAMV.PRO_FAT
+        ,DBAMV.PACIENTE
+        ,DBAMV.CONVENIO
+        ,DBAMV.ATENDIME
+        ,DBAMV.PRESTADOR
+	,dbamv.empresa_convenio
+   WHERE ATENDIME.CD_ATENDIMENTO        = :CAMPO_ATENDIME
+     and empresa_convenio.cd_convenio = convenio.cd_convenio
+     AND empresa_convenio.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND ITREG_AMB.CD_REG_AMB           = :CAMPO_CD_REG_FAT
+     AND ITREG_AMB.CD_GRU_FAT           = GRU_FAT.CD_GRU_FAT
+     AND COD_PRO.cd_pro_fat(+)                = ITREG_AMB.cd_pro_fat
+     AND PRO_FAT.CD_PRO_FAT               = ITREG_AMB.CD_PRO_FAT
+     AND ITREG_AMB.CD_ATENDIMENTO     = ATENDIME.CD_ATENDIMENTO
+     AND PACIENTE.CD_PACIENTE            = ATENDIME.CD_PACIENTE
+     AND PRESTADOR.CD_PRESTADOR   = ATENDIME.CD_PRESTADOR
+     AND CONVENIO.CD_CONVENIO          = ATENDIME.CD_CONVENIO
+     AND GRU_FAT.TP_GRU_FAT             IN ('MT','MM','OP')
+GROUP BY  DECODE( COD_PRO.DS_CODIGO_COBRANCA,
+                                  NULL, PRO_FAT.CD_PRO_FAT,
+                                             COD_PRO.DS_CODIGO_COBRANCA )
+       , DECODE( COD_PRO.DS_NOME_COBRANCA,
+                          NULL, PRO_FAT.DS_PRO_FAT,
+                                     COD_PRO.DS_NOME_COBRANCA )
+       , DECODE( COD_PRO.DS_UNIDADE_COBRANCA,
+                          NULL, PRO_FAT.DS_UNIDADE,
+                                     COD_PRO.DS_UNIDADE_COBRANCA )
+       , DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                   119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                   150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                          DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')  ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, 'NOTA FISCAL',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                          148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')   ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS CIRURGICOS','MATERIAIS CIRURGICOS'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS UTI','MATERIAIS UTI'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'MEDICAMENTOS QUARTOS','MATERIAIS QUARTOS')) )
+        )
+       , ITREG_AMB.CD_ATENDIMENTO
+       , PACIENTE.CD_PACIENTE
+       , PACIENTE.NM_PACIENTE
+       , CONVENIO.NM_CONVENIO
+       , ATENDIME.DT_ATENDIMENTO
+       , ATENDIME.DT_ALTA
+       , ATENDIME.CD_ATENDIMENTO
+       , ATENDIME.CD_PRESTADOR
+       , PRESTADOR.NM_PRESTADOR
+       , PRESTADOR.NR_CPF_CGC
+       , PRESTADOR.DS_CODIGO_CONSELHO
+       , DECODE (CONVENIO.CD_CONVENIO, 21, NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       ,8,  NVL(ITREG_AMB.DT_SESSAO,ATENDIME.DT_ATENDIMENTO)
+                                       , ATENDIME.DT_ATENDIMENTO)
+       , DECODE ( atendime.cd_convenio, 21,
+          DECODE(  ITREG_AMB.CD_SETOR,
+                   148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                   119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                   150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                          DECODE(CONVENIO.CD_CONVENIO,21,'04','03')   ),
+          DECODE( ITREG_AMB.CD_GRU_FAT, 5,
+            DECODE( PRO_FAT.CD_GRU_PRO, 9, '07',
+                 DECODE(  ITREG_AMB.CD_SETOR,
+                         148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'04','03') ) ),
+            DECODE(  ITREG_AMB.CD_SETOR,
+                     148,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          119,   DECODE(CONVENIO.CD_CONVENIO,21,'02','01'),
+                          150,   DECODE(CONVENIO.CD_CONVENIO,21,'06','05'),
+                                    DECODE(CONVENIO.CD_CONVENIO,21,'04','03')) )
+         )
+       ,CONVENIO.CD_CONVENIO
+ORDER BY 20, 19, 2
+)
+ORDER BY CD_PACIENTE ,
+  NM_PACIENTE        ,
+  NM_PRESTADOR       ,
+  NR_CPF_CGC         ,
+  DT_ATENDIMENTO     ,
+  DT_ALTA            ,
+  DS_CODIGO_CONSELHO ,
+  CD_ATENDIMENTO     ,
+  CONVENIO           ,
+  CD_CONVENIO        ,
+  ORDEM              ,
+  ORIGEM             ,
+  DT_LANCAMENTO      ,
+  CD_ATENDIMENTO2    ,
+  DS_CODIGO_COBRANCA ,
+  DS_NOME_COBRANCA   ,
+  DS_UNIDADE_COBRANCA,
+  VL_TOTAL_CONTA     ,
+  QTD                ,
+  VALOR_FINAL        ,
+  CD_PRESTADOR       ,
+  VL_MEDICAMENTO     ,
+  VL_MATERIAL        ,
+  QT_MEDICAMENTO     ,
+  QT_MATERIAL

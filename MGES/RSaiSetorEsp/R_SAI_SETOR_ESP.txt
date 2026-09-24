@@ -1,0 +1,40 @@
+/*----------------------------------------------------------------------------*/
+--R_SAI_SETOR_ESP
+SELECT * FROM (
+Select setor.cd_setor
+          ,setor.nm_setor
+          ,especie.cd_especie
+          ,especie.ds_especie
+          ,mvto_estoque.dt_mvto_estoque
+          ,mvto_estoque.cd_mvto_estoque
+          ,itmvto_estoque.cd_produto
+          ,itmvto_estoque.cd_produto||' - '||produto.ds_produto ds_produto
+          ,mvto_estoque.nr_documento
+          ,uni_pro.ds_unidade  ds_unidade
+          ,(  verif_vl_custo_medio( itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque, :CAMPO_TP_CUSTO, produto.vl_custo_medio, Mvto_Estoque.Hr_Mvto_Estoque )
+	* uni_pro.vl_fator ) vl_unitario
+          ,tp_mvto_estoque  tp_mvto_estoque
+          ,qt_movimentacao  * decode( mvto_Estoque.tp_mvto_estoque, 'C', -1, 'D', -1,'N',-1, 1 ) qt_movimento
+From   dbamv.mvto_estoque
+         , dbamv.itmvto_estoque
+         , dbamv.setor
+         , dbamv.produto
+         , dbamv.uni_pro
+         , dbamv.especie
+         , dbamv.estoque
+         , dbamv.ent_pro
+Where  Trunc(mvto_estoque.dt_mvto_estoque) BETWEEN To_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy'), 'dd/mm/yyyy')  AND To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy'), 'dd/mm/yyyy')
+AND mvto_estoque.cd_ent_pro  = ent_pro.cd_ent_pro (+)
+and      mvto_estoque.tp_mvto_estoque in ( 'D', 'S', 'P', 'C' ,'V','N')
+and       mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+and       mvto_estoque.cd_setor                = setor.cd_setor
+AND       MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+AND       ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+and       produto.cd_produto                      = itmvto_estoque.cd_produto
+and       produto.cd_especie                      = especie.cd_especie
+and       uni_pro.cd_uni_pro                      = itmvto_estoque.cd_uni_pro
+Order by setor.cd_setor, especie.cd_especie, mvto_estoque.dt_mvto_estoque, mvto_estoque.cd_mvto_estoque, mvto_estoque.nr_documento, ds_produto
+)
+ORDER BY CD_SETOR,NM_SETOR,
+CD_ESPECIE,DS_ESPECIE,
+DT_MVTO_ESTOQUE, CD_MVTO_ESTOQUE, DS_PRODUTO

@@ -1,0 +1,75 @@
+/*----------------------------------------------------------------------------*/
+--R_OPME_MVTO
+Select ItMvto.Cd_Produto                        Cd_Produto
+      ,Produto.Ds_produto                         Ds_produto
+      ,Produto_Fornecedor.Cd_Prod_Forn            Cd_Produto_Fornecedor
+      ,Mvto.Cd_Atendimento                         Cd_Atendimento
+      ,Paciente.Nm_Paciente                       Nm_Paciente
+	  ,Paciente.Nm_Social_Paciente				  Nm_Social_Paciente
+      ,Paciente.Dt_Nascimento					  Dt_Nascimento
+      ,Mvto.Cd_Setor                              Cd_Setor
+      ,Mvto.Cd_Estoque                            Cd_Estoque
+      ,Atendime.Cd_Prestador                      Cd_Prestador
+      ,Prestador.Nm_Prestador                     Nm_Prestador
+      ,ItMvto.Cd_Fornecedor                       Cd_Fornecedor
+      ,Fornecedor.Nm_Fornecedor                   Nm_Fornecedor
+      ,atendime.cd_convenio                       cd_convenio
+      ,convenio.nm_convenio                       nm_convenio
+      ,Mvto.Cd_Aviso_Cirurgia                     Cd_Aviso_Cirurgia
+      ,ItMvto.Cd_Lote                             Cd_Lote
+      ,ItMvto.Dt_Validade                          Dt_Validade
+      ,Min(To_Date(To_Char(Mvto.dt_mvto_estoque,'DD/MM/YYYY'),'DD/MM/YYYY'))  Dt_mvto_estoque
+      ,sum(decode(Mvto.tp_mvto_estoque, 'P', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) qt_saida
+      ,sum(decode(Mvto.tp_mvto_estoque, 'C', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) qt_devolvida
+      , ( sum(decode(Mvto.tp_mvto_estoque, 'P', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) - sum(decode(Mvto.tp_mvto_estoque, 'C', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) ) qt_consumo
+      ,( sum(decode(Mvto.tp_mvto_estoque, 'P', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) -
+        sum(decode(Mvto.tp_mvto_estoque, 'C', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) ) Total
+From Dbamv.mvto_estoque Mvto
+    ,Dbamv.itmvto_estoque ItMvto
+    ,Dbamv.Fornecedor
+    ,Dbamv.Paciente
+    ,Dbamv.atendime
+    ,Dbamv.Prestador
+    ,Dbamv.Convenio
+    ,Dbamv.Produto
+    ,Dbamv.Produto_Fornecedor
+    ,Dbamv.Uni_Pro
+where Mvto.cd_estoque in ( select cd_estoque
+                                   from dbamv.estoque
+                                  where cd_multi_empresa = nvl(pkg_mv2000.le_empresa,1))
+  and Mvto.Cd_Mvto_Estoque                                = itMvto.Cd_Mvto_Estoque
+  and itMvto.Cd_Fornecedor                                   = Fornecedor.Cd_Fornecedor(+)
+  and itMvto.Cd_Produto                                         = produto.cd_produto
+  and produto.sn_consignado                                  = 'S'
+  and Produto.Cd_Produto                                       = produto_fornecedor.cd_produto(+)
+  and nvl(produto_fornecedor.cd_fornecedor,0)      = ( select nvl(max(pf.cd_fornecedor),0)
+                                                                                    from Dbamv.Produto_Fornecedor pf
+                                                                                   where pf.cd_produto = Produto.Cd_Produto
+                                                                                   and pf.cd_prod_forn = produto_fornecedor.cd_prod_forn)
+  and Mvto.Cd_Atendimento                                  = Atendime.Cd_Atendimento
+  and Atendime.Cd_Prestador                                = Prestador.Cd_Prestador(+)
+  and Atendime.Cd_Convenio                                = Convenio.Cd_Convenio(+)
+  and Atendime.Cd_Paciente                                 = Paciente.Cd_Paciente
+  And itmvto.cd_uni_pro                                         = uni_pro.cd_uni_pro
+Group By ItMvto.Cd_Produto
+      ,Produto.Ds_produto
+      ,Produto_Fornecedor.Cd_Prod_Forn
+      ,Mvto.Cd_Atendimento
+      ,Paciente.Nm_Paciente
+	  ,Paciente.Nm_Social_Paciente
+      ,Paciente.Dt_Nascimento
+      ,Mvto.Cd_Setor
+      ,Mvto.Cd_Estoque
+      ,Atendime.Cd_Prestador
+      ,Prestador.Nm_Prestador
+      ,ItMvto.Cd_Fornecedor
+      ,Fornecedor.Nm_Fornecedor
+      ,atendime.cd_convenio
+      ,convenio.nm_convenio
+      ,Mvto.Cd_Aviso_Cirurgia
+      ,ItMvto.Cd_Lote
+      ,ItMvto.Dt_Validade
+Having ( sum(decode(Mvto.tp_mvto_estoque, 'P', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) - sum(decode(Mvto.tp_mvto_estoque, 'C', 1, 0) * ItMvto.qt_movimentacao  * Uni_pro.vl_fator)/dbamv.verif_vl_fator_prod(itmvto.cd_produto) )  > 0
+ORDER BY  Mvto.Cd_Atendimento
+         ,Itmvto.Cd_Fornecedor
+         ,Itmvto.Cd_Produto

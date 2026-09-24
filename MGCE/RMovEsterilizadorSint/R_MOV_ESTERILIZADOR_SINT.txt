@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_ESTERILIZADOR_SINT
+Select Tab_Mov_Ester.Cd_Esterilizador
+           ,Tab_Mov_Ester.Ds_Bem
+           ,Sum(Tab_Mov_Ester.Qt_Kit_Caixa) Qt_itens
+           ,Count (Distinct Tab_Mov_Ester.Cd_Esteriliza) Qt_Esterilizacao
+From
+          ( Select Distinct It_Mvto_Cme.Cd_Esteriliza Cd_Esteriliza
+          ,Trunc(Esterilizacao.Dt_Fim_Esteriliza) Dt_Fim_Esteriliza
+          ,Esterilizacao.Cd_Esterilizador Cd_Esterilizador
+          ,Bens.Ds_Bem Ds_Bem
+          ,It_Mvto_Cme.Cd_Kit 				 Cd_Kit
+          ,Cx_Kit.Ds_Kit     				 Dsp_Ds_Kit
+          ,NVL(It_Mvto_Cme.Qt_Kit_Caixa,1) Qt_Kit_Caixa
+	     From Dbamv.Mvto_Cme
+       	             ,Dbamv.It_Mvto_Cme
+       	             ,Dbamv.Cx_Kit
+                             ,Dbamv.Setor
+                             ,Dbamv.Maq_Esterilizador
+                             ,Dbamv.Bens
+                             ,Dbamv.Esterilizacao
+	 Where Mvto_Cme.Cd_Mvto_Cme       = It_Mvto_Cme.Cd_Mvto_Cme
+   	      And It_Mvto_Cme.Cd_Kit               = Cx_Kit.Cd_Kit
+                      And Setor.Cd_Setor(+)                    = Mvto_Cme.Cd_Setor_Principal
+                      And Trunc(Esterilizacao.Dt_Fim_Esteriliza) Between :CAMPO_DATA_INI  And 
+                      And Esterilizacao.Cd_Esterilizador  = Decode(:CAMPO_MAQ_EST,'%',Esterilizacao.Cd_Esterilizador,:CAMPO_MAQ_EST)
+                      And Esterilizacao.Cd_Esterilizador  = Maq_Esterilizador.Cd_Esterilizador
+                      And Maq_Esterilizador.Cd_Bem     = Bens.Cd_Bem
+                      And Setor.Cd_Setor                        = Decode(:CAMPO_SETOR,'%',Setor.Cd_Setor,:CAMPO_SETOR)
+		      And Esterilizacao.Sn_Est_Completa = 'S'
+                      And Esterilizacao.Cd_Cancelamento is null
+                      And It_Mvto_Cme.Cd_Esteriliza      = Esterilizacao.Cd_Esteriliza
+       Order by It_Mvto_Cme.Cd_Esteriliza   ) Tab_Mov_Ester
+       Group by Tab_Mov_Ester.Cd_Esterilizador, Tab_Mov_Ester.Ds_Bem

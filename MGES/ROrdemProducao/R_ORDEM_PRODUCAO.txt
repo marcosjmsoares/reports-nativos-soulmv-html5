@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_ORDEM_PRODUCAO
+SELECT  it.CD_PRODUTO_TEM || '  ' ||(SELECT DS_PRODUTO FROM DBAMV.PRODUTO WHERE CD_PRODUTO = it.CD_PRODUTO_TEM) DS_PRODUTO_TEM,
+        					NVL(it.QT_UTILIZADA, 0) QT_PADRAO,
+				        	(SELECT DS_UNIDADE FROM DBAMV.UNI_PRO WHERE CD_UNI_PRO = it.CD_UNI_PRO) DS_UNI_PRO
+					FROM    dbamv.itordem_producao it
+					WHERE   it.cd_ordem_producao = :CAMPO_CD_ORDEM_PRODUCAO
+					AND     it.CD_PRODUTO = :CAMPO_CD_PRODUTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ORDEM_PRODUCAO_MED_PRESC
+SELECT    DISTINCT SOL.CD_SOLSAI_PRO,
+                PRE.CD_PRE_MED,
+                PAC.NM_PACIENTE,
+                U.DS_UNID_INT, L.DS_LEITO,
+                IPRE.QT_ITPRE_MED,
+                 NVL((SELECT  Nvl(DS_UNIDADE_PRESC, CD_UNIDADE)  FROM DBAMV.UNI_PRESC WHERE CD_UNI_PRESC = IPRE.CD_UNI_PRESC ), 
+                      (SELECT U.DS_UNIDADE FROM DBAMV.UNIDADE U, DBAMV.UNI_PRO UP WHERE U.CD_UNIDADE = UP.CD_UNIDADE AND UP.CD_UNI_PRO = IPRE.CD_UNI_PRO)) DS_UNIDADE_PRESC,
+                IPRE.CD_FOR_APL, 
+                (SELECT DS_TIP_FRE FROM DBAMV.TIP_FRE WHERE CD_TIP_FRE = IPRE.CD_TIP_FRE) DS_TIP_FRE,
+                IPRE.TP_SITUACAO SE_NECESSARIO
+				FROM      DBAMV.ORDEM_PRODUCAO O,
+				          DBAMV.ITSOLSAI_PRO ITSOL,
+				          DBAMV.SOLSAI_PRO SOL,
+				          DBAMV.PRE_MED PRE,
+				          DBAMV.ITPRE_MED IPRE,
+				          DBAMV.PRESTADOR MED,
+				          DBAMV.ATENDIME ATE,
+				          DBAMV.PACIENTE PAC,
+				          DBAMV.LEITO L, DBAMV.UNID_INT U
+				WHERE     O.CD_ORDEM_PRODUCAO = ITSOL.CD_ORDEM_PRODUCAO
+									AND     ITSOL.CD_SOLSAI_PRO = SOL.CD_SOLSAI_PRO
+									AND     SOL.CD_PRE_MED = PRE.CD_PRE_MED
+									AND     PRE.CD_PRESTADOR = MED.CD_PRESTADOR
+				          AND     PRE.CD_ATENDIMENTO = ATE.CD_ATENDIMENTO
+				          AND     PRE.CD_PRE_MED = IPRE.CD_PRE_MED
+				          AND     ITSOL.CD_ITPRE_MED = IPRE.CD_ITPRE_MED
+				          AND     ATE.CD_PACIENTE = PAC.CD_PACIENTE
+				          AND     L.CD_LEITO = ATE.CD_LEITO 
+				          AND     L.CD_UNID_INT = U.CD_UNID_INT
+				          AND     ITSOL.CD_PRODUTO =  :CAMPO_CD_PRODUTO
+				          AND     O.CD_ORDEM_PRODUCAO = :CAMPO_CD_ORDEM_PRODUCAO
+				          AND     PRE.CD_PRESTADOR = :CAMPO_CD_PRESTADOR

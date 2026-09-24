@@ -1,0 +1,95 @@
+/*----------------------------------------------------------------------------*/
+--R_NAO_PROT_ATEND
+SELECT * FROM (
+select distinct atendime.cd_atendimento cd_atendimento,
+                reg_fat.cd_reg_fat cd_conta,
+                paciente.cd_paciente cd_paciente,
+                paciente.nm_paciente nm_paciente,
+                atendime.tp_atendimento tp_atendimento,
+                reg_fat.cd_convenio cd_convenio,
+                convenio.nm_convenio nm_convenio,
+                itreg_fat.cd_pro_fat cd_pro_fat,
+                pro_fat.ds_pro_fat ds_pro_fat,
+                documento_prot.cd_documento_prot cd_documento_prot,
+                documento_prot.ds_documento_prot ds_documento_prot,
+                itreg_fat.dt_lancamento dt_realizacao,
+                itreg_fat.hr_lancamento hr_realizacao,
+                itreg_fat.cd_mvto cd_mvto
+from   dbamv.atendime atendime
+      ,dbamv.reg_fat reg_fat
+      ,dbamv.itreg_fat itreg_fat
+      ,dbamv.pro_fat pro_fat
+      ,dbamv.paciente paciente
+      ,dbamv.convenio convenio
+      ,dbamv.documento_proc documento_proc
+      ,dbamv.documento_prot documento_prot
+      ,Dbamv.Empresa_Convenio
+      ,dbamv.remessa_fatura
+      ,dbamv.fatura
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND FATURA.CD_FATURA = remessa_fatura.CD_FATURA
+  AND remessa_fatura.CD_REMESSA = REG_FAT.CD_REMESSA
+  and  reg_fat.cd_atendimento = atendime.cd_atendimento
+  and  atendime.cd_paciente = paciente.cd_paciente
+  and  reg_fat.cd_convenio = convenio.cd_convenio
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  pro_fat.cd_pro_fat = itreg_fat.cd_pro_fat
+  and  reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+  and  documento_proc.cd_pro_fat(+) = pro_fat.cd_pro_fat
+  and  (:CAMPO_DT_COMPETENCIA is null or :CAMPO_DT_COMPETENCIA = To_Char(FATURA.DT_COMPETENCIA,'MM/YYYY'))
+  and  documento_proc.cd_documento_prot = documento_prot.cd_documento_prot(+)
+  and  not exists (select 'x'
+                   from dbamv.it_protocolo_doc it_protocolo_doc
+                   where  it_protocolo_doc.cd_atendimento = atendime.cd_atendimento
+                     and  it_protocolo_doc.cd_reg_fat = reg_fat.cd_reg_fat
+                     and  it_protocolo_doc.cd_lancamento_fat = itreg_fat.cd_lancamento
+                     and  it_protocolo_doc.cd_documento_prot = documento_proc.cd_documento_prot)
+union all
+select distinct atendime.cd_atendimento cd_atendimento,
+                reg_amb.cd_reg_amb cd_conta,
+                paciente.cd_paciente cd_paciente,
+                paciente.nm_paciente nm_paciente,
+                atendime.tp_atendimento tp_atendimento,
+                reg_amb.cd_convenio cd_convenio,
+                convenio.nm_convenio nm_convenio,
+                itreg_amb.cd_pro_fat cd_pro_fat,
+                pro_fat.ds_pro_fat ds_pro_fat,
+                documento_prot.cd_documento_prot cd_documento_prot,
+                documento_prot.ds_documento_prot ds_documento_prot,
+                atendime.dt_atendimento dt_realizacao,
+                itreg_amb.hr_lancamento hr_realizacao,
+                itreg_amb.cd_mvto cd_mvto
+from   dbamv.atendime atendime
+      ,dbamv.reg_amb reg_amb
+      ,dbamv.itreg_amb itreg_amb
+      ,dbamv.pro_fat pro_fat
+      ,dbamv.paciente paciente
+      ,dbamv.convenio convenio
+      ,dbamv.documento_proc documento_proc
+      ,dbamv.documento_prot documento_prot
+      ,Dbamv.Empresa_Convenio
+      ,dbamv.remessa_fatura
+      ,dbamv.fatura
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND  FATURA.CD_FATURA = remessa_fatura.CD_FATURA
+  AND  remessa_fatura.CD_REMESSA = REG_AMB.CD_REMESSA
+  and  itreg_amb.cd_atendimento = atendime.cd_atendimento
+  and  atendime.cd_paciente = paciente.cd_paciente
+  and  reg_amb.cd_convenio = convenio.cd_convenio
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  pro_fat.cd_pro_fat = itreg_amb.cd_pro_fat
+  and  reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+  and  documento_proc.cd_pro_fat(+) = pro_fat.cd_pro_fat
+  and  documento_proc.cd_documento_prot = documento_prot.cd_documento_prot(+)
+  and  (:CAMPO_DT_COMPETENCIA is null or :CAMPO_DT_COMPETENCIA = to_char(atendime.dt_atendimento,'MM/YYYY'))
+  and  not exists (select 'x'
+                   from dbamv.it_protocolo_doc it_protocolo_doc
+                   where  it_protocolo_doc.cd_atendimento = atendime.cd_atendimento
+                     and  it_protocolo_doc.cd_reg_amb = reg_amb.cd_reg_amb
+                     and  it_protocolo_doc.cd_lancamento_amb = itreg_amb.cd_lancamento
+                     and  it_protocolo_doc.cd_documento_prot = documento_proc.cd_documento_prot)
+order by  1,2,8,10,12
+)
+ORDER BY CD_ATENDIMENTO,NM_PACIENTE,CD_PACIENTE,TP_ATENDIMENTO,CD_CONTA,CD_CONVENIO,NM_CONVENIO

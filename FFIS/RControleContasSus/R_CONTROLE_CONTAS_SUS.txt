@@ -1,0 +1,286 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTROLE_CONTAS_SUS
+select cd_atendimento cd_atendimento_1
+     , dt_internacao  dt_internacao_1
+     , dt_alta        dt_alta_1
+     , qt_permanencia qt_permanencia_1
+     , null           espaco_1
+     , rownum         Linha_1
+  from ( select atendime.cd_atendimento cd_atendimento
+              , atendime.dt_atendimento dt_internacao
+              , atendime.dt_alta        dt_alta
+              , trunc(decode( nvl(atendime.dt_alta, sysdate) - atendime.dt_atendimento, 0, 1, nvl(atendime.dt_alta, sysdate) - atendime.dt_atendimento )) qt_permanencia
+           from dbamv.atendime
+              , dbamv.paciente
+          where paciente.cd_paciente         = atendime.cd_paciente
+            and atendime.cd_multi_empresa    = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio         = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+            and ( :CAMPO_SISTEMA in ('FFIS','SUS') )
+            and not exists (select 'X' from dbamv.reg_fat rf where rf.cd_atendimento = atendime.cd_atendimento )
+          union all
+         select atendime.cd_atendimento cd_atendimento
+              , atendime.dt_atendimento dt_internacao
+              , atendime.dt_alta        dt_alta
+              , trunc(decode( nvl(atendime.dt_alta, sysdate) - atendime.dt_atendimento, 0, 1, nvl(atendime.dt_alta, sysdate) - atendime.dt_atendimento )) qt_permanencia
+           from dbamv.atendime
+              , dbamv.paciente
+          where paciente.cd_paciente         = atendime.cd_paciente
+            and atendime.cd_multi_empresa    = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio         = dbamv.pkt_config_ffas.retorna_campo('CD_CONVENIO')
+            and ( :CAMPO_SISTEMA in ('FFAS','SUS') )
+            and not exists ( select 'X'
+                               from dbamv.eve_siasus
+                              where eve_siasus.cd_atendimento = atendime.cd_atendimento )
+            :CAMPO_CF_ST_ATENDIMENTO
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTROLE_CONTAS_SUS_R_CONTAS_ABERTAS1_Q_CONTAS_ABERTAS
+Select cd_atendimento  cd_atendimento_2
+     , cd_reg_fat      cd_reg_fat_2
+     , cd_remessa      cd_remessa_2
+     , dt_atendimento  dt_internacao_2
+     , dt_alta         dt_alta_2
+     , qt_permanencia  qt_permanencia_2
+     , dt_inicio       dt_inicio_2
+     , dt_final        dt_final_2
+     , sn_fechada      sn_fechada_2
+     , (TRUNC(SYSDATE)-trunc(Dt_Final)) qt_media_pend_fat_2
+     , rownum          Linha_2
+  from (
+         select atendime.cd_atendimento
+              , reg_fat.cd_reg_fat
+              , reg_fat.cd_remessa
+              , atendime.dt_atendimento
+              , atendime.dt_alta
+              , trunc(decode( nvl(reg_fat.dt_final, nvl(atendime.dt_alta,sysdate)) - nvl(reg_fat.dt_inicio,atendime.dt_atendimento), 0, 1, nvl(reg_fat.dt_final, nvl(atendime.dt_alta,sysdate)) - nvl(reg_fat.dt_inicio,atendime.dt_atendimento) )) qt_permanencia
+              , reg_fat.dt_inicio
+              , reg_fat.dt_final
+              , decode(nvl(reg_fat.sn_fechada, 'N'), 'N', 'Não', 'Sim') sn_fechada
+              , reg_fat.dt_fechamento
+              , 0 vl_conta
+           from Dbamv.paciente
+              , dbamv.atendime
+              , dbamv.reg_fat
+          where paciente.cd_paciente             = atendime.cd_paciente
+            and atendime.cd_atendimento          = reg_fat.cd_atendimento
+            and reg_fat.cd_multi_empresa         = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio          = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+            and ( :CAMPO_SISTEMA in ('FFIS','SUS') )
+            and nvl(reg_fat.sn_fechada, 'N') = 'N'
+            and not exists ( select reg.cd_reg_fat
+                               from dbamv.reg_fat	    reg
+                                  , dbamv.remessa_fatura rf
+                              where rf.cd_remessa   = reg.cd_remessa
+                                and rf.sn_suspensas = 'S'
+                                and reg.cd_reg_fat  = reg_fat.cd_reg_fat
+                                and reg.cd_reg_fat_pai  is not null )
+         group by  atendime.cd_atendimento
+                , reg_fat.cd_reg_fat
+                , reg_fat.cd_remessa
+                , atendime.dt_atendimento
+                , atendime.dt_alta
+                , reg_fat.dt_inicio
+                , reg_fat.dt_final
+                , nvl(reg_fat.sn_fechada, 'N')
+                , reg_fat.dt_fechamento
+         union all
+         select atendime.cd_atendimento
+              , 0        cd_reg_fat
+              , 0        cd_remessa
+              , atendime.dt_atendimento
+              , atendime.dt_alta
+              , trunc(decode( nvl(atendime.dt_alta,sysdate) - atendime.dt_atendimento, 0, 1, nvl(atendime.dt_alta,sysdate) - atendime.dt_atendimento)) qt_permanencia
+              , to_date(null) dt_inicio
+              , to_date(null) dt_final
+              , 'Não'         sn_fechada
+              , to_date(null)
+              , 0 vl_conta
+           from dbamv.atendime
+              , dbamv.paciente
+              , dbamv.eve_siasus
+              , dbamv.fat_sia
+              , dbamv.remessa_bpa
+          where atendime.cd_multi_empresa    = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio         = dbamv.pkt_config_ffas.retorna_campo('CD_CONVENIO')
+            and paciente.cd_paciente         = atendime.cd_paciente
+            and eve_siasus.cd_atendimento    = atendime.cd_atendimento
+            and fat_sia.cd_fat_sia           = eve_siasus.cd_fat_sia
+            and fat_sia.tipo_fatura          = 'BPA'
+            and fat_sia.dt_fechamento is null
+            and remessa_bpa.cd_fat_sia       = fat_sia.cd_fat_sia
+            and remessa_bpa.dt_fechamento is null
+            and ( :CAMPO_SISTEMA in ('FFAS','SUS') )
+            :CAMPO_CF_ST_ATENDIMENTO
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTROLE_CONTAS_SUS_R_CONTA_COBRADA_3_Q_CONTAS_COBRADAS
+Select cd_atendimento      cd_atendimento_3
+     , cd_reg_fat          cd_reg_fat_3
+     , cd_remessa          cd_remessa_3
+     , dt_atendimento      dt_internacao_3
+     , dt_alta             dt_alta_3
+     , qt_permanencia      qt_permanencia_3
+     , dt_inicio           dt_inicio_3
+     , dt_final            dt_final_3
+     , sn_fechada          sn_fechada_3
+     , dt_fechamento       dt_fechamento_3
+     , qt_tempo_fechar     qt_tempo_fechar_3
+     , rownum              Linha_3
+  from ( Select atendime.cd_atendimento
+              , reg_fat.cd_reg_fat
+              , reg_fat.cd_remessa
+              , atendime.dt_atendimento
+              , atendime.dt_alta
+              , trunc(decode( nvl(reg_fat.dt_final, nvl(atendime.dt_alta,sysdate)) - nvl(reg_fat.dt_inicio,atendime.dt_atendimento), 0, 1, nvl(reg_fat.dt_final, nvl(atendime.dt_alta,sysdate)) - nvl(reg_fat.dt_inicio,atendime.dt_atendimento) )) qt_permanencia
+              , reg_fat.dt_inicio
+              , reg_fat.dt_final
+              , decode(nvl(reg_fat.sn_fechada, 'N'), 'N', 'Não', 'Sim') sn_fechada
+              , reg_fat.dt_fechamento
+              , (trunc(reg_fat.dt_fechamento)-trunc(reg_fat.dt_final))   qt_tempo_fechar
+           from Dbamv.paciente
+              , dbamv.atendime
+              , dbamv.remessa_fatura
+              , dbamv.reg_fat
+          where paciente.cd_paciente             = atendime.cd_paciente
+            and atendime.cd_atendimento          = reg_fat.cd_atendimento
+            and nvl(remessa_fatura.sn_fechada, 'N') = 'S'
+            and remessa_fatura.cd_remessa        = reg_fat.cd_remessa
+            and reg_fat.cd_multi_empresa         = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio   = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+            and ( :CAMPO_SISTEMA in ('FFIS','SUS') )
+            and nvl(reg_fat.sn_fechada, 'N') = 'S'
+            and not exists ( select reg.cd_reg_fat
+                               from dbamv.reg_fat	    reg
+                                  , dbamv.remessa_fatura rf
+                              where rf.cd_remessa   = reg.cd_remessa
+                                and rf.sn_suspensas = 'S'
+                                and reg.cd_reg_fat  = reg_fat.cd_reg_fat
+                                and reg.cd_reg_fat_pai  is not null )
+         group by  atendime.cd_atendimento
+                , reg_fat.cd_reg_fat
+                , reg_fat.cd_remessa
+                , atendime.dt_atendimento
+                , atendime.dt_alta
+                , reg_fat.dt_inicio
+                , reg_fat.dt_final
+                , nvl(reg_fat.sn_fechada, 'N')
+                , reg_fat.dt_fechamento
+         union all
+         select atendime.cd_atendimento
+              , 0        cd_reg_fat
+              , 0        cd_remessa
+              , atendime.dt_atendimento
+              , atendime.dt_alta
+              , trunc(decode( nvl(atendime.dt_alta,sysdate) - atendime.dt_atendimento, 0, 1, nvl(atendime.dt_alta,sysdate) - atendime.dt_atendimento)) qt_permanencia
+              , to_date(null) dt_inicio
+              , to_date(null) dt_final
+              , 'Não'         sn_fechada
+              , to_date(null)
+              , 0 vl_conta
+           from dbamv.atendime
+              , dbamv.paciente
+              , dbamv.eve_siasus
+              , dbamv.fat_sia
+              , dbamv.remessa_bpa
+          where atendime.cd_multi_empresa    = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio         = dbamv.pkt_config_ffas.retorna_campo('CD_CONVENIO')
+            and paciente.cd_paciente         = atendime.cd_paciente
+            and eve_siasus.cd_atendimento    = atendime.cd_atendimento
+            and fat_sia.cd_fat_sia           = eve_siasus.cd_fat_sia
+            and fat_sia.tipo_fatura          = 'BPA'
+            and fat_sia.dt_fechamento is not null
+            and remessa_bpa.cd_fat_sia       = fat_sia.cd_fat_sia
+            and ( :CAMPO_SISTEMA in ('FFAS','SUS') )
+            :CAMPO_CF_ST_ATENDIMENTO
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTROLE_CONTAS_SUS_R_CONTA_NAO_COBRADA_4_Q_CONTAS_NAO_COBRADAS
+Select cd_atendimento    cd_atendimento_4
+     , cd_reg_fat        cd_reg_fat_4
+     , cd_remessa        cd_remessa_4
+     , dt_atendimento    dt_internacao_4
+     , dt_alta           dt_alta_4
+     , qt_permanencia    qt_permanencia_4
+     , dt_inicio         dt_inicio_4
+     , dt_final          dt_final_4
+     , sn_fechada        sn_fechada_4
+     , dt_fechamento     dt_fechamento_4
+     , qt_tempo_fechar   qt_tempo_fechar_4
+     , rownum            Linha_4
+  from ( Select atendime.cd_atendimento
+              , reg_fat.cd_reg_fat
+              , reg_fat.cd_remessa
+              , atendime.dt_atendimento
+              , atendime.dt_alta
+              , trunc(decode( nvl(reg_fat.dt_final, nvl(atendime.dt_alta,sysdate)) - nvl(reg_fat.dt_inicio,atendime.dt_atendimento), 0, 1, nvl(reg_fat.dt_final, nvl(atendime.dt_alta,sysdate)) - nvl(reg_fat.dt_inicio,atendime.dt_atendimento) )) qt_permanencia
+              , reg_fat.dt_inicio
+              , reg_fat.dt_final
+              , decode(nvl(reg_fat.sn_fechada, 'N'), 'N', 'Não', 'Sim') sn_fechada
+              , reg_fat.dt_fechamento
+              , (trunc(reg_fat.dt_fechamento)-trunc(reg_fat.dt_final))   qt_tempo_fechar
+           from Dbamv.paciente
+              , dbamv.atendime
+              , dbamv.remessa_fatura
+              , dbamv.reg_fat
+          where paciente.cd_paciente             = atendime.cd_paciente
+            and atendime.cd_atendimento          = reg_fat.cd_atendimento
+            and remessa_fatura.cd_remessa   = reg_fat.cd_remessa
+            and nvl(remessa_fatura.sn_fechada, 'N') = 'N'
+            and reg_fat.cd_multi_empresa         = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio    = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+            and ( :CAMPO_SISTEMA in ('FFIS','SUS') )
+            and nvl(reg_fat.sn_fechada, 'N') = 'S'
+            and not exists ( select reg.cd_reg_fat
+                               from dbamv.reg_fat	    reg
+                                  , dbamv.remessa_fatura rf
+                              where rf.cd_remessa   = reg.cd_remessa
+                                and rf.sn_suspensas = 'S'
+                                and reg.cd_reg_fat  = reg_fat.cd_reg_fat
+                                and reg.cd_reg_fat_pai  is not null )
+         group by  atendime.cd_atendimento
+                , reg_fat.cd_reg_fat
+                , reg_fat.cd_remessa
+                , atendime.dt_atendimento
+                , atendime.dt_alta
+                , reg_fat.dt_inicio
+                , reg_fat.dt_final
+                , nvl(reg_fat.sn_fechada, 'N')
+                , reg_fat.dt_fechamento
+         union all
+         select atendime.cd_atendimento
+              , 0        cd_reg_fat
+              , 0        cd_remessa
+              , atendime.dt_atendimento
+              , atendime.dt_alta
+              , trunc(decode( nvl(atendime.dt_alta,sysdate) - atendime.dt_atendimento, 0, 1, nvl(atendime.dt_alta,sysdate) - atendime.dt_atendimento)) qt_permanencia
+              , to_date(null) dt_inicio
+              , to_date(null) dt_final
+              , 'Não'         sn_fechada
+              , to_date(null)
+              , 0 vl_conta
+           from dbamv.atendime
+              , dbamv.paciente
+              , dbamv.eve_siasus
+              , dbamv.fat_sia
+              , dbamv.remessa_bpa
+          where atendime.cd_multi_empresa    = dbamv.pkg_mv2000.le_empresa
+            and atendime.cd_convenio         = dbamv.pkt_config_ffas.retorna_campo('CD_CONVENIO')
+            and paciente.cd_paciente         = atendime.cd_paciente
+            and eve_siasus.cd_atendimento    = atendime.cd_atendimento
+            and fat_sia.cd_fat_sia           = eve_siasus.cd_fat_sia
+            and fat_sia.tipo_fatura          = 'BPA'
+            and fat_sia.dt_fechamento is null
+            and fat_sia.dt_fechamento is not null
+            and remessa_bpa.cd_fat_sia       = fat_sia.cd_fat_sia
+            and ( :CAMPO_SISTEMA in ('FFAS','SUS') )
+            :CAMPO_CF_ST_ATENDIMENTO
+)

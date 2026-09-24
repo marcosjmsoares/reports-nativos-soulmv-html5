@@ -1,0 +1,40 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_TIP_CONV_MES
+SELECT * FROM (
+select a.nm_convenio
+      ,a.dia  dia_do_mes
+      ,sum( a.count_p )                           quant_p
+      ,sum( a.count_m )                           quant_m
+      ,sum( a.count_g )                           quant_g
+      ,sum( a.count_e )                           quant_e
+from(
+select convenio.cd_convenio  cd_convenio
+      ,decode( cirurgia_aviso.cd_convenio, NULL, 'Outros Convênios', convenio.nm_convenio) nm_convenio
+      ,to_char(aviso_cirurgia.dt_realizacao,'dd')                                   dia
+      ,count(decode(cirurgia.tp_cirurgia,'P',1,NULL))                           count_p
+      ,count(decode(cirurgia.tp_cirurgia,'M',1,NULL))                           count_m
+      ,count(decode(cirurgia.tp_cirurgia,'G',1,NULL))                           count_g
+      ,count(decode(cirurgia.tp_cirurgia,'E',1,NULL))                           count_e
+from dbamv.aviso_cirurgia,
+     dbamv.cirurgia_aviso,
+     dbamv.cirurgia,
+     dbamv.convenio,
+     dbamv.atendime
+Where  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and      atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+and      aviso_cirurgia.cd_aviso_cirurgia                     =   cirurgia_aviso.cd_aviso_cirurgia
+and       aviso_cirurgia.tp_situacao                              =   'R'
+and       aviso_cirurgia.cd_atendimento                       =   atendime.cd_atendimento
+and       atendime.tp_atendimento                               IN  ( 'I','S')
+and       cirurgia_aviso.cd_cirurgia                               =   cirurgia.cd_cirurgia
+and       cirurgia_aviso.cd_convenio                            =   convenio.cd_convenio(+)
+and       to_char(aviso_cirurgia.dt_realizacao,'MM/YYYY') = :CAMPO_DT_COMPET
+Group By convenio.cd_convenio
+       ,decode( cirurgia_aviso.cd_convenio, NULL, 'Outros Convênios', convenio.nm_convenio)
+       ,to_char(aviso_cirurgia.dt_realizacao,'dd')
+) a
+Group By a.nm_convenio
+              ,a.dia
+)
+ORDER BY NM_CONVENIO,
+DIA_DO_MES

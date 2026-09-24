@@ -1,0 +1,91 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_REC_CENSO_DT_EMI
+SELECT
+cd_con_rec
+,cd_fornecedor
+,nm_fornecedor
+, tp_con_rec
+,dt_emissao
+,dt_prev_pgto
+,ds_historico_padrao
+,nr_documento
+,dt_cancelamento
+,vl_previsto
+,tp_quitacao
+, cd_moeda_prev
+,vl_moeda_prev
+,dt_lancamento
+,ds_agrupamento
+,vl_glosa
+,vl_recurso
+,vl_recebido_rec
+,nvl(vl_recebido_rec,0) + Nvl(vl_glosa,0) - Nvl(vl_recurso,0)   vl_recebido
+ FROM (
+select con_rec.cd_con_rec cd_con_rec
+      , con_rec.cd_fornecedor                                  cd_fornecedor
+      , decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente
+                                    , fornecedor.nm_fantasia)  nm_fornecedor
+      , decode(con_rec.tp_con_rec,'C','Convênio','F','Funcionário','A','Fin. Cartão Crédito','R','Farmacia'
+                                 ,'P','Paciente','Diversos')   tp_con_rec
+      , con_rec.dt_emissao                                     dt_emissao
+      , itcon_rec.dt_prevista_recebimento                          dt_prev_pgto
+      , ltrim( rtrim( hist_p.ds_historico_padrao) || con_rec.ds_con_rec)    ds_historico_padrao
+       ,con_rec.nr_documento                                   nr_documento
+       ,nvl(itcon_rec.vl_duplicata,0)                                    vl_previsto
+      , Decode(itcon_rec.tp_quitacao, 'V','Previsto','R','Protestado','P','Parcialmente Quitado','Q','Quitado','C','Comprometido','L','Cancelado','G','Quitado com Glosa') tp_quitacao
+,itcon_rec.cd_moeda cd_moeda_prev
+,itcon_rec.vl_moeda vl_moeda_prev
+,con_rec.dt_lancamento dt_lancamento
+,con_rec.dt_cancelamento dt_cancelamento
+,Decode(:CAMPO_ORDEM,'1',To_Char(decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente
+                                    , fornecedor.nm_fantasia)||con_rec.cd_fornecedor ),'2',To_Char(con_rec.dt_emissao,'DD/MM/YYYY'), To_Char(itcon_rec.dt_prevista_recebimento,'DD/MM/YYYY')) ds_agrupamento
+,Nvl((SELECT Sum(vl_movimentacao)
+  FROM dbamv.mov_glosas
+ WHERE cd_reccon_rec IS NOT NULL
+   AND cd_remessa_glosa IS NULL
+   AND cd_itcon_rec = itcon_rec.cd_itcon_rec
+   AND Trunc(dt_movimentacao) <= Trunc (:CAMPO_DT_SITUACAO)),0) vl_glosa
+,Nvl((SELECT Sum(x.vl_movimentacao)
+  FROM dbamv.mov_glosas x, dbamv.remessa_glosa r
+ WHERE x.cd_reccon_rec IS NULL
+   AND x.cd_remessa_glosa = r.cd_remessa_glosa
+   AND r.cd_remessa_glosa_pai IS NULL
+   AND x.cd_itcon_rec = itcon_rec.cd_itcon_rec
+   AND Trunc(x.dt_movimentacao) <= Trunc (:CAMPO_DT_SITUACAO)),0) vl_recurso
+ ,nvl((SELECT sum( nvl(reccon_rec.vl_recebido ,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_desconto,0) + nvl(reccon_rec.vl_imposto_retido,0)) vl_recebido_rec
+                    FROM dbamv.reccon_rec
+                  WHERE cd_itcon_rec = itcon_rec.cd_itcon_rec
+                  AND dt_estorno IS NULL
+AND Trunc(dt_recebimento) <= Trunc (:CAMPO_DT_SITUACAO)
+AND ((dt_estorno IS NULL) OR ((dt_estorno IS NOT NULL )
+AND (Trunc(dt_estorno)    > Trunc (:CAMPO_DT_SITUACAO))))
+           ) ,0) vl_recebido_rec
+from   dbamv.itcon_rec
+        ,  dbamv.con_rec
+         , dbamv.fornecedor
+         , dbamv.historico_padrao hist_p
+where   con_rec.cd_historico_padrao         =    hist_p.cd_historico_padrao (+)
+and     con_rec.cd_multi_empresa            =  :CAMPO_CD_MULTI_EMPRESA
+and     itcon_rec.cd_con_rec =        con_rec.cd_con_rec
+and     con_rec.cd_previsao is null
+and     not exists (select REC.CD_CON_REC from DBAMV.ITCON_REC RECP , DBAMV.CON_REC REC where
+                            REC.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA and
+                            REC.CD_CON_REC = CON_REC.CD_CON_REC and
+                            RECP.CD_CON_REC  = REC.CD_CON_REC and
+                            RECP.cD_itcon_rec =    itcon_rec.cd_itcon_rec and
+                            RECP.TP_QUITACAO = 'Q' and
+                            trunc(REC.dt_emissao) <= Trunc(:CAMPO_DT_FIM)  and
+                            trunc(REC.dt_emissao) >=Trunc(:CAMPO_DT_INIC) )
+and (
+ itcon_rec.vl_duplicata  >
+                 (select sum( nvl(vl_recebido ,0) - nvl(vl_acrescimo,0) + nvl(vl_desconto,0)  )
+                  from dbamv.reccon_rec
+                                            where trunc(reccon_rec.dt_recebimento)  <= Trunc(:CAMPO_DT_SITUACAO)
+                                            and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec)
+         or not exists (select  reccon_rec.cd_itcon_rec from dbamv.reccon_rec
+                                             where trunc(reccon_rec.dt_recebimento)  <= Trunc(:CAMPO_DT_SITUACAO)
+                                             and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec)     )
+and trunc(con_rec.dt_emissao) <= Trunc(:CAMPO_DT_FIM)
+and trunc(con_rec.dt_emissao) >=Trunc(:CAMPO_DT_INIC)
+:CAMPO_CF_MOEDA
+)

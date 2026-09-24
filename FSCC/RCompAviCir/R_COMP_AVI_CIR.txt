@@ -1,0 +1,137 @@
+/*----------------------------------------------------------------------------*/
+--R_COMP_AVI_CIR
+SELECT * FROM
+  (SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA CD_AVISO_CIRURGIA ,
+          AVISO_CIRURGIA.DT_AVISO_CIRURGIA DT_AVISO_CIRURGIA ,
+          AVISO_CIRURGIA.CD_PACIENTE CD_PACIENTE ,
+          AVISO_CIRURGIA.NM_PACIENTE NM_PACIENTE ,
+     (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND AVISO_CIRURGIA.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          AVISO_CIRURGIA.CD_ATENDIMENTO CD_ATENDIMENTO ,
+          AVISO_CIRURGIA.CD_USUARIO CD_USUARIO ,
+          AVISO_CIRURGIA.CD_AVISO_CIRURGIA_FILHO CD_AVISO_CIRURGIA_FILHO ,
+          AVISO_CIRURGIA.DS_OBS_AVISO DS_OBS_AVISO ,
+          SAL_CIR.CD_SAL_CIR CD_SAL_CIR ,
+          SAL_CIR.DS_SAL_CIR DS_SAL_CIR ,
+          SAL_CIR.CD_SETOR CD_SETOR ,
+          TO_CHAR(AGE_CIR.DT_INICIO_AGE_CIR, 'HH24') HORA_PREV_INI ,
+          TO_CHAR(AGE_CIR.DT_FINAL_AGE_CIR, 'HH24') HORA_PREV_FIM ,
+          DECODE(AVISO_CIRURGIA.NR_TELEFONE_CONTATO , NULL, PACIENTE.NR_FONE , AVISO_CIRURGIA.NR_TELEFONE_CONTATO) NR_FONE ,
+          AGE_CIR.DT_INICIO_AGE_CIR DT_INICIO_AGE_CIR ,
+          (AVISO_CIRURGIA.DS_IDADE|| decode(aviso_cirurgia.tp_idade , 'A', ' anos' , 'D', ' dias' , 'M', ' meses')) NR_IDADE ,
+          AVISO_CIRURGIA.TP_SANGUINEO TP_SANGUINEO ,
+          AVISO_CIRURGIA.SN_UTI SN_UTI ,
+          DECODE(AVISO_CIRURGIA.SN_EXAME, 'S', 'Sim', 'Não') SN_EXAME ,
+          AVISO_CIRURGIA.DS_A_SEGUIR DS_A_SEGUIR ,
+          CEN_CIR.DS_CEN_CIR DS_CEN_CIR ,
+          LEITO.DS_RESUMO DS_RESUMO ,
+          DECODE(AVISO_CIRURGIA.SN_UTI , 'S', UNID_INT.DS_UNID_INT , NULL) DESC_UTI ,
+          AVISO_CIRURGIA.DS_CIRURGIA ,
+          PACIENTE.DT_NASCIMENTO
+   FROM DBAMV.AVISO_CIRURGIA AVISO_CIRURGIA,
+        DBAMV.ATENDIME ATENDIME,
+        DBAMV.SAL_CIR SAL_CIR,
+        DBAMV.AGE_CIR AGE_CIR,
+        DBAMV.PACIENTE PACIENTE,
+        DBAMV.CEN_CIR CEN_CIR,
+        DBAMV.LEITO LEITO,
+        DBAMV.UNID_INT UNID_INT
+   WHERE Aviso_Cirurgia.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+     AND AVISO_CIRURGIA.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO(+)
+     AND AVISO_CIRURGIA.CD_SAL_CIR = SAL_CIR.CD_SAL_CIR(+)
+     AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA = AGE_CIR.CD_AVISO_CIRURGIA(+)
+     AND AVISO_CIRURGIA.CD_PACIENTE = PACIENTE.CD_PACIENTE(+)
+     AND AVISO_CIRURGIA.CD_CEN_CIR = CEN_CIR.CD_CEN_CIR(+)
+     AND ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+     AND AVISO_CIRURGIA.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+     AND aviso_cirurgia.tp_situacao in ('A',
+                                        'G',
+                                        'R',
+                                        'T',
+                                        'P',
+                                        'C') 
+ORDER BY AVISO_CIRURGIA.CD_AVISO_CIRURGIA)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COMP_AVI_CIR_R_MATMED_Q_2
+SELECT * FROM (
+SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA       	CD_AVISO_CIRURGIA_MAT,
+              ITFORMULA.CD_PRODUTO_TEM,
+              PROD_ITEM.DS_PRODUTO			DS_PRODUTO_MAT_MED,
+              UNI_PRO.DS_UNIDADE,
+              SUM(ITFORMULA.QT_PADRAO)                        	QT_KIT_MAT_MED
+FROM    DBAMV.AVISO_CIRURGIA                            	AVISO_CIRURGIA,
+              DBAMV.CIRURGIA_KIT                              	CIRURGIA_KIT,
+              DBAMV.FORMULA                                   	FORMULA,
+              DBAMV.CIRURGIA_AVISO                            	CIRURGIA_AVISO,
+              DBAMV.CIRURGIA                                  		CIRURGIA,
+              DBAMV.PRODUTO                                   	PRODUTO,
+              DBAMV.ITFORMULA,
+              DBAMV.PRODUTO PROD_ITEM,
+              DBAMV.UNI_PRO
+  WHERE  AVISO_CIRURGIA.CD_AVISO_CIRURGIA          =      CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+ AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = produto.Cd_Produto )
+ AND        CIRURGIA_AVISO.CD_CIRURGIA             	=      CIRURGIA.CD_CIRURGIA
+  AND        CIRURGIA_AVISO.CD_AVISO_CIRURGIA       	=      CIRURGIA_KIT.CD_AVISO_CIRURGIA
+  AND        CIRURGIA_AVISO.CD_CIRURGIA             	=      CIRURGIA_KIT.CD_CIRURGIA
+  AND        CIRURGIA_KIT.CD_FORMULA                	=      FORMULA.CD_FORMULA
+  AND        FORMULA.CD_PRODUTO                     	=      PRODUTO.CD_PRODUTO
+  AND        FORMULA.CD_FORMULA = ITFORMULA.CD_FORMULA
+  AND        ITFORMULA.CD_PRODUTO_TEM = PROD_ITEM.CD_PRODUTO
+  AND        ITFORMULA.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+GROUP BY
+	AVISO_CIRURGIA.CD_AVISO_CIRURGIA,
+    ITFORMULA.CD_PRODUTO_TEM,
+    PROD_ITEM.DS_PRODUTO,
+    UNI_PRO.DS_UNIDADE
+)
+WHERE CD_AVISO_CIRURGIA_MAT = :CAMPO_CD_AVISO_CIRURGIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COMP_AVI_CIR_R_PRODUTO_Q_7
+SELECT CD_AVISO_CIRURGIA  CD_AVISO_CIRURGIA1
+        ,DS_PRODUTO                      DS_PRODUTO
+        ,CD_PRODUTO                      CD_PRODUTO
+        ,QT_SOLICITADA                   QT_SOLICITADA
+        ,fornecedor.nm_fornecedor
+    FROM DBAMV.IT_AV_PRODUTOS
+               ,dbamv.fornecedor
+   where cd_aviso_cirurgia = :CAMPO_CD_AVISO_CIRURGIA
+      and IT_AV_PRODUTOS.cd_fornecedor = fornecedor.cd_fornecedor(+)
+AND cd_produto NOT IN (
+      SELECT CD_PRODUTO_TEM FROM (
+SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA       	CD_AVISO_CIRURGIA_MAT,
+              ITFORMULA.CD_PRODUTO_TEM,
+              PROD_ITEM.DS_PRODUTO			DS_PRODUTO_MAT_MED,
+              UNI_PRO.DS_UNIDADE,
+              SUM(ITFORMULA.QT_PADRAO)                        	QT_KIT_MAT_MED
+FROM    DBAMV.AVISO_CIRURGIA                            	AVISO_CIRURGIA,
+              DBAMV.CIRURGIA_KIT                              	CIRURGIA_KIT,
+              DBAMV.FORMULA                                   	FORMULA,
+              DBAMV.CIRURGIA_AVISO                            	CIRURGIA_AVISO,
+              DBAMV.CIRURGIA                                  		CIRURGIA,
+              DBAMV.PRODUTO                                   	PRODUTO,
+              DBAMV.ITFORMULA,
+              DBAMV.PRODUTO PROD_ITEM,
+              DBAMV.UNI_PRO
+  WHERE  AVISO_CIRURGIA.CD_AVISO_CIRURGIA          =      CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+ AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = produto.Cd_Produto )
+ AND        CIRURGIA_AVISO.CD_CIRURGIA             	=      CIRURGIA.CD_CIRURGIA
+  AND        CIRURGIA_AVISO.CD_AVISO_CIRURGIA       	=      CIRURGIA_KIT.CD_AVISO_CIRURGIA
+  AND        CIRURGIA_AVISO.CD_CIRURGIA             	=      CIRURGIA_KIT.CD_CIRURGIA
+  AND        CIRURGIA_KIT.CD_FORMULA                	=      FORMULA.CD_FORMULA
+  AND        FORMULA.CD_PRODUTO                     	=      PRODUTO.CD_PRODUTO
+  AND        FORMULA.CD_FORMULA = ITFORMULA.CD_FORMULA
+  AND        ITFORMULA.CD_PRODUTO_TEM = PROD_ITEM.CD_PRODUTO
+  AND        ITFORMULA.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+GROUP BY
+	AVISO_CIRURGIA.CD_AVISO_CIRURGIA,
+    ITFORMULA.CD_PRODUTO_TEM,
+    PROD_ITEM.DS_PRODUTO,
+    UNI_PRO.DS_UNIDADE
+)
+WHERE CD_AVISO_CIRURGIA_MAT = :CAMPO_CD_AVISO_CIRURGIA
+)

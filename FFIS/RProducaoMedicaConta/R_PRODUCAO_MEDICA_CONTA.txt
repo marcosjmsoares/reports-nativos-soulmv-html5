@@ -1,0 +1,59 @@
+/*----------------------------------------------------------------------------*/
+--R_PRODUCAO_MEDICA_CONTA
+SELECT RG.CD_REG_FAT                                                            CD_REG_FAT
+     , AD.CD_PACIENTE                                                           PRONTUARIO
+     , RG.NR_GUIA                                                               NR_GUIA
+     , TO_CHAR(VP.DT_LANCAMENTO,'DD/MM')                                        DT_LANCAMENTO
+     , VP.CD_PROCEDIMENTO                                                       CD_PROCEDIMENTO
+     , PS.DS_PROCEDIMENTO
+     , SUM(DBAMV.PKG_FFIS_CALC_AIH.FNC_SUS_MAX_VALOR_SP(VP.CD_PROCEDIMENTO
+                                                       ,VP.DT_COMPETENCIA))     VL_PROC_SP
+     , VP.CD_PRESTADOR                                                          CD_PRESTADOR
+     , PR.NM_PRESTADOR||' ('||VP.CD_PRESTADOR||')'                              NM_PRESTADOR
+     , InitCap(NVL(AM.DS_ATI_MED,'OUTROS'))                                     ATIVIDADE
+     , DECODE(SUM(VP.VL_SP_PROPRIO),0,'Terceiro','Próprio')                     TP_CREDITO
+     , DECODE(SUM(PKG_FFIS_CALC_AIH.FNC_SUS_MAX_VALOR_PONTOS(VP.CD_REG_FAT,VP.CD_LANCAMENTO)), 0, 'Não',
+       DECODE(SUM(VP.QT_PONTOS),0,'Não','Sim ('||((SUM((Nvl(VP.QT_PONTOS,0)/VP.QT_LANCAMENTO))
+       / SUM(PKG_FFIS_CALC_AIH.FNC_SUS_MAX_VALOR_PONTOS(VP.CD_REG_FAT,VP.CD_LANCAMENTO)))
+       *100)||'%)'))                                                             RATEIO
+     , SUM(VP.QT_PONTOS)                                                        QT_PONTOS
+     , SUM(PKG_FFIS_CALC_AIH.FNC_SUS_MAX_VALOR_PONTOS(VP.CD_REG_FAT
+                                                     ,VP.CD_LANCAMENTO))        PONTOS_PROC
+     , SUM(VP.QT_LANCAMENTO)                                                    QT_LANCAMENTO
+     , SUM(VP.VL_SP_PROPRIO)
+       + SUM(VP.VL_SP_TERCEIRO)                                                 VL_TOTAL
+     , SUM(VP.VL_SP_PROPRIO)                                                    VL_SP_PROPRIO
+     , NVL(SUM(VP.VL_SP_TERCEIRO), '')                                          VL_SP_TERCEIRO
+     , SUM(VP.VL_SP_DIRETO_PROPRIO)                                             VL_SP_DI_PROPRIO
+     , SUM(VP.VL_SP_DIRETO_TERCEIRO)                                            VL_SP_DI_TERCEIRO
+     , SUM(VP.VL_SP_RATEIO_PROPRIO)                                             VL_SP_RT_PROPRIO
+     , SUM(VP.VL_SP_RATEIO_TERCEIRO)                                            VL_SP_RT_TERCEIRO
+ FROM DBAMV.REG_FAT RG
+    , DBAMV.V_FFIS_VALOR_PRESTADOR_AIH VP
+    , DBAMV.PRESTADOR PR
+    , DBAMV.PROCEDIMENTO_SUS PS
+    , DBAMV.ATENDIME AD
+    , DBAMV.ATI_MED AM
+WHERE VP.CD_REG_FAT                        = RG.CD_REG_FAT
+  AND AD.CD_ATENDIMENTO                    = RG.CD_ATENDIMENTO
+  AND PS.CD_PROCEDIMENTO                   = VP.CD_PROCEDIMENTO
+  AND AM.CD_ATI_MED(+)                     = VP.CD_ATI_MED
+  AND VP.CD_PRESTADOR                      = PR.CD_PRESTADOR
+  AND VP.CD_MULTI_EMPRESA                  = :CAMPO_CD_MULTI_EMPRESA
+  AND TO_CHAR(VP.DT_COMPETENCIA,'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+  AND (VP.VL_SP_PROPRIO + VP.VL_SP_TERCEIRO) > 0
+GROUP BY RG.CD_REG_FAT
+       , RG.NR_GUIA
+       , AD.CD_PACIENTE
+       , TO_CHAR(VP.DT_LANCAMENTO,'DD/MM')
+       , VP.CD_PROCEDIMENTO
+       , AM.DS_ATI_MED
+       , PS.DS_PROCEDIMENTO
+       , VP.CD_PRESTADOR
+       , PR.NM_PRESTADOR
+       , VP.CD_ATI_MED
+ORDER BY PR.NM_PRESTADOR
+       , RG.NR_GUIA
+       , VP.CD_PROCEDIMENTO
+       , PS.DS_PROCEDIMENTO
+       , VP.CD_ATI_MED

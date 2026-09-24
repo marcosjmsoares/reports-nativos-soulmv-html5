@@ -1,0 +1,102 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_AGENDA_USUARIO
+select sysdate DATA from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_AGENDA_USUARIO_R_3_Q_2
+SELECT  nm_usuario  nm_usuario_sint
+               ,nome  nome_sint
+               ,sum(consulta)  Consultas_sint
+               ,sum(encaixe)   Encaixes_sint
+               ,sum(consulta) + sum(Encaixe)  total_sint
+FROM (
+               SELECT   it_marcacao.nm_usuario
+                              ,usuarios.nm_usuario nome
+                              ,count(*) Consulta
+                              ,0            Encaixe
+               FROM      dbamv.marcacao
+                              ,dbamv.it_marcacao
+                              ,dbasgu.usuarios
+               WHERE   marcacao.cd_marcacao              = it_marcacao.cd_marcacao
+               AND         it_marcacao.nm_usuario              = usuarios.cd_usuario
+               AND         it_marcacao.nm_paciente             IS NOT NULL
+               AND         NVL(it_marcacao.sn_encaixe, 'N')  = 'N'
+               AND 		   it_marcacao.dt_agendado between to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+               											   to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+               GROUP BY  it_marcacao.nm_usuario
+                                   ,usuarios.nm_usuario
+               UNION
+               SELECT  it_marcacao.nm_usuario
+                              ,usuarios.nm_usuario nome
+                              ,0                 Consulta
+                              ,count(*)       Encaixe
+               FROM      dbamv.marcacao
+                               ,dbamv.it_marcacao
+                               ,dbasgu.usuarios
+               WHERE   marcacao.cd_marcacao              = it_marcacao.cd_marcacao
+               AND         it_marcacao.nm_usuario              = usuarios.cd_usuario
+               AND         it_marcacao.nm_paciente             IS NOT NULL
+               AND         NVL(it_marcacao.sn_encaixe, 'N')  = 'S'
+               AND 		   it_marcacao.dt_agendado between to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+               											   to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+               GROUP BY  it_marcacao.nm_usuario
+                                   ,usuarios.nm_usuario
+           )
+GROUP BY  nm_usuario
+                    ,nome
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_AGENDA_USUARIO_R_5_Q_1
+SELECT  dt_marcacao
+               ,nm_usuario
+               ,nome
+               ,sum(consulta)  Consultas
+               ,sum(encaixe)   Encaixes
+               ,sum(consulta) + sum(Encaixe)  total
+FROM (
+               SELECT  marcacao.dt_marcacao
+                              ,it_marcacao.nm_usuario
+                              ,usuarios.nm_usuario nome
+                              ,count(*) Consulta
+                              ,0            Encaixe
+               FROM      dbamv.marcacao
+                              ,dbamv.it_marcacao
+                              ,dbasgu.usuarios
+               WHERE   marcacao.cd_marcacao              = it_marcacao.cd_marcacao
+               AND         it_marcacao.nm_usuario              = usuarios.cd_usuario
+               AND         it_marcacao.nm_paciente             IS NOT NULL
+               AND         NVL(it_marcacao.sn_encaixe, 'N')  = 'N'
+               AND 		  it_marcacao.dt_agendado between to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+               											  to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+               GROUP BY  marcacao.dt_marcacao
+                                   ,it_marcacao.nm_usuario
+                                   ,usuarios.nm_usuario
+               UNION
+               SELECT  marcacao.dt_marcacao
+                              ,it_marcacao.nm_usuario
+                              ,usuarios.nm_usuario nome
+                              ,0                 Consulta
+                              ,count(*)       Encaixe
+               FROM      dbamv.marcacao
+                               ,dbamv.it_marcacao
+                               ,dbasgu.usuarios
+               WHERE   marcacao.cd_marcacao              = it_marcacao.cd_marcacao
+               AND         it_marcacao.nm_usuario              = usuarios.cd_usuario
+               AND         it_marcacao.nm_paciente             IS NOT NULL
+               AND         NVL(it_marcacao.sn_encaixe, 'N')  = 'S'
+               AND 		   it_marcacao.dt_agendado between to_date(to_char(:CAMPO_DT_INICIAL,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+               			 								   to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+               GROUP BY  marcacao.dt_marcacao
+                                   ,it_marcacao.nm_usuario
+                                   ,usuarios.nm_usuario
+           )
+GROUP BY  dt_marcacao
+                    ,nm_usuario
+                    ,nome
+order by dt_marcacao
+         ,nome
+         ,nm_usuario

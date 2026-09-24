@@ -1,0 +1,75 @@
+/*----------------------------------------------------------------------------*/
+--R_ANALISE_DESEMPENHO
+SELECT * FROM (
+SELECT cd_grupo_de_custo cd_grupo_de_custo
+      ,ds_grupo_de_custo ds_grupo_de_custo
+      ,cd_setor cd_setor
+      ,nm_setor nm_setor
+      ,nvl ( vl_receita_servicos, 0 ) vl_receita_servicos
+      ,nvl ( vl_receita_matmed, 0 ) vl_receita_matmed
+      ,nvl ( vl_receita_honorarios, 0 ) vl_receita_honorarios
+      ,nvl ( vl_receita_total, 0 ) vl_receita_total
+      ,nvl ( vl_receita_naooper, 0 ) vl_receita_naooper
+      ,nvl ( vl_receita_opera, 0 ) vl_receita_opera
+      ,nvl ( vl_custo_primario, 0 ) vl_custo_primario
+      ,nvl ( vl_rateio, 0 ) vl_rateio
+      ,nvl ( vl_custo_matmed, 0 ) vl_custo_matmed
+      ,nvl ( vl_custo_total, 0 ) vl_custo_total
+      ,vl_custo_variavel
+      , Nvl(nvl ( vl_receita_total, 0 ) - nvl ( vl_receita_naooper, 0) -  nvl ( vl_custo_variavel, 0 ), 0)
+	- (decode (:CAMPO_SN_DEDUCAO,
+	'S', (nvl(vl_deduz_imposto, 0) + nvl(vl_deduz_glosa, 0) + nvl(vl_deduz_honorario, 0) + nvl(vl_deduz_outro, 0)) * -1,
+	 nvl ( vl_receita_opera, 0 ) * (nvl ( taxa_glosa, 0 ) / 100 ) + nvl (vl_receita_total * (taxa_imposto / 100 ), 0 ))) vl_margem_contribuicao
+      , Nvl(nvl ( vl_receita_total, 0 ) - nvl ( vl_receita_naooper, 0) - nvl (vl_custo_primario, 0) - nvl (vl_custo_especifico, 0) - nvl (vl_custo_matmed, 0), 0 )
+	- (decode (:CAMPO_SN_DEDUCAO,
+	'S', (nvl(vl_deduz_imposto, 0) + nvl(vl_deduz_glosa, 0) + nvl(vl_deduz_honorario, 0) + nvl(vl_deduz_outro, 0)) * -1,
+	 nvl ( vl_receita_opera, 0 ) * (nvl ( taxa_glosa, 0 ) / 100 ) + nvl (vl_receita_total * (taxa_imposto / 100 ), 0 ))) vl_margem_aplicada
+      , decode (:CAMPO_SN_DEDUCAO,
+	'S', (nvl(vl_deduz_imposto, 0) + nvl(vl_deduz_glosa, 0) + nvl(vl_deduz_honorario, 0) + nvl(vl_deduz_outro, 0)),
+	 nvl ( vl_receita_opera, 0 ) * (nvl ( taxa_glosa, 0 ) / 100 ) + nvl (vl_receita_total * (taxa_imposto / 100 ), 0 )) vl_deducao
+      , (nvl ( vl_receita_total, 0 ) - (decode (:CAMPO_SN_DEDUCAO,
+	'S', (nvl(vl_deduz_imposto, 0) + nvl(vl_deduz_glosa, 0) + nvl(vl_deduz_honorario, 0) + nvl(vl_deduz_outro, 0)) * -1,
+	 nvl ( vl_receita_opera, 0 ) * (nvl ( taxa_glosa, 0 ) / 100 ) + nvl (vl_receita_total * (taxa_imposto / 100 ), 0 ))) - nvl ( vl_custo_total, 0 ) ) vl_resultado
+      , (((vl_receita_opera - (nvl ( vl_receita_opera, 0 ) * (nvl ( taxa_glosa, 0 ) / 100 )) - nvl ( vl_custo_total, 0 ))) / decode ( nvl ( vl_receita_opera, 0 ), 0, 1, vl_receita_opera )) * 100 vl_perc_rentabilidade
+  FROM ( SELECT  grupo_de_custo.cd_grupo_de_custo
+                ,grupo_de_custo.ds_grupo_de_custo
+                ,setor.cd_setor cd_setor
+                ,setor.nm_setor nm_setor
+                ,competencia.taxa_glosa taxa_glosa
+                ,competencia.taxa_impostos taxa_imposto
+		,sum(nvl(custo_final.vl_deduz_imposto,0)) vl_deduz_imposto
+                ,sum(nvl(custo_final.vl_deduz_glosa,0)) vl_deduz_glosa
+                ,sum(nvl(custo_final.vl_deduz_honorario,0)) vl_deduz_honorario
+                ,sum(nvl(custo_final.vl_deduz_outro,0)) vl_deduz_outro
+                ,SUM (nvl ( decode('','R',custo_final.vl_receita_sh,custo_final.vl_fat_sh), 0 ) + nvl ( decode('','R',custo_final.vl_receita_sd,custo_final.vl_fat_sd), 0 )) vl_receita_servicos
+                ,SUM ( nvl ( decode('','R',custo_final.vl_receita_matmed,custo_final.vl_fat_matmed), 0 )) vl_receita_matmed
+                ,SUM ( nvl ( decode('','R',custo_final.vl_receita_honorarios,custo_final.vl_fat_honorarios), 0 )) vl_receita_honorarios
+                ,SUM (nvl ( decode('','R',custo_final.vl_receita_sh,custo_final.vl_fat_sh), 0 ) + nvl ( decode('','R',custo_final.vl_receita_sd,custo_final.vl_fat_sd), 0 ) + nvl ( decode('','R',custo_final.vl_receita_matmed,custo_final.vl_fat_matmed), 0 ) + nvl ( decode('','R',custo_final.vl_receita_no,custo_final.vl_fat_no), 0 ) + nvl ( decode('','R',custo_final.vl_receita_honorarios,custo_final.vl_fat_honorarios), 0 )) vl_receita_total
+                ,SUM ( nvl ( decode('','R',custo_final.vl_receita_no,custo_final.vl_fat_no), 0 )) vl_receita_naooper
+                ,SUM (nvl ( decode('','R',custo_final.vl_receita_sh,custo_final.vl_fat_sh), 0 ) + nvl ( decode('','R',custo_final.vl_receita_sd,custo_final.vl_fat_sd), 0 ) + nvl ( decode('','R',custo_final.vl_receita_matmed,custo_final.vl_fat_matmed), 0 ) + nvl ( decode('','R',custo_final.vl_receita_honorarios,custo_final.vl_fat_honorarios), 0 )) vl_receita_opera
+                ,SUM (nvl ( custo_final.vl_custo_primario, 0 ) - nvl ( custo_final.vl_custo_matmed, 0 )) vl_custo_primario
+                ,SUM (nvl ( custo_final.vl_custo_genericos, 0 ) + nvl ( custo_final.vl_custo_especificos, 0 )) vl_rateio
+                ,SUM ( nvl ( custo_final.vl_custo_matmed, 0 )) vl_custo_matmed
+                ,SUM (nvl ( custo_final.vl_custo_primario, 0 ) - nvl ( custo_final.vl_custo_matmed, 0 ) + nvl ( custo_final.vl_custo_genericos, 0 ) + nvl ( custo_final.vl_custo_especificos, 0 ) + nvl ( custo_final.vl_custo_matmed, 0 ))
+                                                                                                                                                                                                                                           vl_custo_total
+                ,SUM ( nvl ( custo_final.vl_custo_variavel, 0 )) vl_custo_variavel
+                ,SUM ( nvl ( custo_final.vl_custo_genericos, 0 )) vl_custo_generico
+                ,SUM ( nvl ( custo_final.vl_custo_especificos, 0 )) vl_custo_especifico
+            FROM dbamv.custo_final
+                ,dbamv.setor
+                ,dbamv.competencia
+                ,dbamv.grupo_de_custo
+           WHERE custo_final.dt_competencia = TO_DATE ( :CAMPO_DTINI, 'MM/YYYY' )
+             AND custo_final.dt_competencia = competencia.dt_competencia
+             AND custo_final.cd_setor = setor.cd_setor
+             AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND setor.cd_grupo_de_custo = grupo_de_custo.cd_grupo_de_custo
+             AND grupo_de_custo.tp_grupo_de_custo IN ( 'T', 'P', 'O' )
+        GROUP BY grupo_de_custo.cd_grupo_de_custo
+                ,grupo_de_custo.ds_grupo_de_custo
+                ,setor.cd_setor
+                ,setor.nm_setor
+                ,competencia.taxa_glosa
+                ,competencia.taxa_impostos )
+)

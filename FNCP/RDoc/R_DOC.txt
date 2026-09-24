@@ -1,0 +1,191 @@
+/*----------------------------------------------------------------------------*/
+--R_DOC
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DOC_R_BITMAP1_Q_BORDERO1
+SELECT * FROM (
+select unique  bordero.nr_identificacao              	nr_identificacao
+          ,con_cor.cd_banco                       		cd_banco
+          ,banco.nm_banco                         		nm_banco
+          ,nvl2(con_cor.cd_digito_agencia, con_cor.cd_agencia || '-' || con_cor.cd_digito_agencia, con_cor.cd_agencia) cd_agencia
+          ,con_cor.ds_agencia                     		ds_agencia
+          ,nvl2(con_cor.cd_digito_conta_corrente, con_cor.nr_conta || '-' || con_cor.cd_digito_conta_corrente, con_cor.nr_conta) nr_conta
+          ,pagcon_pag.cd_pagcon_pag      				cd_pagcon_pag
+          ,pagcon_pag.cd_moeda
+          ,pagcon_pag.vl_moeda                    		vl_pago
+          ,pagcon_pag.dt_pagamento          			dt_pagamento
+          ,con_pag.cd_fornecedor           				cd_fornecedor
+          ,decode(con_pag.cd_fornecedor,'',con_pag.ds_fornecedor,fornecedor.nm_fornecedor) nm_fornecedor
+        ,decode(con_pag.cd_fornecedor,'','', decode(tp_fornecedor, 'J', substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),1,2)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),3,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),6,3)||'/'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),9,4)||'-'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),13,2),
+                                                                   'F', substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),4,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),7,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),10,3)||'-'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),13,2)) )  nr_cgc_cpf
+          ,con_pag.nr_documento                			nr_documento
+          ,itcon_pag.vl_moeda                    		vl_duplicata
+          ,pagcon_pag.cd_banco_forn         			cd_banco_forn
+          ,banco_f.nm_banco                       		nm_banco_forn
+           ,Nvl((SELECT nvl2(FORN_CONTA_CORRENTE.cd_agencia,nvl2(FORN_CONTA_CORRENTE.dv_agencia, FORN_CONTA_CORRENTE.cd_agencia || '-' || FORN_CONTA_CORRENTE.dv_agencia, FORN_CONTA_CORRENTE.cd_agencia), pagcon_pag.cd_agencia_forn) cd_agencia_forn
+             FROM DBAMV.FORN_CONTA_CORRENTE
+            WHERE CD_FORNECEDOR = CON_PAG.CD_FORNECEDOR
+              AND NR_IBAN IS NOT NULL
+              AND CD_BANCO = pagcon_pag.CD_BANCO_FORN
+              AND CD_AGENCIA||'-'||DV_AGENCIA = pagcon_pag.CD_AGENCIA_FORN
+              AND DS_AGENCIA = pagcon_pag.DS_AGENCIA_FORN
+              AND NR_CONTA||'-'||dv_conta_corrente = pagcon_pag.nr_conta_forn
+              AND ROWNUM = 1 ),' ') cd_agencia_forn
+          ,Nvl((SELECT nvl2(FORN_CONTA_CORRENTE.nr_conta,nvl2(FORN_CONTA_CORRENTE.dv_conta_corrente, FORN_CONTA_CORRENTE.nr_conta || '-' || FORN_CONTA_CORRENTE.dv_conta_corrente, FORN_CONTA_CORRENTE.nr_conta), pagcon_pag.nr_conta_forn) nr_conta_forn
+             FROM DBAMV.FORN_CONTA_CORRENTE
+            WHERE CD_FORNECEDOR = CON_PAG.CD_FORNECEDOR
+              AND NR_IBAN IS NOT NULL
+              AND CD_BANCO = pagcon_pag.CD_BANCO_FORN
+              AND CD_AGENCIA||'-'||DV_AGENCIA = pagcon_pag.CD_AGENCIA_FORN
+              AND DS_AGENCIA = pagcon_pag.DS_AGENCIA_FORN
+              AND NR_CONTA||'-'||dv_conta_corrente = pagcon_pag.nr_conta_forn
+              AND ROWNUM = 1 ),' ') nr_conta_forn
+		   ,Nvl((SELECT Nvl(FORN_CONTA_CORRENTE.ds_agencia, pagcon_pag.ds_agencia_forn) ds_agencia_forn
+             FROM DBAMV.FORN_CONTA_CORRENTE
+            WHERE CD_FORNECEDOR = CON_PAG.CD_FORNECEDOR
+              AND NR_IBAN IS NOT NULL
+              AND CD_BANCO = pagcon_pag.CD_BANCO_FORN
+              AND CD_AGENCIA||'-'||DV_AGENCIA = pagcon_pag.CD_AGENCIA_FORN
+              AND DS_AGENCIA = pagcon_pag.DS_AGENCIA_FORN
+              AND NR_CONTA||'-'||dv_conta_corrente = pagcon_pag.nr_conta_forn
+              AND ROWNUM = 1 ),' ') ds_agencia_forn
+          ,pagcon_pag.vl_moeda_desc                                 		 valor_desconto
+          ,pagcon_pag.vl_moeda_acres                                		 valor_acrescimo
+          ,con_pag.cd_atendimento                                            atendimento
+          ,Nvl((SELECT Decode(NR_IBAN, null,' ','IBAN: '||nr_iban)
+             FROM DBAMV.FORN_CONTA_CORRENTE
+            WHERE CD_FORNECEDOR = CON_PAG.CD_FORNECEDOR
+              AND CD_BANCO = pagcon_pag.CD_BANCO_FORN
+              AND CD_AGENCIA||'-'||DV_AGENCIA = pagcon_pag.CD_AGENCIA_FORN
+              AND DS_AGENCIA = pagcon_pag.DS_AGENCIA_FORN
+              AND NR_CONTA||'-'||dv_conta_corrente = pagcon_pag.nr_conta_forn),' ') NR_IBAN_FORN
+from dbamv.bordero                   bordero
+       ,dbamv.con_cor                  con_cor
+       ,dbamv.banco                     banco
+       ,dbamv.pagcon_pag           pagcon_pag
+       ,dbamv.itcon_pag               itcon_pag
+       ,dbamv.con_pag                 con_pag
+       ,dbamv.fornecedor              fornecedor
+       ,dbamv.banco                     banco_f
+       ,dbamv.mov_concor           mov_concor
+       ,(SELECT DISTINCT cd_fornecedor,
+        cd_banco,
+        cd_agencia,
+        dv_agencia,
+        ds_agencia,
+        nr_conta,
+        dv_conta_corrente,
+        nr_iban
+	FROM   dbamv.forn_conta_corrente
+        WHERE sn_padrao = 'S') cc_forn
+where bordero.cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+        and mov_concor.cd_bordero          =   bordero.cd_bordero
+        and mov_concor.cd_con_cor         =   con_cor.cd_con_cor
+        and con_cor.cd_banco                   =   banco.cd_banco
+	and con_cor.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA 
+        and pagcon_pag.cd_bordero          =   bordero.cd_bordero
+        and pagcon_pag.cd_itcon_pag      =   itcon_pag.cd_itcon_pag
+        and itcon_pag.cd_con_pag_agrup is null
+        and itcon_pag.cd_con_pag            =   con_pag.cd_con_pag
+        and con_pag.cd_fornecedor           =   fornecedor.cd_fornecedor(+)
+        and pagcon_pag.cd_banco_forn    =   banco_f.cd_banco(+)
+        and pagcon_pag.cd_con_cor         =   mov_concor.cd_con_cor
+        and pagcon_pag.tp_pagamento in ('2','8')
+        and pagcon_pag.dt_estorno is null
+:CAMPO_CF_CD_ORDEM
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DOC_R_BITMAP_Q_BOLETO
+SELECT * FROM (
+select unique  bordero.nr_identificacao              nr_identificacao
+          ,con_cor.cd_banco                       cd_banco
+          ,banco.nm_banco                         nm_banco
+          ,nvl2(con_cor.cd_digito_agencia, con_cor.cd_agencia || '-' || con_cor.cd_digito_agencia, con_cor.cd_agencia) cd_agencia
+          ,con_cor.ds_agencia                     ds_agencia
+          ,nvl2(con_cor.cd_digito_conta_corrente, con_cor.nr_conta || '-' || con_cor.cd_digito_conta_corrente, con_cor.nr_conta) nr_conta
+          ,pagcon_pag.cd_pagcon_pag      cd_pagcon_pag
+          ,pagcon_pag.cd_moeda
+          ,pagcon_pag.vl_moeda                    vl_pago
+          ,pagcon_pag.dt_pagamento          dt_pagamento
+          ,con_pag.cd_fornecedor           cd_fornecedor
+          ,decode(con_pag.cd_fornecedor,'',con_pag.ds_fornecedor,fornecedor.nm_fornecedor) nm_fornecedor
+        ,decode(con_pag.cd_fornecedor,'','', decode(tp_fornecedor, 'J', substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),1,2)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),3,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),6,3)||'/'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),9,4)||'-'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),13,2),
+                                                                   'F', substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),4,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),7,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),10,3)||'-'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),13,2)) )  nr_cgc_cpf
+          ,con_pag.nr_documento                							    nr_documento
+          ,itcon_pag.vl_moeda                    							vl_duplicata
+          ,pagcon_pag.cd_banco_forn         								cd_banco_forn
+          ,banco_f.nm_banco                       							nm_banco_forn
+          ,nvl2(cc_forn.cd_agencia,nvl2(cc_forn.dv_agencia, cc_forn.cd_agencia || '-' || cc_forn.dv_agencia, cc_forn.cd_agencia), pagcon_pag.cd_agencia_forn) cd_agencia_forn
+          ,nvl2(cc_forn.nr_conta,nvl2(cc_forn.dv_conta_corrente, cc_forn.nr_conta || '-' || cc_forn.dv_conta_corrente, cc_forn.nr_conta), pagcon_pag.nr_conta_forn) nr_conta_forn
+          ,Nvl(cc_forn.ds_agencia, pagcon_pag.ds_agencia_forn) ds_agencia_forn
+          ,pagcon_pag.vl_moeda_desc                                 		valor_desconto
+          ,pagcon_pag.vl_moeda_acres                                		valor_acrescimo
+         ,con_pag.cd_atendimento                                 			atendimento
+           ,Nvl((SELECT Decode(NR_IBAN,null,' ','IBAN: '||nr_iban)
+             FROM DBAMV.FORN_CONTA_CORRENTE
+            WHERE CD_FORNECEDOR = CON_PAG.CD_FORNECEDOR
+              AND NR_IBAN IS NOT NULL
+              AND CD_BANCO = pagcon_pag.CD_BANCO_FORN
+              AND CD_AGENCIA||'-'||DV_AGENCIA = pagcon_pag.CD_AGENCIA_FORN
+              AND DS_AGENCIA = pagcon_pag.DS_AGENCIA_FORN
+              AND NR_CONTA||'-'||dv_conta_corrente = pagcon_pag.nr_conta_forn
+              AND ROWNUM = 1 ),' ') NR_IBAN_FORN
+from dbamv.bordero                   bordero
+             JOIN dbamv.pagcon_pag pagcon_pag
+               ON pagcon_pag.cd_bordero = bordero.cd_bordero
+             JOIN dbamv.mov_concor mov_concor 
+               ON mov_concor.cd_bordero = bordero.cd_bordero
+               AND pagcon_pag.cd_con_cor = mov_concor.cd_con_cor
+             JOIN dbamv.itcon_pag itcon_pag 
+               ON pagcon_pag.cd_itcon_pag = itcon_pag.cd_itcon_pag
+             JOIN dbamv.con_pag con_pag
+               ON itcon_pag.cd_con_pag = con_pag.cd_con_pag
+        LEFT JOIN dbamv.fornecedor fornecedor 
+               ON con_pag.cd_fornecedor = fornecedor.cd_fornecedor
+        LEFT JOIN dbamv.banco banco_f 
+               ON pagcon_pag.cd_banco_forn = banco_f.cd_banco
+             JOIN dbamv.con_cor con_cor 
+               ON mov_concor.cd_con_cor = con_cor.cd_con_cor
+             JOIN dbamv.banco banco 
+               ON con_cor.cd_banco = banco.cd_banco
+     left JOIN (SELECT DISTINCT cd_fornecedor,
+                      cd_banco,
+                      cd_agencia,
+                      dv_agencia,
+                      ds_agencia,
+                      nr_conta,
+                      dv_conta_corrente,
+                      nr_iban
+	              FROM   dbamv.forn_conta_corrente
+                      WHERE sn_padrao = 'S') cc_forn
+       ON   cc_forn.cd_fornecedor  			= fornecedor.cd_fornecedor
+        and cc_forn.cd_banco  = pagcon_pag.cd_banco_forn
+        and cc_forn.cd_agencia  = Decode(Nvl(InStr(pagcon_pag.cd_agencia_forn,'-'),0),0,pagcon_pag.cd_agencia_forn,SubStr(pagcon_pag.cd_agencia_forn,1,InStr(pagcon_pag.cd_agencia_forn,'-')-1))
+        and cc_forn.nr_conta  = Decode(Nvl(InStr(pagcon_pag.nr_conta_forn,'-'),0),0,pagcon_pag.nr_conta_forn,SubStr(pagcon_pag.nr_conta_forn,1,InStr(pagcon_pag.nr_conta_forn,'-')-1))
+where bordero.cd_multi_empresa            	= :CAMPO_CD_MULTI_EMPRESA
+	    and con_cor.cd_multi_empresa     	= :CAMPO_CD_MULTI_EMPRESA 
+        and itcon_pag.cd_con_pag_agrup is null
+        and pagcon_pag.tp_pagamento in ('2','8')
+        and pagcon_pag.dt_estorno is null
+:CAMPO_CF_CD_ORDEM
+)

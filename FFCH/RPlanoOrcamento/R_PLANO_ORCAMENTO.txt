@@ -1,0 +1,614 @@
+/*----------------------------------------------------------------------------*/
+--R_PLANO_ORCAMENTO
+SELECT ORDENACAO
+, cd_setor_origem
+,nm_setor
+,nsecao_traducao.valor nsecao
+,Nvl(Receita_traducao.valor,Receita) Receita
+,ds_item_res
+,dt_comp1
+,dt_comp
+,vl_orcado
+,soma_vl_orcado
+,resul_vl_orca
+FROM (
+SELECT  ORDENACAO
+        ,Base.cd_setor  cd_setor_origem
+        ,InitCap ( setor.nm_setor ) nm_setor
+        ,nsecao
+        ,ds_grupo Receita
+        ,InitCap( ds_item ) ds_item_res
+        , TO_DATE (dt_comp, 'mm/yyyy') dt_comp1
+        ,TO_CHAR (TO_DATE (dt_comp, 'mm/yyyy'), 'MON/YYYY') dt_comp
+        ,SUM (NVL (vl_orcado, 0) ) vl_orcado
+        ,sum( decode(nsecao,'Receitas',0,vl_orcado) ) soma_vl_orcado
+        ,sum( decode(nsecao,'Receitas',vl_orcado,-1*vl_orcado ) ) resul_vl_orca
+    FROM (
+          SELECT   '1' ORDENACAO
+                  ,Temp_Setor.cd_setor  cd_setor
+                  ,'Receitas'  nsecao
+                  ,DECODE (NVL (item_orcamento.tp_meta, 'NO'), 'CH', 'Conta Hospitalar', 'RA', 'Remessa Ambulatorial', 'FA', 'Faturamento AIH', 'FS', 'Faturamento SUS', 'NO', 'Não Operacional') ds_grupo
+                  ,item_res.ds_item_res ds_item
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.item_res
+                  ,dbamv.Temp_setor
+                  ,dbamv.item_orcamento
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                    BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                        AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                        AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND NVL (item_orcamento.tp_meta, 'NO') IN ('CH', 'RA', 'FA', 'FS', 'NO')
+               AND item_orcamento.tp_orcamento = 'I'
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = setor.cd_setor
+               AND item_orcamento.cd_item_res = item_res.cd_item_res
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY temp_Setor.cd_setor
+                  ,DECODE (NVL (item_orcamento.tp_meta, 'NO'), 'CH', 'Conta Hospitalar', 'RA', 'Remessa Ambulatorial', 'FA', 'Faturamento AIH', 'FS', 'Faturamento SUS', 'NO', 'Não Operacional')
+                  ,item_res.ds_item_res
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+          SELECT   '2' ORDENACAO
+                  , Temp_Setor.cd_setor cd_setor
+                  ,'Custos'   nsecao
+                  ,gru_res.ds_gru_res ds_grupo
+                  ,TO_CHAR (item_res.ds_item_res) ds_item
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.Temp_Setor
+                  ,dbamv.item_res
+                  ,dbamv.item_orcamento
+                  ,dbamv.gru_res
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                            BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                                AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                                AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND item_orcamento.cd_item_res = item_res.cd_item_res
+               AND item_res.cd_gru_res = gru_res.cd_gru_res
+               AND item_orcamento.tp_orcamento = 'I'
+               AND item_orcamento.tp_meta IN ('OC')
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = Setor.cd_setor
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.tp_orcamento, item_orcamento.tp_orcamento) = item_orcamento.tp_orcamento
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY Temp_Setor.cd_setor
+                  ,gru_res.ds_gru_res
+                  ,item_orcamento.cd_item_res
+                  ,item_res.ds_item_res
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+         SELECT   '3' ORDENACAO
+                 ,temp_setor.cd_setor cd_setor
+                 ,'Rateios' nsecao
+                 ,DECODE( destino.classificacao, 'G', 'Genéricos', 'E', 'Específicos', 'Não Informado' ) ds_grupo
+                 ,destino.nm_setor ds_item
+                 ,TO_CHAR( compt.dt_competencia, 'mm/yyyy' ) dt_comp
+                 ,SUM( item_orcamento.vl_orcamento ) vl_orcado
+           FROM dbamv.setor origem
+               ,dbamv.setor destino
+               ,dbamv.item_orcamento
+               ,dbamv.temp_setor
+               ,( SELECT competencia.dt_competencia dt_competencia
+                    FROM dbamv.competencia
+                   WHERE competencia.dt_competencia
+                          BETWEEN TO_DATE( :CAMPO_DATA_INI, 'mm/yyyy' )
+                              AND TO_DATE( :CAMPO_DATA_FIM, 'mm/yyyy' )
+                              AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+   WHERE NVL( item_orcamento.vl_orcamento, 0 ) <> 0
+     AND origem.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND destino.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND item_orcamento.cd_setor_origem = origem.cd_setor
+     AND item_orcamento.cd_setor_destino = destino.cd_setor
+     AND temp_setor.cd_setor_filho = origem.cd_setor
+     AND item_orcamento.cd_setor_destino  not in (select cd_setor_filho from dbamv.temp_setor )
+     AND item_orcamento.tp_orcamento = 'R'
+     AND item_orcamento.dt_competencia =
+           ( SELECT MAX( io.dt_competencia )DATA
+              FROM dbamv.item_orcamento io
+             WHERE io.dt_competencia <= compt.dt_competencia
+               AND NVL( io.cd_setor_origem, item_orcamento.cd_setor_origem ) = item_orcamento.cd_setor_origem
+               AND NVL( io.tp_orcamento, item_orcamento.tp_orcamento ) = item_orcamento.tp_orcamento
+               AND NVL( io.cd_multi_empresa, item_orcamento.cd_multi_empresa ) = item_orcamento.cd_multi_empresa )
+GROUP BY temp_setor.cd_setor
+                 ,DECODE( destino.classificacao, 'G', 'Genéricos', 'E', 'Específicos', 'Não Informado' )
+        ,destino.nm_setor
+        ,TO_CHAR( compt.dt_competencia, 'mm/yyyy' )
+) Base
+        ,dbamv.setor
+where not ( vl_orcado = 0  )
+   and Base.cd_setor = Setor.cd_setor
+GROUP BY ORDENACAO
+        ,Base.cd_setor
+        ,InitCap ( setor.nm_setor )
+        ,nsecao
+        ,ds_grupo
+        ,ds_item
+        ,dt_comp
+ORDER BY Base.cd_setor
+        ,nm_setor
+        ,nsecao
+        ,ds_grupo
+        ,ds_item
+        ,dt_comp1
+) resultado
+, (
+SELECT       'Receitas' chave,             pkg_rmi_traducao.extrair_proc_msg('MSG_15', 'R_PLANO_ORCAMENTO', 'Receitas') valor FROM dual
+UNION SELECT 'Custos' chave,               pkg_rmi_traducao.extrair_proc_msg('MSG_16', 'R_PLANO_ORCAMENTO', 'Custos') valor FROM dual
+UNION SELECT 'Rateios' chave,              pkg_rmi_traducao.extrair_proc_msg('MSG_17', 'R_PLANO_ORCAMENTO', 'Rateios') valor FROM dual
+) nsecao_traducao
+, (
+SELECT       'Conta Hospitalar' chave,     pkg_rmi_traducao.extrair_proc_msg('MSG_18', 'R_PLANO_ORCAMENTO', 'Conta Hospitalar') valor FROM dual
+UNION SELECT 'Remessa Ambulatorial' chave, pkg_rmi_traducao.extrair_proc_msg('MSG_19', 'R_PLANO_ORCAMENTO', 'Remessa Ambulatorial') valor FROM dual
+UNION SELECT 'Faturamento AIH' chave,      pkg_rmi_traducao.extrair_proc_msg('MSG_20', 'R_PLANO_ORCAMENTO', 'Faturamento AIH') valor FROM dual
+UNION SELECT 'Faturamento SUS' chave,      pkg_rmi_traducao.extrair_proc_msg('MSG_21', 'R_PLANO_ORCAMENTO', 'Faturamento SUS') valor FROM dual
+UNION SELECT 'Não Operacional' chave,      pkg_rmi_traducao.extrair_proc_msg('MSG_22', 'R_PLANO_ORCAMENTO', 'Não Operacional') valor FROM dual
+UNION SELECT 'Genéricos' chave,            pkg_rmi_traducao.extrair_proc_msg('MSG_23', 'R_PLANO_ORCAMENTO', 'Genéricos') valor FROM dual
+UNION SELECT 'Específicos' chave,          pkg_rmi_traducao.extrair_proc_msg('MSG_24', 'R_PLANO_ORCAMENTO', 'Específicos') valor FROM dual
+UNION SELECT 'Não Informado' chave,        pkg_rmi_traducao.extrair_proc_msg('MSG_25', 'R_PLANO_ORCAMENTO', 'Não Informado') valor FROM dual
+) Receita_traducao
+where nsecao_traducao.chave = nsecao
+AND Receita_traducao.chave(+) = Receita
+ORDER BY ORDENACAO
+, NM_SETOR
+, CD_SETOR_ORIGEM
+, NSECAO
+, RECEITA
+, DS_ITEM_RES
+, DT_COMP1
+, DT_COMP
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PLANO_ORCAMENTO_CROSSTAB
+SELECT ORDENACAO
+,cd_setor_origem
+, nm_setor
+,nsecao_traducao.valor nsecao
+,Nvl(Receita_traducao.valor,Receita) Receita
+, ds_item_res
+, dt_comp1
+, dt_comp
+, vl_orcado
+, soma_vl_orcado
+, resul_vl_orca
+FROM (
+SELECT  Ordenacao
+        , Base.cd_setor  cd_setor_origem
+        ,InitCap ( setor.nm_setor ) nm_setor
+        ,nsecao
+        ,ds_grupo Receita
+        ,InitCap( ds_item ) ds_item_res
+        , TO_DATE (dt_comp, 'mm/yyyy') dt_comp1
+        ,TO_CHAR (TO_DATE (dt_comp, 'mm/yyyy'), 'MON/YYYY') dt_comp
+        ,SUM (NVL (vl_orcado, 0) ) vl_orcado
+        ,sum( decode(nsecao,'Receitas',0,vl_orcado) ) soma_vl_orcado
+        ,sum( decode(nsecao,'Receitas',vl_orcado,-1*vl_orcado ) ) resul_vl_orca
+    FROM (
+          SELECT  '1' Ordenacao
+                  , Temp_Setor.cd_setor  cd_setor
+                  ,'Receitas'  nsecao
+                  , Decode(:CAMPO_SN_RESUMIR_RECEITAS,'N',
+                  DECODE (NVL (item_orcamento.tp_meta, 'NO'), 'CH', 'Conta Hospitalar', 'RA', 'Remessa Ambulatorial', 'FA', 'Faturamento AIH', 'FS', 'Faturamento SUS', 'NO', 'Não Operacional')
+                  , null ) ds_grupo
+                  , Decode(:CAMPO_SN_RESUMIR_RECEITAS,'N',item_res.ds_item_res,'Dados Agrupados') ds_item
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.item_res
+                  ,dbamv.Temp_setor
+                  ,dbamv.item_orcamento
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                    BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                        AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                        AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND NVL (item_orcamento.tp_meta, 'NO') IN ('CH', 'RA', 'FA', 'FS', 'NO')
+               AND item_orcamento.tp_orcamento = 'I'
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = setor.cd_setor
+               AND item_orcamento.cd_item_res = item_res.cd_item_res
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY temp_Setor.cd_setor
+                  ,DECODE (NVL (item_orcamento.tp_meta, 'NO'), 'CH', 'Conta Hospitalar', 'RA', 'Remessa Ambulatorial', 'FA', 'Faturamento AIH', 'FS', 'Faturamento SUS', 'NO', 'Não Operacional')
+                  ,item_res.ds_item_res
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+          SELECT   '2' Ordenacao
+                  ,Temp_Setor.cd_setor cd_setor
+                  ,'Custos'   nsecao
+                  ,Decode(:CAMPO_SN_RESUMIR_CUSTO_PRIMARIO,'N',gru_res.ds_gru_res,NULL) ds_grupo
+                  ,Decode(:CAMPO_SN_RESUMIR_CUSTO_PRIMARIO,'N',TO_CHAR (item_res.ds_item_res),'Dados Agrupados') ds_item
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.Temp_Setor
+                  ,dbamv.item_res
+                  ,dbamv.item_orcamento
+                  ,dbamv.gru_res
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                    BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                        AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                        AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA  ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND item_orcamento.cd_item_res = item_res.cd_item_res
+               AND item_res.cd_gru_res = gru_res.cd_gru_res
+               AND item_orcamento.tp_orcamento = 'I'
+               AND item_orcamento.tp_meta IN ('OC')
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = Setor.cd_setor
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.tp_orcamento, item_orcamento.tp_orcamento) = item_orcamento.tp_orcamento
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY Temp_Setor.cd_setor
+                  ,gru_res.ds_gru_res
+                  ,item_orcamento.cd_item_res
+                  ,item_res.ds_item_res
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+         SELECT   '3' Ordenacao
+                  ,temp_setor.cd_setor cd_setor
+                 ,'Rateios' nsecao
+                 ,Decode(:CAMPO_SN_RESUMIR_RATEIOS,'N',DECODE( destino.classificacao, 'G', 'Genéricos', 'E', 'Específicos', 'Não Informado' ),NULL) ds_grupo
+                 ,Decode(:CAMPO_SN_RESUMIR_RATEIOS,'N',destino.nm_setor,'Dados Agrupados') ds_item
+                 ,TO_CHAR( compt.dt_competencia, 'mm/yyyy' ) dt_comp
+                 ,SUM( item_orcamento.vl_orcamento ) vl_orcado
+           FROM dbamv.setor origem
+               ,dbamv.setor destino
+               ,dbamv.item_orcamento
+               ,dbamv.temp_setor
+               ,( SELECT competencia.dt_competencia dt_competencia
+                    FROM dbamv.competencia
+                   WHERE competencia.dt_competencia
+                          BETWEEN TO_DATE( :CAMPO_DATA_INI, 'mm/yyyy' )
+                              AND TO_DATE( :CAMPO_DATA_FIM, 'mm/yyyy' )
+                              AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+   WHERE NVL( item_orcamento.vl_orcamento, 0 ) <> 0
+     AND origem.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND destino.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND item_orcamento.cd_setor_origem = origem.cd_setor
+     AND item_orcamento.cd_setor_destino = destino.cd_setor
+     AND temp_setor.cd_setor_filho = origem.cd_setor
+     AND item_orcamento.cd_setor_destino  not in (select cd_setor_filho from dbamv.temp_setor )
+     AND item_orcamento.tp_orcamento = 'R'
+     AND item_orcamento.dt_competencia =
+           ( SELECT MAX( io.dt_competencia ) DATA
+              FROM dbamv.item_orcamento io
+             WHERE io.dt_competencia <= compt.dt_competencia
+               AND NVL( io.cd_setor_origem, item_orcamento.cd_setor_origem ) = item_orcamento.cd_setor_origem
+               AND NVL( io.tp_orcamento, item_orcamento.tp_orcamento ) = item_orcamento.tp_orcamento
+               AND NVL( io.cd_multi_empresa, item_orcamento.cd_multi_empresa ) = item_orcamento.cd_multi_empresa )
+GROUP BY temp_setor.cd_setor
+                 ,DECODE( destino.classificacao, 'G', 'Genéricos', 'E', 'Específicos', 'Não Informado' )
+        ,destino.nm_setor
+        ,TO_CHAR( compt.dt_competencia, 'mm/yyyy' )
+) Base
+        ,dbamv.setor
+where not ( vl_orcado = 0  )
+   and Base.cd_setor = Setor.cd_setor
+GROUP BY Ordenacao
+        ,Base.cd_setor
+        ,InitCap ( setor.nm_setor )
+        ,nsecao
+	,ds_grupo
+        ,ds_item
+        ,dt_comp
+ORDER BY Base.cd_setor
+        ,nm_setor
+        ,nsecao
+        ,ds_grupo
+        ,ds_item
+        ,dt_comp1
+) resultado
+, (
+SELECT       'Receitas' chave,             pkg_rmi_traducao.extrair_proc_msg('MSG_15', 'R_PLANO_ORCAMENTO', 'Receitas') valor FROM dual
+UNION SELECT 'Custos' chave,               pkg_rmi_traducao.extrair_proc_msg('MSG_16', 'R_PLANO_ORCAMENTO', 'Custos') valor FROM dual
+UNION SELECT 'Rateios' chave,              pkg_rmi_traducao.extrair_proc_msg('MSG_17', 'R_PLANO_ORCAMENTO', 'Rateios') valor FROM dual
+) nsecao_traducao
+, (
+SELECT       'Conta Hospitalar' chave,     pkg_rmi_traducao.extrair_proc_msg('MSG_18', 'R_PLANO_ORCAMENTO', 'Conta Hospitalar') valor FROM dual
+UNION SELECT 'Remessa Ambulatorial' chave, pkg_rmi_traducao.extrair_proc_msg('MSG_19', 'R_PLANO_ORCAMENTO', 'Remessa Ambulatorial') valor FROM dual
+UNION SELECT 'Faturamento AIH' chave,      pkg_rmi_traducao.extrair_proc_msg('MSG_20', 'R_PLANO_ORCAMENTO', 'Faturamento AIH') valor FROM dual
+UNION SELECT 'Faturamento SUS' chave,      pkg_rmi_traducao.extrair_proc_msg('MSG_21', 'R_PLANO_ORCAMENTO', 'Faturamento SUS') valor FROM dual
+UNION SELECT 'Não Operacional' chave,      pkg_rmi_traducao.extrair_proc_msg('MSG_22', 'R_PLANO_ORCAMENTO', 'Não Operacional') valor FROM dual
+UNION SELECT 'Genéricos' chave,            pkg_rmi_traducao.extrair_proc_msg('MSG_23', 'R_PLANO_ORCAMENTO', 'Genéricos') valor FROM dual
+UNION SELECT 'Específicos' chave,          pkg_rmi_traducao.extrair_proc_msg('MSG_24', 'R_PLANO_ORCAMENTO', 'Específicos') valor FROM dual
+UNION SELECT 'Não Informado' chave,        pkg_rmi_traducao.extrair_proc_msg('MSG_25', 'R_PLANO_ORCAMENTO', 'Não Informado') valor FROM dual
+UNION SELECT 'Dados Agrupados' chave,        pkg_rmi_traducao.extrair_proc_msg('MSG_26', 'R_PLANO_ORCAMENTO', 'Dados Agrupados') valor FROM dual
+) Receita_traducao
+where nsecao_traducao.chave = nsecao
+AND Receita_traducao.chave(+) = Receita
+ORDER BY ordenacao
+, NM_SETOR
+,CD_SETOR_ORIGEM,
+NSECAO,
+RECEITA,
+DS_ITEM_RES,
+DT_COMP1,DT_COMP
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PLANO_ORCAMENTO_RESUMO_CT
+SELECT  cd_setor_origem cd_setor_origem_resum,
+       dt_comp dt_comp_resum,
+	   Round(Sum(soma_vl_orcado),2) soma_vl_orcado_resum,
+       Round(Sum(resul_vl_orca), 2) resul_vl_orca_resum
+FROM (
+SELECT  Base.cd_setor  cd_setor_origem
+        ,TO_CHAR (TO_DATE (dt_comp, 'mm/yyyy'), 'MM/YYYY') dt_comp
+        ,sum( decode(nsecao,'Receitas',0,vl_orcado) ) soma_vl_orcado
+        ,sum( decode(nsecao,'Receitas',vl_orcado,-1*vl_orcado ) ) resul_vl_orca
+    FROM (
+          SELECT   Temp_Setor.cd_setor  cd_setor
+                  ,'Receitas'  nsecao
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.Temp_setor
+                  ,dbamv.item_orcamento
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                    BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                        AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                        AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND NVL (item_orcamento.tp_meta, 'NO') IN ('CH', 'RA', 'FA', 'FS', 'NO')
+               AND item_orcamento.tp_orcamento = 'I'
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = setor.cd_setor
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY temp_Setor.cd_setor
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+          SELECT   Temp_Setor.cd_setor cd_setor
+                  ,'Custos'   nsecao
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.Temp_Setor
+                  ,dbamv.item_orcamento
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                            BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                                AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                                AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND item_orcamento.tp_orcamento = 'I'
+               AND item_orcamento.tp_meta IN ('OC')
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = Setor.cd_setor
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.tp_orcamento, item_orcamento.tp_orcamento) = item_orcamento.tp_orcamento
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY Temp_Setor.cd_setor
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+         SELECT   temp_setor.cd_setor cd_setor
+                 ,'Rateios' nsecao
+                 ,TO_CHAR( compt.dt_competencia, 'mm/yyyy' ) dt_comp
+                 ,SUM( item_orcamento.vl_orcamento ) vl_orcado
+           FROM dbamv.setor origem
+               ,dbamv.setor destino
+               ,dbamv.item_orcamento
+               ,dbamv.temp_setor
+               ,( SELECT competencia.dt_competencia dt_competencia
+                    FROM dbamv.competencia
+                   WHERE competencia.dt_competencia
+                          BETWEEN TO_DATE( :CAMPO_DATA_INI, 'mm/yyyy' )
+                              AND TO_DATE( :CAMPO_DATA_FIM, 'mm/yyyy' )
+                              AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+   WHERE NVL( item_orcamento.vl_orcamento, 0 ) <> 0
+     AND origem.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND destino.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND item_orcamento.cd_setor_origem = origem.cd_setor
+     AND item_orcamento.cd_setor_destino = destino.cd_setor
+     AND temp_setor.cd_setor_filho = origem.cd_setor
+     AND item_orcamento.cd_setor_destino  not in (select cd_setor_filho from dbamv.temp_setor )
+     AND item_orcamento.tp_orcamento = 'R'
+     AND item_orcamento.dt_competencia =
+           ( SELECT MAX( io.dt_competencia ) DATA
+              FROM dbamv.item_orcamento io
+             WHERE io.dt_competencia <= compt.dt_competencia
+               AND NVL( io.cd_setor_origem, item_orcamento.cd_setor_origem ) = item_orcamento.cd_setor_origem
+               AND NVL( io.tp_orcamento, item_orcamento.tp_orcamento ) = item_orcamento.tp_orcamento
+               AND NVL( io.cd_multi_empresa, item_orcamento.cd_multi_empresa ) = item_orcamento.cd_multi_empresa )
+GROUP BY temp_setor.cd_setor,
+         TO_CHAR( compt.dt_competencia, 'mm/yyyy' )
+) Base
+        ,dbamv.setor
+where not ( vl_orcado = 0  )
+   and Base.cd_setor = Setor.cd_setor
+GROUP BY Base.cd_setor
+        ,dt_comp
+ORDER BY Base.cd_setor
+)
+GROUP BY cd_setor_origem,
+         dt_comp
+ORDER BY cd_setor_origem,
+		 dt_comp
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PLANO_ORCAMENTO_RESUMO_TOTAL
+SELECT     cd_setor_origem cd_setor_origem_resum,
+	   Round(Sum(soma_vl_orcado),2) soma_vl_orcado_resum,
+       	   Round(Sum(resul_vl_orca), 2) resul_vl_orca_resum
+FROM (
+SELECT  Base.cd_setor  cd_setor_origem
+        ,TO_CHAR (TO_DATE (dt_comp, 'mm/yyyy'), 'MM/YYYY') dt_comp
+        ,sum( decode(nsecao,'Receitas',0,vl_orcado) ) soma_vl_orcado
+        ,sum( decode(nsecao,'Receitas',vl_orcado,-1*vl_orcado ) ) resul_vl_orca
+    FROM (
+          SELECT   Temp_Setor.cd_setor  cd_setor
+                  ,'Receitas'  nsecao
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.Temp_setor
+                  ,dbamv.item_orcamento
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                    BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                        AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                        AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND NVL (item_orcamento.tp_meta, 'NO') IN ('CH', 'RA', 'FA', 'FS', 'NO')
+               AND item_orcamento.tp_orcamento = 'I'
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = setor.cd_setor
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY temp_Setor.cd_setor
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+          SELECT   Temp_Setor.cd_setor cd_setor
+                  ,'Custos'   nsecao
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy') dt_comp
+                  ,SUM (item_orcamento.vl_orcamento) vl_orcado
+              FROM dbamv.setor
+                  ,dbamv.Temp_Setor
+                  ,dbamv.item_orcamento
+                  , (SELECT competencia.dt_competencia dt_competencia
+                       FROM dbamv.competencia
+                      WHERE competencia.dt_competencia
+                            BETWEEN TO_DATE (:CAMPO_DATA_INI, 'mm/yyyy')
+                                AND TO_DATE (:CAMPO_DATA_FIM, 'mm/yyyy')
+                                AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+             WHERE NVL (item_orcamento.vl_orcamento, 0) <> 0
+               AND item_orcamento.tp_orcamento = 'I'
+               AND item_orcamento.tp_meta IN ('OC')
+               AND item_orcamento.cd_setor_origem = Temp_setor.cd_setor_filho
+               and Temp_setor.cd_setor_filho = Setor.cd_setor
+               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND item_orcamento.dt_competencia =
+                     (SELECT MAX (io.dt_competencia ) DATA
+                        FROM dbamv.item_orcamento io
+                       WHERE io.dt_competencia <= compt.dt_competencia
+                         AND NVL (io.cd_setor_origem, item_orcamento.cd_setor_origem) = item_orcamento.cd_setor_origem
+                         AND NVL (io.cd_item_res, item_orcamento.cd_item_res) = item_orcamento.cd_item_res
+                         AND NVL (io.tp_meta, item_orcamento.tp_meta) = item_orcamento.tp_meta
+                         AND NVL (io.tp_orcamento, item_orcamento.tp_orcamento) = item_orcamento.tp_orcamento
+                         AND NVL (io.cd_multi_empresa, item_orcamento.cd_multi_empresa) = item_orcamento.cd_multi_empresa)
+          GROUP BY Temp_Setor.cd_setor
+                  ,TO_CHAR (compt.dt_competencia, 'mm/yyyy')
+          UNION
+         SELECT   temp_setor.cd_setor cd_setor
+                 ,'Rateios' nsecao
+                 ,TO_CHAR( compt.dt_competencia, 'mm/yyyy' ) dt_comp
+                 ,SUM( item_orcamento.vl_orcamento ) vl_orcado
+           FROM dbamv.setor origem
+               ,dbamv.setor destino
+               ,dbamv.item_orcamento
+               ,dbamv.temp_setor
+               ,( SELECT competencia.dt_competencia dt_competencia
+                    FROM dbamv.competencia
+                   WHERE competencia.dt_competencia
+                          BETWEEN TO_DATE( :CAMPO_DATA_INI, 'mm/yyyy' )
+                              AND TO_DATE( :CAMPO_DATA_FIM, 'mm/yyyy' )
+                              AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) compt
+   WHERE NVL( item_orcamento.vl_orcamento, 0 ) <> 0
+     AND origem.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND destino.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND item_orcamento.cd_setor_origem = origem.cd_setor
+     AND item_orcamento.cd_setor_destino = destino.cd_setor
+     AND temp_setor.cd_setor_filho = origem.cd_setor
+     AND item_orcamento.cd_setor_destino  not in (select cd_setor_filho from dbamv.temp_setor )
+     AND item_orcamento.tp_orcamento = 'R'
+     AND item_orcamento.dt_competencia =
+           ( SELECT MAX( io.dt_competencia ) DATA
+              FROM dbamv.item_orcamento io
+             WHERE io.dt_competencia <= compt.dt_competencia
+               AND NVL( io.cd_setor_origem, item_orcamento.cd_setor_origem ) = item_orcamento.cd_setor_origem
+               AND NVL( io.tp_orcamento, item_orcamento.tp_orcamento ) = item_orcamento.tp_orcamento
+               AND NVL( io.cd_multi_empresa, item_orcamento.cd_multi_empresa ) = item_orcamento.cd_multi_empresa )
+GROUP BY temp_setor.cd_setor,
+         TO_CHAR( compt.dt_competencia, 'mm/yyyy' )
+) Base
+        ,dbamv.setor
+where not ( vl_orcado = 0  )
+   and Base.cd_setor = Setor.cd_setor
+GROUP BY Base.cd_setor
+        ,dt_comp
+ORDER BY Base.cd_setor
+)
+GROUP BY cd_setor_origem
+ORDER BY cd_setor_origem

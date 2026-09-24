@@ -1,0 +1,259 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_CIR_SEM_QUEBRA
+SELECT * FROM (
+			SELECT AGE_CIR.CD_AGE_CIR                             CD_AGE_CIR,
+              TRUNC(AGE_CIR.DT_INICIO_AGE_CIR)                    DT_INICIO_AGE_CIR,
+              TO_CHAR( AGE_CIR.DT_INICIO_AGE_CIR, 'HH24')      HR_INICIO_AGE_CIR,
+              AVISO_CIRURGIA.CD_AVISO_CIRURGIA                    CD_AVISO_CIRURGIA,
+              AVISO_CIRURGIA.CD_AVISO_CIRURGIA_FILHO              CD_AVISO_CIRURGIA_FILHO,
+              AVISO_CIRURGIA.NR_TELEFONE_CONTATO                  NR_TELEFONE_CONTATO,
+              ATENDIME.CD_ATENDIMENTO                             CD_ATENDIMENTO,
+              SAL_CIR.CD_SAL_CIR                                  CD_SAL_CIR,
+              SAL_CIR.DS_SAL_CIR                                  DS_SAL_CIR,
+              SAL_CIR.DS_RESUMIDA                                 DS_RESUMIDA,
+              CEN_CIR.CD_CEN_CIR                                  CD_CEN_CIR,
+              CEN_CIR.DS_CEN_CIR                                  DS_CEN_CIR,
+              NVL(PACIENTE.CD_PACIENTE, AVISO_CIRURGIA.CD_PACIENTE) CD_PACIENTE,
+              NVL(PACIENTE.NM_PACIENTE, AVISO_CIRURGIA.NM_PACIENTE) NM_PACIENTE,
+              (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(P.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+              CONVENIO.CD_CONVENIO                                 CD_CONVENIO,
+              CONVENIO.NM_CONVENIO                                 NM_CONVENIO,
+              LEITO.DS_RESUMO                                      DS_LEITO,
+              DECODE(AVISO_CIRURGIA.SN_UTI,'S','Sim','Não')        SN_UTI,
+              DECODE(AVISO_CIRURGIA.SN_EXAME,'S','Sim','Não')      SN_EXAME,
+              PACIENTE.DT_NASCIMENTO                               DT_NASCIMENTO,
+              AVISO_CIRURGIA.VL_IDADE || ' ' || DECODE(AVISO_CIRURGIA.TP_IDADE,'A','Anos','M','Meses','D','DIAS') IDADE,
+              UNID_INT.DS_UNID_INT                                 DS_UTI
+FROM
+             DBAMV.AGE_CIR           AGE_CIR,
+             DBAMV.SAL_CIR           SAL_CIR,
+             DBAMV.CEN_CIR           CEN_CIR,
+             DBAMV.AVISO_CIRURGIA    AVISO_CIRURGIA,
+             DBAMV.ATENDIME          ATENDIME,
+             DBAMV.PACIENTE          PACIENTE,
+             DBAMV.CONVENIO          CONVENIO,
+             DBAMV.LEITO             LEITO,
+             DBAMV.UNID_INT		     UNID_INT,
+             DBAMV.ESTOQUE           ESTOQUE
+Where
+       ATENDIME.CD_MULTI_EMPRESA (+) =  :CAMPO_CD_MULTI_EMPRESA  
+AND    AGE_CIR.CD_SAL_CIR            =  SAL_CIR.CD_SAL_CIR
+AND    AVISO_CIRURGIA.TP_SITUACAO    <> 'C'
+AND    AGE_CIR.CD_AVISO_CIRURGIA     =  AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+AND    ATENDIME.CD_ATENDIMENTO(+)    =  AVISO_CIRURGIA.CD_ATENDIMENTO
+AND    CEN_CIR.CD_ESTOQUE            =  ESTOQUE.CD_ESTOQUE
+AND    ESTOQUE.CD_MULTI_EMPRESA      =  DBAMV.PKG_MV2000.LE_EMPRESA
+AND    ATENDIME.CD_PACIENTE          =  PACIENTE.CD_PACIENTE(+)
+AND    ATENDIME.CD_CONVENIO          =  CONVENIO.CD_CONVENIO(+)
+AND    CEN_CIR.CD_CEN_CIR            =  SAL_CIR.CD_CEN_CIR
+AND    TO_CHAR( AGE_CIR.DT_INICIO_AGE_CIR, 'DD/MM/YYYY')    =   to_char(to_date(:CAMPO_DATA_AGENDA, 'dd/mm/yyyy'), 'dd/mm/yyyy')
+AND    ATENDIME.CD_LEITO             =  LEITO.CD_LEITO(+)
+AND    UNID_INT.CD_UNID_INT(+)       = AVISO_CIRURGIA.CD_UNID_INT
+:CAMPO_CF_UNID_INT
+)
+ORDER BY CD_CEN_CIR, DT_INICIO_AGE_CIR, HR_INICIO_AGE_CIR
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_CIR_SEM_QUEBRA_R_CIRURGIA1_Q_CIRURGIA
+SELECT * FROM (
+SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA      CD_AVISO_CIRURGIA,
+       AVISO_CIRURGIA.CD_AVISO_CIRURGIA_FILHO               CD_AVISO_CIRURGIA_FILHO,
+              CIRURGIA.CD_CIRURGIA                                CD_CIRURGIA,
+              NVL( CIRURGIA_AVISO.DS_NPADRONIZADO, CIRURGIA.DS_CIRURGIA )                               DS_CIRURGIA,
+              CIRURGIA_AVISO.CD_CONVENIO                  CD_CONV,
+              (CONV.NM_CONVENIO ||  DECODE(CON_PLA.DS_CON_PLA, NULL, '', '/' )  ||  CON_PLA.DS_CON_PLA)   NM_CONV,
+              TIP_ANEST.DS_TIP_ANEST                           DS_TIP_ANEST,
+              Nvl(CIRURGIA_AVISO.DS_OBSERVACAO, Decode(cirurgia_aviso.cd_cirurgia_aviso,
+             (SELECT cd_cirurgia_aviso FROM CIRURGIA_AVISO
+              WHERE cd_aviso_cirurgia =  AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+              AND CIRURGIA_AVISO.DS_OBSERVACAO IS NULL
+              AND ROWNUM = 1),
+              AVISO_CIRURGIA.DS_OBS_AVISO,
+              '' ))  DS_OBSERVACAO,
+              SUB_PLANO.DS_SUB_PLANO                       DS_SUB_PLANO,
+              DECODE(nvl(CIRURGIA_AVISO.DS_LATERALIDADE, 'N'), 'D', 'Direita', 'E', 'Esquerda', 'B', 'Bilateral', 'N', 'Não Se Aplica')        DS_LATERALIDADE,
+              CIRURGIA_AVISO.CD_CIRURGIA_AVISO,
+              (SELECT decode(Nvl(dbamv.fnc_ffcv_sit_aut_fscc('Cirurgia',  AVISO_CIRURGIA.CD_AVISO_CIRURGIA, CIRURGIA_AVISO.CD_CIRURGIA_AVISO), 'C')
+				        , 'C', pkg_rmi_traducao.extrair_pkg_msg('MSG_10', 'R_MAPA_CIR_SEM_QUEBRA', 'Não Cadastrado')
+				        , 'X', pkg_rmi_traducao.extrair_pkg_msg('MSG_11', 'R_MAPA_CIR_SEM_QUEBRA', 'Proced. s/ proibição')
+				        , 'P', pkg_rmi_traducao.extrair_pkg_msg('MSG_3', 'R_MAPA_CIR_SEM_QUEBRA', 'Pendente')
+                        , 'A', pkg_rmi_traducao.extrair_pkg_msg('MSG_4', 'R_MAPA_CIR_SEM_QUEBRA', 'Autorizado')
+                        , 'N', pkg_rmi_traducao.extrair_pkg_msg('MSG_5', 'R_MAPA_CIR_SEM_QUEBRA', 'Negado')
+                        , 'S', pkg_rmi_traducao.extrair_pkg_msg('MSG_6', 'R_MAPA_CIR_SEM_QUEBRA', 'Solicitado')
+						, 'E', pkg_rmi_traducao.extrair_pkg_msg('MSG_7', 'R_MAPA_CIR_SEM_QUEBRA', 'Em Andamento')
+						, 'O', pkg_rmi_traducao.extrair_pkg_msg('MSG_8', 'R_MAPA_CIR_SEM_QUEBRA', 'Solicitado Parcial')
+						, 'G', pkg_rmi_traducao.extrair_pkg_msg('MSG_9', 'R_MAPA_CIR_SEM_QUEBRA', 'Em Negociação')) AS STATUS_AUT FROM dual) STATUS_AUT
+FROM  DBAMV.AVISO_CIRURGIA             AVISO_CIRURGIA,
+             DBAMV.CIRURGIA_AVISO            CIRURGIA_AVISO,
+             DBAMV.CIRURGIA                         CIRURGIA,
+             DBAMV.CONVENIO                       CONV,
+             DBAMV.CON_PLA                         CON_PLA,
+             DBAMV.TIP_ANEST                      TIP_ANEST,
+             DBAMV.ATENDIME                       ATENDIME,
+             DBAMV.SUB_PLANO                    SUB_PLANO
+WHERE  CIRURGIA_AVISO.CD_AVISO_CIRURGIA  =    AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+AND        CIRURGIA_AVISO.CD_CIRURGIA               =   CIRURGIA.CD_CIRURGIA
+AND        CIRURGIA_AVISO.CD_CONVENIO              =   CONV.CD_CONVENIO(+)
+AND        CIRURGIA_AVISO.CD_CONVENIO              =   CON_PLA.CD_CONVENIO(+)
+AND        CIRURGIA_AVISO.CD_CON_PLA                =   CON_PLA.CD_CON_PLA(+)
+AND       AVISO_CIRURGIA.CD_TIP_ANEST              =   TIP_ANEST.CD_TIP_ANEST(+)
+AND       AVISO_CIRURGIA.CD_ATENDIMENTO       =   ATENDIME.CD_ATENDIMENTO(+)
+AND       ATENDIME.CD_SUB_PLANO                        =  SUB_PLANO.CD_SUB_PLANO(+)
+AND       ATENDIME.CD_CON_PLA                       =  SUB_PLANO.CD_CON_PLA(+)
+AND       ATENDIME.CD_CONVENIO                        =  SUB_PLANO.CD_CONVENIO(+)
+AND    ATENDIME.CD_MULTI_EMPRESA (+) = dbamv.pkg_mv2000.le_empresa
+ORDER BY CIRURGIA.DS_CIRURGIA
+)
+WHERE CD_AVISO_CIRURGIA = nvl(:CAMPO_CD_AVISO_CIRURGIA, 0)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_CIR_SEM_QUEBRA_R_EQUIPE1_Q_EQUIPE_MEDICA
+SELECT * FROM (
+SELECT  DISTINCT
+                CD_AVISO_CIRURGIA    CD_AVISO_CIRURGIA3,
+                CD_PRESTADOR           CD_PRESTADOR,
+                NM_PRESTADOR           NM_PRESTADOR,
+                DS_ATI_MED                  DS_ATI_MED,
+                P_ORDEM                       P_ORDEM
+FROM
+(
+SELECT  PRESTADOR_AVISO.CD_AVISO_CIRURGIA      CD_AVISO_CIRURGIA
+               ,PRESTADOR.CD_PRESTADOR                          CD_PRESTADOR
+               ,PRESTADOR.NM_PRESTADOR                         NM_PRESTADOR
+               ,ATI_MED.DS_ATI_MED                                       DS_ATI_MED
+               ,DECODE(ATI_MED.TP_FUNCAO,'C','0','N','1','2')        P_ORDEM
+FROM      DBAMV.PRESTADOR_AVISO                             PRESTADOR_AVISO,
+                 DBAMV.ATI_MED                                                ATI_MED,
+                 DBAMV.PRESTADOR                                         PRESTADOR
+WHERE  PRESTADOR_AVISO.CD_PRESTADOR        =  PRESTADOR.CD_PRESTADOR
+AND        PRESTADOR_AVISO.CD_ATI_MED               =  ATI_MED.CD_ATI_MED
+UNION ALL
+SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA       CD_AVISO_CIRURGIA
+              ,PRESTADOR.CD_PRESTADOR                       CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR                       NM_PRESTADOR
+              ,ATI_MED.DS_ATI_MED                                     DS_ATI_MED
+              ,DECODE(ATI_MED.TP_FUNCAO,'C','0','N','1','2')        P_ORDEM
+FROM   DBAMV.EQUIPE_MEDICA                                  EQUIPE_MEDICA,
+             DBAMV.EQUIPE_PRESTADOR                          EQUIPE_PRESTADOR,
+             DBAMV.ATI_MED                                                ATI_MED,
+             DBAMV.PRESTADOR                                         PRESTADOR,
+             DBAMV.AVISO_CIRURGIA                                 AVISO_CIRURGIA
+WHERE  EQUIPE_MEDICA.CD_EQUIPE_MEDICA      =   AVISO_CIRURGIA.CD_EQUIPE_MEDICA
+AND        EQUIPE_MEDICA.CD_EQUIPE_MEDICA      =  EQUIPE_PRESTADOR.CD_EQUIPE_MEDICA
+AND        PRESTADOR.CD_PRESTADOR                   =  EQUIPE_PRESTADOR.CD_PRESTADOR
+AND        ATI_MED.CD_ATI_MED                                =  EQUIPE_PRESTADOR.CD_ATI_MED
+AND        ATI_MED.CD_ATI_MED NOT IN
+                      ( SELECT  PRESTADOR_AVISO.CD_ATI_MED      CD_ATI_MED
+                        FROM     DBAMV.PRESTADOR_AVISO                PRESTADOR_AVISO,
+                                       DBAMV.ATI_MED                                    ATI_MED,
+                                       DBAMV.PRESTADOR                             PRESTADOR,
+                                       DBAMV.AVISO_CIRURGIA                     AVISO_CIRURGIA,
+                                       DBAMV.CIRURGIA_AVISO                     CIRURGIA_AVISO
+                        WHERE  PRESTADOR_AVISO.CD_PRESTADOR        =  PRESTADOR.CD_PRESTADOR
+                        AND        AVISO_CIRURGIA.CD_AVISO_CIRURGIA      =  CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+                        AND        CIRURGIA_AVISO.CD_AVISO_CIRURGIA      =  PRESTADOR_AVISO.CD_AVISO_CIRURGIA
+                        AND        CIRURGIA_AVISO.CD_CIRURGIA                   =  PRESTADOR_AVISO.CD_CIRURGIA
+                        AND       AVISO_CIRURGIA.CD_AVISO_CIRURGIA      =  :CAMPO_CD_AVISO_CIRURGIA
+                        AND        PRESTADOR_AVISO.CD_ATI_MED               =  ATI_MED.CD_ATI_MED)
+UNION ALL
+           select cd_aviso_cirurgia
+                 ,cd_prestador_pediatra
+                 ,prestador.nm_prestador
+                 ,'PEDIATRA'
+                 ,'3'
+             from dbamv.aviso_cirurgia
+                 ,dbamv.prestador
+            where prestador.cd_prestador = aviso_cirurgia.cd_prestador_pediatra
+            and   cd_aviso_cirurgia = :CAMPO_CD_AVISO_CIRURGIA
+)
+ORDER BY P_ORDEM, DS_ATI_MED
+)
+WHERE CD_AVISO_CIRURGIA3 = nvl(:CAMPO_CD_AVISO_CIRURGIA, 0)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_CIR__SEM_QUEBRA_R_PROD_OPME
+SELECT 
+ UPPER(IT_AV_PRODUTOS.DS_PRODUTO) DS_PRODUTO,
+ IT_AV_PRODUTOS.QT_SOLICITADA,
+ decode(Nvl(dbamv.fnc_ffcv_sit_aut_fscc('Produto', IT_AV_PRODUTOS.CD_AVISO_CIRURGIA, IT_AV_PRODUTOS.CD_IT_AV_PRODUTOS), 'C')
+            , 'C', pkg_rmi_traducao.extrair_pkg_msg('MSG_10', 'R_MAPA_CIR_SEM_QUEBRA', 'Não Cadastrado')
+            , 'X', pkg_rmi_traducao.extrair_pkg_msg('MSG_11', 'R_MAPA_CIR_SEM_QUEBRA', 'Proced. s/ proibição')
+            , 'P', pkg_rmi_traducao.extrair_pkg_msg('MSG_3', 'R_MAPA_CIR_SEM_QUEBRA', 'Pendente')
+            , 'A', pkg_rmi_traducao.extrair_pkg_msg('MSG_4', 'R_MAPA_CIR_SEM_QUEBRA', 'Autorizado')
+            , 'N', pkg_rmi_traducao.extrair_pkg_msg('MSG_5', 'R_MAPA_CIRR_MAPA_CIR_SEM_QUEBRA', 'Negado')
+			, 'S', pkg_rmi_traducao.extrair_pkg_msg('MSG_6', 'R_MAPA_CIR_SEM_QUEBRA', 'Solicitado')
+			, 'E', pkg_rmi_traducao.extrair_pkg_msg('MSG_7', 'R_MAPA_CIR_SEM_QUEBRA', 'Em Andamento')
+			, 'O', pkg_rmi_traducao.extrair_pkg_msg('MSG_8', 'R_MAPA_CIR_SEM_QUEBRA', 'Solicitado Parcial')
+			, 'G', pkg_rmi_traducao.extrair_pkg_msg('MSG_9', 'R_MAPA_CIR_SEM_QUEBRA', 'Em Negociação')) STATUS
+ FROM DBAMV.PRODUTO P,
+	  DBAMV.PRO_FAT,
+	  DBAMV.GRU_PRO,
+	  DBAMV.IT_AV_PRODUTOS,
+	  DBAMV.EMPRESA_PRODUTO
+ WHERE PRO_FAT.CD_PRO_FAT = P.CD_PRO_FAT
+	 AND GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+	 AND IT_AV_PRODUTOS.CD_PRODUTO = P.CD_PRODUTO
+	 AND IT_AV_PRODUTOS.CD_AVISO_CIRURGIA = :CAMPO_CD_AVISO_CIRURGIA
+	 AND IT_AV_PRODUTOS.CD_CIRURGIA = :CAMPO_CD_CIRURGIA
+	 AND DECODE(FNC_FFCV_SN_OPME(PRO_FAT.CD_PRO_FAT), 'S', 'OP', GRU_PRO.TP_GRU_PRO) = 'OP'
+	 AND EMPRESA_PRODUTO.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+	 AND EMPRESA_PRODUTO.CD_PRODUTO = P.CD_PRODUTO
+UNION
+SELECT 
+ UPPER(IT_AV_PRODUTOS.DS_PRODUTO) DS_PRODUTO,
+ IT_AV_PRODUTOS.QT_SOLICITADA,
+ decode(Nvl(dbamv.fnc_ffcv_sit_aut_fscc('Produto', IT_AV_PRODUTOS.CD_AVISO_CIRURGIA, IT_AV_PRODUTOS.CD_IT_AV_PRODUTOS), 'C')
+     , 'C', pkg_rmi_traducao.extrair_pkg_msg('MSG_10', 'R_MAPA_CIR', 'Não Cadastrado')
+                        , 'X', pkg_rmi_traducao.extrair_pkg_msg('MSG_11', 'R_MAPA_CIR', 'Proced. s/ proibição')
+                        , 'P', pkg_rmi_traducao.extrair_pkg_msg('MSG_3', 'R_MAPA_CIR', 'Pendente')
+                        , 'A', pkg_rmi_traducao.extrair_pkg_msg('MSG_4', 'R_MAPA_CIR', 'Autorizado')
+                        , 'N', pkg_rmi_traducao.extrair_pkg_msg('MSG_5', 'R_MAPA_CIR', 'Negado')
+      , 'S', pkg_rmi_traducao.extrair_pkg_msg('MSG_6', 'R_MAPA_CIR', 'Solicitado')
+      , 'E', pkg_rmi_traducao.extrair_pkg_msg('MSG_7', 'R_MAPA_CIR', 'Em Andamento')
+      , 'O', pkg_rmi_traducao.extrair_pkg_msg('MSG_8', 'R_MAPA_CIR', 'Solicitado Parcial')
+      , 'G', pkg_rmi_traducao.extrair_pkg_msg('MSG_9', 'R_MAPA_CIR', 'Em Negociação')) STATUS
+ FROM DBAMV.PRODUTO P,
+ DBAMV.IT_AV_PRODUTOS,
+ DBAMV.EMPRESA_PRODUTO,
+ DBAMV.PROCEDIMENTO_SUS,
+ DBAMV.PROCEDIMENTO_DETALHE_VIGENCIA
+ WHERE IT_AV_PRODUTOS.CD_PRODUTO = P.CD_PRODUTO
+ AND IT_AV_PRODUTOS.CD_AVISO_CIRURGIA = :CAMPO_CD_AVISO_CIRURGIA
+ AND IT_AV_PRODUTOS.CD_CIRURGIA = nvl(:CAMPO_CD_CIRURGIA, 0)
+ AND P.CD_PROCEDIMENTO_SUS = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+ AND PROCEDIMENTO_SUS.CD_PROCEDIMENTO = PROCEDIMENTO_DETALHE_VIGENCIA.CD_PROCEDIMENTO
+ AND PROCEDIMENTO_DETALHE_VIGENCIA.SN_ORTESE_PROTESE = 'S'
+ AND EMPRESA_PRODUTO.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+ AND EMPRESA_PRODUTO.CD_PRODUTO = P.CD_PRODUTO
+ UNION 
+ SELECT  UPPER(IT_AV_PRODUTOS.DS_PRODUTO) DS_PRODUTO,
+ IT_AV_PRODUTOS.QT_SOLICITADA,
+ decode(Nvl(dbamv.fnc_ffcv_sit_aut_fscc('Produto', IT_AV_PRODUTOS.CD_AVISO_CIRURGIA, IT_AV_PRODUTOS.CD_IT_AV_PRODUTOS), 'C')
+                        , 'C', pkg_rmi_traducao.extrair_pkg_msg('MSG_10', 'R_MAPA_CIR', 'Não Cadastrado')
+                        , 'X', pkg_rmi_traducao.extrair_pkg_msg('MSG_11', 'R_MAPA_CIR', 'Proced. s/ proibição')
+                        , 'P', pkg_rmi_traducao.extrair_pkg_msg('MSG_3', 'R_MAPA_CIR', 'Pendente')
+                        , 'A', pkg_rmi_traducao.extrair_pkg_msg('MSG_4', 'R_MAPA_CIR', 'Autorizado')
+                        , 'N', pkg_rmi_traducao.extrair_pkg_msg('MSG_5', 'R_MAPA_CIR', 'Negado')
+      , 'S', pkg_rmi_traducao.extrair_pkg_msg('MSG_6', 'R_MAPA_CIR', 'Solicitado')
+      , 'E', pkg_rmi_traducao.extrair_pkg_msg('MSG_7', 'R_MAPA_CIR', 'Em Andamento')
+      , 'O', pkg_rmi_traducao.extrair_pkg_msg('MSG_8', 'R_MAPA_CIR', 'Solicitado Parcial')
+      , 'G', pkg_rmi_traducao.extrair_pkg_msg('MSG_9', 'R_MAPA_CIR', 'Em Negociação')) STATUS
+ FROM DBAMV.PRODUTO P,
+  DBAMV.ITEM_RES,
+  DBAMV.SUB_CLAS,
+  DBAMV.IT_AV_PRODUTOS,
+  DBAMV.EMPRESA_PRODUTO
+  WHERE IT_AV_PRODUTOS.CD_PRODUTO = P.CD_PRODUTO
+  AND P.CD_ITEM_RES = ITEM_RES.CD_ITEM_RES
+  AND ITEM_RES.CD_ITEM_RES = SUB_CLAS.CD_ITEM_RES
+  AND SUB_CLAS.SN_PROD_PERMANENTE = 'OP'
+  AND IT_AV_PRODUTOS.CD_AVISO_CIRURGIA = :CAMPO_CD_AVISO_CIRURGIA
+  AND IT_AV_PRODUTOS.CD_CIRURGIA = nvl(:CAMPO_CD_CIRURGIA, 0)
+  AND EMPRESA_PRODUTO.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+  AND EMPRESA_PRODUTO.CD_PRODUTO = P.CD_PRODUTO

@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_MOVSETORCONT
+SELECT * FROM (
+SELECT trunc(lcto_contabil.dt_lcto) data
+       ,lcto_contabil.cd_lote cd_lote
+       ,lcto_contabil.cd_lcto_contabil lcto_contabil
+       ,lcto_contabil.cd_lcto_movimento lcto_movimento
+       ,lcto_contabil.cd_reduzido_debito red_debito
+       ,lcto_contabil.cd_reduzido_credito red_credito
+       ,decode(lcto_setor.cd_lcto_contabil, null, lcto_contabil.vl_lancado, lcto_setor.vl_lcto_setor) vl_lancado
+       ,lcto_contabil.ds_complemento
+       ,historico_padrao.ds_historico_padrao
+       ,decode(lcto_contabil.cd_reduzido_debito,plano_contas.cd_reduzido,plano_contas.cd_contabil) contabil_deb
+       ,decode(lcto_contabil.cd_reduzido_credito,plano_contas.cd_reduzido,plano_contas.cd_contabil) contabil_cre
+       ,decode(lcto_setor.cd_setor_debito,setor.cd_setor,setor.cd_cen_cus) cen_deb
+       ,decode(lcto_setor.cd_setor_credito,setor1.cd_setor,setor1.cd_cen_cus) cen_cre
+from   dbamv.lcto_contabil
+       ,dbamv.plano_contas
+       ,dbamv.lcto_setor
+       ,dbamv.setor
+       ,dbamv.setor setor1
+       ,dbamv.multi_empresas
+       ,dbamv.historico_padrao
+where  plano_contas.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+       and plano_contas.cd_multi_empresa = multi_empresas.cd_multi_empresa
+       and lcto_contabil.cd_reduzido_debito = plano_contas.cd_reduzido
+       and lcto_contabil.cd_lcto_contabil = lcto_setor.cd_lcto_contabil(+)
+       and lcto_setor.cd_setor_debito = setor.cd_setor(+)
+       and lcto_setor.cd_setor_credito = setor1.cd_setor(+)
+       and to_char(lcto_contabil.dt_lcto, 'dd/mm/yyyy') = to_char(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy')
+       and lcto_contabil.cd_historico_padrao = historico_padrao.cd_historico_padrao(+)
+       and lcto_contabil.cd_reduzido_credito is null
+union all
+SELECT trunc(lcto_contabil.dt_lcto) data
+       ,lcto_contabil.cd_lote cd_lote
+       ,lcto_contabil.cd_lcto_contabil lcto_contabil
+       ,lcto_contabil.cd_lcto_movimento lcto_movimento
+       ,lcto_contabil.cd_reduzido_debito red_debito
+       ,lcto_contabil.cd_reduzido_credito red_credito
+       ,decode(lcto_setor.cd_lcto_contabil, null, lcto_contabil.vl_lancado, lcto_setor.vl_lcto_setor) vl_lancado
+       ,lcto_contabil.ds_complemento
+       ,historico_padrao.ds_historico_padrao
+       ,decode(lcto_contabil.cd_reduzido_debito,plano_contas.cd_reduzido,plano_contas.cd_contabil) contabil_deb
+       ,decode(lcto_contabil.cd_reduzido_credito,plano_contas.cd_reduzido,plano_contas.cd_contabil) contabil_cre
+       ,decode(lcto_setor.cd_setor_debito,setor.cd_setor,setor.cd_cen_cus) cen_deb
+      ,decode(lcto_setor.cd_setor_credito,setor1.cd_setor,setor1.cd_cen_cus) cen_cre
+from   dbamv.lcto_contabil
+       ,dbamv.plano_contas
+       ,dbamv.lcto_setor
+       ,dbamv.setor
+       ,dbamv.setor setor1
+       ,dbamv.multi_empresas
+       ,dbamv.historico_padrao
+where  plano_contas.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+       and plano_contas.cd_multi_empresa = multi_empresas.cd_multi_empresa
+       and lcto_contabil.cd_reduzido_credito = plano_contas.cd_reduzido
+       and lcto_contabil.cd_lcto_contabil = lcto_setor.cd_lcto_contabil(+)
+       and lcto_setor.cd_setor_debito = setor.cd_setor(+)
+       and lcto_setor.cd_setor_credito = setor1.cd_setor(+)
+       and to_char(lcto_contabil.dt_lcto, 'dd/mm/yyyy') = to_char(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy')
+       and lcto_contabil.cd_historico_padrao = historico_padrao.cd_historico_padrao(+)
+       and lcto_contabil.cd_reduzido_debito is null
+order by cd_lote
+             ,lcto_movimento
+             ,contabil_deb
+             ,contabil_cre
+)
+ORDER BY DATA, cd_lote
+             ,lcto_movimento
+             ,contabil_deb
+             ,contabil_cre

@@ -1,0 +1,113 @@
+/*----------------------------------------------------------------------------*/
+--R_COPIA_CHEQUE_DOC
+SELECT * FROM (
+Select
+      con_pag.cd_reduzido        cd_reduzido
+     ,  pla_c.ds_conta             ds_conta
+     ,  banco.cd_banco             cd_banco
+     ,  banco.nm_banco             nm_banco
+     ,  con_cor.cd_agencia         cd_agencia
+     ,  con_cor.ds_agencia         ds_agencia
+     ,  con_cor.nr_conta           nr_conta
+     ,  cheque.nr_cheque           nr_cheque
+     ,  itcon_pag.dt_vencimento    dt_vencimento
+     ,  pagcon_pag.dt_pagamento    dt_pagamento
+     ,  ltrim(hist_p.ds_historico_padrao || ' ' || con_pag.ds_con_pag)  historico
+     ,  cheque.nm_retirante        nm_retirante
+     ,  con_pag.nr_documento       nr_documento
+     ,  con_pag.dt_emissao         dt_emis_doc
+     ,  to_char(cheque.dt_emissao,'DD "de" Month "de"  YYYY')          dt_emis_chq
+     ,  cheque.dt_emissao         dt_emis_chq_d
+     ,  cheque.vl_cheque           vl_cheque
+     ,  con_cor.cd_moeda
+     ,  cidade.nm_cidade           nm_cidade
+     ,  cheque.ds_nome_impresso   nm_favorecido
+     ,  pagcon_pag.vl_pago    vl_rateio
+     ,  ratcon_pag.vl_rateio          vl_rateio_rat
+     ,  (nvl(con_pag.vl_bruto_conta,0) + nvl(con_pag.vl_desconto,0) - nvl(con_pag.vl_acrescimo,0)) vl_bruto_conta
+     ,  con_pag.cd_con_pag    cd_con_pag
+     ,  itcon_pag.nr_parcela      nr_parcela
+   ,   lote_pgto.ds_lote_pgto  lote
+From    dbamv.pagcon_pag           pagcon_pag
+     ,  dbamv.cheque               cheque
+     ,  dbamv.talao                talao
+     ,  dbamv.con_cor              con_cor
+     ,  dbamv.banco                banco
+     ,  dbamv.itcon_pag            itcon_pag
+     ,  dbamv.con_pag              con_pag
+     ,  dbamv.fornecedor           fornecedor
+     ,  dbamv.cidade               cidade
+     ,  dbamv.historico_padrao     hist_p
+     ,  dbamv.plano_contas         pla_c
+     ,  dbamv.ratcon_pag           ratcon_pag
+     ,  dbamv.setor                setor
+     ,  dbamv.multi_empresas       multi_emp
+     ,    (select it_lote.cd_lote_pgto, lote.ds_lote_pgto, it_lote.cd_itcon_pag
+              from dbamv.lote_pgto_itcon_pag it_lote
+                     ,dbamv.lote_pgto           lote
+           where lote.cd_lote_pgto = it_lote.cd_lote_pgto)     lote_pgto
+Where pagcon_pag.cd_cheque         = cheque.cd_cheque
+and     pagcon_pag.cd_itcon_pag      = itcon_pag.cd_itcon_pag
+and     itcon_pag.cd_itcon_pag       = lote_pgto.cd_itcon_pag(+)
+and     itcon_pag.cd_con_pag         = con_pag.cd_con_pag
+and     itcon_pag.cd_con_pag_agrup is null
+and     con_pag.cd_fornecedor        = fornecedor.cd_fornecedor(+)
+and     cheque.cd_talao              = talao.cd_talao
+and     talao.cd_con_cor             = con_cor.cd_con_cor
+and     con_cor.cd_banco             = banco.cd_banco
+and     con_cor.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+and     con_pag.cd_historico_padrao  = hist_p.cd_historico_padrao(+)
+and     con_pag.cd_reduzido          = pla_c.cd_reduzido(+)
+and     con_pag.cd_con_pag           = ratcon_pag.cd_con_pag(+)
+and     ratcon_pag.cd_setor          = setor.cd_setor(+)
+and     multi_emp.cd_multi_empresa   = :CAMPO_CD_MULTI_EMPRESA
+and     cidade.cd_cidade             = multi_emp.cd_cidade
+and     con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and     talao.cd_talao  =  Nvl(:CAMPO_CD_TALAO, talao.cd_talao)
+and     ratcon_pag.vl_rateio <> 0
+and   CON_COR.cd_multi_empresa = multi_emp.cd_multi_empresa
+union all
+Select To_Number(Null)        cd_reduzido
+     ,  Null             ds_conta
+     ,  To_Number(banco.cd_banco)             cd_banco
+     ,  banco.nm_banco             nm_banco
+     ,  con_cor.cd_agencia         cd_agencia
+     ,  con_cor.ds_agencia         ds_agencia
+     ,  con_cor.nr_conta           nr_conta
+     ,  cheque.nr_cheque           nr_cheque
+     ,  cheque.dt_emissao          dt_vencimento
+     ,  To_Date(Null)                       dt_pagamento
+     ,  'Reforço de Caixa'                      historico
+     ,  cheque.nm_retirante        nm_retirante
+     ,  Null                       nr_documento
+     ,  cheque.dt_emissao          dt_emis_doc
+     ,  to_char(cheque.dt_emissao,'DD "de" Month "de"  YYYY')          dt_emis_chq
+     ,  cheque.dt_emissao         dt_emis_chq_d
+     ,  cheque.vl_cheque           vl_cheque
+     ,  con_cor.cd_moeda
+     ,  cidade.nm_cidade           nm_cidade
+     ,  cheque.ds_nome_impresso    nm_favorecido
+     ,  cheque.vl_cheque  vl_rateio
+     ,  cheque.vl_cheque  vl_rateio_rat
+     ,  cheque.vl_cheque  vl_bruto_conta
+     ,  To_Number(Null)  cd_con_pag
+     ,  To_Number(Null)  nr_parcela
+     ,  null   lote
+ From dbamv.cheque               cheque
+     ,  dbamv.talao                talao
+     ,  dbamv.con_cor              con_cor
+     ,  dbamv.banco                banco
+     ,  dbamv.cidade               cidade
+     ,  dbamv.multi_empresas       multi_emp
+Where   cheque.cd_talao              = talao.cd_talao
+and     talao.cd_con_cor             = con_cor.cd_con_cor
+and     con_cor.cd_banco             = banco.cd_banco
+and     cidade.cd_cidade             = multi_emp.cd_cidade
+and     talao.cd_talao = Nvl(:CAMPO_CD_TALAO, talao.cd_talao)
+and     not exists (select cd_cheque from dbamv.pagcon_pag where cd_cheque = cheque.cd_cheque)
+and   CON_COR.cd_multi_empresa = multi_emp.cd_multi_empresa
+order by nr_cheque
+)
+ORDER BY NR_CHEQUE,VL_CHEQUE,NM_RETIRANTE,DT_EMIS_CHQ,CD_BANCO,NM_BANCO,DS_AGENCIA,DT_PAGAMENTO,NM_FAVORECIDO,CD_AGENCIA,NR_CONTA,NM_CIDADE,LOTE,
+NR_DOCUMENTO,DT_VENCIMENTO,DT_EMIS_DOC,CD_CON_PAG,NR_PARCELA,
+HISTORICO

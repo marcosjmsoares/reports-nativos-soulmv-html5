@@ -1,0 +1,125 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_CONSIG
+Select CD_FORNECEDOR,
+       NM_FORNECEDOR,
+       CD_ATENDIMENTO,
+       CD_PACIENTE,
+       NM_PACIENTE,
+       CD_PRODUTO,
+       DS_PRODUTO,
+       CD_PROD_FORN,
+       DS_UNIDADE,
+       DT_MVTO_ESTOQUE,
+       HR_MVTO_ESTOQUE,
+       CD_MVTO_ESTOQUE,
+       NOTAFISCAL,
+       CD_ENT_PRO,
+       VL_UNITARIO * VL_FATOR As VL_UNITARIO_ENT,
+       Sum(QT_SAIDA / VL_FATOR) As QT_SAIDA,
+       Sum(QT_DEVOLVIDA / VL_FATOR) As QT_DEVOLVIDA,
+       Sum(QT_ENTRADA / VL_FATOR) As QT_ENTRADA
+  From (Select LOG_MVTO.CD_FORNECEDOR,
+               FORNECEDOR.NM_FORNECEDOR,
+               LOG_MVTO.CD_ATENDIMENTO,
+               C.CD_PACIENTE,
+               C.NM_PACIENTE,
+               LOG_MVTO.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               D.CD_PROD_FORN,
+               DBAMV.Verif_Ds_Unid_Prod(LOG_MVTO.CD_PRODUTO, 'G') As DS_UNIDADE,
+               M.DT_MVTO_ESTOQUE,
+               M.HR_MVTO_ESTOQUE,
+               M.CD_MVTO_ESTOQUE,
+               ENT_PRO.NR_DOCUMENTO || ' - ' || ENT_PRO.NR_SERIE As NOTAFISCAL,
+               ENT_PRO.CD_ENT_PRO,
+               LOG_MVTO.VL_UNITARIO,
+               DBAMV.Verif_Vl_Fator_Prod(LOG_MVTO.CD_PRODUTO, 'G') As VL_FATOR,
+               LOG_MVTO.QT_MOVIMENTO As QT_SAIDA,
+               Decode(LOG_MVTO_TEM.TP_MOVIMENTO,
+                      'E',
+                      Decode(LOG_MVTO_TEM.CD_ENT_PRO,
+                             Null,
+                             LOG_MVTO.QT_MOVIMENTO,
+                             0),
+                      0) As QT_DEVOLVIDA,
+               Decode(LOG_MVTO_TEM.TP_MOVIMENTO,
+                      'E',
+                      Decode(LOG_MVTO_TEM.CD_MVTO_ESTOQUE,
+                             Null,
+                             LOG_MVTO.QT_MOVIMENTO,
+                             0),
+                      0) As QT_ENTRADA
+          From DBAMV.LOG_MVTO_CONSIGNADO LOG_MVTO
+    Inner Join DBAMV.MVTO_ESTOQUE M On
+               M.CD_MVTO_ESTOQUE = LOG_MVTO.CD_MVTO_ESTOQUE
+           And M.CD_ATENDIMENTO = LOG_MVTO.CD_ATENDIMENTO
+           And M.DT_MVTO_ESTOQUE Between To_Date(Nvl(:CAMPO_DATA_INI,
+                                                     '01/01/1980'),
+                                                 'DD/MM/YYYY')
+                                     And Nvl(To_Date(:CAMPO_DATA_FIM,
+                                                     'DD/MM/YYYY'),
+                                             Trunc(SysDate)) + 0.99999
+    Inner Join DBAMV.ATENDIME A On
+               A.CD_ATENDIMENTO = LOG_MVTO.CD_ATENDIMENTO
+    Inner Join DBAMV.PACIENTE C On
+               C.CD_PACIENTE = A.CD_PACIENTE
+    Inner Join DBAMV.FORNECEDOR On
+               FORNECEDOR.CD_FORNECEDOR = LOG_MVTO.CD_FORNECEDOR
+    Inner Join DBAMV.ESTOQUE E On
+               E.CD_ESTOQUE = LOG_MVTO.CD_ESTOQUE
+           And E.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa()
+    Inner Join (Select P.CD_ESPECIE,
+                       P.CD_PRODUTO,
+                       Decode(DBAMV.PKT_CONFIGEST.RetornarPadronizadoEmp(),
+                              'S',
+                              EMPRESA_PRODUTO.SN_PADRONIZADO,
+                              P.SN_PADRONIZADO) As SN_PADRONIZADO,
+                       P.CD_PRO_FAT,
+                       Decode(DBAMV.PKT_CONFIGEST.RetornarControleLoteValEmpPrd(),
+                              'S',
+                              EMPRESA_PRODUTO.SN_MOVIMENTACAO,
+                              P.SN_MOVIMENTACAO) As SN_MOVIMENTACAO,
+                       P.SN_CONSIGNADO,
+                       Decode(DBAMV.PKT_CONFIGEST.RetornarControleLoteValEmpPrd(),
+                              'S',
+                              EMPRESA_PRODUTO.SN_BLOQUEIO_DE_COMPRA,
+                              P.SN_BLOQUEIO_DE_COMPRA) As SN_BLOQUEIO_DE_COMPRA,
+                       P.SN_ADMITIDO,
+                       P.CD_CLASSE,
+                       P.CD_SUB_CLA,
+                       P.DS_PRODUTO,
+                       P.SN_MESTRE,
+                       P.SN_PSCOTROPICO
+                  From DBAMV.PRODUTO P
+            Inner Join DBAMV.EMPRESA_PRODUTO On
+                       EMPRESA_PRODUTO.CD_PRODUTO = P.CD_PRODUTO
+                   And EMPRESA_PRODUTO.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa()) PRODUTO On
+               PRODUTO.CD_PRODUTO = LOG_MVTO.CD_PRODUTO
+     Left Join DBAMV.PRODUTO_FORNECEDOR D On
+               D.CD_PRODUTO = LOG_MVTO.CD_PRODUTO
+           And D.CD_FORNECEDOR = LOG_MVTO.CD_FORNECEDOR
+     Left Join DBAMV.LOG_MVTO_CONSIGNADO LOG_MVTO_TEM On
+               LOG_MVTO_TEM.CD_LOG_MVTO_CONSIGNADO = LOG_MVTO.CD_LOG_MVTO_CONSIGNADO_TEM
+           And LOG_MVTO_TEM.TP_MOVIMENTO = 'E'
+     Left Join DBAMV.ENT_PRO On
+               ENT_PRO.CD_ENT_PRO = LOG_MVTO_TEM.CD_ENT_PRO
+         Where LOG_MVTO.TP_MOVIMENTO = 'S'
+           :CAMPO_CF_CD_PRODUTO)
+Group By CD_FORNECEDOR,
+       NM_FORNECEDOR,
+       CD_ATENDIMENTO,
+       CD_PACIENTE,
+       NM_PACIENTE,
+       CD_PRODUTO,
+       DS_PRODUTO,
+       CD_PROD_FORN,
+       DS_UNIDADE,
+       DT_MVTO_ESTOQUE,
+       HR_MVTO_ESTOQUE,
+       CD_MVTO_ESTOQUE,
+       NOTAFISCAL,
+       CD_ENT_PRO,
+       VL_UNITARIO * VL_FATOR
+Order By 1,
+       3,
+       6

@@ -1,0 +1,55 @@
+/*----------------------------------------------------------------------------*/
+--R_CAPA_REMESSA_E
+SELECT COUNT(*) Tot_Contas , SUM(QT_ITENS+qt_outros) Tot_Itens, SUM(vL_TOTAL+vl_Outros) Vl_Total
+FROM
+(
+   Select itreg_amb.cd_reg_amb cd_conta ,
+       itreg_amb.cd_atendimento, Nvl( itreg_amb_contraste.qt_contraste, 0 ) qt_outros,
+       Nvl( itreg_amb_it_outros.qt_it_outros, 0 ) qt_itens,  Nvl( itreg_amb_it_outros.vl_it_outros, 0 ) vl_total,
+       Nvl( itreg_amb_contraste.vl_contraste, 0 ) Vl_Outros
+   From dbamv.itreg_amb, dbamv.reg_amb, dbamv.atendime,
+       ( select itreg_amb_contraste.cd_reg_amb, itreg_amb_contraste.cd_atendimento,
+                count( distinct itreg_amb_contraste.cd_lancamento_pai ) qt_contraste,
+                sum( decode(itreg_amb_contraste.cd_lancamento_pai, null, 0, itreg_amb_contraste.vl_total_conta ) ) vl_contraste
+           from dbamv.itreg_amb itreg_amb_contraste,
+                dbamv.reg_amb reg_amb_contraste
+          where reg_amb_contraste.cd_remessa =  :CAMPO_CD_REMESSA
+            AND reg_amb_contraste.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+            and reg_amb_contraste.cd_reg_amb = itreg_amb_contraste.cd_reg_amb
+            and itreg_amb_contraste.cd_lancamento_pai is not null
+            and itreg_amb_contraste.cd_reg_amb = itreg_amb_contraste.cd_reg_amb_pai
+        Group by
+            itreg_amb_contraste.cd_reg_amb,
+            itreg_amb_contraste.cd_atendimento ) itreg_amb_contraste,
+      (  select itreg_amb_it_outros.cd_reg_amb,
+                itreg_amb_it_outros.cd_atendimento,
+                count( distinct itreg_amb_it_outros.cd_pro_fat) qt_it_outros,
+                sum( itreg_amb_it_outros.vl_total_conta ) vl_it_outros
+          from dbamv.itreg_amb itreg_amb_it_outros,
+               dbamv.reg_amb reg_amb_it_outros
+          where reg_amb_it_outros.cd_remessa =  :CAMPO_CD_REMESSA
+          AND reg_amb_it_outros.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+          and reg_amb_it_outros.cd_reg_amb = itreg_amb_it_outros.cd_reg_amb
+          and itreg_amb_it_outros.cd_lancamento_pai is null
+          and itreg_amb_it_outros.cd_reg_amb_pai is null
+          and Nvl( itreg_amb_it_outros.sn_pertence_pacote, 'N' ) = 'N'
+         Group by
+              itreg_amb_it_outros.cd_reg_amb,
+              itreg_amb_it_outros.cd_atendimento ) itreg_amb_it_outros
+ Where reg_amb.cd_remessa =  :CAMPO_CD_REMESSA
+   and reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+   and atendime.cd_atendimento = itreg_amb.cd_atendimento
+   and atendime.tp_atendimento =  :CAMPO_TP_NOTA
+   and Nvl( itreg_amb.sn_pertence_pacote, 'N' ) = 'N'
+   and itreg_amb_contraste.cd_atendimento(+) = itreg_amb.cd_atendimento
+   and itreg_amb_contraste.cd_reg_amb(+) = itreg_amb.cd_reg_amb
+   and itreg_amb_it_outros.cd_atendimento(+) = itreg_amb.cd_atendimento
+   and itreg_amb_it_outros.cd_reg_amb(+) = itreg_amb.cd_reg_amb
+   and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+ Group by itreg_amb.cd_reg_amb,
+       itreg_amb.cd_atendimento,
+       itreg_amb_contraste.qt_contraste,
+       itreg_amb_it_outros.qt_it_outros,
+       itreg_amb_it_outros.vl_it_outros,
+       itreg_amb_contraste.vl_contraste
+)

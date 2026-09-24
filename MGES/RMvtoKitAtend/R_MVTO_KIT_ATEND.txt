@@ -1,0 +1,51 @@
+/*----------------------------------------------------------------------------*/
+--R_MVTO_KIT_ATEND
+SELECT * FROM (
+select  mvto_estoque.cd_setor
+       ,setor.nm_setor
+       ,trunc(mvto_estoque.dt_mvto_estoque) dt_mvto_estoque
+       ,mvto_estoque.cd_mvto_estoque
+       ,decode(mvto_estoque.tp_mvto_estoque,'S','Saída Setor'
+                                           ,'P','Saída Paciente'
+                                           ,'D','Dev. Setor'
+                                           ,'C','Dev. Paciente'
+                                           ,'T','Transferência'
+                                           ,'M','Manipulação'
+                                           ,'O','Doação'
+                                           ,'V','Venda'
+                                           ,'N','Devolucao de vendas'
+                                           ,'X','Baixa'
+                                           ,'E','Empréstimo') tp_mvto
+       ,formula.cd_produto
+       ,Decode(produto.ds_produto_resumido,null,produto.ds_produto,produto.ds_produto_resumido) ds_produto
+       ,itmvto_kits.dsp_codigo_de_barras
+       ,nvl(itmvto_kits.qt_kit,1) qt_kit 
+       ,mvto_estoque.cd_atendimento 
+       ,paciente.cd_paciente
+       ,paciente.nm_paciente 
+       ,mvto_estoque.tp_mvto_estoque
+from  dbamv.mvto_estoque
+       ,dbamv.itmvto_kits
+       ,dbamv.formula
+       ,dbamv.produto
+       ,dbamv.setor
+       ,dbamv.estoque
+       ,dbamv.atendime
+       ,dbamv.paciente
+where mvto_estoque.cd_mvto_estoque = itmvto_kits.cd_mvto_estoque
+    and formula.cd_formula                       = itmvto_kits.cd_formula
+    and produto.cd_produto                      = formula.cd_produto
+    and setor.cd_setor                               = mvto_estoque.cd_setor
+    and mvto_estoque.dt_mvto_estoque between :CAMPO_DATA_INI and 
+    and atendime.cd_atendimento (+)       = mvto_estoque.cd_atendimento
+    and paciente.cd_paciente    (+)           = atendime.cd_paciente
+AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+order by  setor.cd_setor
+         ,mvto_estoque.dt_mvto_estoque
+         ,mvto_estoque.cd_mvto_estoque
+         ,formula.cd_produto
+)
+ORDER BY NM_SETOR,CD_SETOR,
+DT_MVTO_ESTOQUE,
+CD_MVTO_ESTOQUE,TP_MVTO,CD_ATENDIMENTO,CD_PACIENTE,NM_PACIENTE,TP_MVTO_ESTOQUE

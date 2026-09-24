@@ -1,0 +1,714 @@
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT
+SELECT * FROM (
+select Tab.cd_pro_fat       cd_pro_fat
+      ,Tab.ds_pro_fat       ds_pro_fat
+      ,Tab.cd_setor         cd_setor
+      ,sum(Tab.qt_entrada)  qt_entrada
+      ,sum(Tab.vl_entrada)  vl_entrada
+      ,sum(Tab.qt_saida)     qt_saida
+      ,sum(Tab.vl_saida)     vl_saida
+      ,sum(Tab.qt_faturada) qt_faturada
+      ,sum(Tab.vl_faturada) vl_faturada
+      ,sum(Tab.qt_consumo_lcto) qt_consumo_lcto
+      ,sum(Tab.vl_consumo_lcto) vl_consumo_lcto
+from (
+select
+      pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,itreg_fat.cd_setor cd_setor
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , itreg_fat.qt_lancamento   qt_faturada
+      , itreg_fat.vl_total_conta vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.remessa_fatura,
+       dbamv.gru_pro
+ where  trunc(remessa_fatura.dt_entrega_da_fatura) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+    and nvl(reg_fat.sn_diagno, 'N') = 'N'
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' ,'OP')
+   and itreg_fat.cd_pro_fat             = pro_fat.cd_pro_fat
+   and itreg_fat.cd_reg_fat             = reg_fat.cd_reg_fat
+   and reg_fat.cd_remessa               = remessa_fatura.cd_remessa
+   and pro_fat.cd_gru_pro               = gru_pro.cd_gru_pro
+   and reg_fat.cd_multi_empresa 	= :CAMPO_CD_MULTI_EMPRESA
+   and not exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+										And Exists ( Select Empresa_Produto.Cd_Produto
+										                     From Dbamv.Empresa_Produto
+										                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+										                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+         :CAMPO_CF_SUB_CLASSE )
+union all
+select
+      pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,itreg_amb.cd_setor
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , itreg_amb.qt_lancamento  qt_faturada
+      , itreg_amb.vl_total_conta vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_amb,
+       dbamv.reg_amb,
+       dbamv.gru_pro,
+       dbamv.remessa_fatura
+ where  trunc(remessa_fatura.dt_entrega_da_fatura) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   and nvl(reg_amb.sn_diagno,'N') = 'N'
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' ,'OP')
+   and reg_amb.cd_remessa     = remessa_fatura.cd_remessa
+   and itreg_amb.cd_pro_Fat     = pro_fat.cd_pro_fat
+   and itreg_amb.cd_reg_amb   = reg_amb.cd_reg_amb
+   and pro_fat.cd_gru_pro         = gru_pro.cd_gru_pro
+   and reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and not exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+										And Exists ( Select Empresa_Produto.Cd_Produto
+										                     From Dbamv.Empresa_Produto
+										                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+										                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+                           :CAMPO_CF_SUB_CLASSE )
+union all
+select
+      pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,itreg_amb.cd_setor
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , itreg_amb.qt_lancamento  qt_consumo_lcto
+      , itreg_amb.vl_total_conta vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_amb,
+       dbamv.atendime,
+       dbamv.reg_amb,
+       dbamv.gru_pro
+ where  trunc(atendime.dt_atendimento) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and nvl(reg_amb.sn_diagno,'N') = 'N'
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' ,'OP')
+   and itreg_amb.cd_pro_Fat     = pro_fat.cd_pro_fat
+   and itreg_amb.cd_reg_amb   = reg_amb.cd_reg_amb
+   and pro_fat.cd_gru_pro         = gru_pro.cd_gru_pro
+   and itreg_amb.cd_atendimento = atendime.cd_atendimento
+   and not exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+										And Exists ( Select Empresa_Produto.Cd_Produto
+										                     From Dbamv.Empresa_Produto
+										                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+										                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+                           :CAMPO_CF_SUB_CLASSE )
+union all
+select
+      pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,itreg_fat.cd_setor
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , itreg_fat.qt_lancamento  qt_consumo_lcto
+      , itreg_fat.vl_total_conta vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.gru_pro
+ where  trunc(itreg_fat.dt_lancamento) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' )
+   and itreg_fat.cd_pro_fat               = pro_fat.cd_pro_fat
+   and itreg_fat.cd_reg_fat                = reg_fat.cd_reg_fat
+   and pro_fat.cd_gru_pro                 = gru_pro.cd_gru_pro
+   and not exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+                                                                                  And Exists ( Select Empresa_Produto.Cd_Produto
+													From Dbamv.Empresa_Produto
+													Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+										                            and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+                           :CAMPO_CF_SUB_CLASSE )
+union all
+select
+      pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,mvto_estoque.cd_setor
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1,'N',-1, 1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator / Nvl(decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat),1) ) qt_saida
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1,'N',-1, 1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *
+             verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+                                    mvto_estoque.dt_mvto_estoque,
+                                    '',
+                                    produto.vl_custo_medio,
+                                    mvto_estoque.hr_mvto_estoque ) ) vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmvto_estoque,
+       dbamv.mvto_Estoque,
+       dbamv.estoque
+ where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N','V' )
+   and trunc(mvto_estoque.dt_mvto_estoque) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+  AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat                          = produto.cd_pro_fat
+   and itmvto_estoque.cd_uni_pro            = uni_pro.cd_uni_pro
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and estoque.cd_estoque                      = mvto_estoque.cd_estoque
+   and itmvto_estoque.cd_produto           = produto.cd_produto
+   and produto.sn_mestre = 'N'
+union all
+select
+      pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,estoque.cd_setor
+      , itent_pro.qt_entrada * uni_pro.vl_fator / decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat) qt_entrada
+      , itent_pro.vl_custo_real * itent_pro.qt_entrada vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.estoque
+ where   trunc(ent_pro.dt_entrada) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat    = produto.cd_pro_fat
+   and itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+   and ent_pro.cd_estoque  = estoque.cd_estoque
+   and itent_pro.cd_produto = produto.cd_produto
+) Tab
+group by Tab.cd_setor
+      ,Tab.cd_pro_fat
+      ,Tab.ds_pro_fat
+:CAMPO_CF_ORDEM
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT_R_COMPETENCIA1_Q_1
+select cd_pro_fat       cd_pro_fat
+      ,ds_pro_fat       ds_pro_fat
+      ,sum(qt_entrada)  qt_entrada
+      ,sum(vl_entrada)  vl_entrada
+      ,sum(qt_saida)     qt_saida
+      ,sum(vl_saida)     vl_saida
+      ,sum(qt_faturada) qt_faturada
+      ,sum(vl_faturada) vl_faturada
+      ,sum(qt_consumo_lcto) qt_consumo_lcto
+      ,sum(vl_consumo_lcto) vl_consumo_lcto
+from (
+select itreg_fat.cd_lancamento cd_itreg_fat
+      ,itreg_Fat.cd_reg_fat cd_reg_fat
+      ,pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,TO_CHAR(remessa_fatura.dt_entrega_da_fatura, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , itreg_fat.qt_lancamento   qt_faturada
+      , itreg_fat.vl_total_conta vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.remessa_fatura,
+       dbamv.gru_pro
+ where  trunc(remessa_fatura.dt_entrega_da_fatura) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   and nvl(reg_fat.sn_diagno, 'N') = 'N'
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' ,'OP')
+   and itreg_fat.cd_pro_fat               = pro_fat.cd_pro_fat
+   and itreg_fat.cd_reg_fat                = reg_fat.cd_reg_fat
+   and reg_fat.cd_remessa                = remessa_fatura.cd_remessa
+   and pro_fat.cd_gru_pro                 = gru_pro.cd_gru_pro
+   and reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+   And Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+                           :CAMPO_CF_SUB_CLASSE )
+union all
+select itreg_amb.cd_lancamento cd_itreg_fat
+      ,itreg_amb.cd_reg_amb cd_reg_fat
+      ,pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,TO_CHAR( remessa_fatura.dt_entrega_da_fatura, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , itreg_amb.qt_lancamento  qt_faturada
+      , itreg_amb.vl_total_conta vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_amb,
+       dbamv.reg_amb,
+       dbamv.gru_pro,
+       dbamv.remessa_fatura
+ where  trunc(remessa_fatura.dt_entrega_da_fatura) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   and nvl(reg_amb.sn_diagno,'N') = 'N'
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' ,'OP')
+   and reg_amb.cd_remessa     = remessa_fatura.cd_remessa
+   and itreg_amb.cd_pro_Fat     = pro_fat.cd_pro_fat
+   and itreg_amb.cd_reg_amb   = reg_amb.cd_reg_amb
+   and pro_fat.cd_gru_pro         = gru_pro.cd_gru_pro
+   and reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+   And Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+                           :CAMPO_CF_SUB_CLASSE )
+union all
+select itreg_amb.cd_lancamento cd_itreg_fat
+      ,itreg_amb.cd_reg_amb cd_reg_fat
+      ,pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,TO_CHAR( atendime.dt_atendimento, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , itreg_amb.qt_lancamento  qt_consumo_lcto
+      , itreg_amb.vl_total_conta vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_amb,
+       dbamv.atendime,
+       dbamv.reg_amb,
+       dbamv.gru_pro
+ where  trunc(atendime.dt_atendimento) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and nvl(reg_amb.sn_diagno,'N') = 'N'
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' ,'OP')
+   and itreg_amb.cd_pro_Fat     = pro_fat.cd_pro_fat
+   and itreg_amb.cd_reg_amb   = reg_amb.cd_reg_amb
+   and pro_fat.cd_gru_pro         = gru_pro.cd_gru_pro
+   and itreg_amb.cd_atendimento = atendime.cd_atendimento
+   and reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+										And Exists ( Select Empresa_Produto.Cd_Produto
+												     From Dbamv.Empresa_Produto
+												   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+													and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+                           :CAMPO_CF_SUB_CLASSE )
+union all
+select itreg_fat.cd_lancamento cd_itreg_fat
+      ,itreg_Fat.cd_reg_fat cd_reg_fat
+      ,pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,TO_CHAR(itreg_fat.dt_lancamento, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , itreg_fat.qt_lancamento  qt_consumo_lcto
+      , itreg_fat.vl_total_conta vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.gru_pro
+ where  trunc(itreg_fat.dt_lancamento) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   and nvl(reg_fat.sn_diagno, 'N') = 'N'
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and gru_pro.tp_gru_pro in ( 'MT', 'MD', 'MM' )
+   and itreg_fat.cd_pro_fat               = pro_fat.cd_pro_fat
+   and itreg_fat.cd_reg_fat                = reg_fat.cd_reg_fat
+   and pro_fat.cd_gru_pro                 = gru_pro.cd_gru_pro
+   and reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and exists (select cd_pro_fat from dbamv.produto where produto.cd_pro_fat = pro_fat.cd_pro_fat
+										And Exists ( Select Empresa_Produto.Cd_Produto
+												     From Dbamv.Empresa_Produto
+												   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+												       and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+                           :CAMPO_CF_SUB_CLASSE )
+union all
+select itmvto_estoque.cd_itmvto_estoque cd_itreg_fat
+      ,itmvto_estoque.cd_mvto_estoque cd_reg_fat
+      ,pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,TO_CHAR(mvto_estoque.dt_mvto_estoque, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator /  Nvl(decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat),1) ) qt_saida
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *
+             verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+                                    mvto_estoque.dt_mvto_estoque,
+                                    :CAMPO_TP_CUSTO,
+                                    produto.vl_custo_medio,
+                                    mvto_estoque.hr_mvto_estoque ) ) vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmvto_estoque,
+       dbamv.mvto_Estoque,
+       dbamv.estoque
+ where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N','V' )
+   and trunc(mvto_estoque.dt_mvto_estoque) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+  AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat                          = produto.cd_pro_fat
+   and itmvto_estoque.cd_uni_pro            = uni_pro.cd_uni_pro
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and estoque.cd_estoque                      = mvto_estoque.cd_estoque
+   and itmvto_estoque.cd_produto           = produto.cd_produto
+   and produto.sn_mestre = 'N'
+union all
+select itent_pro.cd_itent_pro cd_itreg_fat
+      ,itent_pro.cd_ent_pro cd_reg_fat
+      ,pro_fat.cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      ,TO_CHAR(ent_pro.dt_entrada, 'MM/YYYY')   dt_competencia
+      , itent_pro.qt_entrada * uni_pro.vl_fator /  Nvl(decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat),1)  qt_entrada
+      , itent_pro.vl_custo_real * itent_pro.qt_entrada vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.estoque
+ where   trunc(ent_pro.dt_entrada) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat    = produto.cd_pro_fat
+   and itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+   and ent_pro.cd_estoque  = estoque.cd_estoque
+   and itent_pro.cd_produto = produto.cd_produto
+)
+group by cd_pro_fat ,ds_pro_fat
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT_R_PRODUTOS1_Q_PRODUTOS
+SELECT * FROM (
+select   cd_pro_fat
+          , cd_setor
+          , ds_produto
+          , sum(qt_entrada)  qt_entrada
+          , sum(vl_entrada)  vl_entrada
+          , sum(qt_saida)  qt_saida
+          , sum(vl_saida)  vl_saida
+          , 1 qtde_produtos
+from (
+select itmvto_estoque.cd_itmvto_estoque cd_itreg_fat
+      ,itmvto_estoque.cd_mvto_estoque cd_reg_fat
+      ,pro_fat.cd_pro_fat  cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      , produto.cd_produto || ' -' || produto.ds_produto  ds_produto
+      ,mvto_Estoque.cd_setor  cd_setor
+      ,TO_CHAR(mvto_estoque.dt_mvto_estoque, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator / Nvl(decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat),1) ) qt_saida
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *
+             verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+                                    mvto_estoque.dt_mvto_estoque,
+                                    :CAMPO_TP_CUSTO,
+                                    produto.vl_custo_medio,
+                                    mvto_estoque.hr_mvto_estoque ) ) vl_saida
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmvto_estoque,
+       dbamv.mvto_Estoque,
+       dbamv.estoque
+ where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N' ,'V')
+   and trunc(mvto_estoque.dt_mvto_estoque) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat                  = produto.cd_pro_fat
+   and itmvto_estoque.cd_uni_pro           = uni_pro.cd_uni_pro
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and estoque.cd_estoque                  = mvto_estoque.cd_estoque
+   and itmvto_estoque.cd_produto           = produto.cd_produto
+   and produto.sn_mestre = 'N'
+union all
+select itent_pro.cd_itent_pro cd_itreg_fat
+      ,itent_pro.cd_ent_pro cd_reg_fat
+      ,pro_fat.cd_pro_fat  cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      , produto.cd_produto || ' -' || produto.ds_produto  ds_produto
+      , estoque.cd_setor  cd_setor
+      ,TO_CHAR(ent_pro.dt_entrada, 'MM/YYYY')   dt_competencia
+      , itent_pro.qt_entrada * uni_pro.vl_fator /  Nvl(decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat),1) qt_entrada
+      , itent_pro.vl_custo_real * itent_pro.qt_entrada vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+ from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.estoque
+ where   trunc(ent_pro.dt_entrada) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat    = produto.cd_pro_fat
+   and itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+   and ent_pro.cd_estoque  = estoque.cd_estoque
+   and itent_pro.cd_produto = produto.cd_produto
+)
+where cd_setor = :CAMPO_CD_SETOR
+AND CD_PRO_FAT = :CAMPO_CD_PRO_FAT
+AND '' = 'S'
+AND (SELECT COUNT(*) FROM  (SELECT DISTINCT CD_PRODUTO  FROM  (  select PRODUTO.CD_PRODUTO
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmvto_estoque,
+       dbamv.mvto_Estoque,
+       dbamv.estoque
+ where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N' ,'V')
+   and trunc(mvto_estoque.dt_mvto_estoque) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat                  = produto.cd_pro_fat
+   and itmvto_estoque.cd_uni_pro           = uni_pro.cd_uni_pro
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and estoque.cd_estoque                  = mvto_estoque.cd_estoque
+   and itmvto_estoque.cd_produto           = produto.cd_produto
+   and produto.sn_mestre = 'N'
+   AND PRO_FAT.CD_PRO_FAT = :CAMPO_CD_PRO_FAT
+GROUP BY PRODUTO.CD_PRODUTO
+union all
+select PRODUTO.CD_PRODUTO
+ from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.estoque
+ where   trunc(ent_pro.dt_entrada) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and pro_fat.cd_pro_fat    = produto.cd_pro_fat
+   and itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+   and ent_pro.cd_estoque  = estoque.cd_estoque
+   and itent_pro.cd_produto = produto.cd_produto
+   AND PRO_FAT.CD_PRO_FAT   = :CAMPO_CD_PRO_FAT
+ GROUP BY PRODUTO.CD_PRODUTO
+   )
+) ) > 1
+group by cd_pro_fat
+            , cd_setor
+            , ds_produto
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT_R_PRODUTOS_Q_PRODUTOS2
+SELECT * FROM (
+select   cd_pro_fat
+          , ds_produto
+          , sum(qt_entrada)  qt_entrada
+          , sum(vl_entrada)  vl_entrada
+          , sum(qt_saida)  qt_saida
+          , sum(vl_saida)  vl_saida
+          , 1 qtde_produtos
+from (
+select itmvto_estoque.cd_itmvto_estoque cd_itreg_fat
+      ,itmvto_estoque.cd_mvto_estoque cd_reg_fat
+      ,pro_fat.cd_pro_fat  cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      , produto.cd_produto || ' -' || produto.ds_produto  ds_produto
+      ,TO_CHAR(mvto_estoque.dt_mvto_estoque, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1,'N',-1, 1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator / Nvl(decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat),1) ) qt_saida
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *
+             verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+                                    mvto_estoque.dt_mvto_estoque,
+                                    :CAMPO_TP_CUSTO,
+                                    produto.vl_custo_medio,
+                                    mvto_estoque.hr_mvto_estoque ) ) vl_saida
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmvto_estoque,
+       dbamv.mvto_Estoque,
+       dbamv.estoque
+ where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N','V' )
+   and trunc(mvto_estoque.dt_mvto_estoque) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+  AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+   and pro_fat.cd_pro_fat                          = produto.cd_pro_fat
+   and itmvto_estoque.cd_uni_pro            = uni_pro.cd_uni_pro
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and estoque.cd_estoque                      = mvto_estoque.cd_estoque
+   and itmvto_estoque.cd_produto           = produto.cd_produto
+   and produto.sn_mestre = 'N'
+union all
+select itent_pro.cd_itent_pro cd_itreg_fat
+      ,itent_pro.cd_ent_pro cd_reg_fat
+      ,pro_fat.cd_pro_fat  cd_pro_fat
+      ,pro_fat.ds_pro_fat
+      , produto.cd_produto || ' -' || produto.ds_produto  ds_produto
+      ,TO_CHAR(ent_pro.dt_entrada, 'MM/YYYY')   dt_competencia
+      , itent_pro.qt_entrada * uni_pro.vl_fator /  Nvl(decode(produto.vl_fator_pro_fat,0,1,produto.vl_fator_pro_fat),1)  qt_entrada
+      , itent_pro.vl_custo_real * itent_pro.qt_entrada vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+ from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.estoque
+ where   trunc(ent_pro.dt_entrada) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+   and pro_fat.cd_pro_fat    = produto.cd_pro_fat
+   and itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+   and ent_pro.cd_estoque  = estoque.cd_estoque
+   and itent_pro.cd_produto = produto.cd_produto
+)
+group by cd_pro_fat
+            , ds_produto
+)
+WHERE CD_PRO_FAT = :CAMPO_CD_PRO_FAT2
+AND '' = 'S'
+AND SELECT COUNT(CD_PRODUTO) FROM ( select  DISTINCT cd_produto
+from (
+select produto.cd_produto
+  from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmvto_estoque,
+       dbamv.mvto_Estoque,
+       dbamv.estoque
+ where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N','V' )
+   and trunc(mvto_estoque.dt_mvto_estoque) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+  AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+   and pro_fat.cd_pro_fat                          = produto.cd_pro_fat
+   and itmvto_estoque.cd_uni_pro            = uni_pro.cd_uni_pro
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and estoque.cd_estoque                      = mvto_estoque.cd_estoque
+   and itmvto_estoque.cd_produto           = produto.cd_produto
+   and pro_fat.cd_pro_fat     = :CAMPO_CD_PRO_FAT2
+   and produto.sn_mestre = 'N'
+group by produto.cd_produto
+union all
+select produto.cd_produto
+ from dbamv.pro_fat,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.estoque
+ where   trunc(ent_pro.dt_entrada) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND   ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+   and pro_fat.cd_pro_fat    = produto.cd_pro_fat
+   and itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+   and ent_pro.cd_estoque  = estoque.cd_estoque
+   and itent_pro.cd_produto = produto.cd_produto
+   and pro_fat.cd_pro_fat   = :CAMPO_CD_PRO_FAT2
+)
+group by produto.cd_produto
+)    ) > 1
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT_R_REM_ENV3_NAO_RELACIONADOS
+SELECT * FROM (
+select cd_produto       cd_produto
+      ,ds_produto       ds_produto
+      ,to_date(dt_competencia,'mm/yyyy' )   dt_competencia_produto
+      ,sum(qt_entrada)  qt_entrada_produto
+      ,sum(vl_entrada)  vl_entrada_produto
+      ,sum(qt_saida)    qt_saida_produto
+      ,sum(vl_saida)    vl_saida_produto
+      ,sum(qt_faturada) qt_faturada_produto
+      ,sum(vl_faturada) vl_faturada_produto
+from (
+select produto.cd_produto
+      ,produto.ds_produto
+      ,TO_CHAR(mvto_estoque.dt_mvto_estoque, 'MM/YYYY')  DT_COMPETENCIA
+      , 0 qt_entrada
+      , 0 vl_entrada
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1,'N',-1, 1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator ) qt_saida
+      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *
+             verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+                                    mvto_estoque.dt_mvto_estoque,
+                                    'H',
+                                    NULL,
+                                    mvto_estoque.hr_mvto_estoque ) ) vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+  from dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itmvto_estoque,
+       dbamv.mvto_Estoque,
+       dbamv.estoque
+ where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N' ,'V')
+   and produto.cd_pro_fat is null
+   and itmvto_estoque.cd_uni_pro = uni_pro.cd_uni_pro
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and estoque.cd_Estoque = mvto_Estoque.cd_estoque
+   and Trunc(mvto_estoque.dt_mvto_estoque) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   and ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and itmvto_estoque.cd_produto = produto.cd_produto
+union all
+select produto.cd_produto
+      ,produto.ds_produto
+      ,TO_CHAR(ent_pro.dt_entrada, 'MM/YYYY')   dt_competencia
+      , itent_pro.qt_entrada * uni_pro.vl_fator qt_entrada
+       , itent_pro.vl_custo_real * itent_pro.qt_entrada vl_entrada
+      , 0 qt_saida
+      , 0 vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+  from dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.estoque
+ where itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+   and produto.cd_pro_fat is null
+   and ent_pro.cd_estoque = estoque.cd_estoque
+   and trunc(ent_pro.dt_entrada) between trunc(:CAMPO_DATA_INI) and Trunc(:CAMPO_DATA_FIM )
+   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   and itent_pro.cd_produto = produto.cd_produto
+:CAMPO_CF_SUB_CLASSE)
+group by cd_produto
+      ,ds_produto
+      ,dt_competencia
+order by ds_produto, dt_competencia_produto desc
+)

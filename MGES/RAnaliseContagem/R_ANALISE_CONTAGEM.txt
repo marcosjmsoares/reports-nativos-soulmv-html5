@@ -1,0 +1,27 @@
+/*----------------------------------------------------------------------------*/
+--R_ANALISE_CONTAGEM
+SELECT DISTINCT
+         itcontagem_da_abertura.cd_contagem,
+         (itcontagem_da_abertura.cd_produto || ' - ' || produto.ds_produto) cd_produto,
+         lot_pro.cd_lote,
+         lot_pro.dt_validade,
+         lot_pro.qt_estoque_atual AS qt_estoque,
+         lot_pro.qt_estoque_doado AS qt_estoque_doado,
+         (lot_pro.qt_estoque_atual-lot_pro.qt_estoque_doado-lot_pro.qt_kit) qt_estoque_atual,
+         lot_pro.qt_estoque_doado AS qt_estoque_doado_lote
+    FROM
+         dbamv.itcontagem_da_abertura itcontagem_da_abertura,
+         dbamv.lot_pro lot_pro,
+         dbamv.produto
+   WHERE
+         itcontagem_da_abertura.cd_contagem = :CAMPO_CD_CONTAGEM
+     AND itcontagem_da_abertura.sn_movimentado = 'S'
+     AND lot_pro.sn_bloqueio = 'N'
+     AND Nvl(lot_pro.cd_lote,'XXX999XXX999') IN ( SELECT DISTINCT Nvl(lot_pro.cd_lote,'XXX999XXX999')
+       						    FROM dbamv.itcontagem
+					           WHERE cd_contagem = :CAMPO_CD_CONTAGEM )
+     AND lot_pro.cd_produto = itcontagem_da_abertura.cd_produto
+     AND lot_pro.cd_estoque = :CAMPO_CD_ESTOQUE
+     AND itcontagem_da_abertura.cd_produto = produto.cd_produto
+ORDER BY cd_produto ASC,
+	 lot_pro.cd_lote ASC

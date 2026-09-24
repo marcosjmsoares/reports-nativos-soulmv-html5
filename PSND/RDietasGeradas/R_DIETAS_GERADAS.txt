@@ -1,0 +1,79 @@
+/*----------------------------------------------------------------------------*/
+--R_DIETAS_GERADAS
+SELECT * FROM (
+SELECT 'UNIDADE DE INTERNACAO:'        Atendimento,
+       leito.cd_unid_int               cd_unid_int,
+       unid_int.ds_unid_int            ds_unid_int,
+       paciente.cd_paciente            cd_paciente,
+       dbamv.fnc_get_pac_nome(atendime.cd_atendimento)            nm_paciente,
+       atendime.cd_atendimento         cd_atendimento,
+       RTRIM(dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,SysDate),' ')  nr_idade,
+       cid.ds_cid                      ds_cid,
+       mov_cardapio.cd_tipo_refeicao   cd_tipo_refeicao,
+       tipo_refeicao.ds_tipo_refeicao  ds_tipo_refeicao,
+       mov_cardapio.obs_nutricao      ds_observacao,
+       tipo_dieta.cd_tipo_dieta        cd_tipo_dieta,
+       tipo_dieta.ds_tipo_dieta,
+       trunc(mov_cardapio.dt_mov_cardapio)    data,
+       TO_CHAR(mov_cardapio.dt_mov_cardapio,'hh24') hora,
+       paciente.tp_sexo                tp_sexo
+FROM   dbamv.atendime,
+       dbamv.paciente,
+       dbamv.leito,
+       dbamv.cid,
+       dbamv.unid_int,
+       dbamv.tipo_refeicao,
+       dbamv.mov_cardapio,
+       dbamv.tipo_dieta
+WHERE  atendime.tp_atendimento = 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_cid = cid.cd_cid(+)
+AND    atendime.cd_leito = leito.cd_leito
+AND    leito.cd_unid_int = unid_int.cd_unid_int
+AND    unid_int.sn_ativo = 'S'
+AND    atendime.cd_atendimento = mov_cardapio.cd_atendimento
+AND    mov_cardapio.cd_tipo_refeicao = tipo_refeicao.cd_tipo_refeicao(+)
+AND    mov_cardapio.cd_tipo_dieta = tipo_dieta.cd_tipo_dieta(+)
+AND    atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    trunc(mov_cardapio.dt_mov_cardapio) between :CAMPO_DT_INICIO UNION ALL
+SELECT 'AMBULATORIO / URGENCIA:'        Atendimento,
+       0                                                                 cd_unid_int,
+       ori_ate.ds_ori_ate                                       ds_unid_int,
+       paciente.cd_paciente                                 cd_paciente,
+       paciente.nm_paciente                                nm_paciente,
+       atendime.cd_atendimento                          cd_atendimento,
+       RTRIM(dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,SysDate),' ')  nr_idade,
+       cid.ds_cid                      ds_cid,
+       mov_cardapio.cd_tipo_refeicao   cd_tipo_refeicao,
+       tipo_refeicao.ds_tipo_refeicao  ds_tipo_refeicao,
+       mov_cardapio.obs_nutricao      ds_observacao,
+       tipo_dieta.cd_tipo_dieta        cd_tipo_dieta,
+       tipo_dieta.ds_tipo_dieta,
+       trunc(mov_cardapio.dt_mov_cardapio)    data,
+       TO_CHAR(mov_cardapio.dt_mov_cardapio,'hh24') hora,
+       paciente.tp_sexo                tp_sexo
+FROM   dbamv.atendime,
+       dbamv.paciente,
+       dbamv.cid,
+       dbamv.tipo_refeicao,
+       dbamv.mov_cardapio,
+       dbamv.tipo_dieta,
+       dbamv.ori_ate
+WHERE  atendime.tp_atendimento <> 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_cid = cid.cd_cid(+)
+AND    atendime.cd_atendimento = mov_cardapio.cd_atendimento
+AND    mov_cardapio.cd_tipo_refeicao = tipo_refeicao.cd_tipo_refeicao(+)
+AND    mov_cardapio.cd_tipo_dieta = tipo_dieta.cd_tipo_dieta(+)
+AND    atendime.cd_ori_ate = ori_ate.cd_ori_ate
+AND    atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    trunc(mov_cardapio.dt_mov_cardapio) between :CAMPO_DT_INICIO and 
+:CAMPO_CF_CD_REFEICAO
+)
+ORDER BY DS_UNID_INT,CD_UNID_INT,ATENDIMENTO,
+DATA,
+DS_TIPO_REFEICAO,CD_TIPO_REFEICAO

@@ -1,0 +1,1441 @@
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO
+SELECT atendime.dt_atendimento,
+    atendime.dt_alta,
+    atendime.cd_atendimento,
+    atendime.tp_atendimento,
+    paciente.nm_paciente,
+    NVL(prestador.nm_prestador, '-') nm_prestador,
+    NVL(cid.ds_cid, '-') ds_cid,
+    NVL(especialid.ds_especialid, '-') ds_especialid,
+    NVL(convenio.nm_convenio, '-') nm_convenio,
+    NVL(servico.ds_servico, '-') ds_servico,
+    atendime.cd_multi_empresa
+   FROM dbamv.atendime,
+    dbamv.paciente,
+    dbamv.prestador,
+    dbamv.cid,
+    dbamv.especialid,
+    dbamv.convenio,
+    dbamv.servico,
+    dbamv.pro_fat,
+    dbamv.tab_siasus
+  WHERE atendime.cd_paciente      = paciente.cd_paciente(+)
+    AND atendime.cd_prestador     = prestador.cd_prestador(+)
+    AND atendime.cd_cid           = cid.cd_cid(+)
+    AND atendime.cd_atendimento   = :CAMPO_CD_ATENDIME
+    AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND atendime.cd_pro_int       = pro_fat.cd_pro_fat(+)
+    AND atendime.cd_ssm_sia       = tab_siasus.cd_ssm(+)
+    AND atendime.cd_especialid    = especialid.cd_especialid(+)
+    AND atendime.cd_convenio      = convenio.cd_convenio(+)
+    AND atendime.cd_servico       = servico.cd_servico(+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_DIARIA_1
+SELECT cd_tip_acom,
+    cd_setor,
+    cd_atendimento_diaria,
+    dt_periodo,
+    dias,
+    ds_tip_acom,
+    nm_setor,
+    Decode(Sign(custo_diaria), -1, 0, custo_diaria) custo_diaria,
+    Decode(Sign(custo_diaria), -1, 0, NVL(dias, 0) * NVL(custo_diaria, 0)) custo_diaria_total,
+    dt_referencia
+   FROM
+    (SELECT resumo.cd_tip_acom,
+        resumo.cd_setor,
+        resumo.cd_atendimento_diaria,
+        resumo.dt_periodo,
+        resumo.dias,
+        tip_acom.ds_tip_acom,
+        setor.nm_setor,
+        dbamv.pack_ffch.custo_diaria(resumo.cd_setor, resumo.cd_tip_acom, resumo.dt_referencia) custo_diaria,
+        to_date(resumo.dt_periodo, 'mm/yyyy') data_periodo_ordenacao,
+        resumo.dt_referencia
+       from
+        (select geral.cd_tip_acom,
+            geral.cd_setor,
+            geral.cd_atendimento_diaria,
+            geral.dt_periodo,
+            geral.dias,
+            (SELECT TO_CHAR(NVL(MAX(dt_competencia), to_date(geral.dt_periodo, 'mm/yyyy')), 'mm/yyyy')
+               FROM dbamv.custo_final
+              WHERE cd_setor        = geral.cd_setor
+                AND dt_competencia <= to_date(geral.dt_periodo, 'mm/yyyy')
+            ) dt_referencia
+           FROM
+            (SELECT a.cd_tip_acom,
+                a.cd_setor,
+                a.cd_atendimento_diaria cd_atendimento_diaria,
+                a.dt_periodo,
+                ROUND(SUM(to_number(a.dias))) dias
+               FROM
+                (SELECT leito.cd_tip_acom,
+                    unid_int.cd_setor,
+                    mov_int.cd_atendimento cd_atendimento_diaria,
+                    TO_CHAR(mov_int.dt_mov_int, 'mm/yyyy') dt_int,
+                    TO_CHAR(NVL(mov_int.dt_lib_mov, sysdate), 'mm/yyyy') dt_lib,
+                    TO_CHAR(add_months(NVL(mov_int.dt_lib_mov, sysdate),(linhas.lin - 12)), 'mm/yyyy') dt_periodo,
+                    dbamv.ret_dias_def(To_Date(TO_CHAR(mov_int.dt_mov_int, 'dd/mm/yyyy') || ' ' || TO_CHAR(mov_int.hr_mov_int, 'hh24'), 'dd/mm/yyyy hh24'), NVL(mov_int.dt_lib_mov, sysdate), mov_int.tp_mov, mov_int.cd_leito, mov_int.cd_leito_anterior, mov_int.cd_atendimento, mov_int.cd_mov_int, linhas.lin) dias
+                   FROM dbamv.mov_int,
+                    dbamv.leito,
+                    dbamv.unid_int,
+                    dbamv.setor,
+                    (SELECT rownum lin FROM dbamv.pro_fat WHERE rownum <= 12
+                    ) linhas
+                  WHERE mov_int.dt_mov_int                                         IS NOT NULL
+                    AND mov_int.cd_leito                                            = leito.cd_leito
+                    AND leito.cd_unid_int                                           = unid_int.cd_unid_int
+                    AND setor.cd_setor                                              = unid_int.cd_setor
+                    AND cd_atendimento                                              = :CAMPO_CD_ATENDIMENTO
+                    AND setor.tp_composicao_calculo                                 = '4'
+                    AND TO_DATE(TO_CHAR(mov_int.dt_mov_int, 'mm/yyyy'), 'mm/yyyy') <= TO_DATE(TO_CHAR(NVL(mov_int.dt_lib_mov, sysdate), 'mm/yyyy'), 'mm/yyyy')
+                ) a
+              WHERE TO_DATE(a.dt_periodo, 'mm/yyyy') BETWEEN TO_DATE(a.dt_int, 'mm/yyyy') AND TO_DATE(a.dt_lib, 'mm/yyyy')
+                AND NVL(a.dias, 0)       > 0
+                AND (SELECT tp_custo_diaria FROM dbamv.config_fcch WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) NOT IN ('P')
+           GROUP BY a.cd_tip_acom,
+                a.cd_setor,
+                a.cd_atendimento_diaria,
+                a.dt_periodo,
+                a.dt_int,
+                a.dt_lib,
+                0
+              UNION
+             SELECT b.cd_tip_acom,
+                b.cd_setor,
+                b.cd_atendimento cd_atendimento_diaria,
+                b.dt_periodo,
+                SUM(b.tt_pac_dia) dias
+               FROM
+                (SELECT cd_atendimento,
+                    dt_periodo,
+                    cd_setor,
+                    cd_tip_acom,
+                    ((SUM(pac_int_00h) + SUM(ent_internados) + SUM(ent_transf)) -(SUM(sai_altas) + SUM(sai_transfpara) + SUM(sai_obitos))) tt_pac_dia
+                   FROM
+                    (SELECT atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy') dt_periodo,
+                        unid_int.cd_setor cd_setor,
+                        leito.cd_tip_acom cd_tip_acom,
+                        COUNT( *) pac_int_00h,
+                        0 ent_internados,
+                        0 ent_transf,
+                        0 sai_altas,
+                        0 sai_transfpara,
+                        0 sai_obitos
+                       FROM dbamv.mov_int,
+                        dbamv.unid_int,
+                        dbamv.leito,
+                        dbamv.atendime,
+                        (SELECT(:CAMPO_DT_ATENDIMENTO - 1) + rownum DATA
+                           FROM dbamv.cid
+                          WHERE(:CAMPO_DT_ATENDIMENTO - 1) + rownum <= NVL(:CAMPO_DT_ALTA, sysdate)
+                        ) contador
+                      WHERE TRUNC(mov_int.dt_mov_int)              <= contador.DATA - 1
+                        AND TRUNC(NVL(mov_int.dt_lib_mov, sysdate)) > contador.DATA - 1
+                        AND mov_int.tp_mov                                         IN('O', 'I')
+                        AND leito.cd_unid_int                       = unid_int.cd_unid_int
+                        AND mov_int.cd_atendimento                  = atendime.cd_atendimento
+                        AND(atendime.tp_atendimento                IN('I', 'H'))
+                        AND mov_int.cd_leito                        = leito.cd_leito
+                        AND atendime.cd_atendimento                 = :CAMPO_CD_ATENDIMENTO
+                   GROUP BY atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy'),
+                        unid_int.cd_setor,
+                        leito.cd_tip_acom
+                      UNION
+                     SELECT atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy') dt_periodo,
+                        unid_int.cd_setor cd_setor,
+                        leito.cd_tip_acom cd_tip_acom,
+                        COUNT( *) pac_int_00h,
+                        0 ent_internados,
+                        0 ent_transf,
+                        0 sai_altas,
+                        0 sai_transfpara,
+                        0 sai_obitos
+                       FROM dbamv.atendime,
+                        dbamv.leito,
+                        dbamv.unid_int,
+                        dbamv.convenio,
+                      (SELECT cd_atendimento, tp_mov, cd_leito, dt_mov_int
+                         FROM dbamv.mov_int
+                        WHERE cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                          AND cd_mov_int IN (SELECT cd_mov_int
+                                               FROM dbamv.mov_int mov_int_filho
+                                              WHERE 'INTERNACAO' IN (SELECT Nvl(tp_contagem_hospitaldia, 'INTERNACAO')
+                                                                       FROM dbamv.config_fcch
+                                                                      WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+                                                AND mov_int_filho.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                                AND mov_int_filho.tp_mov = 'I'
+                                             UNION ALL
+                                             SELECT Max(cd_mov_int)
+                                               FROM dbamv.mov_int mov_int_filho
+                                              WHERE 'ALTA' IN (SELECT Nvl(tp_contagem_hospitaldia, 'INTERNACAO')
+                                                                       FROM dbamv.config_fcch
+                                                                      WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+                                                AND mov_int_filho.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                                            )) mov_int,
+                        (SELECT(:CAMPO_DT_ATENDIMENTO - 1) + ROWNUM DATA
+                           FROM dbamv.cid
+                          WHERE(:CAMPO_DT_ATENDIMENTO - 1) + ROWNUM <= :CAMPO_DT_ALTA
+                        ) contador
+                      WHERE  mov_int.cd_leito               = leito.cd_leito
+                        AND leito.cd_unid_int              = unid_int.cd_unid_int
+                        AND atendime.cd_atendimento        = mov_int.cd_atendimento
+                        AND(atendime.tp_atendimento       IN('I', 'H'))
+                        AND atendime.dt_alta              IS NOT NULL
+                        AND TRUNC(atendime.dt_atendimento) = TRUNC(atendime.dt_alta)
+                        AND TRUNC(mov_int.dt_mov_int)      = contador.DATA
+                        AND atendime.cd_convenio           = convenio.cd_convenio
+                        AND EXISTS
+                        (SELECT 1
+                           FROM DBAMV.CONFIG_FCCH
+                          WHERE CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                            AND SN_HOSPITAL_DIA  = 'S'
+                        )
+                        AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                        AND atendime.cd_atendimento   = :CAMPO_CD_ATENDIMENTO
+                   GROUP BY atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy'),
+                        unid_int.cd_setor,
+                        leito.cd_tip_acom
+                      UNION
+                     SELECT atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy') dt_periodo,
+                        unid_int.cd_setor cd_setor,
+                        leito.cd_tip_acom cd_tip_acom,
+                        0 pac_int_00h,
+                        COUNT( *) ent_internados,
+                        0 ent_transf,
+                        0 sai_altas,
+                        0 sai_transfpara,
+                        0 sai_obitos
+                       FROM dbamv.atendime,
+                        dbamv.unid_int,
+                        dbamv.leito,
+                        dbamv.mov_int,
+                        (SELECT(:CAMPO_DT_ATENDIMENTO - 1) + rownum DATA
+                           FROM dbamv.cid
+                          WHERE(:CAMPO_DT_ATENDIMENTO - 1) + rownum <= NVL(:CAMPO_DT_ALTA, sysdate)
+                        ) contador
+                      WHERE leito.cd_unid_int        = unid_int.cd_unid_int
+                        AND leito.cd_leito           = mov_int.cd_leito
+                        AND TRUNC(dt_mov_int)        = TRUNC(contador.DATA)
+                        AND mov_int.tp_mov           = 'I'
+                        AND atendime.cd_atendimento  = mov_int.cd_atendimento
+                        AND(atendime.tp_atendimento IN('I', 'H'))
+                        AND atendime.cd_atendimento  = :CAMPO_CD_ATENDIMENTO
+                   GROUP BY atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy'),
+                        unid_int.cd_setor,
+                        leito.cd_tip_acom
+                      UNION
+                     SELECT atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy') dt_periodo,
+                        unid_int.cd_setor cd_setor,
+                        leito.cd_tip_acom cd_tip_acom,
+                        0 pac_int_00h,
+                        0 ent_internados,
+                        COUNT( *) ent_transf,
+                        0 sai_altas,
+                        0 sai_transfpara,
+                        0 sai_obitos
+                       FROM dbamv.mov_int,
+                        dbamv.unid_int,
+                        dbamv.unid_int unid_int1,
+                        dbamv.leito,
+                        dbamv.leito leito1,
+                        dbamv.atendime,
+                        (SELECT(:CAMPO_DT_ATENDIMENTO - 1) + rownum DATA
+                           FROM dbamv.cid
+                          WHERE(:CAMPO_DT_ATENDIMENTO - 1) + rownum <= NVL(:CAMPO_DT_ALTA, sysdate)
+                        ) contador
+                      WHERE mov_int.tp_mov            = 'O'
+                        AND TRUNC(mov_int.dt_mov_int) = contador.DATA
+                        AND mov_int.cd_leito          = leito.cd_leito
+                        AND mov_int.cd_leito_anterior = leito1.cd_leito
+                        AND leito1.cd_unid_int        = unid_int1.cd_unid_int
+                        AND unid_int.cd_unid_int     <> unid_int1.cd_unid_int
+                        AND leito.cd_unid_int         = unid_int.cd_unid_int
+                        AND atendime.cd_atendimento   = mov_int.cd_atendimento
+                        AND(atendime.tp_atendimento  IN('I', 'H'))
+                        AND atendime.cd_atendimento   = :CAMPO_CD_ATENDIMENTO
+                   GROUP BY atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy'),
+                        unid_int.cd_setor,
+                        leito.cd_tip_acom
+                      UNION
+                     SELECT atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy') dt_periodo,
+                        unid_int.cd_setor cd_setor,
+                        leito.cd_tip_acom cd_tip_acom,
+                        0 pac_int_00h,
+                        0 ent_internados,
+                        0 ent_transf,
+                        COUNT( *) sai_altas,
+                        0 sai_transfpara,
+                        0 sai_obitos
+                       FROM dbamv.atendime,
+                        dbamv.unid_int,
+                        dbamv.leito,
+                        dbamv.mot_alt,
+                        (SELECT(:CAMPO_DT_ATENDIMENTO - 1) + rownum DATA
+                           FROM dbamv.cid
+                          WHERE(:CAMPO_DT_ATENDIMENTO - 1) + rownum <= NVL(:CAMPO_DT_ALTA, sysdate)
+                        ) contador
+                      WHERE leito.cd_leito          = atendime.cd_leito
+                        AND mot_alt.cd_mot_alt      = atendime.cd_mot_alt
+                        AND unid_int.cd_unid_int    = leito.cd_unid_int
+                        AND TRUNC(atendime.dt_alta) = contador.DATA
+                        AND mot_alt.tp_mot_alta    <> 'O'
+                        AND atendime.tp_atendimento = 'I'
+                        AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                   GROUP BY atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy'),
+                        unid_int.cd_setor,
+                        leito.cd_tip_acom
+                      UNION
+                     SELECT atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy') dt_periodo,
+                        unid_int.cd_setor cd_setor,
+                        leito.cd_tip_acom cd_tip_acom,
+                        0 pac_int_00h,
+                        0 ent_internados,
+                        0 ent_transf,
+                        0 sai_altas,
+                        COUNT( *) sai_transfpara,
+                        0 sai_obitos
+                       FROM dbamv.mov_int,
+                        dbamv.unid_int,
+                        dbamv.unid_int unid_int1,
+                        dbamv.leito,
+                        dbamv.leito leito1,
+                        dbamv.atendime,
+                        (SELECT(:CAMPO_DT_ATENDIMENTO - 1) + rownum DATA
+                           FROM dbamv.cid
+                          WHERE(:CAMPO_DT_ATENDIMENTO - 1) + rownum <= NVL(:CAMPO_DT_ALTA, sysdate)
+                        ) contador
+                      WHERE TRUNC(mov_int.dt_mov_int) = contador.DATA
+                        AND mov_int.tp_mov            = 'O'
+                        AND mov_int.cd_leito_anterior = leito.cd_leito
+                        AND mov_int.cd_leito          = leito1.cd_leito
+                        AND leito1.cd_unid_int        = unid_int1.cd_unid_int
+                        AND unid_int.cd_unid_int     <> unid_int1.cd_unid_int
+                        AND leito.cd_unid_int         = unid_int.cd_unid_int
+                        AND atendime.cd_atendimento   = mov_int.cd_atendimento
+                        AND(atendime.tp_atendimento  IN('I', 'H'))
+                        AND atendime.cd_atendimento   = :CAMPO_CD_ATENDIMENTO
+                   GROUP BY atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy'),
+                        unid_int.cd_setor,
+                        leito.cd_tip_acom
+                      UNION
+                     SELECT atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy') dt_periodo,
+                        unid_int.cd_setor cd_setor,
+                        leito.cd_tip_acom cd_tip_acom,
+                        0 pac_int_00h,
+                        0 ent_internados,
+                        0 ent_transf,
+                        0 sai_altas,
+                        0 sai_transfpara,
+                        COUNT( *) sai_obitos
+                       FROM dbamv.atendime,
+                        dbamv.unid_int,
+                        dbamv.leito,
+                        dbamv.mot_alt,
+                        (SELECT(:CAMPO_DT_ATENDIMENTO - 1) + rownum DATA
+                           FROM dbamv.cid
+                          WHERE(:CAMPO_DT_ATENDIMENTO - 1) + rownum <= NVL(:CAMPO_DT_ALTA, sysdate)
+                        ) contador
+                      WHERE leito.cd_leito          = atendime.cd_leito
+                        AND mot_alt.cd_mot_alt      = atendime.cd_mot_alt
+                        AND leito.cd_unid_int       = unid_int.cd_unid_int
+                        AND TRUNC(atendime.dt_alta) = contador.DATA
+                        AND mot_alt.tp_mot_alta     = 'O'
+                        AND atendime.tp_atendimento = 'I'
+                        AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                   GROUP BY atendime.cd_atendimento,
+                        TO_CHAR(NVL(contador.DATA, sysdate), 'mm/yyyy'),
+                        unid_int.cd_setor,
+                        leito.cd_tip_acom
+                    )
+               GROUP BY cd_atendimento,
+                    dt_periodo,
+                    cd_setor,
+                    cd_tip_acom
+                ) b,
+                dbamv.setor
+              WHERE b.tt_pac_dia                > 0
+                AND setor.cd_setor              = b.cd_setor
+                AND setor.tp_composicao_calculo = '4'
+                AND (SELECT tp_custo_diaria FROM dbamv.config_fcch WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) IN ('P')
+           GROUP BY b.cd_atendimento,
+                b.dt_periodo,
+                b.cd_setor,
+                b.cd_tip_acom,
+                0
+            ) geral
+        ) resumo,
+        dbamv.tip_acom,
+        dbamv.setor
+      WHERE resumo.cd_tip_acom    = tip_acom.cd_tip_acom (+)
+        AND resumo.cd_setor       = setor.cd_setor (+)
+        AND cd_atendimento_diaria = :CAMPO_CD_ATENDIMENTO
+    )
+ORDER BY cd_tip_acom,
+    data_periodo_ordenacao,
+    cd_setor
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_DIARIA_2
+SELECT * FROM (
+SELECT cd_tip_acom
+        ,cd_setor
+        ,nm_atividade_gen
+        ,cd_atendimento_diaria
+        ,dt_periodo
+        ,dias
+        ,Decode(Sign(vl_atividade), -1, 0, vl_atividade) vl_atividade
+        ,Decode(Sign(vl_atividade), -1, 0, NVL(dias, 0) * NVL(vl_atividade, 0)) vl_total FROM (
+SELECT   cd_tip_acom
+        ,cd_setor
+        ,nm_atividade_gen
+        ,cd_atendimento_diaria
+        ,dt_periodo
+        ,NVL(dias, 0) dias
+        ,NVL(vl_atividade, 0) vl_atividade
+    FROM (
+        SELECT   atividade_xml.cd_tip_acom_mv cd_tip_acom
+                ,atividade_xml.cd_setor_produziu_mv cd_setor
+                ,atividade_xml.nm_atividade_gen
+                ,atendimento_xml.cd_atendimento_mv cd_atendimento_diaria
+                ,TO_CHAR( atividade_xml.dt_atividade, 'MM/YYYY' ) dt_periodo
+                ,SUM( atividade_xml.qt_realizada ) dias
+                ,SUM(
+                 dbamv.pack_ffch.custo_procedimento(
+                                             TO_CHAR( atividade_xml.dt_atividade, 'mm/yyyy' )
+                                    ,NULL
+                                    ,atividade_xml.cd_setor_produziu_mv
+                                    ,:CAMPO_CD_MULTI_EMPRESA
+                                    ,NULL
+                                    ,NULL
+                                    ,atendimento_xml.cd_atendimento_mv
+                                    ,NULL
+                                    ,NULL
+                                    ,NULL
+                                    ,atividade_xml.cd_atividade_gen )) vl_atividade
+        FROM     dbamv.atendimento_xml
+                ,dbamv.atividade_xml
+                ,dbamv.item_atividade
+                ,dbamv.custo_unitario
+        WHERE    atendimento_xml.cd_atendimento_mv = :CAMPO_CD_ATENDIMENTO
+        AND      atividade_xml.cd_atendimento_gen = atendimento_xml.cd_atendimento_gen
+        AND      item_atividade.cd_atividade = atividade_xml.cd_atividade_gen
+        AND      custo_unitario.cd_atividade = item_atividade.cd_atividade
+        AND      TO_CHAR( atividade_xml.dt_atividade, 'MM/YYYY' ) = TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' )
+        AND      custo_unitario.cd_setor = atividade_xml.cd_setor_produziu_mv
+        AND      atividade_xml.tp_atividade = '6'
+        GROUP BY atividade_xml.cd_tip_acom_mv
+                ,atividade_xml.cd_setor_produziu_mv
+                ,atividade_xml.nm_atividade_gen
+                ,atendimento_xml.cd_atendimento_mv
+                ,TO_CHAR( atividade_xml.dt_atividade, 'MM/YYYY' )
+)
+WHERE CD_ATENDIMENTO_DIARIA = :CAMPO_CD_ATENDIMENTO
+ORDER BY dt_periodo
+        ,cd_setor
+)
+ORDER BY CD_TIP_ACOM
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_HONORARIO_1
+SELECT NVL(valor, 0) valor,
+       NVL(qt_lancamento_hon, 0 ) qt_lancamento_hon,
+       NVL(vl_unitario_hon, 0 ) vl_unitario_hon,
+       cd_pro_fat_hon,
+       ds_pro_fat_hon,
+       cd_atendimento_hon
+ FROM (
+SELECT SUM( NVL( valor, 0 )) valor
+      ,SUM(DECODE( valor, 0, 0, 1 )) qt_lancamento_hon
+      ,SUM( NVL( valor, 0 )) vl_unitario_hon
+      ,a.cd_pro_fat_hon cd_pro_fat_hon
+      ,a.ds_pro_fat_hon ds_pro_fat_hon
+      ,a.cd_atendimento cd_atendimento_hon
+  FROM (
+        SELECT NVL(dbamv.fnc_fnrm_consulta_rep_atend( :CAMPO_CD_ATENDIMENTO ), 0) valor
+              ,'FNRM-REPASSE' cd_pro_fat_hon
+              ,'PON' ds_pro_fat_hon
+              ,:CAMPO_CD_ATENDIMENTO cd_atendimento
+          FROM DUAL
+         WHERE EXISTS (SELECT 1 FROM config_fcch WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA AND NVL(tp_calc_honor_atend, 'D') = 'R')
+           AND NOT EXISTS (SELECT 1 FROM dbamv.fnrm_repasse_atendimento WHERE cd_atendimento = :CAMPO_CD_ATENDIMENTO)
+        UNION ALL
+        SELECT SUM(NVL(vl_honorario, 0)) valor
+              ,'FNRM-REPASSE' cd_pro_fat_hon
+              ,tp_repasse ds_pro_fat_hon
+              ,:CAMPO_CD_ATENDIMENTO cd_atendimento
+          FROM dbamv.fnrm_repasse_atendimento
+         WHERE fnrm_repasse_atendimento.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+         GROUP BY 'FNRM-REPASSE'
+                      ,tp_repasse
+                      ,:CAMPO_CD_ATENDIMENTO
+    ) a
+GROUP BY a.cd_pro_fat_hon
+        ,a.ds_pro_fat_hon
+        ,a.cd_atendimento
+UNION ALL
+SELECT   SUM( atividade_xml.vl_atividade*atividade_xml.qt_realizada ) valor
+        ,SUM( atividade_xml.qt_realizada ) qt_lancamento_hon
+        ,atividade_xml.vl_atividade vl_unitario_hon
+        ,atividade_xml.cd_atividade_gen cd_pro_fat_hon
+        ,'(*3) ' || item_atividade.nm_item_atividade ds_pro_fat_hon
+        ,atendimento_xml.cd_atendimento_mv cd_atendimento_hon
+  FROM  dbamv.atendimento_xml,
+       dbamv.atividade_xml,
+       dbamv.item_atividade
+ WHERE atendimento_xml.cd_atendimento_gen = atividade_xml.cd_atendimento_gen
+   AND item_atividade.cd_atividade = atividade_xml.cd_atividade_gen
+   AND atividade_xml.tp_atividade = 11
+   AND atendimento_xml.cd_atendimento_mv = :CAMPO_CD_ATENDIMENTO
+GROUP BY atividade_xml.vl_atividade
+        ,atividade_xml.cd_atividade_gen
+        ,item_atividade.nm_item_atividade
+        ,atendimento_xml.cd_atendimento_mv
+),
+dbamv.config_fcch,
+dbamv.atendime
+WHERE cd_atendimento_hon = :CAMPO_CD_ATENDIMENTO
+  AND atendime.cd_atendimento = cd_atendimento_hon
+  AND config_fcch.cd_multi_empresa = atendime.cd_multi_empresa
+  AND config_fcch.tp_calc_honor_atend IS NOT NULL
+  AND NVL(valor, 0) > 0
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_MATMED_1
+SELECT cd_produto_matmed,
+cd_atendimento_matmed,
+ds_produto_matmed,
+qt_consumo_matmed,
+Decode(Sign(vl_consumo_matmed), -1, 0, vl_consumo_matmed) vl_consumo_matmed,
+CASE WHEN NVL(qt_consumo_matmed,0) = 0 THEN
+    Decode(Sign(vl_consumo_matmed), -1, 0, vl_consumo_matmed) / 1
+ELSE
+    Decode(Sign(vl_consumo_matmed), -1, 0, vl_consumo_matmed) / qt_consumo_matmed
+END vl_medio
+ FROM (
+SELECT   SUM (to_number ( decode (
+               mv.tp_mvto_estoque
+              ,'P', 1
+              ,'C', -1
+             )) * it.qt_movimentacao * up.vl_fator ) qt_consumo_matmed
+        ,SUM (to_number ( decode (
+               mv.tp_mvto_estoque
+              ,'P', 1
+              ,'C', -1
+             )) *
+           it.qt_movimentacao *
+           up.vl_fator *
+           dbamv.pack_ffch.verif_vl_cust_medio_ffch (
+             produto.cd_produto
+            ,mv.dt_mvto_estoque
+            ,'H'
+            ,produto.vl_custo_medio
+            ,mv.hr_mvto_estoque
+            ,:CAMPO_CD_MULTI_EMPRESA
+            ,produto.sn_consignado
+           )) vl_consumo_matmed
+        ,it.cd_produto cd_produto_matmed
+        ,nvl ( ate.cd_atendimento_pai, ate.cd_atendimento ) cd_atendimento_matmed
+        ,produto.ds_produto ds_produto_matmed
+    FROM dbamv.mvto_estoque mv
+        ,dbamv.itmvto_estoque it
+        ,dbamv.uni_pro up
+        ,dbamv.produto
+        ,dbamv.estoque
+        ,dbamv.atendime ate
+        ,dbamv.especie
+        ,dbamv.classe
+        ,dbamv.sub_clas
+        ,dbamv.item_res
+   WHERE mv.tp_mvto_estoque IN ( 'P', 'C' )
+     AND mv.cd_mvto_estoque = it.cd_mvto_estoque
+     AND it.cd_uni_pro = up.cd_uni_pro
+     AND ate.cd_atendimento = mv.cd_atendimento
+     AND nvl ( produto.sn_consignado, 'N' ) IN ( 'N', 'R' )
+     AND (ate.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+          OR ate.cd_atendimento_pai = :CAMPO_CD_ATENDIMENTO
+          )
+     AND produto.cd_produto = it.cd_produto
+     AND mv.cd_estoque = estoque.cd_estoque
+     AND estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND produto.cd_produto = it.cd_produto
+     AND produto.cd_especie = especie.cd_especie
+     AND produto.cd_especie = sub_clas.cd_especie
+     AND produto.cd_classe = sub_clas.cd_classe
+     AND produto.cd_sub_cla = sub_clas.cd_sub_cla
+     AND produto.cd_classe = classe.cd_classe
+     AND produto.cd_especie = classe.cd_especie
+     AND nvl ( produto.cd_item_res, nvl ( sub_clas.cd_item_res, nvl ( classe.cd_item_res, especie.cd_item_res ))) = item_res.cd_item_res
+     AND NOT EXISTS ( SELECT regra.cd_reg_exc_matmed
+                       FROM dbamv.reg_exc_matmed regra
+                           ,dbamv.atendime
+                      WHERE regra.dt_vigencia <= atendime.dt_alta
+                        AND (regra.dt_desativacao IS NULL
+                             OR regra.dt_desativacao > atendime.dt_alta )
+                        AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                        AND regra.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA )
+GROUP BY it.cd_produto
+        ,nvl ( ate.cd_atendimento_pai, ate.cd_atendimento )
+        ,produto.ds_produto
+UNION
+SELECT qt_consumo qt_consumo,
+               vl_consumo vl_unitario,
+               cd_produto,
+               cd_atendimento,
+               ds_produto
+    FROM dbamv.v_mges_consumo_consignado_ffch
+   WHERE qt_consumo > 0
+         AND cd_atendimento = :CAMPO_CD_ATENDIMENTO
+UNION
+SELECT   SUM (to_number ( decode (
+               mv.tp_mvto_estoque
+              ,'P', 1
+              ,'C', -1
+             )) * it.qt_movimentacao * up.vl_fator ) qt_consumo_matmed
+        ,SUM (to_number ( decode (
+               mv.tp_mvto_estoque
+              ,'P', 1
+              ,'C', -1
+             )) *
+           it.qt_movimentacao *
+           up.vl_fator *
+           dbamv.pack_ffch.verif_vl_cust_medio_ffch (
+             produto.cd_produto
+            ,mv.dt_mvto_estoque
+            ,'H'
+            ,produto.vl_custo_medio
+            ,mv.hr_mvto_estoque
+            ,:CAMPO_CD_MULTI_EMPRESA
+            ,produto.sn_consignado
+           )) vl_consumo_matmed
+        ,it.cd_produto cd_produto_matmed
+        ,nvl ( ate.cd_atendimento_pai, ate.cd_atendimento ) cd_atendimento_matmed
+        ,produto.ds_produto ds_produto_matmed
+    FROM dbamv.mvto_estoque mv
+        ,dbamv.itmvto_estoque it
+        ,dbamv.uni_pro up
+        ,dbamv.produto
+        ,dbamv.especie
+        ,dbamv.classe
+        ,dbamv.sub_clas
+        ,dbamv.item_res
+        ,dbamv.atendime ate
+   WHERE mv.tp_mvto_estoque IN ( 'P', 'C' )
+     AND mv.cd_mvto_estoque = it.cd_mvto_estoque
+     AND it.cd_uni_pro = up.cd_uni_pro
+     AND mv.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+     AND produto.cd_produto = it.cd_produto
+     AND nvl ( produto.sn_consignado, 'N' ) IN ( 'N', 'R' )
+     AND produto.cd_especie = especie.cd_especie
+     AND produto.cd_especie = sub_clas.cd_especie
+     AND produto.cd_classe = sub_clas.cd_classe
+     AND produto.cd_sub_cla = sub_clas.cd_sub_cla
+     AND produto.cd_classe = classe.cd_classe
+     AND produto.cd_especie = classe.cd_especie
+     AND ate.cd_atendimento = mv.cd_atendimento
+     AND (ate.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+          OR ate.cd_atendimento_pai = :CAMPO_CD_ATENDIMENTO
+          )
+     AND nvl ( produto.cd_item_res, nvl ( sub_clas.cd_item_res, nvl ( classe.cd_item_res, especie.cd_item_res ))) = item_res.cd_item_res
+     AND EXISTS ( SELECT regra.cd_reg_exc_matmed
+                   FROM dbamv.reg_exc_matmed regra
+                       ,dbamv.atendime
+                  WHERE regra.dt_vigencia <= atendime.dt_alta
+                    AND (regra.dt_desativacao IS NULL
+                         OR regra.dt_desativacao > atendime.dt_alta )
+                    AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                    AND regra.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA )
+     AND NOT EXISTS ( SELECT cd_setor
+                            ,cd_produto
+                       FROM dbamv.temp_ffch_reg_exc_matmed
+                      WHERE cd_setor = mv.cd_setor
+                        AND cd_produto = it.cd_produto )
+GROUP BY it.cd_produto
+        ,nvl ( ate.cd_atendimento_pai, ate.cd_atendimento )
+        ,produto.ds_produto
+UNION ALL
+SELECT   SUM (atividade_xml.qt_realizada) qt_consumo_matmed
+        ,SUM (atividade_xml.vl_atividade * atividade_xml.qt_realizada) vl_consumo_matmed
+        ,TO_NUMBER(atividade_xml.cd_atividade_gen) cd_produto_matmed
+        ,atendimento_xml.cd_atendimento_mv cd_atendimento_matmed
+        ,'(*2) ' || item_atividade.nm_item_atividade ds_produto_matmed
+  FROM  dbamv.atendimento_xml,
+        dbamv.atividade_xml,
+        dbamv.item_atividade
+ WHERE  atendimento_xml.cd_atendimento_gen = atividade_xml.cd_atendimento_gen
+   AND  item_atividade.cd_atividade = atividade_xml.cd_atividade_gen
+   AND  atendimento_xml.cd_atendimento_mv = :CAMPO_CD_ATENDIMENTO
+   AND  atividade_xml.tp_atividade = 2
+ GROUP BY atividade_xml.cd_atividade_gen
+         ,atendimento_xml.cd_atendimento_mv
+         ,item_atividade.nm_item_atividade
+)
+WHERE CD_ATENDIMENTO_MATMED = :CAMPO_CD_ATENDIMENTO
+ORDER BY ds_produto_matmed
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_MATMED_2
+SELECT bf_qt_lancamento
+        ,Decode(Sign(bf_vl_consumo_matmed), -1, 0, bf_vl_consumo_matmed) bf_vl_consumo_matmed
+        ,bf_cd_pro_fat
+        ,cd_atendimento_bf
+        ,bf_ds_pro_fat
+        ,CASE WHEN NVL(bf_qt_lancamento,0) = 0 THEN
+            Decode(Sign(bf_vl_consumo_matmed), -1, 0, bf_vl_consumo_matmed) / 1
+        ELSE
+            Decode(Sign(bf_vl_consumo_matmed), -1, 0, bf_vl_consumo_matmed) / bf_qt_lancamento
+        END vl_medio
+FROM (
+SELECT   SUM ( bf.qt_lancamento ) bf_qt_lancamento
+        ,SUM ( bf.vl_rateio ) bf_vl_consumo_matmed
+        ,bf.cd_pro_fat bf_cd_pro_fat
+        ,bf.cd_atendimento cd_atendimento_BF
+        ,bf.ds_pro_fat bf_ds_pro_fat
+    FROM ( SELECT v.cd_lancamento
+                 ,v.cd_setor
+                 ,v.cd_pro_fat
+                 ,v.tp_origem_faturamento
+                 ,v.cd_atendimento
+                 ,v.cd_item_res
+                 ,nvl ( v.qt_lancamento, 0 ) qt_lancamento
+                 ,nvl ((v.qt_lancamento * dbamv.pack_ffch_base_fatur.vl_medio_proced (
+                                           v.cd_pro_fat
+                                          ,v.dt_lancamento
+                                          ,v.hr_lancamento
+                                          ,:CAMPO_CD_MULTI_EMPRESA
+                                         )), 0 ) vl_rateio
+                 ,decode (
+                    v.tp_origem_faturamento
+                   ,'FA', pro_fat.ds_pro_fat
+                   ,'FS', tab_siasus.ds_titulo
+                   ,pro_fat.ds_pro_fat
+                  ) ds_pro_fat
+            FROM dbamv.v_ffch_receita_geral v
+                ,dbamv.produto p
+                ,dbamv.pro_fat
+                ,dbamv.tab_siasus
+           WHERE v.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+             AND v.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND v.cd_pro_fat = decode (
+                                 v.tp_origem_faturamento
+                                ,'FA', p.cd_pro_fat
+                                ,'FS', p.cd_pro_fat_sus
+                                ,p.cd_pro_fat
+                               )
+             AND EXISTS ( SELECT regra.cd_reg_exc_matmed
+                           FROM dbamv.reg_exc_matmed regra
+                               ,dbamv.atendime
+                          WHERE regra.dt_vigencia <= atendime.dt_alta
+                            AND (regra.dt_desativacao IS NULL
+                                 OR regra.dt_desativacao > atendime.dt_alta )
+                            AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                            AND regra.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA )
+             AND v.cd_pro_fat = pro_fat.cd_pro_fat(+)
+             AND v.cd_pro_fat = tab_siasus.cd_ssm(+)
+             AND EXISTS ( SELECT cd_setor
+                                ,cd_produto
+                           FROM dbamv.temp_ffch_reg_exc_matmed regra
+                          WHERE regra.cd_setor = v.cd_setor
+                            AND regra.cd_produto = p.cd_produto )) bf
+GROUP BY bf.cd_pro_fat
+        ,bf.cd_atendimento
+        ,bf.ds_pro_fat
+)
+WHERE CD_ATENDIMENTO_BF = :CAMPO_CD_ATENDIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_PROCEDIMENTO_1
+SELECT geral.cd_pro_fat_proced,
+    geral.ds_pro_fat_proced,
+    geral.dt_lanc_proced,
+    qt_lancamento_proced,
+    geral.cd_atendimento_proced,
+    geral.cd_setor_proced,
+    geral.nm_setor_proced,
+    Decode(Sign(vl_custo_proced), -1, 0, vl_custo_proced) vl_custo_proced,
+    Decode(Sign(vl_custo_total_proced), -1, 0, vl_custo_total_proced) vl_custo_total_proced,
+    data_referencia
+   FROM
+    (SELECT resumo_1.cd_pro_fat_proced,
+        resumo_1.ds_pro_fat_proced,
+        resumo_1.dt_lanc_proced,
+        nvl(resumo_1.qt_lancamento_proced, 0) qt_lancamento_proced,
+        resumo_1.cd_atendimento_proced,
+        resumo_1.cd_setor_proced,
+        resumo_1.nm_setor_proced,
+        nvl(resumo_1.vl_custo_proced, 0) vl_custo_proced,
+        nvl(resumo_1.vl_custo_total_proced, 0) vl_custo_total_proced,
+        resumo_1.dt_ordenacao,
+        (SELECT to_char(nvl(MAX(dt_competencia), to_date(resumo_1.dt_lanc_proced, 'mm/yyyy')), 'mm/yyyy')
+           FROM dbamv.custo_unitario
+          WHERE cd_setor        = resumo_1.cd_setor_proced
+            AND cd_pro_fat      = resumo_1.cd_pro_fat_proced
+            AND dt_competencia <= resumo_1.dt_ordenacao
+        ) data_referencia
+       FROM
+        (SELECT v_ffch_custo_computo.cd_pro_fat cd_pro_fat_proced,
+            v_ffch_custo_computo.ds_pro_fat ds_pro_fat_proced,
+            to_char(v_ffch_custo_computo.dt_lancamento, 'mm/yyyy') dt_lanc_proced,
+            sum(v_ffch_custo_computo.qt_lancamento) qt_lancamento_proced,
+            v_ffch_custo_computo.cd_atendimento cd_atendimento_proced,
+            v_ffch_custo_computo.cd_setor cd_setor_proced,
+            v_ffch_custo_computo.nm_setor nm_setor_proced,
+            sum(v_ffch_custo_computo.vl_custo_unit_proced) vl_custo_proced,
+            sum(v_ffch_custo_computo.vl_custo_total_proced) vl_custo_total_proced,
+            trunc(v_ffch_custo_computo.dt_lancamento, 'MM') dt_ordenacao
+           FROM dbamv.v_ffch_custo_computo,
+            dbamv.setor
+          WHERE setor.cd_setor                                          = v_ffch_custo_computo.cd_setor
+            AND setor.tp_composicao_calculo                            <> '7'
+            AND v_ffch_custo_computo.cd_atendimento                = :CAMPO_CD_ATENDIMENTO
+            AND nvl(v_ffch_custo_computo.sn_gases, 'N')            = 'N'
+            AND nvl(v_ffch_custo_computo.vl_custo_total_proced, 0) > 0
+            AND v_ffch_custo_computo.cd_pro_fat                   IS NOT NULL
+       GROUP BY v_ffch_custo_computo.cd_pro_fat,
+            v_ffch_custo_computo.ds_pro_fat,
+            to_char(v_ffch_custo_computo.dt_lancamento, 'mm/yyyy'),
+            v_ffch_custo_computo.cd_atendimento,
+            v_ffch_custo_computo.cd_setor,
+            v_ffch_custo_computo.nm_setor,
+            trunc(v_ffch_custo_computo.dt_lancamento, 'MM')
+        ) resumo_1
+       GROUP BY resumo_1.cd_pro_fat_proced,
+                resumo_1.ds_pro_fat_proced,
+                resumo_1.dt_lanc_proced,
+                nvl(resumo_1.qt_lancamento_proced, 0),
+                resumo_1.cd_atendimento_proced,
+                resumo_1.cd_setor_proced,
+                resumo_1.nm_setor_proced,
+                nvl(resumo_1.vl_custo_proced, 0),
+                nvl(resumo_1.vl_custo_total_proced, 0),
+                resumo_1.dt_ordenacao
+      UNION
+     SELECT resumo_2.cd_pro_fat_proced,
+        resumo_2.ds_pro_fat_proced,
+        resumo_2.dt_lanc_proced,
+        nvl(resumo_2.qt_lancamento_proced, 0) qt_lancamento_proced,
+        resumo_2.cd_atendimento_proced,
+        resumo_2.cd_setor_proced,
+        resumo_2.nm_setor_proced,
+        nvl(resumo_2.vl_custo_proced, 0) vl_custo_proced,
+        nvl(resumo_2.vl_custo_total_proced, 0) vl_custo_total_proced,
+        resumo_2.dt_ordenacao,
+        (SELECT to_char(nvl(MAX(dt_competencia), SYSDATE), 'mm/yyyy')
+           FROM dbamv.custo_unitario
+          WHERE cd_setor        = resumo_2.cd_setor_proced
+            AND cd_ssm          = resumo_2.cd_pro_fat_proced
+            AND dt_competencia <= resumo_2.dt_ordenacao
+        ) data_referencia
+       FROM
+        (SELECT v_ffch_custo_computo.cd_ssm cd_pro_fat_proced,
+            v_ffch_custo_computo.ds_titulo ds_pro_fat_proced,
+            to_char(v_ffch_custo_computo.dt_lancamento, 'mm/yyyy') dt_lanc_proced,
+            sum(v_ffch_custo_computo.qt_lancamento) qt_lancamento_proced,
+            v_ffch_custo_computo.cd_atendimento cd_atendimento_proced,
+            v_ffch_custo_computo.cd_setor cd_setor_proced,
+            v_ffch_custo_computo.nm_setor nm_setor_proced,
+            sum(v_ffch_custo_computo.vl_custo_unit_proced) vl_custo_proced,
+            sum(v_ffch_custo_computo.vl_custo_total_proced) vl_custo_total_proced,
+            trunc(v_ffch_custo_computo.dt_lancamento, 'MM') dt_ordenacao,
+            '2' tipo
+           FROM dbamv.v_ffch_custo_computo,
+            dbamv.setor
+          WHERE setor.cd_setor                                          = v_ffch_custo_computo.cd_setor
+            AND setor.tp_composicao_calculo                            <> '7'
+            AND v_ffch_custo_computo.cd_atendimento                = :CAMPO_CD_ATENDIMENTO
+            AND nvl(v_ffch_custo_computo.sn_gases, 'N')            = 'N'
+            AND nvl(v_ffch_custo_computo.vl_custo_total_proced, 0) > 0
+            AND v_ffch_custo_computo.cd_ssm                       IS NOT NULL
+       GROUP BY v_ffch_custo_computo.cd_ssm,
+            v_ffch_custo_computo.ds_titulo,
+            to_char(v_ffch_custo_computo.dt_lancamento, 'mm/yyyy'),
+            v_ffch_custo_computo.cd_atendimento,
+            v_ffch_custo_computo.cd_setor,
+            v_ffch_custo_computo.nm_setor,
+            trunc(v_ffch_custo_computo.dt_lancamento, 'MM')
+        ) resumo_2
+       GROUP BY resumo_2.cd_pro_fat_proced,
+                resumo_2.ds_pro_fat_proced,
+                resumo_2.dt_lanc_proced,
+                nvl(resumo_2.qt_lancamento_proced, 0),
+                resumo_2.cd_atendimento_proced,
+                resumo_2.cd_setor_proced,
+                resumo_2.nm_setor_proced,
+                nvl(resumo_2.vl_custo_proced, 0),
+                nvl(resumo_2.vl_custo_total_proced, 0),
+                resumo_2.dt_ordenacao
+      UNION
+     SELECT resumo_3.cd_pro_fat_proced,
+        resumo_3.ds_pro_fat_proced,
+        resumo_3.dt_lanc_proced,
+        nvl(resumo_3.qt_lancamento_proced, 0) qt_lancamento_proced,
+        resumo_3.cd_atendimento_proced,
+        resumo_3.cd_setor_proced,
+        resumo_3.nm_setor_proced,
+        nvl(resumo_3.vl_custo_proced, 0) vl_custo_proced,
+        nvl(resumo_3.vl_custo_total_proced, 0) vl_custo_total_proced,
+        resumo_3.dt_ordenacao,
+        (SELECT to_char(nvl(MAX(dt_competencia), SYSDATE), 'mm/yyyy')
+           FROM dbamv.custo_unitario
+          WHERE cd_setor        = resumo_3.cd_setor_proced
+            AND cd_atividade    = resumo_3.cd_pro_fat_proced
+            AND dt_competencia <= resumo_3.dt_ordenacao
+        ) data_referencia
+       FROM
+        (SELECT atividade_xml.cd_atividade_gen cd_pro_fat_proced,
+            item_atividade.nm_item_atividade ds_pro_fat_proced,
+            to_char(atividade_xml.dt_atividade, 'MM/YYYY') dt_lanc_proced,
+            sum(atividade_xml.qt_realizada) qt_lancamento_proced,
+            atendimento_xml.cd_atendimento_mv cd_atendimento_proced,
+            atividade_xml.cd_setor_produziu_mv cd_setor_proced,
+            setor.nm_setor nm_setor_proced,
+            sum(dbamv.pack_ffch.custo_procedimento(to_char(atividade_xml.dt_atividade, 'MM/YYYY'), NULL, atividade_xml.cd_setor_produziu_mv, :CAMPO_CD_MULTI_EMPRESA, NULL, NULL, atendimento_xml.cd_atendimento_mv, NULL, NULL, NULL, atividade_xml.cd_atividade_gen)) vl_custo_proced,
+            sum(dbamv.pack_ffch.custo_procedimento(to_char(atividade_xml.dt_atividade, 'MM/YYYY'), NULL, atividade_xml.cd_setor_produziu_mv, :CAMPO_CD_MULTI_EMPRESA, NULL, NULL, atendimento_xml.cd_atendimento_mv, NULL, NULL, NULL, atividade_xml.cd_atividade_gen) * atividade_xml.qt_realizada) vl_custo_total_proced,
+            trunc(atividade_xml.dt_atividade, 'MM') dt_ordenacao,
+            '3' tipo
+           FROM dbamv.atendimento_xml,
+            dbamv.atividade_xml,
+            dbamv.item_atividade,
+            dbamv.setor
+          WHERE atendimento_xml.cd_atendimento_gen = atividade_xml.cd_atendimento_gen
+            AND item_atividade.cd_atividade        = atividade_xml.cd_atividade_gen
+            AND setor.cd_setor                     = atividade_xml.cd_setor_produziu_mv
+            AND atividade_xml.tp_atividade         = 1
+            AND atendimento_xml.cd_atendimento_mv  = :CAMPO_CD_ATENDIMENTO
+       GROUP BY atividade_xml.cd_atividade_gen,
+            item_atividade.nm_item_atividade,
+            to_char(atividade_xml.dt_atividade, 'MM/YYYY'),
+            atendimento_xml.cd_atendimento_mv,
+            atividade_xml.cd_setor_produziu_mv,
+            setor.nm_setor,
+            trunc(atividade_xml.dt_atividade, 'MM')
+        ) resumo_3
+       GROUP BY resumo_3.cd_pro_fat_proced,
+                resumo_3.ds_pro_fat_proced,
+                resumo_3.dt_lanc_proced,
+                nvl(resumo_3.qt_lancamento_proced, 0),
+                resumo_3.cd_atendimento_proced,
+                resumo_3.cd_setor_proced,
+                resumo_3.nm_setor_proced,
+                nvl(resumo_3.vl_custo_proced, 0),
+                nvl(resumo_3.vl_custo_total_proced, 0),
+                resumo_3.dt_ordenacao
+    ) geral
+  WHERE geral.cd_atendimento_proced = :CAMPO_CD_ATENDIMENTO
+ORDER BY geral.dt_ordenacao,
+         geral.nm_setor_proced,
+         geral.ds_pro_fat_proced
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_PROCEDIMENTO_2
+SELECT geral.cd_pro_fat_procexa,
+    geral.ds_pro_fat_procexa,
+    geral.dt_lanc_procexa,
+    geral.qt_lancamento_procexa,
+    geral.cd_atendimento_procexa,
+    geral.cd_setor_procexa,
+    geral.nm_setor_procexa,
+    Decode(Sign(geral.vl_custo_procexa), -1, 0, geral.vl_custo_procexa) vl_custo_procexa,
+    Decode(Sign(geral.vl_custo_total_procexa), -1, 0, geral.vl_custo_total_procexa) vl_custo_total_procexa,
+    geral.dt_ordenacao,
+    geral.data_referencia
+   FROM
+    (SELECT resumo_1.cd_pro_fat_procexa,
+        resumo_1.ds_pro_fat_procexa,
+        resumo_1.dt_lanc_procexa,
+        nvl(resumo_1.qt_lancamento_procexa, 0) qt_lancamento_procexa,
+        resumo_1.cd_atendimento_procexa,
+        resumo_1.cd_setor_procexa,
+        resumo_1.nm_setor_procexa,
+        nvl(resumo_1.vl_custo_procexa, 0) vl_custo_procexa,
+        nvl(resumo_1.vl_custo_total_procexa, 0) vl_custo_total_procexa,
+        resumo_1.dt_ordenacao,
+        (SELECT to_char(nvl(MAX(dt_competencia), to_date(resumo_1.dt_lanc_procexa, 'mm/yyyy')), 'mm/yyyy')
+           FROM dbamv.custo_unitario
+          WHERE cd_setor        			= resumo_1.cd_setor_procexa
+            AND Nvl(cd_exa_lab, cd_exa_rx)  = resumo_1.cd_pro_fat_procexa
+            AND dt_competencia 			   <= resumo_1.dt_ordenacao
+        ) data_referencia
+       FROM
+        (SELECT v.cd_pro_fat cd_pro_fat_procexa,
+            v.ds_pro_fat ds_pro_fat_procexa,
+            to_char(v.dt_lancamento, 'mm/yyyy') dt_lanc_procexa,
+            sum(v.qt_lancamento) qt_lancamento_procexa,
+            v.cd_atendimento cd_atendimento_procexa,
+            v.cd_setor cd_setor_procexa,
+            v.nm_setor nm_setor_procexa,
+            sum(v.vl_custo_unit_proced) vl_custo_procexa,
+            sum(v.vl_custo_total_proced) vl_custo_total_procexa,
+            trunc(v.dt_lancamento, 'MM') dt_ordenacao
+           FROM dbamv.v_ffch_custo_computo v,
+            dbamv.setor
+          WHERE setor.cd_setor              = v.cd_setor
+            AND setor.tp_composicao_calculo = '7'
+            AND v.cd_atendimento            = :CAMPO_CD_ATENDIMENTO
+       GROUP BY v.cd_pro_fat,
+            v.ds_pro_fat,
+            to_char(v.dt_lancamento, 'mm/yyyy'),
+            v.cd_atendimento,
+            v.cd_setor,
+            v.nm_setor,
+            trunc(v.dt_lancamento, 'MM')
+        ) resumo_1
+        GROUP BY resumo_1.cd_pro_fat_procexa,
+                 resumo_1.ds_pro_fat_procexa,
+                 resumo_1.dt_lanc_procexa,
+                 nvl(resumo_1.qt_lancamento_procexa, 0),
+                 resumo_1.cd_atendimento_procexa,
+                 resumo_1.cd_setor_procexa,
+                 resumo_1.nm_setor_procexa,
+                 nvl(resumo_1.vl_custo_procexa, 0),
+                 nvl(resumo_1.vl_custo_total_procexa, 0),
+                 resumo_1.dt_ordenacao
+  UNION ALL
+     SELECT resumo_2.cd_pro_fat_procexa,
+        resumo_2.ds_pro_fat_procexa,
+        resumo_2.dt_lanc_procexa,
+        nvl(resumo_2.qt_lancamento_procexa, 0) qt_lancamento_procexa,
+        resumo_2.cd_atendimento_procexa,
+        resumo_2.cd_setor_procexa,
+        resumo_2.nm_setor_procexa,
+        nvl(resumo_2.vl_custo_procexa, 0) vl_custo_procexa,
+        nvl(resumo_2.vl_custo_total_procexa, 0) vl_custo_total_procexa,
+        resumo_2.dt_ordenacao,
+        (SELECT to_char(nvl(MAX(dt_competencia), SYSDATE), 'mm/yyyy')
+           FROM dbamv.custo_unitario
+          WHERE cd_setor        = resumo_2.cd_setor_procexa
+            AND cd_atividade    = resumo_2.cd_pro_fat_procexa
+            AND dt_competencia <= resumo_2.dt_ordenacao
+        ) data_referencia
+       FROM
+        (SELECT atividade_xml.cd_atividade_gen cd_pro_fat_procexa,
+            item_atividade.nm_item_atividade ds_pro_fat_procexa,
+            to_char(atividade_xml.dt_atividade, 'MM/YYYY') dt_lanc_procexa,
+            sum(atividade_xml.qt_realizada) qt_lancamento_procexa,
+            atendimento_xml.cd_atendimento_mv cd_atendimento_procexa,
+            atividade_xml.cd_setor_produziu_mv cd_setor_procexa,
+            setor.nm_setor nm_setor_procexa,
+            sum(dbamv.pack_ffch.custo_procedimento(to_char(atividade_xml.dt_atividade, 'MM/YYYY'), NULL, atividade_xml.cd_setor_produziu_mv, :CAMPO_CD_MULTI_EMPRESA, NULL, NULL, atendimento_xml.cd_atendimento_mv, NULL, NULL, NULL, atividade_xml.cd_atividade_gen)) vl_custo_procexa,
+            sum(dbamv.pack_ffch.custo_procedimento(to_char(atividade_xml.dt_atividade, 'MM/YYYY'), NULL, atividade_xml.cd_setor_produziu_mv, :CAMPO_CD_MULTI_EMPRESA, NULL, NULL, atendimento_xml.cd_atendimento_mv, NULL, NULL, NULL, atividade_xml.cd_atividade_gen) * atividade_xml.qt_realizada) vl_custo_total_procexa,
+            trunc(atividade_xml.dt_atividade, 'MM') dt_ordenacao
+           FROM dbamv.atendimento_xml,
+            dbamv.atividade_xml,
+            dbamv.item_atividade,
+            dbamv.setor
+          WHERE atendimento_xml.cd_atendimento_gen = atividade_xml.cd_atendimento_gen
+            AND item_atividade.cd_atividade        = atividade_xml.cd_atividade_gen
+            AND setor.cd_setor                     = atividade_xml.cd_setor_produziu_mv
+            AND atividade_xml.tp_atividade         = 3
+            AND atendimento_xml.cd_atendimento_mv  = :CAMPO_CD_ATENDIMENTO
+       GROUP BY atividade_xml.cd_atividade_gen,
+            item_atividade.nm_item_atividade,
+            to_char(atividade_xml.dt_atividade, 'MM/YYYY'),
+            atendimento_xml.cd_atendimento_mv,
+            atividade_xml.cd_setor_produziu_mv,
+            setor.nm_setor,
+            trunc(atividade_xml.dt_atividade, 'MM')
+        ) resumo_2
+       GROUP BY resumo_2.cd_pro_fat_procexa,
+                resumo_2.ds_pro_fat_procexa,
+                resumo_2.dt_lanc_procexa,
+                nvl(resumo_2.qt_lancamento_procexa, 0),
+                resumo_2.cd_atendimento_procexa,
+                resumo_2.cd_setor_procexa,
+                resumo_2.nm_setor_procexa,
+                nvl(resumo_2.vl_custo_procexa, 0),
+                nvl(resumo_2.vl_custo_total_procexa, 0),
+                resumo_2.dt_ordenacao
+    ) geral
+  WHERE geral.cd_atendimento_procexa = :CAMPO_CD_ATENDIMENTO
+ORDER BY geral.dt_ordenacao,
+    geral.nm_setor_procexa,
+    geral.ds_pro_fat_procexa
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_RECEITA_1
+SELECT * FROM (
+SELECT   a.cd_pro_fat cd_pro_fat
+        ,a.vl_unitario vl_unitario
+        ,a.ds_pro_fat ds_pro_fat
+        ,a.cd_atendimento cd_atendimento_receita
+        ,SUM( a.qt_lancamento ) qt_lancamento_receita
+        ,SUM( a.vl_total_conta ) vl_total
+    FROM ( SELECT  tmp.cd_atendimento
+                  ,DECODE( tmp.cd_pro_fat, NULL, ps.cd_procedimento, pro_fat.cd_pro_fat ) cd_pro_fat
+                  ,DECODE( tmp.cd_pro_fat, NULL, ps.ds_procedimento, pro_fat.ds_pro_fat ) ds_pro_fat
+                  ,SUM( tmp.qt_lancamento ) qt_lancamento
+                  ,( SUM( NVL( tmp.vl_total_conta, 0 )) / sum( nvl(tmp.qt_lancamento,0) )) vl_unitario
+                  ,SUM( NVL( tmp.vl_total_conta, 0 )) vl_total_conta
+              FROM dbamv.temp_ffch_receita_unitaria tmp
+                  ,dbamv.pro_fat
+                  ,dbamv.procedimento_sus ps
+             WHERE tmp.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                   AND tmp.cd_pro_fat = pro_fat.cd_pro_fat(+)
+                   AND tmp.cd_procedimento_sus = ps.cd_procedimento(+)
+                   AND NVL(tmp.sn_pertence_pacote,'N') = 'N' AND NVL(tmp.sn_pacote,'N') = 'N'
+          GROUP BY tmp.cd_atendimento
+                  ,DECODE( tmp.cd_pro_fat, NULL, ps.cd_procedimento, pro_fat.cd_pro_fat )
+                  ,DECODE( tmp.cd_pro_fat, NULL, ps.ds_procedimento, pro_fat.ds_pro_fat )
+           UNION
+           SELECT  to_char(atendimento_xml.cd_atendimento_mv) cd_atendimento
+                  ,atividade_xml.cd_atividade_gen cd_pro_fat
+                  ,item_atividade.nm_item_atividade ds_pro_fat
+                  ,SUM( atividade_xml.qt_realizada ) qt_lancamento
+                  ,SUM(NVL( atividade_xml.vl_atividade, 0)*nvl(atividade_xml.qt_realizada,0))/SUM(nvl(atividade_xml.qt_realizada,0)) vl_unitario
+                  ,SUM( NVL( atividade_xml.vl_atividade, 0 ) * nvl(atividade_xml.qt_realizada,0) ) vl_total_conta
+              FROM dbamv.atendimento_xml,
+                   dbamv.atividade_xml,
+                   dbamv.item_atividade,
+		           dbamv.atendime
+             WHERE atendimento_xml.cd_atendimento_mv = :CAMPO_CD_ATENDIMENTO
+                   AND atendime.cd_atendimento = atendimento_xml.cd_atendimento_mv
+                   AND atividade_xml.cd_atendimento_gen = atendimento_xml.cd_atendimento_gen
+                   AND atividade_xml.cd_atividade_gen = item_atividade.cd_atividade
+                   AND atendime.tp_atendimento NOT IN ('S','A')
+                   AND atividade_xml.tp_atividade IN ( '1', '3', '4', '5', '6', '7', '8', '9', '10', '12', '14')
+                   AND NVL( atividade_xml.vl_atividade, 0 ) <> 0
+          GROUP BY atendimento_xml.cd_atendimento_mv
+                  ,atividade_xml.cd_atividade_gen
+                  ,item_atividade.nm_item_atividade
+            UNION ALL
+           SELECT  to_char(atendimento_xml.cd_atendimento_mv) cd_atendimento
+                  ,atividade_xml.cd_atividade_gen cd_pro_fat
+                  ,item_atividade.nm_item_atividade ds_pro_fat
+                  ,SUM( atividade_xml.qt_realizada ) qt_lancamento
+                  ,SUM(NVL( atividade_xml.vl_atividade, 0)) / SUM(nvl(atividade_xml.qt_realizada,1)) vl_unitario
+                  ,SUM( NVL( atividade_xml.vl_atividade, 0 ) ) vl_total_conta
+              FROM dbamv.atendimento_xml,
+                   dbamv.atividade_xml,
+                   dbamv.item_atividade,
+                   dbamv.atendime
+             WHERE atendimento_xml.cd_atendimento_mv = :CAMPO_CD_ATENDIMENTO
+                   AND atendime.cd_atendimento = atendimento_xml.cd_atendimento_gen
+                   AND atividade_xml.cd_atendimento_gen = atendimento_xml.cd_atendimento_gen
+                   AND atividade_xml.cd_atividade_gen = item_atividade.cd_atividade
+                   AND atendime.tp_atendimento IN ('S','A') AND atividade_xml.tp_atividade = '15'
+                   AND NVL( atividade_xml.vl_atividade, 0 ) <> 0
+          GROUP BY atendimento_xml.cd_atendimento_mv
+                  ,atividade_xml.cd_atividade_gen
+                  ,item_atividade.nm_item_atividade
+           UNION ALL
+           SELECT '1916' cd_atendimento, 'abc' cd_pro_fat, 'abcdef' ds_pro_fat, 2 qt_lancamento, 10 vl_unitario, 20 vl_total_conta FROM sys.dual
+         ) a
+GROUP BY a.cd_pro_fat
+        ,a.vl_unitario
+        ,a.ds_pro_fat
+        ,a.cd_atendimento
+ORDER BY a.ds_pro_fat
+)
+WHERE CD_ATENDIMENTO_RECEITA = :CAMPO_CD_ATENDIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_RECEITA_2
+SELECT cd_pro_fat_dist,
+    NVL(vl_unitario_dist, 0) vl_unitario_dist,
+    ds_pro_fat_dist,
+    cd_atendimento_receita_dist,
+    sn_pertence_pacote_dist,
+    sn_pacote_dist,
+    NVL(qt_lancamento_receita_dist, 0) qt_lancamento_receita_dist,
+    NVL(vl_total_dist, vl_total_dist) vl_total_dist
+   FROM
+    (SELECT a.cd_pro_fat cd_pro_fat_dist,
+        a.vl_unitario vl_unitario_dist,
+        a.ds_pro_fat ds_pro_fat_dist,
+        a.cd_atendimento cd_atendimento_receita_dist,
+        a.sn_pertence_pacote sn_pertence_pacote_dist,
+        a.sn_pacote sn_pacote_dist,
+        SUM(a.qt_lancamento) qt_lancamento_receita_dist,
+        SUM(a.vl_total_conta) vl_total_dist
+       FROM
+        (SELECT tmp.cd_atendimento,
+            DECODE(tmp.cd_pro_fat, NULL, ps.cd_procedimento, pro_fat.cd_pro_fat) cd_pro_fat,
+            DECODE(tmp.cd_pro_fat, NULL, ps.ds_procedimento, pro_fat.ds_pro_fat) ds_pro_fat,
+            NVL(tmp.sn_pertence_pacote, 'N') sn_pertence_pacote,
+            NVL(tmp.sn_pacote, 'N') sn_pacote,
+            SUM(tmp.qt_lancamento) qt_lancamento,
+            (SUM(NVL(tmp.vl_total_conta, 0)) / SUM(NVL(tmp.qt_lancamento, 0))) vl_unitario,
+            SUM(NVL(tmp.vl_total_conta, 0)) vl_total_conta
+           FROM dbamv.temp_ffch_receita_unitaria tmp,
+            dbamv.pro_fat,
+            dbamv.procedimento_sus ps
+          WHERE tmp.cd_atendimento               = :CAMPO_CD_ATENDIMENTO
+            AND tmp.cd_multi_empresa             = :CAMPO_CD_MULTI_EMPRESA
+            AND tmp.cd_pro_fat                   = pro_fat.cd_pro_fat(+)
+            AND tmp.cd_procedimento_sus          = ps.cd_procedimento(+)
+            AND(NVL(tmp.sn_pertence_pacote, 'N') = 'S'
+            OR NVL(tmp.sn_pacote, 'N')           = 'S')
+       GROUP BY tmp.cd_atendimento,
+            DECODE(tmp.cd_pro_fat, NULL, ps.cd_procedimento, pro_fat.cd_pro_fat),
+            DECODE(tmp.cd_pro_fat, NULL, ps.ds_procedimento, pro_fat.ds_pro_fat),
+            tmp.sn_pertence_pacote,
+            tmp.sn_pacote
+        ) a
+   GROUP BY cd_pro_fat,
+        a.vl_unitario,
+        a.ds_pro_fat,
+        a.cd_atendimento,
+        a.sn_pertence_pacote,
+        a.sn_pacote
+    )
+ORDER BY ds_pro_fat_dist
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_SALA_CIRURGICA_1
+SELECT NVL(geral.hr_cirurgia, 0) hr_cirurgia,
+    geral.ds_sal_cir,
+    geral.nm_setor_cirurgia,
+    geral.cd_setor_cirurgia,
+    geral.cd_atendimento_cirurgia,
+    geral.dt_realizacao,
+    Decode(Sign(geral.vl_minuto), -1, 0, NVL(geral.vl_minuto, 0)) vl_minuto,
+    Decode(Sign(geral.vl_minuto), -1, 0, NVL(geral.hr_cirurgia, 0) * NVL(geral.vl_minuto, 0)) vl_total,
+    geral.dt_referencia data_referencia
+   FROM
+    (SELECT resumo_1_fora.hr_cirurgia,
+        resumo_1_fora.ds_sal_cir,
+        resumo_1_fora.nm_setor_cirurgia,
+        resumo_1_fora.cd_setor_cirurgia,
+        resumo_1_fora.cd_atendimento_cirurgia,
+        resumo_1_fora.dt_realizacao,
+        (SELECT vl_custo_cencir
+           FROM dbamv.custo_final
+          WHERE cd_setor                           = resumo_1_fora.cd_setor_cirurgia
+            AND TO_CHAR(dt_competencia, 'mm/yyyy') = resumo_1_fora.dt_referencia
+            AND cd_multi_empresa                   = resumo_1_fora.cd_multi_empresa
+        ) vl_minuto,
+        resumo_1_fora.dt_referencia
+       FROM
+        (SELECT resumo_1.hr_cirurgia,
+            resumo_1.ds_sal_cir,
+            resumo_1.nm_setor_cirurgia,
+            resumo_1.cd_setor_cirurgia,
+            resumo_1.cd_atendimento_cirurgia,
+            resumo_1.dt_realizacao,
+            atendime.cd_multi_empresa,
+           (SELECT TO_CHAR(NVL(MAX(dt_competencia), sysdate), 'mm/yyyy')
+               FROM dbamv.custo_final
+              WHERE cd_setor        = resumo_1.cd_setor_cirurgia
+                AND dt_competencia <= NVL(resumo_1.dt_realizacao, atendime.dt_atendimento)
+            ) dt_referencia
+           FROM
+            (SELECT SUM(((NVL(dt_fim_limpeza, dbamv.soma_sub_data(dt_realizacao, vl_tempo_duracao, '+')) - dt_realizacao) * 24 * 60)) hr_cirurgia,
+                sal_cir.ds_sal_cir,
+                setor.nm_setor nm_setor_cirurgia,
+                setor.cd_setor cd_setor_cirurgia,
+                aviso_cirurgia.cd_atendimento cd_atendimento_cirurgia,
+                aviso_cirurgia.dt_realizacao
+               FROM dbamv.aviso_cirurgia,
+                dbamv.sal_cir,
+                dbamv.setor
+              WHERE aviso_cirurgia.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+                AND aviso_cirurgia.cd_sal_cir     = sal_cir.cd_sal_cir
+                AND sal_cir.cd_setor              = setor.cd_setor
+                AND aviso_cirurgia.tp_situacao    = 'R'
+                AND setor.tp_composicao_calculo   = '5'
+           GROUP BY sal_cir.cd_sal_cir,
+                sal_cir.ds_sal_cir,
+                setor.cd_setor,
+                setor.nm_setor,
+                aviso_cirurgia.cd_atendimento,
+                aviso_cirurgia.dt_realizacao
+            ) resumo_1,
+            dbamv.atendime
+          WHERE resumo_1.cd_atendimento_cirurgia = atendime.cd_atendimento
+            AND atendime.cd_atendimento          = :CAMPO_CD_ATENDIMENTO
+        ) resumo_1_fora
+  UNION ALL
+     SELECT resumo_2.hr_cirurgia,
+        resumo_2.ds_sal_cir,
+        resumo_2.nm_setor_cirurgia,
+        resumo_2.cd_setor_cirurgia,
+        resumo_2.cd_atendimento_cirurgia,
+        resumo_2.dt_realizacao,
+        resumo_2.vl_minuto,
+        (SELECT TO_CHAR(NVL(MAX(dt_competencia), SYSDATE), 'mm/yyyy')
+           FROM dbamv.custo_unitario
+          WHERE cd_setor        = resumo_2.cd_setor_cirurgia
+            AND cd_atividade    = resumo_2.cd_atividade_gen
+            AND dt_competencia <= resumo_2.dt_realizacao
+        ) dt_referencia
+       FROM
+        (SELECT SUM(qt_realizada) hr_cirurgia,
+            '(*1) ' || item_atividade.nm_item_atividade ds_sal_cir,
+            setor.nm_setor nm_setor_cirurgia,
+            setor.cd_setor cd_setor_cirurgia,
+            atendimento_xml.cd_atendimento_mv cd_atendimento_cirurgia,
+            atividade_xml.dt_atividade dt_realizacao,
+            SUM(NVL(dbamv.pack_ffch.custo_procedimento(TO_CHAR(atividade_xml.dt_atividade, 'mm/yyyy'), NULL, atividade_xml.cd_setor_produziu_mv, :CAMPO_CD_MULTI_EMPRESA, NULL, NULL, atendimento_xml.cd_atendimento_mv, NULL, NULL, NULL, atividade_xml.cd_atividade_gen), 0) * NVL(qt_realizada, 1)) / SUM(NVL(qt_realizada, 1)) vl_minuto,
+            atividade_xml.cd_atividade_gen
+           FROM dbamv.atendimento_xml,
+            dbamv.atividade_xml,
+            dbamv.item_atividade,
+            dbamv.setor
+          WHERE atendimento_xml.cd_atendimento_mv = :CAMPO_CD_ATENDIMENTO
+            AND atividade_xml.cd_atendimento_gen  = atendimento_xml.cd_atendimento_gen
+            AND item_atividade.cd_atividade       = atividade_xml.cd_atividade_gen
+            AND setor.cd_setor                    = atividade_xml.cd_setor_produziu_mv
+            AND atividade_xml.tp_atividade        = 7
+       GROUP BY item_atividade.nm_item_atividade,
+            setor.nm_setor,
+            setor.cd_setor,
+            atendimento_xml.cd_atendimento_mv,
+            atividade_xml.dt_atividade,
+            atividade_xml.cd_atividade_gen
+        ) resumo_2
+    ) geral
+  WHERE geral.cd_atendimento_cirurgia = :CAMPO_CD_ATENDIMENTO
+ORDER BY geral.dt_realizacao,
+    geral.ds_sal_cir,
+    geral.nm_setor_cirurgia
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_TERCEIRO_1
+SELECT geral.cd_pro_fat_terc,
+    geral.ds_pro_fat_terc,
+    geral.cd_setor_terc,
+    geral.cd_atendimento_terc,
+    geral.dt_lancamento_terc,
+    (
+    CASE
+        WHEN geral.dt_lancamento_terc IS NOT NULL
+            AND geral.cd_pro_fat_terc IS NOT NULL
+        THEN
+            Decode(
+			       Sign(NVL(dbamv.pack_ffch.custo_procedimento(geral.dt_lancamento_terc, geral.cd_pro_fat_terc, geral.cd_setor_terc, :CAMPO_CD_MULTI_EMPRESA), 0)),
+			       -1,
+			        0,
+			       NVL(dbamv.pack_ffch.custo_procedimento(geral.dt_lancamento_terc, geral.cd_pro_fat_terc, geral.cd_setor_terc,:CAMPO_CD_MULTI_EMPRESA), 0 )
+			       )
+        ELSE 0
+    END) vl_custo_terc,
+    (SELECT TO_CHAR(NVL(MAX(dt_competencia), to_date(geral.dt_lancamento_terc, 'mm/yyyy')), 'mm/yyyy')
+       FROM dbamv.custo_unitario
+      WHERE cd_setor        = geral.cd_setor_terc
+        AND cd_pro_fat      = geral.cd_pro_fat_terc
+        AND dt_competencia <= geral.dt_lancamento
+     ) data_referencia
+   FROM
+    (SELECT itreg_fat.cd_pro_fat cd_pro_fat_terc,
+        pro_fat.ds_pro_fat ds_pro_fat_terc,
+        nvl(itreg_fat.cd_setor_produziu, itreg_fat.cd_setor) cd_setor_terc,
+        reg_fat.cd_atendimento cd_atendimento_terc,
+        to_char(itreg_fat.dt_lancamento, 'mm/yyyy') dt_lancamento_terc,
+        itreg_fat.dt_lancamento dt_lancamento
+       FROM dbamv.itreg_fat,
+        dbamv.reg_fat,
+        dbamv.pro_fat,
+        dbamv.setor,
+        dbamv.grupo_de_custo,
+        dbamv.gru_pro
+      WHERE reg_fat.cd_atendimento                               = :CAMPO_CD_ATENDIMENTO
+        AND reg_fat.cd_multi_empresa                             = :CAMPO_CD_MULTI_EMPRESA
+        AND reg_fat.cd_reg_fat                                   = itreg_fat.cd_reg_fat
+        AND nvl(itreg_fat.cd_setor_produziu, itreg_fat.cd_setor) = setor.cd_setor
+        AND setor.cd_grupo_de_custo                              = grupo_de_custo.cd_grupo_de_custo
+        AND grupo_de_custo.tp_grupo_de_custo                     = 'T'
+        AND itreg_fat.cd_pro_fat                                 = pro_fat.cd_pro_fat(+)
+        AND pro_fat.cd_gru_pro                                   = gru_pro.cd_gru_pro(+)
+        AND nvl(gru_pro.tp_custo, 1)                            IN(1, 3)
+  UNION ALL
+     SELECT itreg_amb.cd_pro_fat cd_pro_fat_terc,
+        pro_fat.ds_pro_fat ds_pro_fat_terc,
+        nvl(itreg_amb.cd_setor_produziu, itreg_amb.cd_setor) cd_setor_terc,
+        itreg_amb.cd_atendimento cd_atendimento_terc,
+        to_char(itreg_amb.hr_lancamento, 'mm/yyyy') dt_lancamento_terc,
+        itreg_amb.hr_lancamento dt_lancamento
+       FROM dbamv.itreg_amb,
+        dbamv.reg_amb,
+        dbamv.setor,
+        dbamv.pro_fat,
+        dbamv.grupo_de_custo,
+        dbamv.gru_pro
+      WHERE itreg_amb.cd_atendimento                             = :CAMPO_CD_ATENDIMENTO
+        AND reg_amb.cd_multi_empresa                             = :CAMPO_CD_MULTI_EMPRESA
+        AND reg_amb.cd_reg_amb                                   = itreg_amb.cd_reg_amb
+        AND nvl(itreg_amb.cd_setor_produziu, itreg_amb.cd_setor) = setor.cd_setor
+        AND setor.cd_grupo_de_custo                              = grupo_de_custo.cd_grupo_de_custo
+        AND grupo_de_custo.tp_grupo_de_custo                     = 'T'
+        AND itreg_amb.cd_pro_fat                                 = pro_fat.cd_pro_fat(+)
+        AND pro_fat.cd_gru_pro                                   = gru_pro.cd_gru_pro(+)
+        AND nvl(gru_pro.tp_custo, 1)                            IN(1, 3)
+    ) geral
+  WHERE geral.cd_atendimento_terc = :CAMPO_CD_ATENDIMENTO
+  ORDER BY geral.dt_lancamento, geral.ds_pro_fat_terc
+
+
+
+/*----------------------------------------------------------------------------*/
+--ATENDIMENTO_DETALHADO_TERCEIRO_2
+SELECT atividade_xml.cd_atividade_gen Cd_pro_fat_terc
+      ,item_atividade.nm_item_atividade  DS_PRO_fAT_TERC
+      ,atividade_xml.Cd_setor_produziu_mv Cd_setor_terc
+      ,atendimento_xml.cd_atendimento_mv Cd_atendimento_terc
+      ,TO_CHAR( atividade_xml.dt_atividade, 'mm/yyyy' ) Dt_lancamento_terc
+      ,Decode(
+              Sign(nvl(dbamv.pack_ffch.custo_procedimento(TO_CHAR( atividade_xml.dt_atividade, 'mm/yyyy' ),
+                                                          null,
+                                                          atividade_xml.cd_setor_produziu_mv,
+                                                          :CAMPO_CD_MULTI_EMPRESA,
+                                                          atividade_xml.cd_atividade_gen),0)),
+              -1,
+               0,
+                   nvl(dbamv.pack_ffch.custo_procedimento(TO_CHAR( atividade_xml.dt_atividade, 'mm/yyyy' ),
+                                                          null,
+                                                          atividade_xml.cd_setor_produziu_mv,
+                                                          :CAMPO_CD_MULTI_EMPRESA,
+                                                          atividade_xml.cd_atividade_gen),0)
+              ) vl_custo_terc,
+    (SELECT TO_CHAR(NVL(MAX(dt_competencia), sysdate), 'mm/yyyy')
+       FROM dbamv.custo_unitario
+      WHERE cd_setor        = atividade_xml.cd_setor_produziu_mv
+        AND cd_atividade    = atividade_xml.cd_atividade_gen
+        AND dt_competencia <= atividade_xml.dt_atividade
+     ) data_referencia
+  FROM  dbamv.atendimento_xml,
+        dbamv.atividade_xml,
+        dbamv.item_atividade
+ WHERE  atendimento_xml.cd_atendimento_gen = atividade_xml.cd_atendimento_gen
+   AND  item_atividade.cd_atividade = atividade_xml.cd_atividade_gen
+   AND  atendimento_xml.cd_atendimento_mv = :CAMPO_CD_ATENDIMENTO
+   AND  atividade_xml.tp_atividade = '4'
+ORDER BY atividade_xml.dt_atividade, item_atividade.nm_item_atividade

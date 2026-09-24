@@ -1,0 +1,113 @@
+/*----------------------------------------------------------------------------*/
+--R_REPASSE_MEDICO
+SELECT DECODE (:CAMPO_SN_QUEBRA_PREST, 'S', DECODE (:CAMPO_ORDEM_PREST, 'N', gru_rep.nm_prestador, gru_rep.cd_prestador), NULL) quebra_gru_rep
+		  ,DECODE (:CAMPO_SN_QUEBRA_PREST, 'S', DECODE (:CAMPO_ORDEM_PREST, 'N', prestador.nm_prestador, prestador.cd_prestador), NULL) quebra_prest
+		  ,Nvl(cd_lancamento_fat, cd_lancamento_amb) cd_lancamento
+          ,gru_rep.cd_prestador cd_gru_rep
+		  ,gru_rep.nm_prestador ds_gru_rep
+		  ,prestador.cd_prestador CD_PRESTADOR
+		  ,prestador.NM_PRESTADOR nm_prestador
+		  ,gru_rep.cd_prestador cd_prestador_repasse
+		  ,v.cd_repasse cd_repasse
+		  ,v.dt_repasse dt_repasse
+		  ,v.ds_repasse ds_repasse
+		  ,0 vl_total
+		  ,v.cd_pro_fat cd_pro_fat
+		  ,Nvl(Nvl(Nvl(Nvl(rp_c.ds_pro_fat, rp_sih.ds_procedimento), rp_sia.ds_procedimento),pro_fat.ds_pro_fat),procedimento_sus.ds_procedimento) ds_pro_fat
+		  ,Nvl(v.cd_reg_fat, v.cd_reg_amb) conta
+		  ,v.VL_REPASSE
+		  ,v.dt_lancamento dt_lancamento
+		  ,v.qt_lancamento qt_lancamento
+		  ,Nvl(rp_c.vl_total_conta, rp_sih.vl_total_conta) vl_total_conta
+		 ,Nvl(Nvl(rp_c.cd_remessa, rp_sih.cd_remessa),
+       (CASE WHEN v.tipo_reg = 'SUS_AMB' THEN
+        (select eve.cd_fat_sia from dbamv.eve_siasus eve, dbamv.paciente pac 
+		      where eve.cd_eventos = v.cd_reg_amb 
+		        AND eve.cd_paciente = pac.cd_paciente(+) 
+		        and eve.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa) ELSE NULL END)) cd_remessa
+		  ,convenio.nm_convenio nm_convenio
+		  ,Nvl(dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(paciente.cd_paciente, 1),rp_sia.nm_paciente) nm_paciente
+		  ,Nvl(Nvl(Nvl(rp_c.cd_gru_pro,rp_sih.cd_gru_pro),rp_sia.cd_gru_pro),gru_pro.cd_gru_pro) cd_gru_pro
+		  ,Nvl(Nvl(Nvl(rp_c.DS_GRU_PRO,rp_sih.DS_GRU_PRO),rp_sia.DS_GRU_PRO),gru_pro.ds_gru_pro) ds_gru_pro
+		  ,v.tipo_reg tipo
+		  ,0 vl_faturado
+		  ,v.CD_CONVENIO cd_convenio
+		  ,rp_sia.cd_reg_repasse_sia cd_reg_repasse_sia
+		  ,atendime.cd_especialid cd_especialid
+		  ,rp_c.cd_tip_ate cd_tip_ate
+		  ,atendime.cd_ori_ate cd_ori_ate
+		  ,rp_sia.sn_medico sn_medico
+		  ,rp_sia.vl_anestesista
+          ,rp_sia.vl_outros
+		  ,rp_sia.vl_auxiliar
+		  ,rp_sia.vl_geral
+		  ,v.vl_base_repassado
+		  ,atendime.tp_atendimento tp_atendimento
+		  ,ati_med.ds_ati_med ds_ati_med
+		  ,rp_c.vl_filme
+		  ,v.cd_atendimento cd_atendimento
+          ,v.vl_perc_repasse vl_perc_repasse
+ 	      ,rp_c.qt_ch_unitario qt_ch
+		  ,Nvl(v.cd_reg_fat, v.cd_reg_amb) num_conta
+		  ,v.cd_atendimento num_atend
+		  ,Nvl(cd_lancamento_fat, cd_lancamento_amb) cd_lanca
+		  ,v.cd_ati_med cd_ati_med
+		  ,rp_c.VL_RECEBIDO
+          ,DECODE(substr(v.tipo_reg,1,3),'REC','G',
+	                                 'GLO','G',
+	                                 'MAN','RP',
+					 'CNV', rp_c.sn_horario_contratado,'N') sn_horario_contratado
+     ,repasse.tp_repasse
+     ,Decode(lr.tp_remessa,'C','*','R','+','') e_conciliado
+  FROM dbamv.convenio,
+       dbamv.prestador gru_rep,
+       dbamv.prestador ,
+       dbamv.repasse ,
+       dbamv.paciente,
+       dbamv.ati_med ,
+       dbamv.atendime,
+       dbamv.log_repasse lr,
+       dbamv.v_fnrm_repasse_gerado v,
+       (SELECT *
+          FROM dbamv.repasse_consolidado
+         WHERE dt_competencia_rep BETWEEN TO_DATE ('01/' || :CAMPO_DT_COMPET, 'DD/MM/YYYY')AND LAST_DAY (TO_DATE (:CAMPO_DT_COMPET, 'MM/YYYY') )
+           AND cd_it_repasse IS NOT NULL) rp_c,
+       (SELECT *
+          FROM dbamv.repasse_consolidado
+         WHERE dt_competencia_rep BETWEEN TO_DATE ('01/' || :CAMPO_DT_COMPET, 'DD/MM/YYYY')AND LAST_DAY (TO_DATE (:CAMPO_DT_COMPET, 'MM/YYYY') )
+           AND cd_it_repasse_sih IS NOT NULL) rp_sih,
+       (SELECT *
+          FROM dbamv.repasse_consolidado
+         WHERE dt_competencia_rep BETWEEN TO_DATE ('01/' || :CAMPO_DT_COMPET, 'DD/MM/YYYY')AND LAST_DAY (TO_DATE (:CAMPO_DT_COMPET, 'MM/YYYY') )
+           AND cd_it_repasse_sia IS NOT NULL) rp_sia,
+       dbamv.pro_fat,
+       dbamv.procedimento_sus,
+       DBAMV.gru_pro
+ WHERE v.cd_convenio = convenio.cd_convenio(+)
+   AND v.cd_prestador_repasse = gru_rep.cd_prestador
+   AND v.cd_prestador = prestador.cd_prestador
+   AND v.cd_repasse = repasse.cd_repasse
+   AND v.cd_atendimento = atendime.cd_atendimento(+)
+   AND atendime.cd_paciente = paciente.cd_paciente(+)
+   AND v.cd_ati_med = ati_med.cd_ati_med(+)
+   AND rp_c.cd_it_repasse(+) = v.cd_it_repasse
+   AND rp_sih.cd_it_repasse_sih(+) = v.cd_it_repasse_sih
+   AND rp_sia.cd_it_repasse_sia(+) = v.cd_it_repasse_sia
+   AND v.cd_pro_fat = pro_fat.cd_pro_fat(+)
+   AND pro_fat.cd_gru_pro = gru_pro.cd_gru_pro(+)
+   AND v.cd_pro_fat = procedimento_sus.cd_procedimento(+)
+   AND repasse.cd_repasse = lr.cd_repasse
+   AND v.dt_competencia BETWEEN TO_DATE ('01/' || :CAMPO_DT_COMPET, 'DD/MM/YYYY')AND LAST_DAY (TO_DATE (:CAMPO_DT_COMPET, 'MM/YYYY') )
+ ORDER by DECODE(:CAMPO_SN_QUEBRA_PREST, 'S', DECODE (:CAMPO_ORDEM_PREST, 'N', gru_rep.nm_prestador, gru_rep.cd_prestador), NULL),
+  	gru_rep.cd_prestador,
+    gru_rep.nm_prestador,
+    DECODE(:CAMPO_SN_QUEBRA_PREST, 'S', DECODE (:CAMPO_ORDEM_PREST, 'N', prestador.nm_prestador, prestador.cd_prestador), NULL),
+    prestador.cd_prestador,
+    prestador.NM_PRESTADOR,
+    v.cd_repasse,
+    v.dt_repasse,
+    v.ds_repasse,
+    Nvl(Nvl(Nvl(rp_c.cd_gru_pro,rp_sih.cd_gru_pro),rp_sia.cd_gru_pro),gru_pro.cd_gru_pro),
+    v.cd_pro_fat,
+    Nvl(Nvl(Nvl(Nvl(rp_c.ds_pro_fat, rp_sih.ds_procedimento), rp_sia.ds_procedimento),pro_fat.ds_pro_fat),procedimento_sus.ds_procedimento),
+    Nvl(dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(paciente.cd_paciente, 1),rp_sia.nm_paciente)

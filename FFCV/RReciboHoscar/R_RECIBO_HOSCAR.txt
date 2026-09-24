@@ -1,0 +1,234 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_HOSCAR
+SELECT cr.cd_con_rec,
+       Nvl(p.NR_CARTEIRA, responsavel.NR_IDENTIDADE) NR_CARTEIRA,       
+       cr.DT_EMISSAO,       
+       cr.NR_DOCUMENTO,     
+       cr.VL_PREVISTO,      
+       it.NR_PARCELA,       
+         CASE rc.TP_RECEBIMENTO WHEN '1' THEN 'Cheque'
+                                WHEN 'E' THEN 'Compensación de Cuentas'
+                                WHEN 'B' THEN 'Baja Contable'
+                                WHEN '2' THEN 'Tarjeta'
+                                WHEN '3' THEN 'En Efectivo'
+                                WHEN '4' THEN 'Crédito CCC'
+                                WHEN '5' THEN 'Rec. Cobro'
+                                WHEN '6' THEN 'Recibo de Cobro Boleto'
+                                WHEN '7' THEN 'DOC'
+                                WHEN '8' THEN 'Título de Crédito'
+                                WHEN '9' THEN 'Pagaré'
+            END TP_RECEBIMENTO ,
+       rc.DT_RECEBIMENTO,   
+       c.DS_CAIXA,          
+       rc.NR_DOCUMENTO NUM_DOCUMENTO, 
+       rc.DS_RECCON_REC,    
+       Nvl(rc.NR_ID_RESPONSAVEL, responsavel.CD_IDENTIFICADOR_PESSOA) NR_ID_RESPONSAVEL,
+       rc.NM_RESPONSAVEL,   
+       rc.VL_MOEDA,         
+       Nvl(p.NM_PACIENTE,responsavel.nm_responsavel) NM_PACIENTE, 
+       rc.nm_usuario
+FROM DBAMV.con_rec cr,
+     DBAMV.itcon_rec it,
+     DBAMV.reccon_rec rc,
+     DBAMV.caixa c,
+     (SELECT atendime.cd_atendimento
+           , paciente.cd_paciente
+           , paciente.nm_paciente
+           , atendime.NR_CARTEIRA
+        FROM dbamv.paciente
+           , dbamv.atendime
+      WHERE atendime.cd_paciente= paciente.cd_paciente) p,
+     dbamv.reg_fat rf,
+     dbamv.responsavel
+WHERE cr.cd_con_rec = it.cd_con_rec
+AND it.cd_itcon_rec = rc.cd_itcon_rec
+AND rc.cd_caixa = c.cd_caixa(+)
+AND cr.cd_atendimento = p.cd_atendimento (+)
+AND rc.cd_resposavel = responsavel.cd_resposavel
+AND cr.cd_reg_fat = rf.cd_reg_fat
+AND cr.cd_atendimento = rf.cd_atendimento (+)
+GROUP BY cr.cd_con_rec,
+       Nvl(p.NR_CARTEIRA, responsavel.NR_IDENTIDADE),       
+       cr.DT_EMISSAO,       
+       cr.NR_DOCUMENTO,     
+       cr.VL_PREVISTO,      
+       it.NR_PARCELA,
+       rc.TP_RECEBIMENTO,
+       rc.DT_RECEBIMENTO,   
+       c.DS_CAIXA,          
+       rc.NR_DOCUMENTO, 
+       rc.DS_RECCON_REC,    
+       Nvl(rc.NR_ID_RESPONSAVEL, responsavel.CD_IDENTIFICADOR_PESSOA),
+       rc.NM_RESPONSAVEL,   
+       rc.VL_MOEDA,         
+       Nvl(p.NM_PACIENTE,responsavel.nm_responsavel),
+       rc.nm_usuario
+UNION all
+SELECT cr.cd_con_rec,
+       Nvl(a.NR_CARTEIRA, r.NR_IDENTIDADE) NR_CARTEIRA,       
+       cr.DT_EMISSAO,       
+       cr.NR_DOCUMENTO,     
+       cr.VL_PREVISTO,      
+       it.NR_PARCELA,       
+         CASE rc.TP_RECEBIMENTO WHEN '1' THEN 'Cheque'
+                                WHEN 'E' THEN 'Compensación de Cuentas'
+                                WHEN 'B' THEN 'Baja Contable'
+                                WHEN '2' THEN 'Tarjeta'
+                                WHEN '3' THEN 'En Efectivo'
+                                WHEN '4' THEN 'Crédito CCC'
+                                WHEN '5' THEN 'Rec. Cobro'
+                                WHEN '6' THEN 'Recibo de Cobro Boleto'
+                                WHEN '7' THEN 'DOC'
+                                WHEN '8' THEN 'Título de Crédito'
+                                WHEN '9' THEN 'Pagaré'
+            END TP_RECEBIMENTO ,
+       rc.DT_RECEBIMENTO,   
+       c.DS_CAIXA,          
+       rc.NR_DOCUMENTO NUM_DOCUMENTO, 
+       rc.DS_RECCON_REC,    
+       Nvl(rc.NR_ID_RESPONSAVEL, r.CD_IDENTIFICADOR_PESSOA) NR_ID_RESPONSAVEL,
+       rc.NM_RESPONSAVEL,   
+       rc.VL_MOEDA,         
+       Nvl(p.NM_PACIENTE,r.nm_responsavel),        
+       rc.nm_usuario
+FROM DBAMV.con_rec cr,
+     DBAMV.itcon_rec it,
+     DBAMV.reccon_rec rc,
+     DBAMV.caixa c,
+     DBAMV.atendime a,
+     dbamv.itreg_amb itra,
+     dbamv.paciente p,
+     dbamv.responsavel r
+WHERE cr.cd_con_rec = it.cd_con_rec
+AND it.cd_itcon_rec = rc.cd_itcon_rec
+AND rc.cd_caixa = c.cd_caixa(+)
+AND rc.nm_responsavel   = r.nm_responsavel(+)
+AND a.cd_atendimento = cr.cd_atendimento
+AND itra.cd_atendimento = cr.cd_atendimento
+AND cr.cd_reg_amb = itra.cd_reg_amb
+AND p.cd_paciente = a.cd_paciente
+GROUP BY cr.cd_con_rec,
+       Nvl(a.NR_CARTEIRA, r.NR_IDENTIDADE),       
+       cr.DT_EMISSAO,       
+       cr.NR_DOCUMENTO,     
+       cr.VL_PREVISTO,      
+       it.NR_PARCELA,
+       rc.TP_RECEBIMENTO,
+       rc.DT_RECEBIMENTO,   
+       c.DS_CAIXA,          
+       rc.NR_DOCUMENTO, 
+       rc.DS_RECCON_REC,    
+       Nvl(rc.NR_ID_RESPONSAVEL, r.CD_IDENTIFICADOR_PESSOA),
+       rc.NM_RESPONSAVEL,   
+       rc.VL_MOEDA,         
+       Nvl(p.NM_PACIENTE,r.nm_responsavel),
+       rc.nm_usuario
+UNION all
+ SELECT
+  NULL CD_CON_REC,
+  R.NR_IDENTIDADE NR_CARTEIRA, 
+  M.DT_LANCAMENTO DT_EMISSAO, 
+  D.NR_DOCUMENTO,  
+  M.VL_MOVIMENTACAO VL_PREVISTO, 
+  1 NR_PARCELA, 
+  CASE D.TP_DOC_CAIXA WHEN '1' THEN 'En Efectivo'
+                      WHEN '2' THEN 'Cheque'
+                      WHEN '3' THEN 'Tarjeta'
+                      WHEN '4' THEN 'T.E.F.'
+                      WHEN '5' THEN 'Pagaré'
+                      WHEN '6' THEN 'Título de Crédito'
+                      WHEN '7' THEN 'Vale en Efectivo'
+  END TP_RECEBIMENTO ,
+  M.DT_MOVIMENTACAO DT_RECEBIMENTO, 
+  CA.DS_CAIXA, 
+  D.NR_DOCUMENTO NUM_DOCUMENTO, 
+  M.DS_MOV_CAIXA DS_RECCON_REC, 
+  R.CD_IDENTIFICADOR_PESSOA, 
+  R.NM_RESPONSAVEL, 
+  M.VL_MOEDA, 
+  R.NM_RESPONSAVEL NM_PACIENTE, 
+  M.CD_USUARIO nm_usuario
+FROM
+  DBAMV.MOV_CAIXA M,
+  DBAMV.DOC_CAIXA D,
+  DBAMV.LAN_CONCOR L,
+  DBAMV.RESPONSAVEL R,
+  DBAMV.BANCO B,
+  DBAMV.FIN_CAR F,
+  DBAMV.CAIXA CA,
+  DBAMV.LOTE_CAIXA LC
+WHERE D.CD_RESPOSAVEL   = R.CD_RESPOSAVEL
+  AND D.CD_DOC_CAIXA = M.CD_DOC_CAIXA
+  AND CA.CD_CAIXA       = LC.CD_CAIXA
+  AND M.CD_LOTE_CAIXA   = LC.CD_LOTE_CAIXA
+  AND D.CD_BANCO        = B.CD_BANCO(+)
+  AND D.CD_FIN_CAR      = F.CD_FIN_CAR(+)
+  AND L.CD_LAN_CONCOR   = M.CD_LAN_CONCOR
+union all
+ SELECT
+  NULL CD_CON_REC,
+  R.NR_IDENTIDADE NR_CARTEIRA, 
+  M.DT_LANCAMENTO DT_EMISSAO, 
+  NULL NR_DOCUMENTO,  
+  M.VL_MOVIMENTACAO VL_PREVISTO, 
+  1 NR_PARCELA, 
+  'En Efectivo' TP_RECEBIMENTO ,
+  M.DT_MOVIMENTACAO DT_RECEBIMENTO, 
+  CA.DS_CAIXA, 
+  null NUM_DOCUMENTO, 
+  M.DS_MOV_CAIXA DS_RECCON_REC, 
+  R.CD_IDENTIFICADOR_PESSOA, 
+  R.NM_RESPONSAVEL, 
+  M.VL_MOEDA, 
+  R.NM_RESPONSAVEL NM_PACIENTE, 
+  M.CD_USUARIO nm_usuario
+FROM
+  DBAMV.MOV_CAIXA M,
+  DBAMV.LAN_CONCOR L,
+  DBAMV.RESPONSAVEL R,
+  DBAMV.CAIXA CA,
+  DBAMV.LOTE_CAIXA LC
+WHERE CA.CD_CAIXA       = LC.CD_CAIXA
+  AND M.CD_LOTE_CAIXA   = LC.CD_LOTE_CAIXA
+  AND L.CD_LAN_CONCOR   = M.CD_LAN_CONCOR
+  AND M.CD_RESPOSAVEL  = R.CD_RESPOSAVEL (+)
+union all
+SELECT cr.cd_con_rec,
+       r.nr_identidade nr_carteira,       
+       cr.dt_emissao,       
+       cr.nr_documento,     
+       cr.vl_previsto,      
+       it.nr_parcela,       
+       CASE rr.TP_RECEBIMENTO WHEN '1' THEN 'Cheque'
+                              WHEN 'E' THEN 'Compensación de Cuentas'
+                              WHEN 'B' THEN 'Baja Contable'
+                              WHEN '2' THEN 'Tarjeta'
+                              WHEN '3' THEN 'En Efectivo'
+                              WHEN '4' THEN 'Crédito CCC'
+                              WHEN '5' THEN 'Rec. Cobro'
+                              WHEN '6' THEN 'Recibo de Cobro Boleto'
+                              WHEN '7' THEN 'DOC'
+                              WHEN '8' THEN 'Título de Crédito'
+                              WHEN '9' THEN 'Pagaré'
+       END TP_RECEBIMENTO ,
+       rr.DT_RECEBIMENTO,   
+       c.ds_caixa DS_CAIXA,          
+       rr.NR_DOCUMENTO NUM_DOCUMENTO, 
+       rr.DS_RECCON_REC,    
+       Nvl(rr.NR_ID_RESPONSAVEL, r.CD_IDENTIFICADOR_PESSOA) NR_ID_RESPONSAVEL,
+       rr.NM_RESPONSAVEL,   
+       rr.VL_MOEDA,         
+       r.nm_responsavel NM_PACIENTE, 
+       rr.nm_usuario
+  FROM dbamv.con_rec cr,
+       dbamv.processo p,
+       dbamv.itcon_rec it,
+       dbamv.reccon_rec rr,
+       dbamv.responsavel r,
+       dbamv.caixa c
+ WHERE cr.cd_processo = p.cd_processo
+   AND p.cd_estrutural = '1.1.1.2.6'
+   AND cr.cd_con_rec = it.cd_con_rec
+   AND it.cd_itcon_rec = rr.cd_itcon_rec
+   AND rr.cd_resposavel = r.cd_resposavel
+   AND rr.cd_caixa = c.cd_caixa(+)

@@ -1,0 +1,82 @@
+/*----------------------------------------------------------------------------*/
+--R_SITUACAO_AGENDAMENTOS
+select DT_AGENDA DT_AGENDA
+      ,sum(AGENDAMENTOS) AGENDAMENTOS
+      ,sum(PRESENCAS) PRESENCAS
+      ,sum(CONFIRMACOES) CONFIRMACOES
+      ,sum(FALTAS) FALTAS
+      ,sum(ALTAS)  ALTAS
+  from (
+      select dt_agenda
+            ,1 AGENDAMENTOS
+            ,0 PRESENCAS
+            ,0 CONFIRMACOES
+            ,0 FALTAS
+            ,0 ALTAS
+        from dbamv.agenda_turma_paciente atp
+            ,dbamv.agenda_turma at
+       where at.cd_agenda_turma = atp.cd_agenda_turma
+           and at.dt_agenda between :CAMPO_DT_INICIAL union all
+      select dt_agenda
+            ,0 AGENDAMENTOS
+            ,0 PRESENCAS
+            ,0 CONFIRMACOES
+            ,1 FALTAS
+            ,0 ALTAS
+        from dbamv.agenda_turma_paciente atp
+            ,dbamv.agenda_turma at
+       where at.cd_agenda_turma = atp.cd_agenda_turma
+         and atp.tp_situacao = 'F'
+           and at.dt_agenda between :CAMPO_DT_INICIAL union all
+      select dt_agenda
+            ,0 AGENDAMENTOS
+            ,1 PRESENCAS
+            ,0 CONFIRMACOES
+            ,0 FALTAS
+            ,0 ALTAS
+        from dbamv.agenda_turma_paciente atp
+            ,dbamv.agenda_turma at
+       where at.cd_agenda_turma = atp.cd_agenda_turma
+         and atp.tp_situacao in ('A','P')
+           and at.dt_agenda between :CAMPO_DT_INICIAL union all
+      select dt_agenda
+            ,0 AGENDAMENTOS
+            ,0 PRESENCAS
+            ,1 CONFIRMACOES
+            ,0 FALTAS
+            ,0 ALTAS
+        from dbamv.agenda_turma_paciente atp
+            ,dbamv.agenda_turma at
+       where at.cd_agenda_turma = atp.cd_agenda_turma
+         and atp.tp_situacao = 'A'
+           and at.dt_agenda between :CAMPO_DT_INICIAL union all
+      select dt_agenda
+            ,0 AGENDAMENTOS
+            ,0 PRESENCAS
+            ,0 CONFIRMACOES
+            ,0 FALTAS
+            ,1 ALTAS
+        from dbamv.log_opera_agenda_turma
+       where tp_operacao = ('HA')
+         and exists (select 1
+                       from dbamv.agenda_turma
+                      where exists (select 1
+                                      from dbamv.agenda_turma_prestador
+                                     where to_char(cd_prestador)           = nvl(:CAMPO_CD_PRESTADOR,to_char(cd_prestador))
+                                       and cd_agenda_turma = agenda_turma.cd_agenda_turma
+                                    )
+                        and cd_agenda_turma = log_opera_agenda_turma.cd_agenda_turma
+                     )
+         and exists (select 1
+                       from dbamv.agenda_turma
+                      where to_char(cd_setor) = nvl(:CAMPO_CD_SETOR,to_char(cd_setor))
+                        and cd_agenda_turma = log_opera_agenda_turma.cd_agenda_turma
+                     )
+         and exists (select 1
+                       from dbamv.agenda_turma
+                      where to_char(cd_unidade_atendimento) = nvl(:CAMPO_CD_UNIDADE_ATENDIMENTO,to_char(cd_unidade_atendimento))
+                        and cd_agenda_turma = log_opera_agenda_turma.cd_agenda_turma
+                     )
+   )
+   group by dt_agenda
+   order by dt_agenda

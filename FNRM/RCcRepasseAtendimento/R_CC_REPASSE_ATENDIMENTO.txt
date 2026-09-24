@@ -1,0 +1,711 @@
+/*----------------------------------------------------------------------------*/
+--R_CC_REPASSE_ATENDIMENTO
+SELECT (TOTAL_FATURADO + Nvl(TOTAL_desconto_prest,0)) TOTAL_FATURADO,
+       TOTAL_FATURADO TOTAL_FATURADO_sem_desconto,
+       TOTAL_desconto_prest,
+       CONVENIO_PRIVADO_TOT,
+       COMPETENCIA_DO_REPASSE ,
+       DT_COMPETENCIA ,
+       ANNIO,
+       CODIGO_DO_PRESTADOR ,
+       NOME_DO_PRESTADOR ,
+       CD_PRESTADOR_REPASSE ,
+       CODIGO_DO_ATENDIMENTO ,
+       CODIGO_DO_PROCEDIMENTO ,
+       DESCRICAO_DO_PROCEDIMENTO ,
+       VALOR_FATURADO,
+       VL_REPASSE,
+       DESCONTO_REPASSE,
+       TOTAL_DO_DESCONTO,
+       IMPOSTO,
+       VALOR_REPASSADO,
+       NOME_DO_PACIENTE ,
+       DATA_DE_LANCAMENTO,
+       QUANTIDADE_DO_ITEM ,
+       HORARIO_ESPECIAL,
+       CODIGO_GRUPO_PROCEDIMENTO ,
+       DESCRICAO_GRUPO_PROCEDIMENTO,
+       VL_PERCENTUAL_IMPOSTO,
+       CONVENIO_TOT,
+       PRIVADO_TOT,
+       vl_honorario_prest_distribui
+ FROM
+( SELECT (CASE
+       WHEN TOTAL_FATURADO < CONVENIO_PRIVADO_TOT THEN  CONVENIO_PRIVADO_TOT ELSE  TOTAL_FATURADO
+END)
+       TOTAL_FATURADO,
+       TOTAL_desconto_prest,
+       CONVENIO_PRIVADO_TOT,
+       COMPETENCIA_DO_REPASSE ,
+       DT_COMPETENCIA ,
+       ANNIO,
+       CODIGO_DO_PRESTADOR ,
+       NOME_DO_PRESTADOR ,
+       CD_PRESTADOR_REPASSE ,
+       CODIGO_DO_ATENDIMENTO ,
+       CODIGO_DO_PROCEDIMENTO ,
+       DESCRICAO_DO_PROCEDIMENTO ,
+       VALOR_FATURADO,
+       VL_REPASSE,
+       DESCONTO_REPASSE,
+       TOTAL_DO_DESCONTO,
+       IMPOSTO,
+       VALOR_REPASSADO,
+       NOME_DO_PACIENTE ,
+       DATA_DE_LANCAMENTO,
+       QUANTIDADE_DO_ITEM ,
+       HORARIO_ESPECIAL,
+       CODIGO_GRUPO_PROCEDIMENTO ,
+       DESCRICAO_GRUPO_PROCEDIMENTO,
+       VL_PERCENTUAL_IMPOSTO,
+       CONVENIO_TOT,
+       PRIVADO_TOT,
+       vl_honorario_prest_distribui
+ FROM
+(  SELECT DISTINCT TO_CHAR(DT_COMPETENCIA , 'MMYYYY') COMPETENCIA_DO_REPASSE ,
+        TO_CHAR(TRUNC(DT_COMPETENCIA),'MM') DT_COMPETENCIA,
+        TO_CHAR(DT_COMPETENCIA,'YYYY') ANNIO,
+        CD_PRESTADOR  CODIGO_DO_PRESTADOR ,
+        NOME_DO_PRESTADOR ,
+        CD_PRESTADOR_REPASSE ,
+        CD_ATENDIMENTO CODIGO_DO_ATENDIMENTO ,
+        CD_PRO_FAT  CODIGO_DO_PROCEDIMENTO ,
+        DS_PRO_FAT DESCRICAO_DO_PROCEDIMENTO ,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											,SUM(ROUND(VL_TOTAL_CONTA,2)))VALOR_FATURADO,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											,SUM(ROUND(VL_REPASSE,2)))VL_REPASSE,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											,Abs(SUM((DECODE(TP_CONVENIO, 'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) +
+											DECODE(TP_CONVENIO, 'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 ) ) -
+											ROUND(VL_REPASSE,2)))
+                                             )DESCONTO_REPASSE,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											,Abs(SUM (((DECODE(TP_CONVENIO,
+											'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) + DECODE(TP_CONVENIO,
+											'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 ) ) - ROUND(VL_REPASSE,2) ) +
+											((DECODE(TP_CONVENIO, 'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) +
+											DECODE(TP_CONVENIO, 'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 ) ) *
+											(NVL(IMPOSTO_PRESTADOR.VL_PERCENTUAL_IMPOSTO,1)/100))))
+																						 )TOTAL_DO_DESCONTO,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											,SUM(((DECODE(TP_CONVENIO, 'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) +
+											DECODE(TP_CONVENIO, 'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 ) ) *
+											(NVL(IMPOSTO_PRESTADOR.VL_PERCENTUAL_IMPOSTO,1)/100)) )
+																						 )IMPOSTO,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+																						 ,Abs(SUM ( DECODE(TP_CONVENIO,
+											'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) + DECODE(TP_CONVENIO,
+											'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 )
+                                                   -
+											((DECODE(TP_CONVENIO, 'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) +
+											DECODE(TP_CONVENIO, 'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 ) ) -
+											ROUND(VL_REPASSE,2) ) - ((DECODE(TP_CONVENIO,
+											'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) + DECODE(TP_CONVENIO,
+											'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 ) ) *
+											(NVL(IMPOSTO_PRESTADOR.VL_PERCENTUAL_IMPOSTO,1)/100))
+																							   ))
+																						 )VALOR_REPASSADO,
+        NM_PACIENTE NOME_DO_PACIENTE ,
+        TRUNC(DT_LANCAMENTO)  DATA_DE_LANCAMENTO,
+        MIN(Decode(QT_LANCAMENTO,0,1,QT_LANCAMENTO)) QUANTIDADE_DO_ITEM  ,
+        NULL HORARIO_ESPECIAL,
+        CD_GRU_PRO CODIGO_GRUPO_PROCEDIMENTO ,
+        DS_GRU_PRO DESCRICAO_GRUPO_PROCEDIMENTO,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+																						 ,VL_HONORARIO
+																						 )TOTAL_FATURADO,
+        dbamv.fnc_converte_valor_moeda_query(1
+                                            ,'RD$'
+                                            ,Nvl('RD$','RD$')
+                                            ,To_Date( '01/01/2016','dd/mm/yyyy')
+                                            ,VL_desconto_prest_distribuicao
+                                            )TOTAL_desconto_prest,
+													dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+																						 ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											,NVL(IMPOSTO_PRESTADOR.VL_PERCENTUAL_IMPOSTO,0)
+											)VL_PERCENTUAL_IMPOSTO,
+         dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											,SUM(DECODE(TP_CONVENIO, 'P',0,NVL(ROUND(VL_TOTAL_CONTA,2),0) ) )
+																						 )CONVENIO_TOT,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+																						 ,SUM (DECODE(TP_CONVENIO,
+											'P',NVL(ROUND(VL_TOTAL_CONTA,2),0),0 ))
+																						 )PRIVADO_TOT,
+        dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+                                             ,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+																						 , Sum (VL_TOTAL_CONTA)
+																						 )CONVENIO_PRIVADO_TOT,
+		dbamv.fnc_converte_valor_moeda_query(:CAMPO_CD_MULTI_EMPRESA
+											,:CAMPO_CD_MOEDA_PADRAO
+											,Nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO)
+											,To_Date(:CAMPO_DT_REFERENCIA_MOEDA,'dd/mm/yyyy')
+											, Sum(vl_honorario_prest_distribui)
+											)vl_honorario_prest_distribui
+   FROM (
+SELECT REG_AMB.CD_REMESSA CD_REMESSA
+			,ATENDIME.DT_ATENDIMENTO DT_LANCAMENTO
+			,0 CD_REG_FAT
+			,ITREG_AMB.CD_REG_AMB CD_REG_AMB
+			,0 CD_LANC_FAT
+			,ITREG_AMB.CD_LANCAMENTO CD_LANC_AMB
+			,0 CD_EVENTOS
+			,NULL CD_AIH
+			,0 CD_GLOSAS
+			,ITREG_AMB.CD_REG_AMB CONTA
+			,ITREG_AMB.CD_PRO_FAT CD_PRO_FAT
+			,ITREG_AMB.CD_CONVENIO CD_CONVENIO
+      ,(select sum(i.qt_lancamento)
+          FROM dbamv.itreg_amb i
+         WHERE i.cd_pro_fat = ITREG_AMB.CD_PRO_FAT
+          AND i.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+          AND i.cd_reg_amb = itreg_amb.cd_reg_amb
+          AND i.cd_prestador = itreg_amb.cd_prestador
+          AND Nvl(i.tp_pagamento,'P') <> 'C'
+          AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+             ) QT_LANCAMENTO
+			,0 CD_ESPECIALID
+			,PRESTADOR.CD_PRESTADOR CD_PRESTADOR
+			,ITREG_AMB.CD_ATI_MED CD_ATI_MED
+      ,(select Sum(i.VL_BASE_HONOR_REPASSE)
+         FROM dbamv.itreg_amb i
+        WHERE i.cd_pro_fat = ITREG_AMB.CD_PRO_FAT
+         AND i.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+         AND i.cd_prestador = itreg_amb.cd_prestador
+         AND Nvl(i.tp_pagamento,'P') <> 'C'
+         AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+         ) VL_HONORARIO   
+       ,(select Sum(Nvl(i.vl_desconto_prest_distribuicao,0))
+          FROM dbamv.itreg_amb i
+         WHERE i.cd_pro_fat = ITREG_AMB.CD_PRO_FAT
+          AND i.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+          AND i.cd_prestador = itreg_amb.cd_prestador
+          AND Nvl(i.tp_pagamento,'P') <> 'C'
+          AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+             ) vl_desconto_prest_distribuicao   
+      ,ITREG_AMB.Vl_Base_Honor_Repasse  VL_TOTAL_CONTA 
+      ,Decode (Nvl(ITREG_AMB.vl_honorario_prest_distribui,0),0,0,
+               Abs(Nvl(ITREG_AMB.vl_honorario_prest_distribui,0) - NVL(DBAMV.FNC_FNRM_CAL_VL_HONORARIO ( ITREG_AMB.CD_REG_AMB  , ITREG_AMB.CD_LANCAMENTO , ITREG_AMB.CD_ATENDIMENTO, 'AMB' ,ITREG_AMB.CD_PRESTADOR , ITREG_AMB.CD_ATI_MED ),NVL(ITREG_AMB.VL_TOTAL_CONTA,0)))
+               )vl_honorario_prest_distribui 
+			,0 QT_PONTOS
+			,0 VL_PONTOS
+			,0 VL_SH
+			,0 VL_SP
+			,0 VL_SD
+			,0 VL_ATO
+			,ITREG_AMB.VL_BASE_REPASSADO VL_BASE_REPASSADO
+			,CONVENIO.NM_CONVENIO NM_CONVENIO
+			,PRO_FAT.DS_PRO_FAT DS_PRO_FAT
+			,PRO_FAT.CD_GRU_PRO CD_GRU_PRO
+			,ATENDIME.CD_PACIENTE CD_PACIENTE
+			,ATENDIME.CD_ORI_ATE CD_ORI_ATE
+			,PACIENTE.NM_PACIENTE NM_PACIENTE
+			,PRESTADOR.NM_PRESTADOR NOME_DO_PRESTADOR
+			,EMPRESA_PRESTADOR.CD_REG_REPASSE CD_REG_REPASSE
+			, ITREG_AMB.CD_GRU_FAT CD_GRU_FAT
+			,REMESSA_FATURA.SN_PAGA TP_REMESSA
+			,REMESSA_FATURA.DT_ENTREGA_DA_FATURA
+			,REPASSE.DT_COMPETENCIA
+			, DBAMV.PKG_REPASSE.FNC_FNRM_RETORNA_GRUPO_REPASSE (PRESTADOR.CD_PRESTADOR, REG_AMB.CD_MULTI_EMPRESA
+																				,CONVENIO.CD_CONVENIO, PRO_FAT.CD_GRU_PRO, PRO_FAT.CD_PRO_FAT
+																				,ATENDIME.CD_ORI_ATE, ITREG_AMB.CD_SETOR
+                                                                                ,DECODE(ATENDIME.TP_ATENDIMENTO,'A',ATENDIME.CD_SER_DIS,ATENDIME.CD_SERVICO)
+																				,ITREG_AMB.CD_ATI_MED, ATENDIME.TP_ATENDIMENTO
+                                                                              ,DT_LANCAMENTO
+                                                                              ,HR_LANCAMENTO
+                                                                              ) CD_PRESTADOR_REPASSE
+			,
+			  ITREG_AMB.SN_PERTENCE_PACOTE SN_PERTENCE_PACOTE
+			,0 CD_TIP_ACOM
+			,NVL (ITREG_AMB.VL_FILME_UNITARIO * QT_LANCAMENTO, 0) FILME
+			,ITREG_AMB.CD_SETOR CD_SETOR
+			,TO_NUMBER (NULL) VL_OUTROS
+			,TO_NUMBER (NULL) VL_AUXILIAR
+			, 0 VL_ANESTESISTA
+			,'C' TIPO
+			,ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+			,ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO
+			,ATENDIME.DT_ALTA DT_ALTA
+			,ITREG_AMB.TP_PAGAMENTO TP_PAGAMENTO
+			,'A' TP_CONTA
+			,REG_AMB.CD_MULTI_EMPRESA CD_MULTI_EMPRESA
+			,ATENDIME.TP_ATENDIMENTO TP_ATENDIMENTO
+			,ITREG_AMB.QT_CH_UNITARIO QT_CH_UNITARIO
+			,NULL CD_ESPEC_SUS
+			,TO_NUMBER (NULL) CD_REPASSE
+			,NULL CD_SUS
+			,ITREG_AMB.HR_LANCAMENTO HR_LANCAMENTO
+			,TO_NUMBER(NULL) CD_TIP_ATE
+      , NULL CD_UPS
+      , NULL CD_CBO
+      ,  IT_REPASSE.VL_REPASSE
+      ,GRU_PRO.DS_GRU_PRO
+      ,CONVENIO.TP_CONVENIO
+       FROM DBAMV.REG_AMB REG_AMB
+             ,DBAMV.ITREG_AMB ITREG_AMB
+             ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+             ,DBAMV.PRO_FAT PRO_FAT
+             ,DBAMV.ATENDIME ATENDIME
+             ,DBAMV.PACIENTE PACIENTE
+             ,DBAMV.PRESTADOR PRESTADOR
+             ,DBAMV.CONVENIO CONVENIO
+             ,DBAMV.FATURA FATURA
+             ,DBAMV.EMPRESA_PRESTADOR EMPRESA_PRESTADOR
+       ,DBAMV.MULTI_EMPRESAS_REPASSE
+       ,DBAMV.GRU_PRO
+       ,DBAMV.IT_REPASSE
+       ,DBAMV.REPASSE
+      WHERE ITREG_AMB.CD_PRESTADOR IS NOT NULL
+       AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND MULTI_EMPRESAS_REPASSE.CD_MULTI_EMPRESA_REP =
+:CAMPO_CD_MULTI_EMPRESA
+     AND ATENDIME.CD_MULTI_EMPRESA =
+MULTI_EMPRESAS_REPASSE.CD_MULTI_EMPRESA_FAT
+     AND GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+         AND REG_AMB.CD_REMESSA IS NOT NULL
+         AND REG_AMB.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+         AND REMESSA_FATURA.SN_FECHADA = 'S'
+         AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA
+         AND REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+         AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+         AND ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+         AND ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+         AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+         AND PRESTADOR.CD_PRESTADOR = EMPRESA_PRESTADOR.CD_PRESTADOR
+         AND EMPRESA_PRESTADOR.CD_MULTI_EMPRESA = REG_AMB.CD_MULTI_EMPRESA
+     AND REPASSE.CD_REPASSE  = IT_REPASSE.CD_REPASSE
+     AND  PRESTADOR.CD_PRESTADOR  = IT_REPASSE.CD_PRESTADOR
+     AND IT_REPASSE.CD_LANCAMENTO_AMB = ITREG_AMB.CD_LANCAMENTO
+     AND IT_REPASSE.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+     UNION ALL
+	SELECT REG_FAT.CD_REMESSA CD_REMESSA
+			,ITREG_FAT.DT_LANCAMENTO DT_LANCAMENTO
+			,ITREG_FAT.CD_REG_FAT CD_REG_FAT
+			,0 CD_REG_AMB
+			,ITREG_FAT.CD_LANCAMENTO CD_LANC_FAT
+			,0 CD_LANC_AMB
+			,0 CD_EVENTOS
+			,NULL CD_AIH
+			,0 CD_GLOSAS
+			,ITREG_FAT.CD_REG_FAT CONTA
+			,ITREG_FAT.CD_PRO_FAT CD_PRO_FAT
+			,REG_FAT.CD_CONVENIO CD_CONVENIO
+      ,(select Sum(i.qt_lancamento)
+           FROM dbamv.itreg_fat i   , dbamv.reg_fat r
+           WHERE i.cd_pro_fat = itreg_fat.CD_PRO_FAT
+           AND r.CD_ATENDIMENTO = reg_fat.CD_ATENDIMENTO
+           AND r.cd_reg_fat = i.cd_reg_fat
+           AND r.cd_reg_fat = reg_fat.cd_reg_fat
+           AND Trunc(i.dt_lancamento) = Trunc(itreg_fat.dt_lancamento)
+           AND i.cd_prestador = itreg_fat.cd_prestador
+           AND Nvl(i.tp_pagamento,'P') <> 'C'
+           AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+           ) QT_LANCAMENTO
+			,0 CD_ESPECIALID
+			,PRESTADOR.CD_PRESTADOR CD_PRESTADOR
+			,ITREG_FAT.CD_ATI_MED
+      ,(select Sum(i.VL_BASE_HONOR_REPASSE)
+          FROM dbamv.itreg_fat i   , dbamv.reg_fat r
+          WHERE i.cd_pro_fat = itreg_fat.CD_PRO_FAT
+          AND r.CD_ATENDIMENTO = reg_fat.CD_ATENDIMENTO
+          AND r.cd_reg_fat = i.cd_reg_fat
+          AND Trunc(i.dt_lancamento) = Trunc(itreg_fat.dt_lancamento)
+          AND i.cd_prestador = itreg_fat.cd_prestador
+          AND Nvl(i.tp_pagamento,'P') <> 'C'
+          AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+          ) VL_HONORARIO   
+       ,(select Sum(Nvl(i.vl_desconto_prest_distribuicao,0))
+           FROM dbamv.itreg_fat i   , dbamv.reg_fat r
+           WHERE i.cd_pro_fat = itreg_fat.CD_PRO_FAT
+           AND r.CD_ATENDIMENTO = reg_fat.CD_ATENDIMENTO
+           AND r.cd_reg_fat = i.cd_reg_fat
+           AND Trunc(i.dt_lancamento) = Trunc(itreg_fat.dt_lancamento)
+           AND i.cd_prestador = itreg_fat.cd_prestador
+           AND Nvl(i.tp_pagamento,'P') <> 'C'
+           AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+           ) vl_desconto_prest_distribuicao   
+      ,ITREG_FAT.Vl_Base_Honor_Repasse  VL_TOTAL_CONTA 
+      ,Decode (Nvl(ITREG_FAT.vl_honorario_prest_distribui,0),0,0,
+               Abs(Nvl(ITREG_FAT.vl_honorario_prest_distribui,0) - NVL(DBAMV.FNC_FNRM_CAL_VL_HONORARIO ( ITREG_FAT.CD_REG_FAT  , ITREG_FAT.CD_LANCAMENTO , REG_FAT.CD_ATENDIMENTO ,'FAT' , ITREG_FAT.CD_PRESTADOR , ITREG_FAT.CD_ATI_MED ),NVL(ITREG_FAT.VL_TOTAL_CONTA,0)))
+               )vl_honorario_prest_distribui 
+			,0 QT_PONTOS
+			,0 VL_PONTOS
+			,0 VL_SH
+			,0 VL_SP
+			,0 VL_SD
+			,0 VL_ATO
+			,ITREG_FAT.VL_BASE_REPASSADO VL_BASE_REPASSADO
+			,CONVENIO.NM_CONVENIO NM_CONVENIO
+			,PRO_FAT.DS_PRO_FAT DS_PRO_FAT
+			,PRO_FAT.CD_GRU_PRO CD_GRU_PRO
+			,ATENDIME.CD_PACIENTE CD_PACIENTE
+			,ATENDIME.CD_ORI_ATE CD_ORI_ATE
+			,PACIENTE.NM_PACIENTE NM_PACIENTE
+			,PRESTADOR.NM_PRESTADOR NOME_DO_PRESTADOR
+			,EMPRESA_PRESTADOR.CD_REG_REPASSE CD_REG_REPASSE
+			, ITREG_FAT.CD_GRU_FAT CD_GRU_FAT
+			,REMESSA_FATURA.SN_PAGA TP_REMESSA
+			,REMESSA_FATURA.DT_ENTREGA_DA_FATURA
+			,REPASSE.DT_COMPETENCIA
+			, DBAMV.PKG_REPASSE.FNC_FNRM_RETORNA_GRUPO_REPASSE (PRESTADOR.CD_PRESTADOR, REG_FAT.CD_MULTI_EMPRESA
+																			  ,CONVENIO.CD_CONVENIO, PRO_FAT.CD_GRU_PRO, PRO_FAT.CD_PRO_FAT
+																			  ,ATENDIME.CD_ORI_ATE, ITREG_FAT.CD_SETOR, ATENDIME.CD_SERVICO
+																			  ,ITREG_FAT.CD_ATI_MED, ATENDIME.TP_ATENDIMENTO
+                                                                              ,DT_LANCAMENTO
+                                                                              ,HR_LANCAMENTO
+                                                                              ) CD_PRESTADOR_REPASSE
+	,		 ITREG_FAT.SN_PERTENCE_PACOTE SN_PERTENCE_PACOTE
+			,REG_FAT.CD_TIP_ACOM CD_TIP_ACOM
+			,NVL (ITREG_FAT.VL_FILME_UNITARIO * QT_LANCAMENTO, 0) FILME
+			,ITREG_FAT.CD_SETOR CD_SETOR
+			,TO_NUMBER (NULL) VL_OUTROS
+			,TO_NUMBER (NULL) VL_AUXILIAR
+			, 0 VL_ANESTESISTA
+			,'C' TIPO
+			,ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+			,ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO
+			,ATENDIME.DT_ALTA DT_ALTA
+			,ITREG_FAT.TP_PAGAMENTO TP_PAGAMENTO
+			,'H' TP_CONTA
+			,REG_FAT.CD_MULTI_EMPRESA CD_MULTI_EMPRESA
+			,ATENDIME.TP_ATENDIMENTO TP_ATENDIMENTO
+			,ITREG_FAT.QT_CH_UNITARIO QT_CH_UNITARIO
+			,NULL CD_ESPEC_SUS
+			,TO_NUMBER (NULL) CD_REPASSE
+			,NULL CD_SUS
+			,ITREG_FAT.HR_LANCAMENTO HR_LANCAMENTO
+      	,TO_NUMBER(NULL) CD_TIP_ATE
+      , NULL CD_UPS 
+      , NULL CD_CBO 
+			, IT_REPASSE.VL_REPASSE
+         ,GRU_PRO.DS_GRU_PRO
+         ,CONVENIO.TP_CONVENIO
+       FROM DBAMV.REG_FAT REG_FAT
+             ,DBAMV.ITREG_FAT ITREG_FAT
+             ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+             ,DBAMV.PRO_FAT PRO_FAT
+             ,DBAMV.ATENDIME ATENDIME
+             ,DBAMV.PACIENTE PACIENTE
+             ,DBAMV.PRESTADOR PRESTADOR
+             ,DBAMV.CONVENIO CONVENIO
+             ,DBAMV.FATURA FATURA
+             ,DBAMV.EMPRESA_PRESTADOR EMPRESA_PRESTADOR
+       ,DBAMV.MULTI_EMPRESAS_REPASSE
+       , DBAMV.GRU_PRO
+       ,DBAMV.IT_REPASSE
+       ,DBAMV.REPASSE
+  WHERE ITREG_FAT.CD_PRESTADOR IS NOT NULL
+       AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+     AND MULTI_EMPRESAS_REPASSE.CD_MULTI_EMPRESA_REP =
+:CAMPO_CD_MULTI_EMPRESA
+     AND ATENDIME.CD_MULTI_EMPRESA =
+MULTI_EMPRESAS_REPASSE.CD_MULTI_EMPRESA_FAT
+         AND REG_FAT.CD_REMESSA IS NOT NULL
+         AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+         AND REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+         AND CONVENIO.TP_CONVENIO <> 'H'
+         AND REMESSA_FATURA.SN_FECHADA = 'S'
+         AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA
+         AND REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+         AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+         AND REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+         AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+         AND PRESTADOR.CD_PRESTADOR = EMPRESA_PRESTADOR.CD_PRESTADOR
+         AND EMPRESA_PRESTADOR.CD_MULTI_EMPRESA = REG_FAT.CD_MULTI_EMPRESA
+     AND REPASSE.CD_REPASSE  = IT_REPASSE.CD_REPASSE
+     AND IT_REPASSE.CD_LANCAMENTO_FAT = ITREG_FAT.CD_LANCAMENTO
+     AND IT_REPASSE.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+     AND  PRESTADOR.CD_PRESTADOR  = IT_REPASSE.CD_PRESTADOR
+     UNION ALL
+ SELECT A.CD_REMESSA
+   ,A.DT_LANCAMENTO
+   ,A.CD_REG_FAT
+   ,A.CD_REG_AMB
+   ,A.CD_LANC_FAT
+   ,0 CD_LANC_AMB
+   ,0 CD_EVENTOS
+   ,A.CD_AIH
+   ,A.CD_GLOSAS
+   ,A.CONTA
+   ,A.CD_PRO_FAT
+   ,A.CD_CONVENIO
+    ,Decode(Round(A.QT_LANCAMENTO / Nvl(Decode(B.QT_LANCAMENTO,0,1,B.QT_LANCAMENTO),1),0),0,1,Round(A.QT_LANCAMENTO / Nvl(Decode(B.QT_LANCAMENTO,0,1,B.QT_LANCAMENTO),1),0))  QT_LANCAMENTO
+   ,A.CD_ESPECIALID
+   ,A.CD_PRESTADOR
+   ,A.CD_ATI_MED
+      ,A.VL_HONORARIO
+      ,A.vl_desconto_prest_distribuicao
+      ,A.VL_TOTAL_CONTA
+      ,A.vl_honorario_prest_distribui
+   ,A.QT_PONTOS
+   ,A.VL_PONTOS
+   ,A.VL_SH
+   ,A.VL_SP
+   ,A.VL_SD
+   ,A.VL_ATO
+   ,A.VL_BASE_REPASSADO
+   ,A.NM_CONVENIO
+   ,A.DS_PRO_FAT
+   ,A.CD_GRU_PRO
+   ,A.CD_PACIENTE
+   ,A.CD_ORI_ATE
+   ,A.NM_PACIENTE
+   ,A.NOME_DO_PRESTADOR
+      ,A.CD_REG_REPASSE
+    ,A.CD_GRU_FAT
+   ,A.TP_REMESSA
+   ,A.DT_ENTREGA_DA_FATURA
+   ,A.DT_COMPETENCIA
+     ,A.CD_PRESTADOR_REPASSE
+   ,A.SN_PERTENCE_PACOTE
+   ,A.CD_TIP_ACOM
+   ,A.FILME
+   ,A.CD_SETOR
+   ,A.VL_OUTROS
+   ,A.VL_AUXILIAR
+   ,A.VL_ANESTESISTA
+   ,A.TIPO
+   ,A.CD_ATENDIMENTO
+   ,A.DT_ATENDIMENTO
+   ,A.DT_ALTA
+   ,A.TP_PAGAMENTO
+   ,A.TP_CONTA
+   ,A.CD_MULTI_EMPRESA
+   ,A.TP_ATENDIMENTO
+   ,A.QT_CH_UNITARIO
+   ,A.CD_ESPEC_SUS
+   ,A.CD_REPASSE
+   ,A.CD_SUS
+   ,A.HR_LANCAMENTO
+      ,A.CD_TIP_ATE
+      ,A.CD_UPS
+      ,A.CD_CBO
+   ,A.VL_REPASSE
+      ,A.DS_GRU_PRO
+      ,A.TP_CONVENIO
+       FROM
+( 	SELECT REG_FAT.CD_REMESSA CD_REMESSA
+			,ITREG_FAT.DT_LANCAMENTO DT_LANCAMENTO
+			,ITREG_FAT.CD_REG_FAT CD_REG_FAT
+			,0 CD_REG_AMB
+			,ITREG_FAT.CD_LANCAMENTO CD_LANC_FAT
+			,0 CD_LANC_AMB
+			,0 CD_EVENTOS
+			,NULL CD_AIH
+			,0 CD_GLOSAS
+			,ITREG_FAT.CD_REG_FAT CONTA
+			,ITREG_FAT.CD_PRO_FAT CD_PRO_FAT
+			,REG_FAT.CD_CONVENIO CD_CONVENIO
+     ,(select Sum(i.qt_lancamento)
+           FROM dbamv.itreg_fat i   , dbamv.reg_fat r , dbamv.itlan_med l
+           WHERE i.cd_pro_fat = itreg_fat.CD_PRO_FAT
+           AND r.CD_ATENDIMENTO = reg_fat.CD_ATENDIMENTO
+           AND r.cd_reg_fat = i.cd_reg_fat
+           AND r.cd_reg_fat = reg_fat.cd_reg_fat
+           AND l.cd_reg_fat = i.cd_reg_fat
+           AND l.cd_lancamento = i.cd_lancamento
+           AND l.cd_prestador = itlan_med.cd_prestador
+           AND l.CD_ATI_MED =  itlan_med.cd_ati_med
+           AND Trunc(i.dt_lancamento) = Trunc(itreg_fat.dt_lancamento)
+           AND Nvl(i.tp_pagamento,'P') <> 'C'
+           AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+           ) QT_LANCAMENTO
+			,0 CD_ESPECIALID
+			,PRESTADOR.CD_PRESTADOR CD_PRESTADOR
+			,ITLAN_MED.CD_ATI_MED CD_ATI_MED
+      ,(select Sum(l.VL_BASE_HONOR_REPASSE)
+           FROM dbamv.itreg_fat i  , dbamv.itlan_med l, dbamv.reg_fat r
+           WHERE i.cd_pro_fat = itreg_fat.CD_PRO_FAT
+           AND r.CD_ATENDIMENTO = reg_fat.CD_ATENDIMENTO
+           AND l.cd_reg_fat = i.cd_reg_fat
+           AND l.cd_lancamento = i.cd_lancamento
+           AND r.cd_reg_fat = i.cd_reg_fat
+           AND Trunc(i.dt_lancamento) = Trunc(itreg_fat.dt_lancamento)
+           AND l.cd_prestador = itlan_med.cd_prestador
+           and nvl( l.tp_pagamento, nvl( i.tp_pagamento, 'P' ) ) <> 'C'
+           AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+           ) VL_HONORARIO   
+       ,(select Sum(Nvl(l.vl_desconto_prest_distribuicao,0))
+           FROM dbamv.itreg_fat i  , dbamv.itlan_med l, dbamv.reg_fat r
+           WHERE i.cd_pro_fat = itreg_fat.CD_PRO_FAT
+           AND r.CD_ATENDIMENTO = reg_fat.CD_ATENDIMENTO
+           AND l.cd_reg_fat = i.cd_reg_fat
+           AND l.cd_lancamento = i.cd_lancamento
+           AND r.cd_reg_fat = i.cd_reg_fat
+           AND Trunc(i.dt_lancamento) = Trunc(itreg_fat.dt_lancamento)
+           AND l.cd_prestador = itlan_med.cd_prestador
+           and nvl( l.tp_pagamento, nvl( i.tp_pagamento, 'P' ) ) <> 'C'
+           AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+           ) vl_desconto_prest_distribuicao   
+       ,ITLAN_MED.Vl_Base_Honor_Repasse  VL_TOTAL_CONTA 
+       ,Decode (Nvl(ITLAN_MED.vl_honorario_prest_distribui,0),0,0,
+                Abs(Nvl(ITLAN_MED.vl_honorario_prest_distribui,0) - NVL(DBAMV.FNC_FNRM_CAL_VL_HONORARIO ( ITREG_FAT.CD_REG_FAT  , ITREG_FAT.CD_LANCAMENTO , REG_FAT.CD_ATENDIMENTO ,NULL , ITLAN_MED.CD_PRESTADOR , ITLAN_MED.CD_ATI_MED ), NVL (ITLAN_MED.VL_LIQUIDO,
+               ITLAN_MED.VL_ATO * ITREG_FAT.QT_LANCAMENTO
+               ))))vl_honorario_prest_distribui 
+			,0 QT_PONTOS
+			,0 VL_PONTOS
+			,0 VL_SH
+			,0 VL_SP
+			,0 VL_SD
+			,0 VL_ATO
+			, (ITLAN_MED.VL_BASE_REPASSADO * ITREG_FAT.QT_LANCAMENTO) VL_BASE_REPASSADO
+			,CONVENIO.NM_CONVENIO NM_CONVENIO
+			,PRO_FAT.DS_PRO_FAT DS_PRO_FAT
+			,PRO_FAT.CD_GRU_PRO CD_GRU_PRO
+			,ATENDIME.CD_PACIENTE CD_PACIENTE
+			,ATENDIME.CD_ORI_ATE CD_ORI_ATE
+			,PACIENTE.NM_PACIENTE NM_PACIENTE
+			,PRESTADOR.NM_PRESTADOR NOME_DO_PRESTADOR
+            ,NVL( DBAMV.PKG_REPASSE.FNC_FNRM_REG_REP_AUXILIAR( ITLAN_MED.CD_PRESTADOR ),
+                            EMPRESA_PRESTADOR.CD_REG_REPASSE ) CD_REG_REPASSE
+			, 
+			  ITREG_FAT.CD_GRU_FAT CD_GRU_FAT
+			,REMESSA_FATURA.SN_PAGA TP_REMESSA
+			,REMESSA_FATURA.DT_ENTREGA_DA_FATURA
+			,REPASSE.DT_COMPETENCIA
+	,		 DBAMV.PKG_REPASSE.FNC_FNRM_RETORNA_GRUPO_REPASSE (PRESTADOR.CD_PRESTADOR, REG_FAT.CD_MULTI_EMPRESA
+																			  ,CONVENIO.CD_CONVENIO, PRO_FAT.CD_GRU_PRO, PRO_FAT.CD_PRO_FAT
+																			  ,ATENDIME.CD_ORI_ATE, ITREG_FAT.CD_SETOR, ATENDIME.CD_SERVICO
+																			  ,ITLAN_MED.CD_ATI_MED, ATENDIME.TP_ATENDIMENTO
+                                                                              ,DT_LANCAMENTO
+                                                                              ,HR_LANCAMENTO
+                                                                              ) CD_PRESTADOR_REPASSE
+			,	 ITREG_FAT.SN_PERTENCE_PACOTE SN_PERTENCE_PACOTE
+			,REG_FAT.CD_TIP_ACOM CD_TIP_ACOM
+			,0 FILME
+			,ITREG_FAT.CD_SETOR CD_SETOR
+			,TO_NUMBER (NULL) VL_OUTROS
+			,TO_NUMBER (NULL) VL_AUXILIAR
+			, 0 VL_ANESTESISTA
+			,'C' TIPO
+			,ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+			,ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO
+			,ATENDIME.DT_ALTA DT_ALTA
+			,ITLAN_MED.TP_PAGAMENTO TP_PAGAMENTO
+			,'H' TP_CONTA
+			,REG_FAT.CD_MULTI_EMPRESA CD_MULTI_EMPRESA
+			,ATENDIME.TP_ATENDIMENTO TP_ATENDIMENTO
+			,ITREG_FAT.QT_CH_UNITARIO QT_CH_UNITARIO
+			,NULL CD_ESPEC_SUS
+			,TO_NUMBER (NULL) CD_REPASSE
+			,NULL CD_SUS
+			,ITREG_FAT.HR_LANCAMENTO HR_LANCAMENTO
+      	,TO_NUMBER(NULL) CD_TIP_ATE
+      , NULL CD_UPS 
+      , NULL CD_CBO 
+			, IT_REPASSE.VL_REPASSE
+        ,GRU_PRO.DS_GRU_PRO
+        ,CONVENIO.TP_CONVENIO
+        ,itlan_med.cd_prestador cd_prestador_equipe
+	  FROM DBAMV.REG_FAT REG_FAT
+			,DBAMV.ITREG_FAT ITREG_FAT
+			,DBAMV.ITLAN_MED ITLAN_MED
+			,DBAMV.REMESSA_FATURA REMESSA_FATURA
+			,DBAMV.PRO_FAT PRO_FAT
+			,DBAMV.ATENDIME ATENDIME
+			,DBAMV.PACIENTE PACIENTE
+			,DBAMV.PRESTADOR PRESTADOR
+			,DBAMV.CONVENIO CONVENIO
+			,DBAMV.FATURA FATURA
+			,DBAMV.EMPRESA_PRESTADOR EMPRESA_PRESTADOR 
+      ,DBAMV.MULTI_EMPRESAS_REPASSE 
+      ,DBAMV.GRU_PRO
+      ,DBAMV.IT_REPASSE
+      ,DBAMV.REPASSE
+	 WHERE ITREG_FAT.CD_PRESTADOR IS NULL
+	  AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    AND GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+    AND MULTI_EMPRESAS_REPASSE.CD_MULTI_EMPRESA_REP = :CAMPO_CD_MULTI_EMPRESA
+    AND ATENDIME.CD_MULTI_EMPRESA = MULTI_EMPRESAS_REPASSE.CD_MULTI_EMPRESA_FAT
+		AND REG_FAT.CD_REMESSA IS NOT NULL
+		AND CONVENIO.TP_CONVENIO <> 'H'
+		AND REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+		AND REMESSA_FATURA.SN_FECHADA = 'S'
+		AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA
+		AND REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+		AND REG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT
+		AND ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO
+		AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+		AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+		AND REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+		AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+    AND Nvl(ITLAN_MED.CD_ATI_MED,'X') = Nvl(IT_REPASSE.CD_ATI_MED,'X')
+		AND PRESTADOR.CD_PRESTADOR = EMPRESA_PRESTADOR.CD_PRESTADOR
+		AND EMPRESA_PRESTADOR.CD_MULTI_EMPRESA = REG_FAT.CD_MULTI_EMPRESA
+    AND REPASSE.CD_REPASSE  = IT_REPASSE.CD_REPASSE
+    AND IT_REPASSE.CD_LANCAMENTO_FAT = ITREG_FAT.CD_LANCAMENTO
+    AND IT_REPASSE.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+    AND  PRESTADOR.CD_PRESTADOR  = IT_REPASSE.CD_PRESTADOR
+          :CAMPO_CF_COND_ATEND
+  ) A  ,
+   (select COUNT(*) QT_LANCAMENTO, R.CD_REG_FAT, I.CD_LANCAMENTO , L.CD_PRESTADOR, L.CD_ATI_MED
+      FROM dbamv.itreg_fat i  , dbamv.itlan_med l, dbamv.reg_fat r
+           WHERE l.cd_reg_fat = i.cd_reg_fat
+           AND l.cd_lancamento = i.cd_lancamento
+           AND r.cd_reg_fat = i.cd_reg_fat
+           AND nvl( l.tp_pagamento, nvl( i.tp_pagamento, 'P' ) ) <> 'C'
+           AND nvl(i.sn_pertence_pacote, 'N') = 'N'
+    GROUP BY R.CD_REG_FAT, I.CD_LANCAMENTO , L.CD_PRESTADOR , L.CD_ATI_MED
+           ) B
+    WHERE A.CD_REG_FAT = B.CD_REG_FAT
+      AND A.CD_LANC_FAT = B.CD_LANCAMENTO
+      AND A.cd_prestador_equipe = B.CD_PRESTADOR
+      AND A.CD_ATI_MED = B.CD_ATI_MED
+) CC_REPASSE ,
+( SELECT P.CD_PRESTADOR  CD_PRESTADOR_IMPOSTO , F.VL_PERCENTUAL
+VL_PERCENTUAL_IMPOSTO
+                FROM DBAMV.PRES_DETALHAMENTO P ,
+                     DBAMV.TIP_DETALHE T ,
+                     DBAMV.FAIXA_DETALHE F
+                WHERE P.CD_DETALHAMENTO = T.CD_DETALHAMENTO
+                AND T.CD_DETALHAMENTO = F.CD_DETALHAMENTO
+) IMPOSTO_PRESTADOR
+WHERE  IMPOSTO_PRESTADOR.CD_PRESTADOR_IMPOSTO(+) = CC_REPASSE.CD_PRESTADOR
+GROUP BY  DT_COMPETENCIA ,
+        CD_PRESTADOR   ,
+        NOME_DO_PRESTADOR  ,
+        CD_ATENDIMENTO  ,
+        CD_PRO_FAT  ,
+        DS_PRO_FAT ,
+        NM_PACIENTE ,
+         TRUNC(DT_LANCAMENTO) ,
+        CD_GRU_PRO ,
+        DS_GRU_PRO,
+        CD_PRESTADOR_REPASSE    ,
+        IMPOSTO_PRESTADOR.VL_PERCENTUAL_IMPOSTO  ,
+        VL_HONORARIO ,
+       VL_desconto_prest_distribuicao
+ORDER BY COMPETENCIA_DO_REPASSE, CODIGO_DO_PRESTADOR, CD_GRU_PRO,
+CODIGO_DO_ATENDIMENTO DESC) )

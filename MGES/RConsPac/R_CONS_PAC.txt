@@ -1,0 +1,52 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_PAC
+SELECT * FROM (
+Select mvto_estoque.cd_mvto_estoque
+         , mvto_estoque.dt_mvto_estoque
+         , itmvto_estoque.cd_produto
+         , produto.ds_produto
+         , itmvto_estoque.cd_lote
+         , uni_pro.ds_unidade
+         , itmvto_estoque.dt_validade
+         , itmvto_estoque.qt_movimentacao qt_movimentacao
+         , uni_pro.vl_fator * dbamv.verif_vl_custo_medio( itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque, :CAMPO_TP_CUSTO, produto.vl_custo_medio, Mvto_Estoque.Hr_Mvto_Estoque ) vl_unitario
+		 , (SELECT hospital.ds_rodape_reports 
+		 	FROM hospital hospital 
+	 		WHERE Hospital.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa) ds_rodape_reports
+         , paciente.cd_paciente
+         , paciente.nm_paciente
+         , paciente.nm_social_paciente
+         , paciente.dt_nascimento
+         , prestador.nm_prestador
+         , unid_int.ds_unid_int
+         , atendime.cd_atendimento
+         , mvto_estoque.nr_documento
+	 , solsai_pro.cd_solsai_pro
+         , solsai_pro.cd_pre_med
+  From dbamv.mvto_estoque
+     , dbamv.itmvto_estoque
+     , dbamv.paciente
+     , dbamv.produto
+     , dbamv.uni_pro
+     , dbamv.atendime
+     , dbamv.prestador
+     , dbamv.unid_int
+     , dbamv.estoque
+     , dbamv.solsai_pro
+ Where
+   mvto_estoque.tp_mvto_estoque = 'P'
+   AND mvto_estoque.dt_mvto_estoque BETWEEN  trunc(:CAMPO_DTINIC) AND  round(:CAMPO_DTFIM,'DD')+0.99999
+   and estoque.cd_estoque = mvto_estoque.cd_estoque
+   AND estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+   and prestador.cd_prestador(+)         = mvto_estoque.cd_prestador
+   and unid_int.cd_unid_int(+)           = mvto_estoque.cd_unid_int
+   and produto.cd_produto             = itmvto_estoque.cd_produto
+   and uni_pro.cd_uni_pro             = itmvto_estoque.cd_uni_pro
+   AND atendime.cd_atendimento        = mvto_estoque.cd_atendimento
+   AND paciente.cd_paciente           = atendime.cd_paciente
+   AND solsai_pro.cd_solsai_pro (+)   = mvto_estoque.cd_solsai_pro
+Order by dt_mvto_estoque, nr_documento,cd_produto
+)
+ORDER BY CD_ATENDIMENTO,CD_PACIENTE,NM_PRESTADOR,NM_PACIENTE,NM_SOCIAL_PACIENTE,DT_NASCIMENTO,
+DT_MVTO_ESTOQUE,CD_MVTO_ESTOQUE,NR_DOCUMENTO,DS_UNID_INT, CD_PRODUTO

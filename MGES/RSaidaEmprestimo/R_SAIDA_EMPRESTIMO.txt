@@ -1,0 +1,36 @@
+/*----------------------------------------------------------------------------*/
+--R_SAIDA_EMPRESTIMO
+SELECT * FROM (
+ Select Distinct Mvto_Estoque.Dt_Mvto_Estoque           Dt_saida,
+            Fornecedor.nm_fornecedor                     Fornecedor,
+            ''                                                              Situacao,
+            Produto.cd_produto                                cProduto,
+            Mvto_Estoque.cd_mvto_Estoque           Mvto_Estoque,
+            ItMvto_Estoque.cd_ItMvto_Estoque       ItMvto_Estoque,
+            Produto.ds_produto                                 Produto,
+            Uni_pro.ds_unidade                                Unidade,
+            ItMvto_Estoque.Qt_Movimentacao         Qt_Movimentacao,
+decode(:CAMPO_TP_CUSTO, 'E', ItMvto_Estoque.Vl_Unitario_Emprestimo, (uni_pro.Vl_Fator * Verif_Vl_Custo_Medio(produto.Cd_Produto,mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO,null,mvto_estoque.hr_mvto_estoque))  ) Vl_Unitario,
+decode(:CAMPO_TP_CUSTO, 'E', ItMvto_Estoque.Vl_Total_Emprestimo, (ItMvto_Estoque.Qt_Movimentacao * uni_pro.Vl_Fator * Verif_Vl_Custo_Medio(produto.Cd_Produto,mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO,null,mvto_estoque.hr_mvto_estoque)) )   vl_total,
+        decode(dbamv.pkg_mges_emprestimo.retorna_tp_emprestimo_sai(itmvto_estoque.cd_itmvto_estoque),'PER','PER','PEC','PEC','EC')  tp_emprestimo,
+            Decode(Itmvto_estoque.sn_pendencia,'N', 'Entregue',  'Pendente') sn_pendencia
+   From  Dbamv.Fornecedor                                Fornecedor,
+             Dbamv.Produto                                     Produto,
+             Dbamv.Uni_pro                                     Uni_pro,
+             Dbamv.ItMvto_Estoque                        ItMvto_Estoque,
+             Dbamv.Mvto_Estoque                          Mvto_Estoque,
+             Dbamv.Estoque                                    Estoque,     
+             Dbamv.Itmvto_ent                                Itmvto_ent
+Where ItMvto_Estoque.Cd_Mvto_Estoque    = Mvto_Estoque.Cd_Mvto_Estoque
+     And Fornecedor.Cd_Fornecedor                = Mvto_Estoque.Cd_Fornecedor
+     And Produto.Cd_Produto                           = ItMvto_Estoque.Cd_Produto
+     And Uni_Pro.Cd_Uni_Pro                           = ItMvto_Estoque.Cd_Uni_Pro
+     And Mvto_Estoque.Tp_Mvto_Estoque      = 'E'
+     And Mvto_Estoque.Dt_Mvto_Estoque       Between :CAMPO_DT_INIC  And 
+     AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+     AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     And Itmvto_estoque.cd_itmvto_estoque          =  Itmvto_ent.cd_itmvto_estoque(+)
+     And Nvl(Itmvto_estoque.sn_pendencia,'S')   =  decode(:CAMPO_TP_SITUACAO,'A', Nvl(itmvto_estoque.sn_pendencia,'S'),  'E', 'N', 'P', 'S')
+Order by  Mvto_Estoque.Dt_Mvto_Estoque
+)
+ORDER BY DT_SAIDA

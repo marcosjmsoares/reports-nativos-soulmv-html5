@@ -1,0 +1,25 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_SETOR
+SELECT * FROM (
+SELECT ITMVTO_ESTOQUE.CD_PRODUTO,
+              estoque.cd_estoque,
+              estoque.ds_estoque
+              ,PRODUTO.DS_PRODUTO
+              ,SUM(( ITMVTO_ESTOQUE.QT_MOVIMENTACAO * DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'D', -1, 'C', -1, 'N',-1,1) ) * UNI_PRO.VL_FATOR) / VERIF_VL_FATOR_PROD(ITMVTO_ESTOQUE.CD_PRODUTO)                 QT_MOVIMENTO
+              ,VERIF_DS_UNID_PROD(ITMVTO_ESTOQUE.CD_PRODUTO)    CD_UNIDADE
+               ,SUM(( ITMVTO_ESTOQUE.QT_MOVIMENTACAO * DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'D', -1, 'C', -1, 'N',-1,1)) * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,mvto_estoque.dt_mvto_estoque, :CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),0) * uni_pro.vl_fator ) )   VL_TOTAL
+FROM      DBAMV.MVTO_ESTOQUE
+               ,DBAMV.ESTOQUE
+               ,DBAMV.ITMVTO_ESTOQUE
+               ,DBAMV.PRODUTO
+               ,DBAMV.UNI_PRO
+WHERE  MVTO_ESTOQUE.TP_MVTO_ESTOQUE IN ( 'S', 'P', 'D', 'C','N' ,'V')
+AND        MVTO_ESTOQUE.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+AND        MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+AND        ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+AND        ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+AND        MVTO_ESTOQUE.DT_MVTO_ESTOQUE BETWEEN :CAMPO_DATA_INI AND 
+and         estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY estoque.cd_estoque, estoque.ds_estoque  , ITMVTO_ESTOQUE.CD_PRODUTO ,PRODUTO.DS_PRODUTO
+:CAMPO_CF_TP_SAIDA
+)

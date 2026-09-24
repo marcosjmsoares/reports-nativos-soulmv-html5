@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_ACOMODACAO_ESPEC
+SELECT   *
+FROM     ( SELECT  custo_diaria_cencir.cd_setor
+                  ,setor.nm_setor
+                  ,custo_diaria_cencir.cd_tip_acom
+                  ,tip_acom.ds_tip_acom
+                  ,NVL( tip_acom_setor.vl_fator_custo, tip_acom.vl_fator_custo ) vl_fator_custo
+                  ,TO_CHAR( custo_diaria_cencir.dt_competencia, 'mm/yyyy' ) dt_comp
+                  ,SUM( Nvl(custo_diaria_cencir.qt_diarias_disponivel,0) ) qt_diarias_disponivel
+                  ,SUM( Nvl(custo_diaria_cencir.qt_diarias_faturadas, 0) ) qt_diarias_faturado
+                  ,SUM( Nvl(custo_diaria_cencir.qt_diarias_utilizadas, 0) ) qt_diarias_utilizada
+                  ,SUM( Nvl(custo_diaria_cencir.qt_diarias_pacdia, 0) ) qt_diarias_pacdia
+          FROM     dbamv.setor
+                  ,dbamv.custo_diaria_cencir
+                  ,dbamv.tip_acom
+                  ,dbamv.tip_acom_setor
+          WHERE    custo_diaria_cencir.cd_setor = setor.cd_setor
+          AND      custo_diaria_cencir.cd_tip_acom = tip_acom.cd_tip_acom
+          AND      tip_acom.cd_tip_acom = tip_acom_setor.cd_tip_acom(+)
+          AND      (   tip_acom_setor.cd_setor = setor.cd_setor
+                    OR tip_acom_setor.cd_setor IS NULL )
+          AND      custo_diaria_cencir.tp_custo = 'D'
+          AND      setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND      dt_competencia = To_Date(:CAMPO_DTINI, 'mm/yyyy')
+          AND      setor.tp_composicao_calculo = '4'
+          AND      NVL( tip_acom_setor.vl_fator_custo, tip_acom.vl_fator_custo ) <> 0
+          GROUP BY custo_diaria_cencir.cd_tip_acom
+                  ,tip_acom.ds_tip_acom
+                  ,tip_acom.vl_fator_custo
+                  ,custo_diaria_cencir.cd_setor
+                  ,setor.nm_setor
+                  ,TO_CHAR( custo_diaria_cencir.dt_competencia, 'mm/yyyy' )
+                  ,NVL( tip_acom_setor.vl_fator_custo, tip_acom.vl_fator_custo )
+          HAVING   SUM( custo_diaria_cencir.qt_diarias_disponivel ) > 0 )
+ORDER BY nm_setor
+        ,dt_comp
+        ,cd_setor

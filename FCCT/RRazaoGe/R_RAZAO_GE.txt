@@ -1,0 +1,317 @@
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_GE
+SELECT * FROM (
+SELECT  TRUNC( LCTO_CONTABIL.DT_LCTO )             DT_LANC
+       ,LCTO_CONTABIL.CD_LOTE                      CD_LOTE
+       ,LCTO_CONTABIL.CD_LCTO_CONTABIL             CD_LCTO_CONTABIL
+       ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO            CD_LCTO_MOVIMENTO
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO       DS_HIST_PADRAO
+       ,LCTO_CONTABIL.DS_COMPLEMENTO               DS_COMPLEMENTO
+       ,LCTO_CONTABIL.VL_LANCADO                   VL_LANCADO_DEB
+       ,to_number(NULL)                          	 VL_LANCADO_CRE
+       ,LCTO_CONTABIL.VL_LANCADO                   VL_LANCADO_CTA
+       ,PLANO_CONTAS.CD_REDUZIDO                   CD_REDUZIDO
+       ,PLANO_CONTAS.CD_CONTABIL                   CD_CONTABIL
+       ,PLANO_CONTAS.DS_CONTA                      DS_CONTABIL
+       ,PLANO_CONTAS.TP_CONTA                      TP_CONTA
+       ,dbamv.pkg_transacao_entre_empresas.EmpresaOrigemDoLctoGeren(LCTO_CONTABIL.CD_LCTO_CONTABIL) CD_EMP_ORIGEM
+FROM    DBAMV.LCTO_CONTABIL_GERENCIAL              LCTO_CONTABIL
+       ,DBAMV.HISTORICO_PADRAO                     HISTORICO_PADRAO
+       ,DBAMV.PLANO_CONTAS_GERENCIAL               PLANO_CONTAS
+WHERE   LCTO_CONTABIL.CD_HISTORICO_PADRAO = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND     LCTO_CONTABIL.CD_REDUZIDO_DEBITO  = PLANO_CONTAS.CD_REDUZIDO
+AND     PLANO_CONTAS.CD_MULTI_EMPRESA     = :CAMPO_CD_MULTI_EMPRESA
+AND    :CAMPO_SALDO_DIA = 'N'
+AND    NVL(LCTO_CONTABIL.SN_TRANSITORIA,'N') IN ('N', NVL(:CAMPO_INC_CONTA_TRANSITORIA,'N'))
+UNION ALL
+SELECT  TRUNC( LCTO_CONTABIL.DT_LCTO )             DT_LANC
+       ,LCTO_CONTABIL.CD_LOTE                      CD_LOTE
+       ,LCTO_CONTABIL.CD_LCTO_CONTABIL             CD_LCTO_CONTABIL
+       ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO            CD_LCTO_MOVIMENTO
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO       DS_HIST_PADRAO
+       ,LCTO_CONTABIL.DS_COMPLEMENTO               DS_COMPLEMENTO
+       ,to_number(NULL)                          	 VL_LANCADO_DEB
+       ,LCTO_CONTABIL.VL_LANCADO                   VL_LANCADO_CRE
+       ,LCTO_CONTABIL.VL_LANCADO                   VL_LANCADO_CTA
+       ,PLANO_CONTAS.CD_REDUZIDO                   CD_REDUZIDO
+       ,PLANO_CONTAS.CD_CONTABIL                   CD_CONTABIL
+       ,PLANO_CONTAS.DS_CONTA                      DS_CONTABIL
+       ,PLANO_CONTAS.TP_CONTA                      TP_CONTA
+       ,dbamv.pkg_transacao_entre_empresas.EmpresaOrigemDoLctoGeren(LCTO_CONTABIL.CD_LCTO_CONTABIL) CD_EMP_ORIGEM
+FROM    DBAMV.LCTO_CONTABIL_GERENCIAL              LCTO_CONTABIL
+       ,DBAMV.HISTORICO_PADRAO                     HISTORICO_PADRAO
+       ,DBAMV.PLANO_CONTAS_GERENCIAL               PLANO_CONTAS
+WHERE   LCTO_CONTABIL.CD_HISTORICO_PADRAO = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND     LCTO_CONTABIL.CD_REDUZIDO_CREDITO = PLANO_CONTAS.CD_REDUZIDO
+AND     PLANO_CONTAS.CD_MULTI_EMPRESA    	= :CAMPO_CD_MULTI_EMPRESA
+AND     :CAMPO_SALDO_DIA = 'N'
+AND    NVL(LCTO_CONTABIL.SN_TRANSITORIA,'N') IN ('N', NVL(:CAMPO_INC_CONTA_TRANSITORIA,'N'))
+UNION ALL
+SELECT  TO_DATE(null)    		              DT_LANC
+       ,TO_NUMBER(NULL)		                CD_LOTE
+       ,TO_NUMBER(NULL)              	    CD_LCTO_CONTABIL
+       ,TO_NUMBER(NULL)		                CD_LCTO_MOVIMENTO
+       ,TO_CHAR(null)		                  DS_HIST_PADRAO
+       ,TO_CHAR(null)		                  DS_COMPLEMENTO
+       ,TO_NUMBER(NULL)	                  VL_LANCADO_DEB
+       ,TO_NUMBER(NULL)		                VL_LANCADO_CRE
+       ,TO_NUMBER(NULL)              	    VL_LANCADO_CTA
+       ,PLANO_CONTAS.CD_REDUZIDO          CD_REDUZIDO
+       ,PLANO_CONTAS.CD_CONTABIL          CD_CONTABIL
+       ,PLANO_CONTAS.DS_CONTA             DS_CONTABIL
+       ,PLANO_CONTAS.TP_CONTA             TP_CONTA
+       ,TO_NUMBER(NULL)                      CD_EMP_ORIGEM
+FROM    DBAMV.PLANO_CONTAS_GERENCIAL PLANO_CONTAS
+WHERE PLANO_CONTAS.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   :CAMPO_ZERADAS = 'S'
+AND   PLANO_CONTAS.TP_CONTA = 'A'
+AND   :CAMPO_SALDO_DIA = 'N'
+ORDER BY  CD_CONTABIL
+        , DT_LANC
+        :CAMPO_CF_TP_ORDEM
+        , CD_LCTO_MOVIMENTO
+        , VL_LANCADO_DEB
+        , VL_LANCADO_CRE
+)
+ORDER BY CD_CONTABIL,DS_CONTABIL,TP_CONTA,CD_REDUZIDO            ,CD_LOTE, CD_LCTO_MOVIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_GE_R_1_Q_MOV_CT_PARTIDA
+SELECT * FROM (
+SELECT CD_CONTABIL_CPART
+       ,VL_CPART_CRE
+       ,VL_CPART_DEB
+       ,CD_LOTE_CPART
+       ,CD_LCT_MOV_CPART
+       ,CD_LCTO_CONTABIL_CPART
+  FROM (SELECT    plano.cd_contabil      CD_CONTABIL_CPART
+                 ,lcto.vl_lancado        vl_cpart_cre
+                 ,TO_NUMBER (NULL)       vl_cpart_deb
+                 ,LCTO.CD_LOTE           CD_LOTE_CPART
+                 ,lcto.cd_lcto_movimento CD_LCT_MOV_CPART
+                 ,lcto.cd_lcto_contabil  CD_LCTO_CONTABIL_CPART
+          FROM   dbamv.lcto_contabil_gerencial lcto
+                 ,dbamv.plano_contas_gerencial plano
+         WHERE   lcto.cd_reduzido_credito = plano.cd_reduzido
+                 and lcto.dt_ano = :CAMPO_EXERCICIO
+                 AND    NVL(LCTO.SN_TRANSITORIA,'N') = :CAMPO_INC_CONTA_TRANSITORIA
+          UNION
+         SELECT   plano.cd_contabil       CD_CONTABIL_CPART
+                 ,TO_NUMBER (NULL)        vl_cpart_cre
+                 ,lcto.vl_lancado         vl_cpart_deb
+                 ,LCTO.CD_LOTE            CD_LOTE_CPART
+                 ,lcto.cd_lcto_movimento  CD_LCT_MOV_CPART
+                 ,lcto.cd_lcto_contabil   CD_LCTO_CONTABIL_CPART
+          FROM   dbamv.lcto_contabil_gerencial lcto
+                 ,dbamv.plano_contas_gerencial plano
+         WHERE   lcto.cd_reduzido_debito = plano.cd_reduzido
+                 and lcto.dt_ano = :CAMPO_EXERCICIO
+                 AND    NVL(LCTO.SN_TRANSITORIA,'N') = :CAMPO_INC_CONTA_TRANSITORIA
+        )  A
+order by  A.CD_LOTE_cpart
+         ,A.CD_LCT_MOV_CPART
+         ,A.cd_lcto_contabil_cpart
+)
+WHERE CD_LCT_MOV_CPART = :CAMPO_CD_LCTO_MOVIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_GE_R_2_Q_MOV_CT_PARTIDA_SD
+SELECT * FROM (
+SELECT CD_CONTABIL_CPART_SD
+       ,VL_CPART_CRE_SD
+       ,VL_CPART_DEB_SD
+       ,CD_LOTE_CPART_SD
+       ,CD_LCT_MOV_CPART_SD
+       ,CD_LCTO_CONTABIL_CPART_SD
+  FROM (SELECT    plano.cd_contabil      CD_CONTABIL_CPART_SD
+                 ,lcto.vl_lancado        vl_cpart_cre_SD
+                 ,TO_NUMBER (NULL)       vl_cpart_deb_SD
+                 ,LCTO.CD_LOTE           CD_LOTE_CPART_SD
+                 ,lcto.cd_lcto_movimento CD_LCT_MOV_CPART_SD
+                 ,lcto.cd_lcto_contabil  CD_LCTO_CONTABIL_CPART_SD
+          FROM   dbamv.lcto_contabil_gerencial lcto
+                 ,dbamv.plano_contas_gerencial plano
+         WHERE   lcto.cd_reduzido_credito = plano.cd_reduzido
+                         and lcto.dt_ano = :CAMPO_EXERCICIO
+                         AND    NVL(LCTO.SN_TRANSITORIA,'N') = :CAMPO_INC_CONTA_TRANSITORIA
+          UNION
+         SELECT   plano.cd_contabil       CD_CONTABIL_CPART_SD
+                 ,TO_NUMBER (NULL)        vl_cpart_cre_SD
+                 ,lcto.vl_lancado         vl_cpart_deb_SD
+                 ,LCTO.CD_LOTE            CD_LOTE_CPART_SD
+                 ,lcto.cd_lcto_movimento  CD_LCT_MOV_CPART_SD
+                 ,lcto.cd_lcto_contabil   CD_LCTO_CONTABIL_CPART_SD
+          FROM    dbamv.lcto_contabil_gerencial lcto
+                 ,dbamv.plano_contas_gerencial plano
+         WHERE   lcto.cd_reduzido_debito = plano.cd_reduzido
+                         and lcto.dt_ano = :CAMPO_EXERCICIO
+                         AND    NVL(LCTO.SN_TRANSITORIA,'N') = :CAMPO_INC_CONTA_TRANSITORIA
+        )  A
+        order by  A.CD_LOTE_cpart_SD
+                 ,A.CD_LCT_MOV_CPART_SD
+                 ,A.cd_lcto_contabil_cpart_SD
+)  WHERE CD_LCT_MOV_CPART_SD = :CAMPO_CD_LCTO_MOVIMENTO_SD
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_GE_R_5_Q_RAZAO_CONTABIL_SD
+SELECT * FROM (
+SELECT  TRUNC( LCTO_CONTABIL.DT_LCTO )                 DT_LANC_SD
+       ,LCTO_CONTABIL.CD_LOTE                               	CD_LOTE_SD
+       ,LCTO_CONTABIL.CD_LCTO_CONTABIL                      CD_LCTO_CONTABIL_SD
+       ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO                  CD_LCTO_MOVIMENTO_SD
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO       DS_HIST_PADRAO_SD
+       ,LCTO_CONTABIL.DS_COMPLEMENTO                        DS_COMPLEMENTO_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_DEB_SD
+       ,to_number(NULL)                          			VL_LANCADO_CRE_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_CTA_SD
+       ,PLANO_CONTAS.CD_REDUZIDO                    CD_REDUZIDO_SD
+       ,PLANO_CONTAS.CD_CONTABIL                            	CD_CONTABIL_SD
+       ,PLANO_CONTAS.DS_CONTA                               	DS_CONTABIL_SD
+       ,PLANO_CONTAS.TP_CONTA                                       TP_CONTA
+       ,dbamv.pkg_transacao_entre_empresas.EmpresaOrigemDoLctoGeren(LCTO_CONTABIL.CD_LCTO_CONTABIL) CD_EMP_ORIGEM
+FROM    DBAMV.LCTO_CONTABIL_GERENCIAL              LCTO_CONTABIL
+       ,DBAMV.HISTORICO_PADRAO                     HISTORICO_PADRAO
+       ,DBAMV.PLANO_CONTAS_GERENCIAL               PLANO_CONTAS
+WHERE   LCTO_CONTABIL.CD_HISTORICO_PADRAO            = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND     LCTO_CONTABIL.CD_REDUZIDO_DEBITO             = PLANO_CONTAS.CD_REDUZIDO
+AND     PLANO_CONTAS.CD_MULTI_EMPRESA                = :CAMPO_CD_MULTI_EMPRESA
+AND    :CAMPO_SALDO_DIA = 'S'
+AND    NVL(LCTO_CONTABIL.SN_TRANSITORIA,'N') IN ('N', NVL(:CAMPO_INC_CONTA_TRANSITORIA,'N'))
+UNION ALL
+SELECT  TRUNC( LCTO_CONTABIL.DT_LCTO )                 DT_LANC_SD
+       ,LCTO_CONTABIL.CD_LOTE                               	CD_LOTE_SD
+       ,LCTO_CONTABIL.CD_LCTO_CONTABIL                      CD_LCTO_CONTABIL_SD
+       ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO                  CD_LCTO_MOVIMENTO_SD
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO       DS_HIST_PADRAO_SD
+       ,LCTO_CONTABIL.DS_COMPLEMENTO                        DS_COMPLEMENTO_SD
+       ,to_number(NULL)                          			VL_LANCADO_DEB_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_CRE_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_CTA_SD
+       ,PLANO_CONTAS.CD_REDUZIDO                            CD_REDUZIDO_SD
+       ,PLANO_CONTAS.CD_CONTABIL                            CD_CONTABIL_SD
+       ,PLANO_CONTAS.DS_CONTA                               DS_CONTABIL_SD
+       ,PLANO_CONTAS.TP_CONTA                                       TP_CONTA
+       ,dbamv.pkg_transacao_entre_empresas.EmpresaOrigemDoLctoGeren(LCTO_CONTABIL.CD_LCTO_CONTABIL) CD_EMP_ORIGEM
+FROM    DBAMV.LCTO_CONTABIL_GERENCIAL              LCTO_CONTABIL
+       ,DBAMV.HISTORICO_PADRAO                     HISTORICO_PADRAO
+       ,DBAMV.PLANO_CONTAS_GERENCIAL               PLANO_CONTAS
+WHERE   LCTO_CONTABIL.CD_HISTORICO_PADRAO      = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND     LCTO_CONTABIL.CD_REDUZIDO_CREDITO         = PLANO_CONTAS.CD_REDUZIDO
+AND     PLANO_CONTAS.CD_MULTI_EMPRESA                	= :CAMPO_CD_MULTI_EMPRESA
+AND    :CAMPO_SALDO_DIA = 'S'
+AND    NVL(LCTO_CONTABIL.SN_TRANSITORIA,'N') IN ('N', NVL(:CAMPO_INC_CONTA_TRANSITORIA,'N'))
+UNION ALL
+SELECT   TO_DATE(null)    		DT_LANC_SD
+       ,TO_NUMBER(NULL)		CD_LOTE_SD
+       ,TO_NUMBER(NULL)              	CD_LCTO_CONTABIL_SD
+       ,TO_NUMBER(NULL)		CD_LCTO_MOVIMENTO_SD
+       ,TO_CHAR(null)		DS_HIST_PADRAO_SD
+       ,TO_CHAR(null)		DS_COMPLEMENTO_SD
+       ,TO_NUMBER(NULL)	                VL_LANCADO_DEB_SD
+       ,TO_NUMBER(NULL)		VL_LANCADO_CRE_SD
+       ,TO_NUMBER(NULL)              	VL_LANCADO_CTA_SD
+       ,PLANO_CONTAS.CD_REDUZIDO                        CD_REDUZIDO_SD
+       ,PLANO_CONTAS.CD_CONTABIL                           CD_CONTABIL_SD
+       ,PLANO_CONTAS.DS_CONTA                                DS_CONTABIL_SD
+       ,PLANO_CONTAS.TP_CONTA                                       TP_CONTA
+       ,TO_NUMBER(NULL)                       CD_EMP_ORIGEM
+FROM    DBAMV.PLANO_CONTAS_GERENCIAL PLANO_CONTAS
+WHERE PLANO_CONTAS.CD_MULTI_EMPRESA       = :CAMPO_CD_MULTI_EMPRESA
+AND   :CAMPO_ZERADAS 		= 'S'
+AND   PLANO_CONTAS.TP_CONTA 	= 'A'
+AND   :CAMPO_SALDO_DIA = 'S'
+ORDER BY  CD_CONTABIL_SD
+        , DT_LANC_SD
+        :CAMPO_CF_ORDEM_SD
+        , CD_LCTO_MOVIMENTO_SD
+        , VL_LANCADO_DEB_SD
+        , VL_LANCADO_CRE_SD
+)
+ORDER BY CD_CONTABIL_SD,DS_CONTABIL_SD,TP_CONTA,CD_REDUZIDO_SD,
+DT_LANC_SD              ,CD_LOTE_SD, CD_LCTO_MOVIMENTO_SD
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_GE_R_6_Q_RAZAO_CONTABIL_SD
+SELECT * FROM (
+SELECT  TRUNC( LCTO_CONTABIL.DT_LCTO )                 DT_LANC_SD
+       ,LCTO_CONTABIL.CD_LOTE                               	CD_LOTE_SD
+       ,LCTO_CONTABIL.CD_LCTO_CONTABIL                      CD_LCTO_CONTABIL_SD
+       ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO                  CD_LCTO_MOVIMENTO_SD
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO       DS_HIST_PADRAO_SD
+       ,LCTO_CONTABIL.DS_COMPLEMENTO                        DS_COMPLEMENTO_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_DEB_SD
+       ,to_number(NULL)                          			VL_LANCADO_CRE_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_CTA_SD
+       ,PLANO_CONTAS.CD_REDUZIDO                    CD_REDUZIDO_SD
+       ,PLANO_CONTAS.CD_CONTABIL                            	CD_CONTABIL_SD
+       ,PLANO_CONTAS.DS_CONTA                               	DS_CONTABIL_SD
+       ,PLANO_CONTAS.TP_CONTA                                       TP_CONTA
+       ,dbamv.pkg_transacao_entre_empresas.EmpresaOrigemDoLctoGeren(LCTO_CONTABIL.CD_LCTO_CONTABIL) CD_EMP_ORIGEM
+FROM    DBAMV.LCTO_CONTABIL_GERENCIAL              LCTO_CONTABIL
+       ,DBAMV.HISTORICO_PADRAO                     HISTORICO_PADRAO
+       ,DBAMV.PLANO_CONTAS_GERENCIAL               PLANO_CONTAS
+WHERE   LCTO_CONTABIL.CD_HISTORICO_PADRAO            = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND     LCTO_CONTABIL.CD_REDUZIDO_DEBITO             = PLANO_CONTAS.CD_REDUZIDO
+AND     PLANO_CONTAS.CD_MULTI_EMPRESA                = :CAMPO_CD_MULTI_EMPRESA
+AND    :CAMPO_SALDO_DIA = 'S'
+AND    NVL(LCTO_CONTABIL.SN_TRANSITORIA,'N') IN ('N', NVL(:CAMPO_INC_CONTA_TRANSITORIA,'N'))
+UNION ALL
+SELECT  TRUNC( LCTO_CONTABIL.DT_LCTO )                 DT_LANC_SD
+       ,LCTO_CONTABIL.CD_LOTE                               	CD_LOTE_SD
+       ,LCTO_CONTABIL.CD_LCTO_CONTABIL                      CD_LCTO_CONTABIL_SD
+       ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO                  CD_LCTO_MOVIMENTO_SD
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO       DS_HIST_PADRAO_SD
+       ,LCTO_CONTABIL.DS_COMPLEMENTO                        DS_COMPLEMENTO_SD
+       ,to_number(NULL)                          			VL_LANCADO_DEB_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_CRE_SD
+       ,LCTO_CONTABIL.VL_LANCADO                            	VL_LANCADO_CTA_SD
+       ,PLANO_CONTAS.CD_REDUZIDO                            CD_REDUZIDO_SD
+       ,PLANO_CONTAS.CD_CONTABIL                            CD_CONTABIL_SD
+       ,PLANO_CONTAS.DS_CONTA                               DS_CONTABIL_SD
+       ,PLANO_CONTAS.TP_CONTA                                       TP_CONTA
+       ,dbamv.pkg_transacao_entre_empresas.EmpresaOrigemDoLctoGeren(LCTO_CONTABIL.CD_LCTO_CONTABIL) CD_EMP_ORIGEM
+FROM    DBAMV.LCTO_CONTABIL_GERENCIAL              LCTO_CONTABIL
+       ,DBAMV.HISTORICO_PADRAO                     HISTORICO_PADRAO
+       ,DBAMV.PLANO_CONTAS_GERENCIAL               PLANO_CONTAS
+WHERE   LCTO_CONTABIL.CD_HISTORICO_PADRAO      = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND     LCTO_CONTABIL.CD_REDUZIDO_CREDITO         = PLANO_CONTAS.CD_REDUZIDO
+AND     PLANO_CONTAS.CD_MULTI_EMPRESA                	= :CAMPO_CD_MULTI_EMPRESA
+AND    :CAMPO_SALDO_DIA = 'S'
+AND    NVL(LCTO_CONTABIL.SN_TRANSITORIA,'N') IN ('N', NVL(:CAMPO_INC_CONTA_TRANSITORIA,'N'))
+UNION ALL
+SELECT   TO_DATE(null)    		DT_LANC_SD
+       ,TO_NUMBER(NULL)		CD_LOTE_SD
+       ,TO_NUMBER(NULL)              	CD_LCTO_CONTABIL_SD
+       ,TO_NUMBER(NULL)		CD_LCTO_MOVIMENTO_SD
+       ,TO_CHAR(null)		DS_HIST_PADRAO_SD
+       ,TO_CHAR(null)		DS_COMPLEMENTO_SD
+       ,TO_NUMBER(NULL)	                VL_LANCADO_DEB_SD
+       ,TO_NUMBER(NULL)		VL_LANCADO_CRE_SD
+       ,TO_NUMBER(NULL)              	VL_LANCADO_CTA_SD
+       ,PLANO_CONTAS.CD_REDUZIDO                        CD_REDUZIDO_SD
+       ,PLANO_CONTAS.CD_CONTABIL                           CD_CONTABIL_SD
+       ,PLANO_CONTAS.DS_CONTA                                DS_CONTABIL_SD
+       ,PLANO_CONTAS.TP_CONTA                                       TP_CONTA
+       ,TO_NUMBER(NULL)                       CD_EMP_ORIGEM
+FROM    DBAMV.PLANO_CONTAS_GERENCIAL PLANO_CONTAS
+WHERE PLANO_CONTAS.CD_MULTI_EMPRESA       = :CAMPO_CD_MULTI_EMPRESA
+AND   :CAMPO_ZERADAS 		= 'S'
+AND   PLANO_CONTAS.TP_CONTA 	= 'A'
+AND   :CAMPO_SALDO_DIA = 'S'
+ORDER BY  CD_CONTABIL_SD
+        , DT_LANC_SD
+        :CAMPO_CF_ORDEM_SD
+        , CD_LCTO_MOVIMENTO_SD
+        , VL_LANCADO_DEB_SD
+        , VL_LANCADO_CRE_SD
+)
+ORDER BY CD_CONTABIL_SD,DS_CONTABIL_SD,TP_CONTA,CD_REDUZIDO_SD,
+DT_LANC_SD              ,CD_LOTE_SD, CD_LCTO_MOVIMENTO_SD

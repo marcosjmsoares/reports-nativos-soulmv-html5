@@ -1,0 +1,42 @@
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_RECEP_COLETA
+SELECT * FROM (
+select  amostra.dt_coleta,ped_lab.cd_ped_lab    cd_ped_lab
+       ,paciente.nm_paciente  nm_paciente
+       ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE
+       ,to_char(ped_lab.dt_pedido,'dd/mm/yyyy') dt_pedido
+       ,coleta_material.cd_coleta_material      cd_coleta_material
+       ,to_date((to_char(coleta_material.dt_solicitacao,'dd/mm/yyyy') || ' ' || to_char(coleta_material.hr_solicitacao,'hh24')),'dd/mm/yyyy hh24') inicio
+       ,recep.nm_usuario            Recepcao
+       ,amostra.cd_amostra          cd_amostra
+       ,tubo_coleta.ds_tubo_coleta  ds_tubo_coleta
+       ,material.ds_material        ds_material
+       ,usuarios.nm_usuario         Tecnico
+from  dbasgu.usuarios recep
+      ,  dbamv.ped_lab
+      ,dbamv.atendime
+      ,dbamv.paciente
+      ,dbamv.coleta_material
+      ,dbamv.amostra
+      ,dbasgu.usuarios
+      ,dbamv.tubo_coleta
+      ,dbamv.material
+where  ped_lab.nm_usuario = recep.cd_usuario
+   AND ped_lab.cd_atendimento = atendime.cd_atendimento
+   AND atendime.cd_paciente = paciente.cd_paciente
+   AND ped_lab.cd_ped_lab = coleta_material.cd_ped_lab
+   AND coleta_material.cd_coleta_material = amostra.cd_coleta_material
+   AND amostra.cd_usuario_coleta  = usuarios.cd_usuario (+)
+   AND amostra.cd_tubo_coleta = tubo_coleta.cd_tubo_coleta
+   AND amostra.cd_material = material.cd_material
+   AND amostra.cd_amostra_pai is null
+   AND amostra.dt_coleta >= to_date((to_char(coleta_material.dt_solicitacao,'dd/mm/yyyy') || ' ' || to_char(coleta_material.hr_solicitacao,'hh24')),'dd/mm/yyyy hh24')
+   AND   EXISTS (select '*'
+                       from dbamv.amostra, dbamv.coleta_material
+                       where amostra.cd_coleta_material = coleta_material.cd_coleta_material
+                         and  coleta_material.cd_ped_lab = ped_lab.cd_ped_lab
+                         and amostra.dt_coleta is not null)                                                    
+   AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND TRUNC(coleta_material.dt_solicitacao) between :CAMPO_DT_INI and :CAMPO_DT_FIM
+)
+ORDER BY CD_PED_LAB,DT_PEDIDO,NM_PACIENTE,RECEPCAO,INICIO,CD_COLETA_MATERIAL

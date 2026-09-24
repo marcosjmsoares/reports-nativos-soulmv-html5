@@ -1,0 +1,42 @@
+/*----------------------------------------------------------------------------*/
+--R_CUS_EST_PRI
+SELECT geral.cd_setor,
+           geral.nm_setor,
+           geral.nr_ordem_rateio,
+           geral.cd_item_res,
+           geral.ds_item_res,
+           geral.vl_custo_setor,
+           geral.dt_competencia,
+			(
+			SELECT sum(vl_custo_setor) FROM dbamv.custo_primario
+			WHERE dt_competencia <= geral.dt_competencia
+			AND Trunc(dt_competencia, 'yyyy') = Trunc(geral.dt_competencia, 'yyyy')
+			AND cd_item_res = geral.cd_item_res
+			AND cd_setor = geral.cd_setor
+			) soma_setor
+			FROM (
+ select setor.cd_setor  cd_setor,
+           setor.nm_setor  nm_setor,
+           nvl(setor.nr_ordem_rateio,9999) nr_ordem_rateio,
+           item_res.cd_item_res  cd_item_res,
+           item_res.ds_item_res  ds_item_res,
+           sum(NVL(vl_custo_setor,0)) vl_custo_setor,
+           custo_primario.dt_competencia  dt_competencia
+from       dbamv.item_res,
+           dbamv.setor,
+           dbamv.custo_primario
+where    setor.cd_setor                             =  custo_primario.cd_setor
+and      custo_primario.cd_item_res         =  item_res.cd_item_res
+and      setor.cd_multi_empresa              = :CAMPO_CD_MULTI_EMPRESA
+and      custo_primario.dt_competencia = :CAMPO_PCOMP
+Group by
+ setor.cd_setor,
+           setor.nm_setor,
+           nvl(setor.nr_ordem_rateio,9999) ,
+           item_res.cd_item_res,
+           item_res.ds_item_res,
+           custo_primario.dt_competencia
+Order by
+                nvl(setor.nr_ordem_rateio,9999)
+) geral
+ORDER BY DS_ITEM_RES,CD_ITEM_RES,DT_COMPETENCIA,NM_SETOR

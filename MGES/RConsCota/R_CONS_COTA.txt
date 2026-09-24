@@ -1,0 +1,107 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_COTA
+SELECT     Especie.Cd_Especie Cd_Especie
+	  ,Especie.Ds_Especie Ds_Especie
+	  ,Cons_Cota.Cd_Produto Cd_Produto
+	  ,Cons_Cota.Cd_Setor Cd_Setor
+	  ,Verif_Ds_Unid_Prod( Cons_Cota.Cd_Produto ) Unidade
+	  ,InitCap( Setor.Nm_Setor ) Nm_Setor
+	  ,Produto.Ds_Produto Ds_Produto
+	  ,Ceil(Sum( Cons_Cota.Qt_Consumo )) Qt_Consumo
+	  ,CEIL(Sum(Cons_Cota.Qt_Cota )) Qt_Cota
+FROM       Dbamv.Setor
+	  ,Dbamv.Especie
+	  ,Dbamv.Produto
+                  ,( Select      Cd_Produto
+	                    ,Cd_Setor
+	                    ,Sum(Qt_Consumo / Verif_Vl_Fator_Prod( Cd_Produto )) Qt_Consumo
+	                    ,(AVG(QT_COTA) * ((:CAMPO_DTFINAL - :CAMPO_DTINIC) + 1))  Qt_Cota
+                    From         (Select Distinct  Mvto_Estoque.Cd_Mvto_Estoque  Cd_mvto_estoque
+	                                             ,Decode( ItMvto_Estoque.Cd_Formula_Kit, Null, ItMvto_Estoque.Cd_Itmvto_estoque, -1 * ItMvto_Estoque.Cd_Formula_Kit ) Dif_Distinct
+                                                                ,Decode( :CAMPO_KIT, 'P', ItMvto_Estoque.Cd_Produto, Nvl(ItMvto_Estoque.Cd_Produto_Kit, ItMvto_Estoque.Cd_Produto ) ) Cd_Produto
+                                                              ,Mvto_Estoque.Cd_Setor Cd_Setor
+                                                             ,nvl(Decode(:CAMPO_KIT, 'P',dbamv.Verif_qt_cota_prod(ItMvto_Estoque.Cd_Produto,  Mvto_Estoque.Cd_Setor, Mvto_Estoque.Dt_Mvto_Estoque),
+                                                                                            dbamv.Verif_qt_cota_prod(nvl(ItMvto_Estoque.Cd_Produto_Kit, ItMvto_Estoque.Cd_Produto) , Mvto_Estoque.Cd_Setor,
+                                                                                                                                                   Mvto_Estoque.Dt_Mvto_Estoque)),0) Qt_cota
+	                                              ,DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'D', -1,'C', -1, 1 )
+                                                                 * Decode(:CAMPO_KIT, 'P', ItMvto_Estoque.Qt_Movimentacao*Uni_Pro.Vl_Fator,
+                                                                                  Nvl( ItMvto_Estoque.Qt_Kit, Itmvto_estoque.qt_movimentacao * Uni_pro.vl_fator)) Qt_Consumo
+                                         From         Dbamv.Mvto_Estoque
+	                                             ,Dbamv.ItMvto_Estoque
+	                                             ,Dbamv.Uni_Pro
+						     ,Dbamv.Estoque 
+                                         Where   Mvto_Estoque.Dt_Mvto_Estoque Between :CAMPO_DTINIC and 
+                                             and Mvto_Estoque.Tp_Mvto_Estoque In ( 'S', 'D', 'P', 'C' )
+                                             AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                                             AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                             and ItMvto_Estoque.Cd_Mvto_Estoque = Mvto_Estoque.Cd_Mvto_Estoque
+                                             and Uni_Pro.Cd_Uni_Pro = ItMvto_Estoque.Cd_Uni_Pro )  Vw_Cons
+                    Group by  Cd_Produto
+                             ,Cd_Setor)  Cons_Cota
+WHERE    Produto.Cd_Produto = Cons_Cota.Cd_Produto
+AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+And           Especie.Cd_Especie = Produto.Cd_Especie
+And           Setor.Cd_Setor  = Cons_Cota.Cd_Setor
+GROUP BY Especie.Cd_Especie
+	    ,Especie.Ds_Especie
+	    ,Cons_Cota.Cd_Produto
+	    ,Cons_Cota.Cd_Setor
+	    ,Setor.Nm_Setor
+    	,Produto.Ds_Produto
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONS_COTA_X_G
+SELECT * FROM (
+	SELECT Especie.Cd_Especie Cd_Especie
+	  ,Especie.Ds_Especie Ds_Especie
+	  ,Cons_Cota.Cd_Produto Cd_Produto
+	  ,Cons_Cota.Cd_Setor Cd_Setor
+	  ,Verif_Ds_Unid_Prod( Cons_Cota.Cd_Produto ) Unidade
+	  ,InitCap( Setor.Nm_Setor ) Nm_Setor
+	  ,Produto.Ds_Produto Ds_Produto
+	  ,Ceil(Sum( Cons_Cota.Qt_Consumo )) Qt_Consumo
+	  ,CEIL(Sum(Cons_Cota.Qt_Cota )) Qt_Cota
+FROM       Dbamv.Setor
+	  ,Dbamv.Especie
+	  ,Dbamv.Produto
+                  ,( Select      Cd_Produto
+	                    ,Cd_Setor
+	                    ,Sum(Qt_Consumo / Verif_Vl_Fator_Prod( Cd_Produto )) Qt_Consumo
+	                    ,(AVG(QT_COTA) * ((:CAMPO_DTFINAL - :CAMPO_DTINIC) + 1))  Qt_Cota
+                    From         (Select Distinct  Mvto_Estoque.Cd_Mvto_Estoque  Cd_mvto_estoque
+	                                             ,Decode( ItMvto_Estoque.Cd_Formula_Kit, Null, ItMvto_Estoque.Cd_Itmvto_estoque, -1 * ItMvto_Estoque.Cd_Formula_Kit ) Dif_Distinct
+                                                                ,Decode( :CAMPO_KIT, 'P', ItMvto_Estoque.Cd_Produto, Nvl(ItMvto_Estoque.Cd_Produto_Kit, ItMvto_Estoque.Cd_Produto ) ) Cd_Produto
+                                                              ,Mvto_Estoque.Cd_Setor Cd_Setor
+                                                             ,nvl(Decode(:CAMPO_KIT, 'P',dbamv.Verif_qt_cota_prod(ItMvto_Estoque.Cd_Produto,  Mvto_Estoque.Cd_Setor, Mvto_Estoque.Dt_Mvto_Estoque),
+                                                                                            dbamv.Verif_qt_cota_prod(nvl(ItMvto_Estoque.Cd_Produto_Kit, ItMvto_Estoque.Cd_Produto) , Mvto_Estoque.Cd_Setor,
+                                                                                                                                                   Mvto_Estoque.Dt_Mvto_Estoque)),0) Qt_cota
+	                                              ,DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'D', -1,'C', -1, 1 )
+                                                                 * Decode(:CAMPO_KIT, 'P', ItMvto_Estoque.Qt_Movimentacao*Uni_Pro.Vl_Fator,
+                                                                                  Nvl( ItMvto_Estoque.Qt_Kit, Itmvto_estoque.qt_movimentacao * Uni_pro.vl_fator)) Qt_Consumo
+                                         From         Dbamv.Mvto_Estoque
+	                                             ,Dbamv.ItMvto_Estoque
+	                                             ,Dbamv.Uni_Pro
+						     ,Dbamv.Estoque 
+                                         Where   Mvto_Estoque.Dt_Mvto_Estoque Between :CAMPO_DTINIC and 
+                                             and Mvto_Estoque.Tp_Mvto_Estoque In ( 'S', 'D', 'P', 'C' )
+                                             AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+                                             AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                             and ItMvto_Estoque.Cd_Mvto_Estoque = Mvto_Estoque.Cd_Mvto_Estoque
+                                             and Uni_Pro.Cd_Uni_Pro = ItMvto_Estoque.Cd_Uni_Pro )  Vw_Cons
+                    Group by  Cd_Produto
+                             ,Cd_Setor)  Cons_Cota
+WHERE    Produto.Cd_Produto = Cons_Cota.Cd_Produto
+ And Especie.Cd_Especie = :CAMPO_CD_ESPECIE
+AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+And           Especie.Cd_Especie = Produto.Cd_Especie
+And           Setor.Cd_Setor  = Cons_Cota.Cd_Setor
+GROUP BY Especie.Cd_Especie
+	    ,Especie.Ds_Especie
+	    ,Cons_Cota.Cd_Produto
+	    ,Cons_Cota.Cd_Setor
+	    ,Setor.Nm_Setor
+    	,Produto.Ds_Produto
+:CAMPO_CF_ORD
+)

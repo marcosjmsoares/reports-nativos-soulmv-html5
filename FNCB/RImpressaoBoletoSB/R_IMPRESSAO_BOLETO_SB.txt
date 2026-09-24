@@ -1,0 +1,93 @@
+/*----------------------------------------------------------------------------*/
+--R_IMPRESSAO_BOLETO_SB
+SELECT multi_empresas.ds_razao_social ds_razao_social,
+       SUBSTR(LPAD(multi_empresas.cd_cgc, 14, 0), 1, 2)||'.'|| SUBSTR(LPAD(multi_empresas.cd_cgc, 14, 0), 3, 3)||'.'||SUBSTR(LPAD(multi_empresas.cd_cgc, 14, 0), 6, 3)||'/'||SUBSTR(LPAD(multi_empresas.cd_cgc, 14, 0), 9, 4)||'-'||SUBSTR(LPAD(multi_empresas.cd_cgc, 14, 0), 13, 2) cd_cgc,
+       DECODE (con_cor.cd_banco, 748, 1, con_cor.cd_banco) cd_banco,
+       DECODE (con_cor.cd_banco, 237, SUBSTR (con_cor.cd_agencia, 1, 4)|| '-'|| SUBSTR (con_cor.cd_agencia, 5, 1),con_cor.cd_agencia) nr_agencia,
+       con_cor.cd_agencia ds_codigo_agencia,
+       DECODE (con_cor.cd_banco,237, SUBSTR (con_cor.cd_agencia, 1, 4)|| '-'|| SUBSTR (con_cor.cd_agencia, 5, 1),con_cor.cd_agencia) dsp_codigo_agencia,
+       con_cor.cd_con_cor cd_conta_corrente,
+       con_cor.nr_conta || cd_digito_conta_corrente nr_conta_corrente,
+       con_cor.nr_conta || '-' || cd_digito_conta_corrente ds_conta_corrente,
+       DECODE (con_cor.cd_banco, 21, LTRIM (TO_CHAR (multi_empresas.ds_razao_social, '9g999g999g999')), TO_CHAR (multi_empresas.ds_razao_social)) cd_cedente,
+       itcon_rec.dt_vencimento,
+       con_rec.dt_emissao,
+       lote_rem_itcon_rec.cd_lote_rem_itcon_rec  cd_mens_contrato,
+       lote_rem_itcon_rec.cd_lote_rem_itcon_rec  cd_nosso_numero,
+       con_rec.nr_documento nr_documento,
+       ((itcon_rec.vl_duplicata) - (NVL(itcon_rec.vl_soma_recebido, 0) + NVL (p.vl_desconto, 0) - NVL (p.vl_acrescimo, 0))) vl_total_cobrado,
+       ((itcon_rec.vl_duplicata) - (NVL(itcon_rec.vl_soma_recebido, 0) + NVL (p.vl_desconto, 0) - NVL (p.vl_acrescimo, 0))) vl_mensalidade,
+       DECODE(con_rec.tp_con_rec, 'P', paciente.nm_paciente, fornecedor.nm_fornecedor) ds_sacado,
+       'E' tp_contrato,
+       LPAD (DECODE (con_rec.tp_con_rec, 'P', paciente.nr_cpf, fornecedor.nr_cgc_cpf), 14, '0') nr_cpf_cgc,
+       'Ate o vencimento, preferencialmente no ' || banco.nm_banco ds_local_pagamento,
+       'DS' ds_especie_documento,
+       'N' sn_aceite,
+       con_cor.cd_carteira cd_carteira,
+       Decode(con_cor.cd_banco,33,Decode(con_cor.cd_carteira,101,'COBRANÇA SIMPLES - RCR',To_Char(con_cor.cd_carteira)),To_Char(con_cor.cd_carteira)) ds_cd_carteira,
+       'REAL' ds_especie_moeda,
+       NVL (fornecedor_msg_boleto.ds_msg_boleto, concor_msg_boleto.ds_msg_boleto) ds_instrucoes,
+       1 ds_msg_sacado,
+       cep_logradouros.DS_COMPLEMENTO||' '||DECODE (con_rec.tp_con_rec, 'P',paciente.ds_endereco, fornecedor.ds_endereco) ds_endereco_cobranca,
+       DECODE (con_rec.tp_con_rec, 'P',paciente.nr_endereco||'', fornecedor.nr_endereco) nr_endereco,
+       DECODE (con_rec.tp_con_rec, 'P',paciente.ds_complemento, fornecedor.ds_complemento) ds_complemento,
+       DECODE (con_rec.tp_con_rec, 'P',paciente.nr_cep, fornecedor.nr_cep) nr_cep,
+       DECODE (con_rec.tp_con_rec, 'P',paciente.nm_bairro, fornecedor.ds_bairro) ds_bairro,
+       DECODE (con_rec.tp_con_rec, 'P',cidade2.nm_cidade, cidade.nm_cidade) nm_cidade,
+       DECODE (con_rec.tp_con_rec, 'P',cidade2.cd_uf, cidade.cd_uf) nm_uf,
+       '' nr_telefone,
+       'B' tp_process_cb,
+       'N' sn_cobranca_registrada,
+       '' tp_contrato,
+       con_cor.cd_convenio_bancario cd_contrato,
+       DECODE (con_rec.cd_fornecedor, NULL, ' ', con_rec.cd_fornecedor) cd_empresa,
+       'NT' tem_logo,
+       itcon_rec.nr_parcela,
+       cep_logradouros.DS_COMPLEMENTO||' '||   multi_empresas.ds_endereco
+       || '-'
+       || cidade_emp.nm_cidade
+       || '-'
+       || multi_empresas.cd_uf endereco_emp,
+       nvl(con_rec.DS_OBSERVACAO,con_rec.ds_con_rec) DS_OBSERVACAO
+,itcon_rec.DS_OBSERVACAO_PARC
+  FROM dbamv.multi_empresas multi_empresas,
+       dbamv.con_cor con_cor,
+       dbamv.con_rec con_rec,
+       dbamv.itcon_rec itcon_rec,
+       dbamv.fornecedor fornecedor,
+       dbamv.lote_remessa lote_remessa,
+       dbamv.cidade cidade,
+       dbamv.lote_rem_itcon_rec lote_rem_itcon_rec,
+       dbamv.exp_arquivo_remessa exp_arquivo_remessa,
+       dbamv.fornecedor_msg_boleto fornecedor_msg_boleto,
+       dbamv.concor_msg_boleto concor_msg_boleto,
+       dbamv.banco banco,
+       dbamv.cidade cidade_emp,
+       (SELECT   cd_itcon_rec,
+                 SUM (NVL (vl_desconto, 0)) vl_desconto,
+                 SUM (NVL (vl_acrescimo, 0)) vl_acrescimo
+            FROM dbamv.reccon_rec
+           WHERE dt_estorno IS NULL
+        GROUP BY cd_itcon_rec) p,
+       dbamv.atendime atendime,
+       dbamv.paciente paciente,
+       dbamv.cidade cidade2,
+ dbamv.cep_logradouros
+ WHERE lote_remessa.cd_lote_remessa = lote_rem_itcon_rec.cd_lote_remessa
+   AND lote_rem_itcon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+   AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+   AND con_rec.cd_multi_empresa = multi_empresas.cd_multi_empresa
+   AND con_rec.cd_fornecedor = fornecedor.cd_fornecedor
+   AND fornecedor.cd_cidade = cidade.cd_cidade
+   AND multi_empresas.cd_cidade = cidade_emp.cd_cidade
+   AND exp_arquivo_remessa.cd_con_cor = con_cor.cd_con_cor
+   AND concor_msg_boleto.cd_con_cor = con_cor.cd_con_cor
+   AND fornecedor_msg_boleto.cd_fornecedor(+) = fornecedor.cd_fornecedor
+   AND banco.cd_banco = con_cor.cd_banco
+   AND p.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+   AND exp_arquivo_remessa.cd_exp_arquivo_remessa = lote_remessa.cd_exp_arquivo_remessa
+   AND con_rec.cd_atendimento = atendime.cd_atendimento(+)
+   AND atendime.cd_paciente = paciente.cd_paciente(+)
+   AND paciente.cd_cidade = cidade2.cd_cidade(+)
+ AND cep_logradouros.nr_cep(+) =  fornecedor.nr_cep
+   AND exp_arquivo_remessa.cd_exp_arquivo_remessa = :CAMPO_CD_EXP

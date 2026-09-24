@@ -1,0 +1,69 @@
+/*----------------------------------------------------------------------------*/
+--R_RECEB_DIFERENCA
+SELECT * FROM (
+select  nota_fiscal.nr_id_nota_fiscal nr_documento,
+        diferenca.cd_nota_fiscal,
+        diferenca.nm_paciente,
+        diferenca.cd_atendimento,
+        diferenca.cd_reg_fat,
+        diferenca.cd_remessa,
+        diferenca.vl_diferenca
+from
+(select itfat_nota_fiscal.cd_nota_fiscal cd_nota_fiscal,
+        paciente.nm_paciente nm_paciente,
+        itfat_nota_fiscal.cd_atendimento cd_atendimento,
+        itfat_nota_fiscal.cd_reg_fat cd_reg_fat,
+        itfat_nota_fiscal.cd_remessa cd_remessa,
+        sum(nvl(itfat_nota_fiscal.vl_itfat_nf,0) -
+            nvl(it_recebimento.vl_glosa,0) -
+            nvl(it_recebimento.vl_recebido,0) +
+            nvl(it_recebimento.vl_acrescimo,0) -
+            nvl(it_recebimento.vl_desconto,0)) vl_diferenca
+from    dbamv.itfat_nota_fiscal,
+        dbamv.it_recebimento,
+        dbamv.paciente,
+        dbamv.atendime,
+        dbamv.reg_fat
+where   itfat_nota_fiscal.cd_itfat_nf = it_recebimento.cd_itfat_nf(+)
+  and   itfat_nota_fiscal.cd_atendimento = atendime.cd_atendimento
+  and   paciente.cd_paciente = atendime.cd_paciente
+  and   itfat_nota_fiscal.cd_reg_fat = reg_fat.cd_reg_fat
+  and   reg_fat.cd_atendimento = atendime.cd_atendimento
+  and   itfat_nota_fiscal.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL
+group by    itfat_nota_fiscal.cd_nota_fiscal,
+            paciente.nm_paciente,
+            itfat_nota_fiscal.cd_atendimento,
+            itfat_nota_fiscal.cd_remessa,
+            itfat_nota_fiscal.cd_reg_fat
+union all
+select itfat_nota_fiscal.cd_nota_fiscal cd_nota_fiscal,
+        paciente.nm_paciente nm_paciente,
+        itfat_nota_fiscal.cd_atendimento cd_atendimento,
+        itfat_nota_fiscal.cd_reg_amb cd_reg_amb,
+        itfat_nota_fiscal.cd_remessa cd_remessa,
+        sum(nvl(itfat_nota_fiscal.vl_itfat_nf,0) -
+            nvl(it_recebimento.vl_glosa,0) -
+            nvl(it_recebimento.vl_recebido,0) +
+            nvl(it_recebimento.vl_acrescimo,0) -
+            nvl(it_recebimento.vl_desconto,0))
+from    dbamv.itfat_nota_fiscal,
+        dbamv.it_recebimento,
+        dbamv.paciente,
+        dbamv.atendime,
+        dbamv.reg_amb
+where   itfat_nota_fiscal.cd_itfat_nf = it_recebimento.cd_itfat_nf(+)
+  and   itfat_nota_fiscal.cd_atendimento = atendime.cd_atendimento
+  and   paciente.cd_paciente = atendime.cd_paciente
+  and   itfat_nota_fiscal.cd_reg_amb = reg_amb.cd_reg_amb
+  and   itfat_nota_fiscal.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+group by    itfat_nota_fiscal.cd_nota_fiscal,
+            paciente.nm_paciente,
+            itfat_nota_fiscal.cd_atendimento,
+            itfat_nota_fiscal.cd_remessa,
+            itfat_nota_fiscal.cd_reg_amb) diferenca,
+dbamv.nota_fiscal
+where  nota_fiscal.cd_nota_fiscal = diferenca.cd_nota_fiscal
+  and   nota_fiscal.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL
+)
+order by nm_paciente

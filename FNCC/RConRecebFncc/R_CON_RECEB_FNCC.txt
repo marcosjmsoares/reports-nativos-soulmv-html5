@@ -1,0 +1,53 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_RECEB_FNCC
+select   d.cd_doc_caixa
+      ,  nvl ( dbamv.f_volta_caixa(:CAMPO_DATA_REFERE,d.cd_doc_caixa), dbamv.f_volta_cc(:CAMPO_DATA_REFERE,d.cd_doc_caixa) )  cd_caixa_concor
+      ,  decode ( dbamv.f_volta_caixa(:CAMPO_DATA_REFERE,d.cd_doc_caixa) , null  , 'conta corrente' , 'caixa' ) local
+      ,  nvl( nvl(re.nm_responsavel, d.nm_responsavel), 'RESPONSÁVEL NÃO CADASTRADO' )  responsavel
+      ,  d.dt_vencimento
+      ,  dbamv.f_volta_dt_mov_caixa(:CAMPO_DATA_REFERE,d.cd_doc_caixa)      dt_recebimento
+      ,  d.nr_documento
+      ,  nvl(d.vl_doc_caixa,0) vl_recebido
+      ,  decode(nvl(dbamv.f_doc_status(:CAMPO_DATA_REFERE, d.cd_doc_caixa)
+      ,  d.tp_status_doc)
+                        ,'C','CUSTODIADO'
+                        ,'P','PRE-DATADO'
+                        ,'D','DEVOLVIDO'
+                        ,'T','PROTESTADO'
+                        ,'U','DEP. ANTECIPADO'
+                        ,'X','CAIXA'
+                        ,'R','RECEBIDO'
+                        ,'E','DEPOSITADO'
+                        ,'N', 'RENEGOCIADO'
+		                    ,'NENHUM') status
+      ,  Decode( 'S', 'N', Null, Dbamv.FNC_FNCC_RETORNA_EMP_DOC( :CAMPO_DATA_REFERE, d.cd_doc_caixa ) )   CD_EMPRESA_RESPONSAVEL
+      ,  decode(d.tp_doc_caixa,1,'Dinheiro',
+                               2, 'Cheque',
+                               3,'Cartão',
+                               4,'TEF',
+                               5,'Promissória',
+                               6,'Duplicata',
+                               8,'PIX',
+								7,'Vale a Vista') tp_doc_caixa,
+      nvl(dbamv.f_doc_status(:CAMPO_DATA_REFERE, d.cd_doc_caixa),  d.tp_status_doc) tp_status,
+      d.tp_doc_caixa tp_caixa,
+      d.cd_moeda cd_moeda
+from     dbamv.doc_caixa d
+        ,dbamv.responsavel re
+        ,dbamv.caucao ca
+where d.cd_resposavel = re.cd_resposavel(+)
+  and d.cd_caucao = ca.cd_caucao(+)
+  and ((ca.tp_retirado NOT IN ('P','T') or ca.dt_retirado > :CAMPO_DATA_REFERE) or ca.tp_retirado is null)
+  and  ( dbamv.f_volta_caixa(:CAMPO_DATA_REFERE
+             ,d.cd_doc_caixa) is not null
+  or       dbamv.f_volta_cc(:CAMPO_DATA_REFERE
+               ,d.cd_doc_caixa) is not null )
+and d.cd_doc_caixa in (select cd_doc_caixa
+                         from dbamv.mov_caixa mov
+                        where mov.cd_doc_caixa = d.cd_doc_caixa
+                          and mov.dt_cancelamento is null
+                          and mov.tp_movimentacao = 'E'
+                          and mov.cd_doc_caixa is not null
+                          and mov.cd_mov_caixa_transf is null
+                          and mov.dt_cancelamento is null
+                              :CAMPO_CF_COND_DATA)

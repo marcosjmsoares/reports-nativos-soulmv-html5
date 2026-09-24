@@ -1,0 +1,78 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_APAG_SIMP
+SELECT * FROM (
+SELECT
+ con_pag.cd_fornecedor cd_fornecedor
+,con_pag.ds_fornecedor nm_fornecedor
+,con_pag.nr_documento ||'/' || to_char(itcon_pag.nr_parcela,'000') nr_documento
+,trunc(decode(:CAMPO_TP_PERIODO,'1',itcon_pag.dt_vencimento,'2',con_pag.dt_emissao,'3',con_pag.dt_lancamento,'4',itcon_pag.dt_prevista_pag))  dt_base
+,con_pag.ds_con_pag                          ds_con_pag
+,trunc(con_pag.dt_emissao)                  dt_emissao
+,trunc(con_pag.dt_lancamento)             dt_lancamento
+,trunc(itcon_pag.dt_vencimento)           dt_vencimento
+,trunc(itcon_pag.dt_prevista_pag)         dt_prevista_pag
+,con_pag.cd_con_pag                       cd_con_pag
+,nvl(itcon_pag.vl_duplicata,0)            vl_duplicata
+,con_pag.cd_previsao                      cd_previsao
+,nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) )vl_devido
+, ITCON_PAG.CD_MOEDA                CD_MOEDA
+, ITCON_PAG.VL_MOEDA                 VL_MOEDA
+,itcon_pag.tp_quitacao                       tp_quitacao
+, nvl(dbamv.prc_fnfi_calc_prev_imp_pgto(con_pag.cd_fornecedor,itcon_pag.cd_itcon_pag,trunc(itcon_pag.dt_prevista_pag) ,nvl(itcon_pag.vl_duplicata,0),con_pag.cd_multi_empresa),0) vl_imposto
+,(nvl(itcon_pag.vl_duplicata,0) - (nvl(dbamv.prc_fnfi_calc_prev_imp_pgto(con_pag.cd_fornecedor,itcon_pag.cd_itcon_pag,trunc(itcon_pag.dt_prevista_pag) ,nvl(itcon_pag.vl_duplicata,0),con_pag.cd_multi_empresa),0))) vl_liquido
+, con_pag.cd_multi_empresa                    cd_multi_empresa
+, tip_detalhe.tp_data 
+FROM dbamv.con_pag
+   , dbamv.itcon_pag
+   , (select *
+      from dbamv.pagcon_pag
+      where nvl(pagcon_pag.sn_estorno,'N') = 'N'
+      :CAMPO_CF_DT_BASE_02
+     ) pagcon_pag
+   , dbamv.fornecedor
+   , dbamv.titulo_bancario
+   , dbamv.tip_detcon_pag
+   , dbamv.tip_detalhe
+   , dbamv.USUARIO_MULTI_EMPRESA UME
+   , dbamv.multi_empresas
+WHERE con_pag.cd_con_pag                = itcon_pag.cd_con_pag
+  and itcon_pag.cd_itcon_pag            = pagcon_pag.cd_itcon_pag(+)
+  and con_pag.cd_fornecedor             = fornecedor.cd_fornecedor(+)
+  AND con_pag.cd_multi_empresa			= multi_empresas.cd_multi_empresa
+  AND con_pag.cd_multi_empresa			= UME.cd_multi_empresa
+  AND UME.cd_id_usuario 				= user
+  AND DBAMV.PKG_TRANSACAO_ENTRE_EMPRESAS.IsFilialOuMesmaEmpresa(multi_empresas.cd_multi_empresa, DBAMV.PKG_MV2000.LE_EMPRESA) = 1
+  AND itcon_pag.cd_itcon_pag            = titulo_bancario.cd_itcon_pag(+)
+  AND con_pag.cd_con_pag                = tip_detcon_pag.cd_con_pag_filho (+)
+  AND  tip_detcon_pag.cd_detalhamento   = tip_detalhe.cd_detalhamento (+)
+  and con_pag.cd_con_pag_dev        is null
+  and nvl(con_pag.vl_bruto_conta,0)     > 0
+  and itcon_pag.cd_con_pag_agrup    is null
+  and nvl(itcon_pag.vl_duplicata,0)     > 0
+AND ( (pagcon_pag.dt_baixa IS NULL OR ITCON_PAG.TP_QUITACAO <> 'Q') OR
+        (:CAMPO_DATA_BASE is not NULL AND pagcon_pag.dt_baixa IS NOT NULL AND (:CAMPO_DATA_BASE < pagcon_pag.dt_baixa OR ITCON_PAG.TP_QUITACAO <> 'Q'))
+      )
+GROUP BY
+ con_pag.cd_fornecedor
+,con_pag.ds_fornecedor
+,con_pag.nr_documento ||'/' || to_char(itcon_pag.nr_parcela,'000')
+,con_pag.ds_con_pag
+,trunc(decode(:CAMPO_TP_PERIODO,'1',itcon_pag.dt_vencimento,'2',con_pag.dt_emissao,'3',con_pag.dt_lancamento,'4',itcon_pag.dt_prevista_pag))
+,trunc(con_pag.dt_emissao)
+,trunc(con_pag.dt_lancamento)
+,trunc(itcon_pag.dt_vencimento)
+,trunc(itcon_pag.dt_prevista_pag)
+,con_pag.cd_con_pag
+,nvl(itcon_pag.vl_duplicata,0)
+,con_pag.cd_previsao
+, ITCON_PAG.CD_MOEDA
+, ITCON_PAG.VL_MOEDA
+,itcon_pag.tp_quitacao
+, nvl(dbamv.prc_fnfi_calc_prev_imp_pgto(con_pag.cd_fornecedor,itcon_pag.cd_itcon_pag,trunc(itcon_pag.dt_prevista_pag) ,nvl(itcon_pag.vl_duplicata,0),con_pag.cd_multi_empresa),0)
+,(nvl(itcon_pag.vl_duplicata,0) - (nvl(dbamv.prc_fnfi_calc_prev_imp_pgto(con_pag.cd_fornecedor,itcon_pag.cd_itcon_pag,trunc(itcon_pag.dt_prevista_pag) ,nvl(itcon_pag.vl_duplicata,0),con_pag.cd_multi_empresa),0)))
+, con_pag.cd_multi_empresa
+,tip_detalhe.tp_data
+having nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + (nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) ) ) > 0
+ORDER BY DS_FORNECEDOR, con_pag.nr_documento||'/'||to_char(itcon_pag.nr_parcela,'000')
+)
+ORDER BY DT_BASE

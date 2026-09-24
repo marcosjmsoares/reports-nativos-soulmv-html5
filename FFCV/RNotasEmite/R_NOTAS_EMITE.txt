@@ -1,0 +1,511 @@
+/*----------------------------------------------------------------------------*/
+--R_NOTAS_EMITE
+SELECT *
+   FROM
+  (select      nota.cd_nota_fiscal          cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie     id_nota_fiscal
+              ,nota.nr_id_nota_fiscal       nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente) ,1,30)    nm_cliente
+              ,trunc(nota.dt_emissao)       dt_emissao
+              ,trunc(nota.dt_saida)           dt_saida
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_total_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_total_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_nota
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_acrescimo_nota
+                      ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_acrescimo_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_acrescimo
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_desconto_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_desconto_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_desconto
+              ,nota.cd_atendimento         cd_atendimento
+              ,nota.cd_reg_fat                 cd_reg_fat
+              ,nota.cd_reg_amb              cd_reg_amb
+              ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)           cd_convenio
+              ,nota.cd_status                  cd_status
+              ,nota.cd_remessa              cd_remessa
+              ,nota.dt_cancelamento      dt_cancelamento
+              ,0                                       cd_con_rec
+              ,nota.tp_nota_fiscal          tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF FORMULARIO
+             , 'Q1'                                  Query
+             ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+from     dbamv.nota_fiscal  nota
+where ( (  trunc(nota.dt_emissao) between to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') and to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')  and :CAMPO_DT_CANCELAMENTO = 'N'  )
+OR
+(  trunc(nota.dt_cancelamento) between to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') and to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')  and :CAMPO_DT_CANCELAMENTO = 'S'  ) )
+and nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and nvl(cd_status,'E') = 'C'
+and :CAMPO_CD_CAIXA = '%'
+and :CAMPO_TIPONOTA in ('T','A')
+union all
+select      nota.cd_nota_fiscal          cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie     id_nota_fiscal
+              ,nota.nr_id_nota_fiscal        nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente),1,30)     nm_cliente
+              ,trunc(nota.dt_emissao)       dt_emissao
+              ,trunc(nota.dt_saida)           dt_saida
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_total_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_total_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_nota
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_acrescimo_nota
+                      ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_acrescimo_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_acrescimo
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_desconto_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_desconto_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_desconto
+              ,nota.cd_atendimento          cd_atendimento
+              ,nota.cd_reg_fat                  cd_reg_fat
+              ,nota.cd_reg_amb                cd_reg_amb
+              ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)           cd_convenio
+              ,nota.cd_status                    cd_status
+              ,nota.cd_remessa                cd_remessa
+              ,nota.dt_cancelamento        dt_cancelamento
+              ,max(c.cd_con_rec)                     cd_con_rec
+              ,nota.tp_nota_fiscal          tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF FORMULARIO
+             , 'Q2'                                  Query
+             ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+from     dbamv.nota_fiscal     nota
+          ,dbamv.con_rec         c
+, dbamv.processo p
+where    trunc(nota.dt_emissao) between to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy')and to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+and  c.cd_Atendimento = nota.cd_atendimento
+and  nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and  ( c.cd_reg_amb = nota.cd_reg_amb  or  nota.cd_reg_fat = c.cd_reg_fat )
+and c.dt_cancelamento is null
+and nvl(nota.cd_status,'E')='E'
+and c.cd_nota_fiscal is NULL
+and c.cd_processo = p.cd_processo
+and p.cd_estrutural <> '1.1.1.2.5'
+GROUP BY nota.cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie
+              ,nota.nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente),1,30)
+              ,trunc(nota.dt_emissao)
+              ,trunc(nota.dt_saida)
+              ,nota.vl_total_nota
+              ,nota.vl_acrescimo_nota
+              ,nota.vl_desconto_nota
+              ,nota.cd_atendimento
+              ,nota.cd_reg_fat
+              ,nota.cd_reg_amb
+              ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)
+              ,nota.cd_status
+              ,nota.cd_remessa
+              ,nota.dt_cancelamento
+              ,nota.tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF
+              ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+union
+select      nota.cd_nota_fiscal          cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie     id_nota_fiscal
+              ,nota.nr_id_nota_fiscal        nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente),1,30)     nm_cliente
+              ,trunc(nota.dt_emissao)       dt_emissao
+              ,trunc(nota.dt_saida)           dt_saida
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_total_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_total_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_nota
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_acrescimo_nota
+                      ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_acrescimo_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_acrescimo
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_desconto_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_desconto_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_desconto
+              ,nota.cd_atendimento          cd_atendimento
+              ,nota.cd_reg_fat                  cd_reg_fat
+              ,nota.cd_reg_amb                cd_reg_amb
+              ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)           cd_convenio
+              ,nota.cd_status                    cd_status
+              ,nota.cd_remessa                cd_remessa
+              ,nota.dt_cancelamento        dt_cancelamento
+              ,max(c.cd_con_rec)                     cd_con_rec
+              ,nota.tp_nota_fiscal          tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF FORMULARIO
+             , 'Q2'                                  Query
+             ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+from     dbamv.nota_fiscal     nota
+          ,dbamv.con_rec         c
+, dbamv.processo p
+where    trunc(nota.dt_emissao) between to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy')and to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+and  c.cd_Atendimento = nota.cd_atendimento
+and  nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and  ( c.cd_reg_amb = nota.cd_reg_amb  or  nota.cd_reg_fat = c.cd_reg_fat )
+and c.dt_cancelamento is null
+and nvl(nota.cd_status,'E')='E'
+and c.cd_nota_fiscal = nota.cd_nota_fiscal
+and c.cd_processo = p.cd_processo
+and p.cd_estrutural <> '1.1.1.2.5'
+GROUP BY nota.cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie
+              ,nota.nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente),1,30)
+              ,trunc(nota.dt_emissao)
+              ,trunc(nota.dt_saida)
+              ,nota.vl_total_nota
+              ,nota.vl_acrescimo_nota
+              ,nota.vl_desconto_nota
+              ,nota.cd_atendimento
+              ,nota.cd_reg_fat
+              ,nota.cd_reg_amb
+              ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)
+              ,nota.cd_status
+              ,nota.cd_remessa
+              ,nota.dt_cancelamento
+              ,nota.tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF
+              ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+union
+select      nota.cd_nota_fiscal            cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie           id_nota_fiscal
+              ,nota.nr_id_nota_fiscal          nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente),1,30)     nm_cliente
+              ,trunc(nota.dt_emissao)         dt_emissao
+              ,trunc(nota.dt_saida)             dt_saida
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_total_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_total_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_nota
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_acrescimo_nota
+                      ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_acrescimo_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_acrescimo
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_desconto_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_desconto_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_desconto
+              ,nota.cd_atendimento           cd_atendimento
+              ,nota.cd_reg_fat                   cd_reg_fat
+              ,nota.cd_reg_amb                cd_reg_amb
+               ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)           cd_convenio
+              ,nota.cd_status                    cd_status
+              ,nota.cd_remessa                cd_remessa
+              ,nota.dt_cancelamento        dt_cancelamento
+              ,max(c.cd_con_rec)                     cd_con_rec
+              ,nota.tp_nota_fiscal            tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF FORMULARIO
+             , 'Q3'                                  Query
+             ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+from     dbamv.nota_fiscal     nota
+          ,dbamv.con_rec         c
+, dbamv.processo p
+where    trunc(nota.dt_emissao) between to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy')and to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+and   nota.cd_atendimento is null
+and  (c.cd_nota_fiscal = nota.cd_nota_fiscal or (c.cd_remessa = nota.cd_remessa and c.cd_previsao is null))
+and nvl(nota.cd_status,'E')= 'E'
+and nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and c.dt_cancelamento is null
+and c.cd_processo = p.cd_processo
+and c.cd_nota_fiscal = nota.cd_nota_fiscal
+and p.cd_estrutural <> '1.1.1.2.5'
+GROUP BY nota.cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie
+              ,nota.nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente),1,30)
+              ,trunc(nota.dt_emissao)
+              ,trunc(nota.dt_saida)
+              ,nota.vl_total_nota
+              ,nota.vl_acrescimo_nota
+              ,nota.vl_desconto_nota
+              ,nota.cd_atendimento
+              ,nota.cd_reg_fat
+              ,nota.cd_reg_amb
+               ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)
+              ,nota.cd_status
+              ,nota.cd_remessa
+              ,nota.dt_cancelamento
+              ,nota.tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF
+             ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+union all
+select      nota.cd_nota_fiscal          cd_nota_fiscal
+              ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie     id_nota_fiscal
+              ,nota.nr_id_nota_fiscal         nr_id_nota_fiscal
+               ,substr( decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente),1,30)     nm_cliente
+              ,trunc(nota.dt_emissao)       dt_emissao
+              ,trunc(nota.dt_saida)           dt_saida
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_total_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_total_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_nota
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_acrescimo_nota
+                      ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_acrescimo_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_acrescimo
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,nota.vl_desconto_nota
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,nota.vl_desconto_nota, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_desconto
+              ,nota.cd_atendimento         cd_atendimento
+              ,nota.cd_reg_fat                 cd_reg_fat
+              ,nota.cd_reg_amb              cd_reg_amb
+              ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)           cd_convenio
+              ,nota.cd_status                   cd_status
+              ,nota.cd_remessa               cd_remessa
+              ,nota.dt_cancelamento       dt_cancelamento
+              ,0                                        cd_con_rec
+              ,nota.tp_nota_fiscal          tp_nota_fiscal
+              ,NOTA.CD_FORMULARIO_NF FORMULARIO
+             , 'Q4'                                  Query
+             ,nota.nr_nota_fiscal_nfe
+             ,nota.hr_emissao_nfe
+             ,nota.cd_verificacao_nfe
+from     dbamv.nota_fiscal                 nota
+where    trunc(nota.dt_emissao) between to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy')and to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+and   nota.cd_atendimento is null
+and nvl(nota.cd_status,'E')= 'E'
+and nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and not exists ( select cd_con_rec from dbamv.con_rec
+                  where con_rec.cd_Atendimento is null
+                  and ( con_rec.cd_nota_fiscal = nota.cd_nota_fiscal
+                          or (con_rec.cd_remessa = nota.cd_remessa and con_rec.cd_previsao is null)
+                      )
+                )
+and :CAMPO_TIPONOTA in ('T','A')
+and :CAMPO_CD_CAIXA = '%'
+order by 3
+  )
+ORDER BY FORMULARIO,
+  DT_EMISSAO       ,
+  DT_SAIDA,
+  nr_id_nota_fiscal,
+  cd_con_rec,
+  cd_remessa,
+  cd_convenio,
+  cd_nota_fiscal,
+  cd_status,
+  vl_acrescimo,
+  vl_desconto,
+  tp_nota_fiscal
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_NOTAS_EMITE_R_1_Q_2
+SELECT cd_reduzido_t,
+       descricao_t,
+       DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,vl_total_credito_t
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,vl_total_credito_t, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_credito_t,
+       DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,vl_total_debito_t
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,vl_total_debito_t, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_debito_t
+   FROM
+  (SELECT reg_rec.cd_reduzido cd_reduzido_t                     ,
+    pl.ds_financ descricao_t                                    ,
+    DECODE (reg_rec.tipo,'D',0,reg_rec.vl_nf) vl_total_credito_t,
+    DECODE (reg_rec.tipo,'D',reg_rec.vl_nf,0) vl_total_debito_t
+     FROM
+    (SELECT c.cd_nota_fiscal nf,
+      c.cd_reduzido cd_reduzido,
+      'D' tipo                 ,
+      ( NVL(c.vl_moeda,0) - NVL(c.vl_desconto,0) + NVL(c.vl_acrescimo,0)) vl_nf
+       FROM dbamv.con_rec c
+      WHERE c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA  
+      UNION
+     SELECT c.cd_nota_fiscal nf  ,
+      dac.cd_reduzido cd_reduzido,
+      'D' tipo                   ,
+      NVL(c.vl_desconto,0) vl_nf
+       FROM dbamv.con_rec c,
+      dbamv.desc_acres_conta dac
+      WHERE c.cd_desconto  = dac.cd_desc_acres
+    AND c.cd_desconto     IS NOT NULL
+    AND c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND   dac.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      UNION
+     SELECT c.cd_nota_fiscal nf  ,
+      rcr.cd_reduzido cd_reduzido,
+      'C' tipo                   ,
+      SUM(NVL(rcr.vl_rateio,0)) vl_nf
+       FROM dbamv.con_rec c,
+      dbamv.rat_conrec rcr
+      WHERE c.cd_con_rec   = rcr.cd_con_rec
+    AND c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA  
+   GROUP BY c.cd_nota_fiscal ,
+      rcr.cd_reduzido
+      UNION
+     SELECT c.cd_nota_fiscal nf  ,
+      dac.cd_reduzido cd_reduzido,
+      'C' tipo                   ,
+      NVL(c.vl_acrescimo,0) vl_nf
+       FROM dbamv.con_rec c,
+      dbamv.desc_acres_conta dac
+      WHERE c.cd_acrescimo = dac.cd_desc_acres
+    AND c.cd_acrescimo    IS NOT NULL
+    AND c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND   dac.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     :CAMPO_CF_TIPONOTA
+    ) reg_rec,
+    (SELECT nota.cd_nota_fiscal cd_nota_fiscal
+       FROM dbamv.nota_fiscal nota
+      WHERE TRUNC(nota.dt_emissao) BETWEEN to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy')AND to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+    AND nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND :CAMPO_TIPO           IN( 'E', 'A' ,'G', 'H' )    :CAMPO_CF_SITUACAO_NF
+    ) nf,
+    dbamv.plano_contas pl
+    WHERE reg_rec.nf      = nf.cd_nota_fiscal
+  AND reg_rec.cd_reduzido = pl.cd_reduzido
+UNION ALL
+   SELECT reg_rec.cd_reduzido cd_reduzido_t                     ,
+    pl.ds_financ descricao_t                                    ,
+    DECODE (reg_rec.tipo,'D',0,reg_rec.vl_nf) vl_total_credito_t,
+    DECODE (reg_rec.tipo,'D',reg_rec.vl_nf,0) vl_total_debito_t
+     FROM
+    (SELECT c.cd_nota_fiscal nf,
+      c.cd_reduzido cd_reduzido,
+      'C' tipo                 ,
+      ( NVL(c.vl_moeda,0) - NVL(c.vl_desconto,0) + NVL(c.vl_acrescimo,0)) vl_nf
+       FROM dbamv.con_rec c
+      WHERE c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA  
+      UNION
+     SELECT c.cd_nota_fiscal nf  ,
+      dac.cd_reduzido cd_reduzido,
+      'C' tipo                   ,
+      NVL(c.vl_desconto,0) vl_nf
+       FROM dbamv.con_rec c,
+      dbamv.desc_acres_conta dac
+      WHERE c.cd_desconto  = dac.cd_desc_acres
+    AND c.cd_desconto     IS NOT NULL
+    AND c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND   dac.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      UNION
+     SELECT c.cd_nota_fiscal nf  ,
+      rcr.cd_reduzido cd_reduzido,
+      'D' tipo                   ,
+      SUM(NVL(rcr.vl_rateio,0)) vl_nf
+       FROM dbamv.con_rec c,
+      dbamv.rat_conrec rcr
+      WHERE c.cd_con_rec   = rcr.cd_con_rec
+    AND c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA  
+   GROUP BY c.cd_nota_fiscal ,
+      rcr.cd_reduzido
+      UNION
+     SELECT c.cd_nota_fiscal nf  ,
+      dac.cd_reduzido cd_reduzido,
+      'D' tipo                   ,
+      NVL(c.vl_acrescimo,0) vl_nf
+       FROM dbamv.con_rec c,
+      dbamv.desc_acres_conta dac
+      WHERE c.cd_acrescimo = dac.cd_desc_acres
+    AND c.cd_acrescimo    IS NOT NULL
+    AND c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA  :CAMPO_CF_TIPONOTA
+    ) reg_rec,
+    (SELECT nota.cd_nota_fiscal cd_nota_fiscal
+       FROM dbamv.nota_fiscal nota
+      WHERE TRUNC(nota.dt_cancelamento) BETWEEN to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') AND to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+    AND nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND :CAMPO_TIPO           IN( 'C','A' )    :CAMPO_CF_SITUACAO_NF
+    ) nf,
+    dbamv.plano_contas pl
+    WHERE reg_rec.nf      = nf.cd_nota_fiscal
+  AND reg_rec.cd_reduzido = pl.cd_reduzido
+  )
+ORDER BY CD_REDUZIDO_T,
+  DESCRICAO_T
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_NOTAS_EMITE_R_SINTETICO_Q_SINTETICO
+SELECT cd_convenio,
+       cd_nota_fiscal,
+       DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,vl_total_conv
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,vl_total_conv, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_total_conv,
+       DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,vl_acrescimo_conv
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,vl_acrescimo_conv, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_acrescimo_conv,
+       DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,vl_desconto_conv
+					  ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,vl_desconto_conv, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) vl_desconto_conv,
+       cd_status,
+       cd_con_rec,
+       Query
+   FROM
+  (SELECT nota.cd_convenio                   ,
+    nota.cd_nota_fiscal                      ,
+    nota.vl_total_nota vl_total_conv         ,
+    NVL(nota.vl_acrescimo_nota, 0) vl_acrescimo_conv ,
+    NVL(nota.vl_desconto_nota, 0) vl_desconto_conv   ,
+    nota.cd_status                           ,
+    0 cd_con_rec                             ,
+    'Q1' Query
+     FROM DBAMV.NOTA_FISCAL NOTA
+    WHERE ( ( TRUNC(nota.dt_emissao) BETWEEN to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') AND to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+          AND :CAMPO_DT_CANCELAMENTO = 'N' )
+     OR ( TRUNC(nota.dt_cancelamento) BETWEEN to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') AND to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+          AND :CAMPO_DT_CANCELAMENTO = 'S' ) )
+    AND nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+	AND NVL(cd_status,'E')    = 'C'
+	AND :CAMPO_CD_CAIXA        = '%'
+	AND :CAMPO_TIPONOTA       IN ('T','A')
+UNION ALL
+   SELECT nota.cd_convenio       ,
+    nota.cd_nota_fiscal                      ,
+    nota.vl_total_nota vl_total_conv         ,
+    NVL(nota.vl_acrescimo_nota, 0) vl_acrescimo_conv ,
+    NVL(nota.vl_desconto_nota, 0) vl_desconto_conv  ,
+    nota.cd_status                           ,
+    MAX(c.cd_con_rec) cd_con_rec             ,
+    'Q2' Query
+     FROM DBAMV.NOTA_FISCAL NOTA ,
+    dbamv.con_rec c              ,
+    dbamv.processo p
+    WHERE TRUNC(nota.dt_emissao) BETWEEN to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') AND to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+	  AND c.cd_Atendimento       = nota.cd_atendimento
+	  AND nota.cd_multi_empresa  = :CAMPO_CD_MULTI_EMPRESA
+	  AND ( c.cd_reg_amb         = nota.cd_reg_amb OR nota.cd_reg_fat         = c.cd_reg_fat )
+	  AND c.dt_cancelamento     IS NULL
+	  AND c.cd_nota_fiscal       = nota.cd_nota_fiscal
+	  AND c.cd_processo          = p.cd_processo
+	  AND p.cd_estrutural       <> '1.1.1.2.5'
+	  AND NVL(nota.cd_status,'E')='E'
+ GROUP BY nota.cd_nota_fiscal ,
+    nota.cd_convenio          ,
+    nota.vl_total_nota        ,
+    nota.vl_acrescimo_nota    ,
+    nota.vl_desconto_nota     ,
+    nota.cd_status
+UNION ALL
+   SELECT nota.cd_convenio    ,
+    nota.cd_nota_fiscal                      ,
+    nota.vl_total_nota vl_total_conv         ,
+    NVL(nota.vl_acrescimo_nota, 0) vl_acrescimo_conv ,
+    NVL(nota.vl_desconto_nota, 0) vl_desconto_conv   ,
+    nota.cd_status                           ,
+    MAX(c.cd_con_rec) cd_con_rec             ,
+    'Q3' Query
+     FROM DBAMV.NOTA_FISCAL NOTA ,
+    dbamv.con_rec c              ,
+    dbamv.processo p
+    WHERE TRUNC(nota.dt_emissao) BETWEEN to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') AND to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+	  AND nota.cd_atendimento   IS NULL
+	  AND (c.cd_nota_fiscal      = nota.cd_nota_fiscal OR (c.cd_remessa = nota.cd_remessa  AND c.cd_previsao IS NULL))
+	  AND NVL(nota.cd_status,'E')= 'E'
+	  AND nota.cd_multi_empresa  = :CAMPO_CD_MULTI_EMPRESA
+	  AND c.dt_cancelamento     IS NULL
+	  AND c.cd_nota_fiscal       = nota.cd_nota_fiscal
+	  AND c.cd_processo          = p.cd_processo
+	  AND p.cd_estrutural       <> '1.1.1.2.5'
+ GROUP BY nota.cd_nota_fiscal ,
+    nota.cd_convenio          ,
+    nota.vl_total_nota        ,
+    nota.vl_acrescimo_nota    ,
+    nota.vl_desconto_nota     ,
+    nota.cd_status
+UNION ALL
+   SELECT nota.cd_convenio   ,
+    nota.cd_nota_fiscal                      ,
+    nota.vl_total_nota vl_total_conv         ,
+    NVL(nota.vl_acrescimo_nota, 0) vl_acrescimo_conv ,
+    NVL(nota.vl_desconto_nota, 0) vl_desconto_conv   ,
+    nota.cd_status                           ,
+    0 cd_con_rec                             ,
+    'Q4' Query
+     FROM DBAMV.NOTA_FISCAL NOTA
+    WHERE TRUNC(nota.dt_emissao) BETWEEN to_date(:CAMPO_DATA_INI, 'dd/mm/yyyy') AND to_date(:CAMPO_DATA_FIM, 'dd/mm/yyyy')
+	  AND nota.cd_atendimento   IS NULL
+	  AND NVL(nota.cd_status,'E')= 'E'
+	  AND nota.cd_multi_empresa  = :CAMPO_CD_MULTI_EMPRESA
+	  AND NOT EXISTS
+		(SELECT cd_con_rec
+		   FROM dbamv.con_rec
+		  WHERE con_rec.cd_Atendimento IS NULL
+			AND ( con_rec.cd_nota_fiscal    = nota.cd_nota_fiscal
+			OR (con_rec.cd_remessa          = nota.cd_remessa
+			AND con_rec.cd_previsao        IS NULL) )
+		)
+	  AND :CAMPO_TIPONOTA IN ('T','A')
+	  AND :CAMPO_CD_CAIXA  = '%'
+ ORDER BY 3
+  )
+ORDER BY CD_CONVENIO

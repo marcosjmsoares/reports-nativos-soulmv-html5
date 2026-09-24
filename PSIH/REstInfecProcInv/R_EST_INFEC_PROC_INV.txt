@@ -1,0 +1,96 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_INFEC_PROC_INV
+SELECT * FROM (
+select t.cd_pro_invasivo, t.ds_pro_invasivo, t.cd_cid cd_cid, t.ds_cid ds_cid,
+       sum(t.qtd) qtd, sum(t.qtd_busca_ativa) qtd_busca_ativa, sum(t.qtd_notific) qtd_notific
+from
+(select 'geral' t, pi.cd_pro_invasivo, pi.ds_pro_invasivo, c.cd_cid, c.ds_cid,
+       count(inf.cd_reg_inf) qtd, 0 qtd_busca_ativa, 0 qtd_notific
+from dbamv.pro_invasivo pi,
+     dbamv.reg_inf inf,
+     dbamv.cid c,
+     dbamv.atendime
+where pi.cd_pro_invasivo = inf.cd_pro_invasivo
+and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_atendimento = inf.cd_atendimento
+and inf.cd_cid = c.cd_cid
+group by pi.cd_pro_invasivo, pi.ds_pro_invasivo, c.cd_cid, c.ds_cid
+union all
+select 'Busca Ativa' t, pi.cd_pro_invasivo, pi.ds_pro_invasivo, c.cd_cid, c.ds_cid, 0 qtd,
+       count(inf.cd_reg_inf) qtd_busca_ativa, 0 qtd_notific
+from dbamv.pro_invasivo pi,
+     dbamv.reg_inf inf,
+     dbamv.cid c,
+     dbamv.atendime
+where pi.cd_pro_invasivo = inf.cd_pro_invasivo
+and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_atendimento = inf.cd_atendimento
+and inf.cd_cid = c.cd_cid
+and inf.tp_modo = 'A'
+group by pi.cd_pro_invasivo, pi.ds_pro_invasivo, c.cd_cid, c.ds_cid
+union all
+select 'Notificação' t, pi.cd_pro_invasivo, pi.ds_pro_invasivo, c.cd_cid, c.ds_cid, 0 qtd, 0 qtd_busca_ativa,
+       count(inf.cd_reg_inf) qtd
+from dbamv.pro_invasivo pi,
+     dbamv.reg_inf inf,
+     dbamv.cid c,
+     dbamv.atendime
+where pi.cd_pro_invasivo = inf.cd_pro_invasivo
+and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_atendimento = inf.cd_atendimento
+and inf.cd_cid = c.cd_cid
+and inf.tp_modo = 'N'
+group by pi.cd_pro_invasivo, pi.ds_pro_invasivo, c.cd_cid, c.ds_cid
+) t
+group by t.cd_pro_invasivo, t.ds_pro_invasivo, t.cd_cid, t.ds_cid
+order by t.ds_pro_invasivo, t.cd_pro_invasivo, t.ds_cid, t.cd_cid
+)
+ORDER BY DS_PRO_INVASIVO,CD_PRO_INVASIVO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_INFEC_PROC_INV_R_RESUMO_Q_RESUMO
+select t.cd_pro_invasivo, t.ds_pro_invasivo,
+       sum(t.qtd) qtd, sum(t.qtd_busca_ativa) qtd_busca_ativa, sum(t.qtd_notific) qtd_notific
+from
+(select 'geral' t, pi.cd_pro_invasivo, pi.ds_pro_invasivo,
+       count(inf.cd_reg_inf) qtd, 0 qtd_busca_ativa, 0 qtd_notific
+from dbamv.pro_invasivo pi,
+     dbamv.reg_inf inf,
+     dbamv.cid c,
+     dbamv.atendime
+where pi.cd_pro_invasivo = inf.cd_pro_invasivo
+and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_atendimento = inf.cd_atendimento
+and inf.cd_cid = c.cd_cid
+group by pi.cd_pro_invasivo, pi.ds_pro_invasivo
+union all
+select 'Busca Ativa' t, pi.cd_pro_invasivo, pi.ds_pro_invasivo, 0 qtd,
+       count(inf.cd_reg_inf) qtd_busca_ativa, 0 qtd_notific
+from dbamv.pro_invasivo pi,
+     dbamv.reg_inf inf,
+     dbamv.cid c,
+     dbamv.atendime
+where pi.cd_pro_invasivo = inf.cd_pro_invasivo
+and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_atendimento = inf.cd_atendimento
+and inf.cd_cid = c.cd_cid
+and inf.tp_modo = 'A'
+group by pi.cd_pro_invasivo, pi.ds_pro_invasivo
+union all
+select 'Notificação' t, pi.cd_pro_invasivo, pi.ds_pro_invasivo, 0 qtd, 0 qtd_busca_ativa,
+       count(inf.cd_reg_inf) qtd
+from dbamv.pro_invasivo pi,
+     dbamv.reg_inf inf,
+     dbamv.cid c,
+     dbamv.atendime
+where pi.cd_pro_invasivo = inf.cd_pro_invasivo
+and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_atendimento = inf.cd_atendimento
+and inf.cd_cid = c.cd_cid
+and inf.tp_modo = 'N'
+group by pi.cd_pro_invasivo, pi.ds_pro_invasivo
+) t
+group by t.cd_pro_invasivo, t.ds_pro_invasivo
+order by t.ds_pro_invasivo, t.cd_pro_invasivo

@@ -1,0 +1,753 @@
+/*----------------------------------------------------------------------------*/
+--R_CONCLI
+SELECT * FROM (
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0) 			 cd_cliente
+         ,con_rec.dt_emissao                                dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,hist_p.ds_historico_padrao || ' ' || con_rec.ds_con_rec || Decode(con_rec.cd_fornecedor,'', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S',' - Cliente: ' || CON_REC.NM_CLIENTE,''),'' )    ds_hist
+		 ,con_rec.nr_documento       ||Decode(con_rec.nr_serie,NULL,NULL,'-') || con_rec.nr_serie       nr_doc
+         ,nvl(con_rec.vl_previsto,0) - nvl(con_rec.vl_desconto,0) + nvl(con_rec.vl_acrescimo,0)    vl_deb
+         ,0 																					   vl_cred
+from     dbamv.con_rec
+          ,dbamv.historico_padrao             hist_p
+          ,dbamv.fornecedor                      fornec
+          ,dbamv.usuario_multi_empresa ume
+where    con_rec.cd_historico_padrao    = hist_p.cd_historico_padrao(+)
+and      con_rec.vl_previsto <> 0
+and      con_rec.cd_multi_empresa = ume.cd_multi_empresa
+and      ume.cd_id_usuario = USER
+and      con_rec.cd_processo NOT in (Select cd_processo
+                                       from dbamv.processo
+                                       where cd_multi_empresa = con_rec.cd_multi_empresa
+                                       and cd_estrutural in (  '1.4.1.2.1',
+                                                               '1.4.1.1.8',
+                                                               '1.4.1.1.9',
+                                                               '1.4.1.1.10',
+                                                               '1.4.1.1.11',
+                                                               '1.4.1.1.12',
+                                                               '1.4.1.1.13',
+                                                               '1.4.1.1.14' ) )
+AND  CON_REC.CD_PREVISAO IS NULL
+UNION  ALL
+select   'C' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                          cd_cliente
+         ,con_rec.dt_cancelamento                                    dt_ent
+         ,con_rec.cd_multi_empresa                                   cd_multi_empresa
+         ,con_rec.ds_cancelamento                                    ds_hist
+         ,con_rec.nr_documento       ||Decode(con_rec.nr_serie,NULL,NULL,'-') || con_rec.nr_serie  nr_doc
+         ,0                                                                                        vl_deb
+         ,nvl(con_rec.vl_previsto,0) - nvl(con_rec.vl_desconto,0) + nvl(con_rec.vl_acrescimo,0)    vl_cred
+from     dbamv.con_rec
+         ,dbamv.usuario_multi_empresa ume
+          ,dbamv.fornecedor                   fornec
+where    con_rec.vl_previsto <> 0
+and      con_rec.cd_multi_empresa = ume.cd_multi_empresa
+and      ume.cd_id_usuario = USER
+and      con_rec.cd_processo NOT in (Select cd_processo
+                                       from dbamv.processo
+                                       where cd_multi_empresa = con_rec.cd_multi_empresa
+                                       and cd_estrutural in (  '1.4.1.2.1',
+                                                                          '1.4.1.1.8',
+                                                                          '1.4.1.1.9',
+                                                                          '1.4.1.1.10',
+                                                                          '1.4.1.1.11',
+                                                                          '1.4.1.1.12',
+                                                                          '1.4.1.1.13',
+                                                                          '1.4.1.1.14' ) )
+AND  CON_REC.CD_PREVISAO IS NULL
+UNION ALL
+select   'R' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                                               cd_cliente
+         ,rec_con_cor.dt_recebimento                   dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,'RECEBIMENTO '|| con_rec.ds_con_rec||' '||rec_con_cor.ds_doc_receb || ' cod.' || rec_con_cor.cd_reccon_rec     ds_hist
+         ,con_rec.nr_documento       || '-' || con_rec.nr_serie || '/' || itcon_rec.nr_parcela  nr_doc
+         ,0                                                                                                                                                                                                                                                          vl_deb 
+         ,( rec_con_cor.Vl_Recebido + rec_con_cor.Vl_Desconto    :CAMPO_CF_COND_SOMA_IMPOSTO
+             -    rec_con_cor.Vl_Acrescimo )   vl_cred
+from   dbamv.con_rec
+      ,dbamv.usuario_multi_empresa ume
+      ,dbamv.historico_padrao             hist_p
+      ,dbamv.itcon_rec
+      ,dbamv.fornecedor                   fornec
+      ,  (           select   reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                        , Sum( reccon_rec.vl_recebido)              vl_recebido
+                        , Sum( Nvl(reccon_rec.vl_acrescimo,0))      vl_acrescimo
+                        , Sum( Nvl(reccon_rec.vl_desconto,0))       vl_desconto
+                        , Sum( Nvl(reccon_rec.vl_imposto_retido,0)) vl_imposto_retido
+                        , TRUNC(reccon_rec.dt_recebimento)   dt_recebimento
+                        , decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                            , '2', 'CARTAO'
+                                                            , '3', 'DINHEIRO'
+                                                            , '4', 'CREDITO C/C'
+                                                            , '5', 'BORDERO'
+                                                            , '6', 'BOLETO'
+                                                            , '7', 'DOC'
+                                                            , '8', 'DUPLICATA'
+                                                            , '9', 'NOTA PROMISSORIA'
+                                                            ,'10', 'TEF'
+                                                            ,'12', 'PIX'
+                                                            , 'E', 'E. DE CONTAS'
+                                                            , 'B', 'B. CONTABIL'
+                                                            , reccon_rec.tp_recebimento  ) ds_doc_receb
+                           ,reccon_rec.nr_documento                                       cd_doc_receb
+                           ,con_cor.nr_conta                                                     nr_ccorrente
+                     from    dbamv.reccon_rec
+                               ,dbamv.con_cor
+                     where  reccon_rec.cd_con_cor = con_cor.cd_con_cor(+)
+                     group by  reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                                    ,TRUNC(reccon_rec.dt_recebimento)
+                                    ,tp_recebimento
+                                    ,decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                                  , '2', 'CARTAO'
+                                                                  , '3', 'DINHEIRO'
+                                                                  , '4', 'CREDITO C/C'
+                                                                  , '5', 'BORDERO'
+                                                                  , '6', 'BOLETO'
+                                                                  , '7', 'DOC'
+                                                                  , '8', 'DUPLICATA'
+                                                                  , '9', 'NOTA PROMISSORIA'
+                                                                  ,'10', 'TEF'
+                                                                  ,'12', 'PIX'
+                                                                  , 'E', 'E. DE CONTAS'
+                                                                  , 'B', 'B. CONTABIL'
+                                                               , reccon_rec.tp_recebimento  )
+                                     ,reccon_rec.nr_documento
+                                     ,con_cor.nr_conta
+         )   Rec_Con_Cor
+where con_rec.cd_historico_padrao    = hist_p.cd_historico_padrao(+)
+and   con_rec.cd_multi_empresa       = ume.cd_multi_empresa
+and   ume.cd_id_usuario              = USER
+and   con_rec.cd_con_rec                   = itcon_rec.cd_con_rec
+and   itcon_rec.cd_itcon_rec               = rec_con_cor.cd_itcon_rec
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+and      con_rec.vl_previsto <> 0
+UNION  ALL
+select   'E' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                                                cd_cliente
+         ,rec_con_cor.dt_estorno                      dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,'ESTORNO  '|| con_rec.ds_con_rec||' '||rec_con_cor.ds_doc_receb || ' cod.' || rec_con_cor.cd_reccon_rec      ds_hist
+         ,con_rec.nr_documento       || '-' || con_rec.nr_serie || '/' || itcon_rec.nr_parcela  nr_doc
+         ,( rec_con_cor.Vl_Recebido + rec_con_cor.Vl_Desconto  :CAMPO_CF_COND_SOMA_IMPOSTO   -   rec_con_cor.Vl_Acrescimo )   vl_deb
+         ,0 																												vl_cred
+from   dbamv.con_rec
+      ,dbamv.usuario_multi_empresa ume
+      ,dbamv.historico_padrao             hist_p
+      ,dbamv.itcon_rec
+      ,dbamv.fornecedor                   fornec
+      ,  (           select   reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                        , Sum( reccon_rec.vl_recebido)                    vl_recebido
+                        , Sum( Nvl(reccon_rec.vl_acrescimo,0))       vl_acrescimo
+                        , Sum( Nvl(reccon_rec.vl_desconto,0))         vl_desconto
+                        , Sum( Nvl(reccon_rec.vl_imposto_retido,0)) vl_imposto_retido
+                        , TRUNC(reccon_rec.Dt_Estorno)   Dt_Estorno
+                        , decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                            , '2', 'CARTAO'
+                                                            , '3', 'DINHEIRO'
+                                                            , '4', 'CREDITO C/C'
+                                                            , '5', 'BORDERO'
+                                                            , '6', 'BOLETO'
+                                                            , '7', 'DOC'
+                                                            , '8', 'DUPLICATA'
+                                                            , '9', 'NOTA PROMISSORIA'
+                                                            ,'10', 'TEF'
+                                                            ,'12', 'PIX'
+                                                            , 'E', 'E. DE CONTAS'
+                                                            , 'B', 'B. CONTABIL'
+                                                            , reccon_rec.tp_recebimento  ) ds_doc_receb
+                           ,reccon_rec.nr_documento                                       cd_doc_receb
+                           ,con_cor.nr_conta                                                     nr_ccorrente
+                     from   dbamv.reccon_rec
+                              ,dbamv.con_cor
+                     where  reccon_rec.cd_con_cor = con_cor.cd_con_cor(+)
+                                 and  reccon_rec.cd_processo  NOT   IN      (   Select cd_processo
+                                                                                                           from   dbamv.processo
+                                                                                                           where cd_multi_empresa = reccon_rec.cd_multi_empresa
+                                                                                                           and    cd_estrutural in (  '1.4.2.1.12' ))
+                     group by  reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                                     , TRUNC(reccon_rec.Dt_Estorno)
+                                    ,tp_recebimento
+                                    ,decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                                  , '2', 'CARTAO'
+                                                                  , '3', 'DINHEIRO'
+                                                                  , '4', 'CREDITO C/C'
+                                                                  , '5', 'BORDERO'
+                                                                  , '6', 'BOLETO'
+                                                                  , '7', 'DOC'
+                                                                  , '8', 'DUPLICATA'
+                                                                  , '9', 'NOTA PROMISSORIA'
+                                                                  ,'10', 'TEF'
+                                                                  ,'12', 'PIX'
+                                                                  , 'E', 'E. DE CONTAS'
+                                                                  , 'B', 'B. CONTABIL'
+                                                               , reccon_rec.tp_recebimento  )
+                                     ,reccon_rec.nr_documento
+                                     ,con_cor.nr_conta
+         )   Rec_Con_Cor
+where con_rec.cd_historico_padrao    = hist_p.cd_historico_padrao(+)
+and   con_rec.cd_multi_empresa       = ume.cd_multi_empresa
+and   ume.cd_id_usuario              = USER
+and   con_rec.cd_con_rec                   = itcon_rec.cd_con_rec
+and   itcon_rec.cd_itcon_rec               = rec_con_cor.cd_itcon_rec
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION ALL
+select  'R' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                                             cd_cliente
+         ,mov_glosas.dt_movimentacao           dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,'GLOSA RECEBIMENTO '||hist_p.ds_historico_padrao || ' ' || con_rec.ds_con_rec     ds_hist
+         ,con_rec.nr_documento       ||Decode(con_rec.nr_serie,NULL,NULL,'-') || con_rec.nr_serie       nr_doc
+         ,0                                  vl_deb
+         ,mov_glosas.vl_movimentacao  vl_cred
+from  dbamv.mov_glosas
+     ,dbamv.processo
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     ,dbamv.reccon_rec
+     ,dbamv.usuario_multi_empresa ume
+where  mov_glosas.cd_processo             = processo.cd_processo
+and     mov_glosas.cd_multi_empresa      = config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec              =  itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                    = con_rec.cd_con_rec
+AND   con_rec.cd_multi_empresa           = ume.cd_multi_empresa
+AND   ume.cd_id_usuario                  = USER
+AND   mov_glosas.cd_reccon_rec           = reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao         = hist_p.cd_historico_padrao(+)
+and   processo.cd_estrutural                         = '1.4.2.1.4'
+and   config_fcct.sn_contabiliza_glosa            = 'S'
+and   config_fcct.sn_contabiliza_receb_glosa = 'S'
+and     reccon_rec.cd_remessa_glosa IS  NULL
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION ALL
+select   'E' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                                             cd_cliente
+         ,mov_glosas.dt_movimentacao           dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,'ESTORNO GLOSA RECEBIMENTO '||hist_p.ds_historico_padrao || ' ' || con_rec.ds_con_rec     ds_hist
+         ,con_rec.nr_documento       ||Decode(con_rec.nr_serie,NULL,NULL,'-') || con_rec.nr_serie       nr_doc
+         ,mov_glosas.vl_movimentacao   vl_deb
+         ,0                    vl_cred
+from  dbamv.mov_glosas
+     ,dbamv.processo
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     , dbamv.reccon_rec
+     ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_processo           =  processo.cd_processo
+and    mov_glosas.cd_multi_empresa    =  config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec           =  itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                 = con_rec.cd_con_rec
+and   con_rec.cd_multi_empresa        = ume.cd_multi_empresa
+and   ume.cd_id_usuario               = USER
+AND   mov_glosas.cd_reccon_rec        = reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao      = hist_p.cd_historico_padrao(+)
+and processo.cd_estrutural = '1.4.3.1.4'
+and config_fcct.sn_contabiliza_glosa = 'S'
+and config_fcct.sn_contabiliza_receb_glosa = 'S'
+and reccon_rec.cd_remessa_glosa IS  NULL
+and con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION ALL
+select   'GR' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                                             cd_cliente
+         ,mov_glosas.dt_movimentacao           dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,'ENTREGA RECURSO GLOSA '||hist_p.ds_historico_padrao || ' ' || con_rec.ds_con_rec     ds_hist
+         ,con_rec.nr_documento       ||Decode(con_rec.nr_serie,NULL,NULL,'-') || con_rec.nr_serie       nr_doc
+         ,decode(config_fcct.tp_origem_deb_entrega_recurso,'CO',mov_glosas.vl_movimentacao,0) vl_deb
+         ,decode(config_fcct.tp_origem_cre_entrega_recurso,'CO',mov_glosas.vl_movimentacao,0) vl_cre
+from  dbamv.mov_glosas
+     ,dbamv.processo
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     , dbamv.reccon_rec
+     ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_processo           = processo.cd_processo
+and   mov_glosas.cd_multi_empresa     = config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec           =   itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                 =   con_rec.cd_con_rec
+and con_rec.cd_multi_empresa          = ume.cd_multi_empresa
+and ume.cd_id_usuario                 = USER
+AND   mov_glosas.cd_reccon_rec        =  reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao        = hist_p.cd_historico_padrao(+)
+and processo.cd_estrutural = '3.1.2.1.1'
+and config_fcct.sn_contabiliza_glosa = 'S'
+and config_fcct.sn_contabiliza_entrega_recurso = 'S'
+and (config_fcct.tp_origem_cre_entrega_recurso = 'CO' or config_fcct.tp_origem_deb_entrega_recurso = 'CO')
+and  con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION ALL
+select   'GR' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                                           cd_cliente
+         ,mov_glosas.dt_movimentacao           dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,'RECEBIMENTO RECURSO GLOSA '||hist_p.ds_historico_padrao || ' ' || con_rec.ds_con_rec     ds_hist
+         ,con_rec.nr_documento       ||Decode(con_rec.nr_serie,NULL,NULL,'-') || con_rec.nr_serie       nr_doc
+         ,0   vl_deb
+         ,mov_glosas.vl_movimentacao vl_cre
+from  dbamv.mov_glosas
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.reccon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_multi_empresa       = config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec              =  itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                    = con_rec.cd_con_rec
+and   con_rec.cd_multi_empresa           = ume.cd_multi_empresa
+and   ume.cd_id_usuario                  = USER
+AND   mov_glosas.cd_reccon_rec           = reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao        = hist_p.cd_historico_padrao(+)
+and     reccon_rec.cd_remessa_glosa IS NOT NULL
+and      con_rec.vl_previsto <> 0
+and config_fcct.sn_contabiliza_glosa = 'S'
+and config_fcct.sn_contabiliza_receb_recurso = 'S'
+and config_fcct.tp_origem_cre_receb_recurso = 'CO'
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+union all
+select   'GA' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,Nvl(fornec.cd_fornecedor,0)                                                             cd_cliente
+         ,mov_glosas.dt_movimentacao           dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,'GLOSA ACEITA  '||hist_p.ds_historico_padrao || ' ' || con_rec.ds_con_rec     ds_hist
+         ,con_rec.nr_documento       ||Decode(con_rec.nr_serie,NULL,NULL,'-') || con_rec.nr_serie       nr_doc
+         ,decode(config_fcct.tp_origem_deb_glosa_aceita,'CO',mov_glosas.vl_movimentacao,0) vl_deb
+         ,decode(config_fcct.tp_origem_cre_glosa_aceita,'CO',mov_glosas.vl_movimentacao,0) vl_cre
+from  dbamv.mov_glosas
+       ,dbamv.processo
+       ,dbamv.config_fcct
+       ,dbamv.itcon_rec
+       ,dbamv.reccon_rec
+      ,dbamv.con_rec
+      ,dbamv.historico_padrao hist_p
+      ,dbamv.fornecedor       fornec
+      ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_processo             = processo.cd_processo
+AND   mov_glosas.cd_multi_empresa    = config_fcct.cd_multi_empresa
+AND   itcon_rec.cd_itcon_rec                = mov_glosas.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                  = con_rec.cd_con_rec
+AND   mov_glosas.cd_reccon_rec         = reccon_rec.cd_reccon_rec
+and   con_rec.cd_multi_empresa         = ume.cd_multi_empresa
+and   ume.cd_id_usuario                = USER
+AND   con_rec.cd_historico_padrao      = hist_p.cd_historico_padrao(+)
+and   processo.cd_estrutural = '3.1.2.1.2'
+and   config_fcct.sn_contabiliza_glosa = 'S'
+and   config_fcct.sn_contabiliza_glosa_aceita = 'S'
+and (config_fcct.tp_origem_deb_glosa_aceita = 'CO' or config_fcct.tp_origem_cre_glosa_aceita = 'CO')
+and con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION ALL
+select tipo,
+       nm_cliente,
+       Nvl(cd_cliente,0),
+       dt_ent,
+       cd_multi_empresa,
+       ds_hist,
+       nr_doc,
+       vl_deb,
+       vl_cred from (
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                                cd_cliente
+         ,:CAMPO_DT_INIC                             dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL     ds_hist
+         ,NULL       nr_doc
+         ,0    vl_deb
+         ,0    vl_cred
+from     dbamv.con_rec
+          ,dbamv.historico_padrao             hist_p
+          ,dbamv.fornecedor                      fornec
+          ,dbamv.usuario_multi_empresa ume
+where    con_rec.cd_historico_padrao    = hist_p.cd_historico_padrao(+)
+AND      con_rec.cd_multi_empresa       = ume.cd_multi_empresa
+and      ume.cd_id_usuario              = USER
+and      con_rec.vl_previsto <> 0
+and      con_rec.cd_processo NOT in (Select cd_processo
+                                       from dbamv.processo
+                                       where cd_multi_empresa = con_rec.cd_multi_empresa
+                                       and cd_estrutural in (  '1.4.1.2.1',
+                                                               '1.4.1.1.8',
+                                                               '1.4.1.1.9',
+                                                               '1.4.1.1.10',
+                                                               '1.4.1.1.11',
+                                                               '1.4.1.1.12',
+                                                               '1.4.1.1.13',
+                                                               '1.4.1.1.14' ) )
+AND  CON_REC.CD_PREVISAO IS NULL
+:CAMPO_CF_CONFIRMA_VIRTUAL)
+UNION
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                            cd_cliente
+         ,:CAMPO_DT_INIC                           dt_ent
+         ,con_rec.cd_multi_empresa                                   cd_multi_empresa
+         ,NULL                                    ds_hist
+         ,NULL       nr_doc
+         ,0          vl_deb
+         ,0    vl_cred
+from     dbamv.con_rec
+          ,dbamv.fornecedor                   fornec
+          ,dbamv.usuario_multi_empresa ume
+where    con_rec.vl_previsto <> 0
+and      con_rec.cd_multi_empresa = ume.cd_multi_empresa
+and      ume.cd_id_usuario        = USER
+and      con_rec.cd_processo NOT in (Select cd_processo
+                                       from dbamv.processo
+                                       where cd_multi_empresa = con_rec.cd_multi_empresa
+                                       and cd_estrutural in (  '1.4.1.2.1',
+                                                                          '1.4.1.1.8',
+                                                                          '1.4.1.1.9',
+                                                                          '1.4.1.1.10',
+                                                                          '1.4.1.1.11',
+                                                                          '1.4.1.1.12',
+                                                                          '1.4.1.1.13',
+                                                                          '1.4.1.1.14' ) )
+AND  CON_REC.CD_PREVISAO IS NULL
+UNION
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                                cd_cliente
+         ,:CAMPO_DT_INIC                dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL      ds_hist
+         ,NULL  nr_doc
+         ,0     vl_deb
+         ,0   vl_cred
+from   dbamv.con_rec
+      ,dbamv.usuario_multi_empresa ume
+      ,dbamv.historico_padrao             hist_p
+      ,dbamv.itcon_rec
+      ,dbamv.fornecedor                   fornec
+      ,  (           select   reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                        , Sum( reccon_rec.vl_recebido)              vl_recebido
+                        , Sum( Nvl(reccon_rec.vl_acrescimo,0))      vl_acrescimo
+                        , Sum( Nvl(reccon_rec.vl_desconto,0))       vl_desconto
+                        , Sum( Nvl(reccon_rec.vl_imposto_retido,0)) vl_imposto_retido
+                        , TRUNC(reccon_rec.dt_recebimento)   dt_recebimento
+                        , decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                            , '2', 'CARTAO'
+                                                            , '3', 'DINHEIRO'
+                                                            , '4', 'CREDITO C/C'
+                                                            , '5', 'BORDERO'
+                                                            , '6', 'BOLETO'
+                                                            , '7', 'DOC'
+                                                            , '8', 'DUPLICATA'
+                                                            , '9', 'NOTA PROMISSORIA'
+                                                            ,'10', 'TEF'
+                                                            ,'12', 'PIX'
+                                                            , 'E', 'E. DE CONTAS'
+                                                            , 'B', 'B. CONTABIL'
+                                                            , reccon_rec.tp_recebimento  ) ds_doc_receb
+                           ,reccon_rec.nr_documento                                       cd_doc_receb
+                           ,con_cor.nr_conta                                                     nr_ccorrente
+                     from    dbamv.reccon_rec
+                               ,dbamv.con_cor
+                     where  reccon_rec.cd_con_cor = con_cor.cd_con_cor(+)
+                            and  reccon_rec.cd_processo  NOT   IN      (   Select cd_processo
+                                                                                                      from   dbamv.processo
+                                                                                                      where cd_multi_empresa = reccon_rec.cd_multi_empresa
+                                                                                                      and    cd_estrutural in (  '1.4.2.1.12' ))
+                     group by  reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                                    ,TRUNC(reccon_rec.dt_recebimento)
+                                    ,tp_recebimento
+                                    ,decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                                  , '2', 'CARTAO'
+                                                                  , '3', 'DINHEIRO'
+                                                                  , '4', 'CREDITO C/C'
+                                                                  , '5', 'BORDERO'
+                                                                  , '6', 'BOLETO'
+                                                                  , '7', 'DOC'
+                                                                  , '8', 'DUPLICATA'
+                                                                  , '9', 'NOTA PROMISSORIA'
+                                                                  ,'10', 'TEF'
+                                                                  ,'12', 'PIX'
+                                                                  , 'E', 'E. DE CONTAS'
+                                                                  , 'B', 'B. CONTABIL'
+                                                               , reccon_rec.tp_recebimento  )
+                                     ,reccon_rec.nr_documento
+                                     ,con_cor.nr_conta
+         )   Rec_Con_Cor
+where con_rec.cd_historico_padrao    = hist_p.cd_historico_padrao(+)
+and   con_rec.cd_multi_empresa       = ume.cd_multi_empresa
+and   ume.cd_id_usuario              = USER
+and   con_rec.cd_con_rec                   = itcon_rec.cd_con_rec
+and   itcon_rec.cd_itcon_rec               = rec_con_cor.cd_itcon_rec
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                                cd_cliente
+         ,:CAMPO_DT_INIC               dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL      ds_hist
+         ,NULL  nr_doc
+         ,0   vl_deb
+         ,0                                                                                                                                                                                                                                                          vl_cred  
+from   dbamv.con_rec
+	  ,dbamv.usuario_multi_empresa    ume
+      ,dbamv.historico_padrao             hist_p
+      ,dbamv.itcon_rec
+      ,dbamv.fornecedor                   fornec
+      ,  (           select   reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                        , Sum( reccon_rec.vl_recebido)                    vl_recebido
+                        , Sum( Nvl(reccon_rec.vl_acrescimo,0))       vl_acrescimo
+                        , Sum( Nvl(reccon_rec.vl_desconto,0))         vl_desconto
+                        , Sum( Nvl(reccon_rec.vl_imposto_retido,0)) vl_imposto_retido
+                        , TRUNC(reccon_rec.Dt_Estorno)   Dt_Estorno
+                        , decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                            , '2', 'CARTAO'
+                                                            , '3', 'DINHEIRO'
+                                                            , '4', 'CREDITO C/C'
+                                                            , '5', 'BORDERO'
+                                                            , '6', 'BOLETO'
+                                                            , '7', 'DOC'
+                                                            , '8', 'DUPLICATA'
+                                                            , '9', 'NOTA PROMISSORIA'
+                                                            ,'10', 'TEF'
+                                                            ,'12', 'PIX'
+                                                            , 'E', 'E. DE CONTAS'
+                                                            , 'B', 'B. CONTABIL'
+                                                            , reccon_rec.tp_recebimento  ) ds_doc_receb
+                           ,reccon_rec.nr_documento                                       cd_doc_receb
+                           ,con_cor.nr_conta                                                     nr_ccorrente
+                     from   dbamv.reccon_rec
+                              ,dbamv.con_cor
+                     where  reccon_rec.cd_con_cor = con_cor.cd_con_cor(+)
+                     group by  reccon_rec.cd_itcon_rec  ,  reccon_rec.cd_reccon_rec
+                                     , TRUNC(reccon_rec.Dt_Estorno)
+                                    ,tp_recebimento
+                                    ,decode( reccon_rec.tp_recebimento, '1', 'CHEQUE'
+                                                                  , '2', 'CARTAO'
+                                                                  , '3', 'DINHEIRO'
+                                                                  , '4', 'CREDITO C/C'
+                                                                  , '5', 'BORDERO'
+                                                                  , '6', 'BOLETO'
+                                                                  , '7', 'DOC'
+                                                                  , '8', 'DUPLICATA'
+                                                                  , '9', 'NOTA PROMISSORIA'
+                                                                  ,'10', 'TEF'
+                                                                  ,'12', 'PIX'
+                                                                  , 'E', 'E. DE CONTAS'
+                                                                  , 'B', 'B. CONTABIL'
+                                                               , reccon_rec.tp_recebimento  )
+                                     ,reccon_rec.nr_documento
+                                     ,con_cor.nr_conta
+         )   Rec_Con_Cor
+where con_rec.cd_historico_padrao    = hist_p.cd_historico_padrao(+)
+and   con_rec.cd_multi_empresa       = ume.cd_multi_empresa
+and   ume.cd_id_usuario              = USER
+and   con_rec.cd_con_rec                   = itcon_rec.cd_con_rec
+and   itcon_rec.cd_itcon_rec               = rec_con_cor.cd_itcon_rec
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION
+select  'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                             cd_cliente
+         ,:CAMPO_DT_INIC     dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL     ds_hist
+         ,NULL       nr_doc
+         ,0                                  vl_deb
+         ,0  vl_cred
+from  dbamv.mov_glosas
+     ,dbamv.processo
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     ,dbamv.reccon_rec
+     ,dbamv.usuario_multi_empresa ume
+where  mov_glosas.cd_processo             = processo.cd_processo
+and     mov_glosas.cd_multi_empresa      = config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec              =  itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                    = con_rec.cd_con_rec
+and   con_rec.cd_multi_empresa           = ume.cd_multi_empresa
+and   ume.cd_id_usuario                  = USER
+AND   mov_glosas.cd_reccon_rec           = reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao         = hist_p.cd_historico_padrao(+)
+and   processo.cd_estrutural                         = '1.4.2.1.4'
+and   config_fcct.sn_contabiliza_glosa            = 'S'
+and   config_fcct.sn_contabiliza_receb_glosa = 'S'
+and     reccon_rec.cd_remessa_glosa IS  NULL
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                             cd_cliente
+         ,:CAMPO_DT_INIC         dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL     ds_hist
+         ,NULL      nr_doc
+         ,0   vl_deb
+         ,0                    vl_cred
+from  dbamv.mov_glosas
+     ,dbamv.processo
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     , dbamv.reccon_rec
+     ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_processo           =  processo.cd_processo
+and    mov_glosas.cd_multi_empresa    =  config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec           =  itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                 = con_rec.cd_con_rec
+and   con_rec.cd_multi_empresa        = ume.cd_multi_empresa
+and   ume.cd_id_usuario               = USER
+AND   mov_glosas.cd_reccon_rec        = reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao      = hist_p.cd_historico_padrao(+)
+and processo.cd_estrutural = '1.4.3.1.4'
+and config_fcct.sn_contabiliza_glosa = 'S'
+and config_fcct.sn_contabiliza_receb_glosa = 'S'
+and     reccon_rec.cd_remessa_glosa IS  NULL
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                             cd_cliente
+         ,:CAMPO_DT_INIC        dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL     ds_hist
+         ,NULL       nr_doc
+         ,0 vl_deb
+         ,0 vl_cre
+from  dbamv.mov_glosas
+     ,dbamv.processo
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     , dbamv.reccon_rec
+     ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_processo           = processo.cd_processo
+and   mov_glosas.cd_multi_empresa     = config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec           =   itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                 =   con_rec.cd_con_rec
+AND   con_rec.cd_multi_empresa        = ume.cd_multi_empresa
+and   ume.cd_id_usuario               = USER
+AND   mov_glosas.cd_reccon_rec        =  reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao        = hist_p.cd_historico_padrao(+)
+and processo.cd_estrutural = '3.1.2.1.1'
+and config_fcct.sn_contabiliza_glosa = 'S'
+and config_fcct.sn_contabiliza_entrega_recurso = 'S'
+and (config_fcct.tp_origem_cre_entrega_recurso = 'CO' or config_fcct.tp_origem_deb_entrega_recurso = 'CO')
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+UNION
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                             cd_cliente
+         ,:CAMPO_DT_INIC        dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL     ds_hist
+         ,NULL       nr_doc
+         ,0   vl_deb
+         ,0   vl_cre
+from  dbamv.mov_glosas
+     ,dbamv.config_fcct
+     ,dbamv.itcon_rec
+     ,dbamv.reccon_rec
+     ,dbamv.con_rec
+     ,dbamv.historico_padrao hist_p
+     ,dbamv.fornecedor       fornec
+     ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_multi_empresa       = config_fcct.cd_multi_empresa
+AND   mov_glosas.cd_itcon_rec              =  itcon_rec.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                    = con_rec.cd_con_rec
+and con_rec.cd_multi_empresa            = ume.cd_multi_empresa
+and ume.cd_id_usuario                   = USER
+AND   mov_glosas.cd_reccon_rec           = reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao        = hist_p.cd_historico_padrao(+)
+and     reccon_rec.cd_remessa_glosa IS NOT NULL
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+and config_fcct.sn_contabiliza_glosa = 'S'
+and config_fcct.sn_contabiliza_receb_recurso = 'S'
+and config_fcct.tp_origem_cre_receb_recurso = 'CO'
+UNION
+select   'P' tipo
+         ,Decode (con_rec.cd_fornecedor, '', Decode(:CAMPO_CF_PSN_N_CAD_CLI, 'S', 'CLIENTE NÃO CADASTRADO',CON_REC.NM_CLIENTE )
+         ,fornec.nm_fornecedor) nm_cliente
+         ,fornec.cd_fornecedor                                                             cd_cliente
+         ,:CAMPO_DT_INIC          dt_ent
+         ,con_rec.cd_multi_empresa                 cd_multi_empresa
+         ,NULL     ds_hist
+         ,NULL       nr_doc
+         ,0 vl_deb
+         ,0 vl_cre
+from  dbamv.mov_glosas
+       ,dbamv.processo
+       ,dbamv.config_fcct
+       ,dbamv.itcon_rec
+       ,dbamv.reccon_rec
+      ,dbamv.con_rec
+      ,dbamv.historico_padrao hist_p
+      ,dbamv.fornecedor       fornec
+      ,dbamv.usuario_multi_empresa ume
+where mov_glosas.cd_processo             = processo.cd_processo
+AND   mov_glosas.cd_multi_empresa    = config_fcct.cd_multi_empresa
+AND   itcon_rec.cd_itcon_rec                = mov_glosas.cd_itcon_rec
+AND   itcon_rec.cd_con_rec                  = con_rec.cd_con_rec
+and   con_rec.cd_multi_empresa         = ume.cd_multi_empresa
+and   ume.cd_id_usuario                = USER
+AND   mov_glosas.cd_reccon_rec         = reccon_rec.cd_reccon_rec
+AND   con_rec.cd_historico_padrao      = hist_p.cd_historico_padrao(+)
+and   processo.cd_estrutural = '3.1.2.1.2'
+and   config_fcct.sn_contabiliza_glosa = 'S'
+and   config_fcct.sn_contabiliza_glosa_aceita = 'S'
+and (config_fcct.tp_origem_deb_glosa_aceita = 'CO' or config_fcct.tp_origem_cre_glosa_aceita = 'CO')
+and      con_rec.vl_previsto <> 0
+AND  itcon_rec.cd_con_rec_agrup  IS NULL 
+ORDER BY  2, 4, 5
+)
+ORDER BY CD_MULTI_EMPRESA,
+CD_CLIENTE,NM_CLIENTE, dt_ent

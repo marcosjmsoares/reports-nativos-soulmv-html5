@@ -1,0 +1,32 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_CONS_ANUAL
+SELECT   *
+FROM (
+select   a.cd_cen_cus        cd_cen_cus
+        ,a.nm_setor                nm_setor
+        ,a.cd_contabil            cd_contabil
+        ,a.ds_conta                ds_conta
+        ,abs(sum(a.vl_debito) )       vl_debito
+        ,abs(sum(a.vl_credito) )      vl_credito
+        ,sum( (nvl(nvl(a.vl_credito,0)-nvl(a.vl_debito,0) ,0)) ) vl_saldo_mes
+from
+(
+select   nvl(setor.cd_cen_cus, setor.cd_setor)             cd_cen_cus
+         ,rtrim(setor.nm_setor)       nm_setor
+         ,pc.cd_contabil              cd_contabil
+         ,pc.ds_conta                 ds_conta
+         ,(nvl(sms.vl_debito,0))   vl_debito
+         ,(nvl(sms.vl_credito,0))  vl_credito
+         ,(nvl(nvl(sms.vl_credito,0)-nvl(sms.vl_debito,0) ,0)) vl_saldo_mes
+from dbamv.plano_contas pc
+      ,dbamv.setor        setor
+      ,dbamv.saldo_mensal_setor  sms
+where setor.cd_setor             = sms.cd_setor
+and    sms.cd_reduzido          = pc.cd_reduzido
+and    (sms.vl_debito <> 0 or sms.vl_credito <> 0)
+and    pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    to_char(sms.dt_saldo_mes,'yyyy')  = to_char(:CAMPO_SALDO_MES,'yyyy')
+:CAMPO_CF_SETOR
+)a
+group by a.cd_cen_cus,a.nm_setor,a.cd_contabil,a.ds_conta
+)

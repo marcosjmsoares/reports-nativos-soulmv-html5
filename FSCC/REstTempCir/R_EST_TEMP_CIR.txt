@@ -1,0 +1,196 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_TEMP_CIR
+SELECT * FROM (
+SELECT  CIRURGIA_AVISO.CD_AVISO_CIRURGIA                                                       CD_AVISO_CIRURGIA 
+               ,PRESTADOR.CD_PRESTADOR                                                                           CD_PRESTADOR
+               ,PRESTADOR.NM_PRESTADOR                                                                          NM_PRESTADOR
+               ,AVISO_CIRURGIA.DT_REALIZACAO                                                                   DT_REALIZACAO
+	     ,To_Char(AVISO_CIRURGIA.DT_REALIZACAO, 'HH24')
+HR_ENT_SALA
+               ,AVISO_CIRURGIA.DT_INICIO_ANESTESIA                                                         DT_INICIO_ANESTESIA
+	     ,To_Char(AVISO_CIRURGIA.DT_INICIO_ANESTESIA, 'HH24')
+HR_INI_ANEST
+               ,AVISO_CIRURGIA.DT_FIM_ANESTESIA                                                              DT_FIM_ANESTESIA
+	     ,To_Char(AVISO_CIRURGIA.DT_FIM_ANESTESIA, 'HH24')
+HR_FIM_ANEST
+               ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_ANESTESIA,
+                                   AVISO_CIRURGIA.DT_FIM_ANESTESIA,
+                                   '-'), 'HH24' )                                                                                     MED_ANEST
+               ,AVISO_CIRURGIA.DT_INICIO_CIRURGIA                                                             DT_INICIO_CIRURGIA
+	     ,To_Char(AVISO_CIRURGIA.DT_INICIO_CIRURGIA, 'HH24')
+HR_INI_CIR
+               ,AVISO_CIRURGIA.DT_FIM_CIRURGIA                                                                  DT_FIM_CIRURGIA
+               ,To_Char(AVISO_CIRURGIA.DT_FIM_CIRURGIA, 'HH24')
+HR_FIM_CIR
+               ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_CIRURGIA,
+                                   AVISO_CIRURGIA.DT_FIM_CIRURGIA,
+                                   '-'), 'HH24' )                                                                                       MED_CIR
+               ,AVISO_CIRURGIA.DT_INICIO_LIMPEZA                                                               DT_INICIO_LIMPEZA
+	     ,To_Char(AVISO_CIRURGIA.DT_INICIO_LIMPEZA, 'HH24')                                           HR_INI_LIMP
+               ,AVISO_CIRURGIA.DT_FIM_LIMPEZA                                                                    DT_FIM_LIMPEZA
+	     ,To_Char(AVISO_CIRURGIA.DT_FIM_LIMPEZA, 'HH24')                                              HR_FIM_LIMP
+               ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_LIMPEZA,
+                                   AVISO_CIRURGIA.DT_FIM_LIMPEZA,
+                                   '-'), 'HH24' )                                                                                       MED_LIMP
+               ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_REALIZACAO,
+                                    AVISO_CIRURGIA.VL_TEMPO_DURACAO,
+                                    '+'), 'HH24' )                                                                                     SAI_SALA
+                ,TO_CHAR( VL_TEMPO_DURACAO, 'HH24' )                                                   MED_GERAL
+               ,DECODE( CONVENIO.TP_CONVENIO, 'P', PRO_FAT.CD_PRO_FAT,
+					'C', PRO_FAT.CD_PRO_FAT,
+					'H', PRO_FAT_SUS.CD_SUS,
+                                                                                'A', TAB_SIASUS.CD_SSM,
+                                                                                '   '   )                       CD_PRO_FAT
+               ,DECODE( CONVENIO.TP_CONVENIO, 'P', PRO_FAT.DS_PRO_FAT,
+					'C', PRO_FAT.DS_PRO_FAT,
+					'H', PRO_FAT_SUS.DS_SUS,
+                                                                                'A', TAB_SIASUS.DS_TITULO,
+                                                                                CIRURGIA.DS_CIRURGIA   )                 DS_PRO_FAT
+               ,TIP_ANEST.CD_TIP_ANEST                                                                                 CD_TIP_ANEST
+               ,TIP_ANEST.DS_TIP_ANEST                                                                                 DS_TIP_ANEST
+               ,CIRURGIA.DS_CIRURGIA						DS_CIRURGIA
+FROM   (SELECT P_A.CD_PRESTADOR,
+                             A_M.CD_ATI_MED,
+                             A_M.DS_ATI_MED,
+                             P_A.CD_CIRURGIA_AVISO,
+                             P_A.CD_AVISO_CIRURGIA,
+                             P_A.CD_CIRURGIA
+                 FROM DBAMV.PRESTADOR_AVISO P_A,
+                            DBAMV.ATI_MED A_M
+                 WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                       AND  A_M.TP_FUNCAO = 'C'
+                 :CAMPO_CF_COND_PRESTA_SUB_Q) PRESTADOR_AVISO
+             ,DBAMV.ATI_MED                        ATI_MED
+             ,DBAMV.PRESTADOR                 PRESTADOR
+             ,DBAMV.AVISO_CIRURGIA         AVISO_CIRURGIA
+             ,DBAMV.CIRURGIA_AVISO         CIRURGIA_AVISO
+             ,DBAMV.CIRURGIA                      CIRURGIA
+             ,DBAMV.PRO_FAT                       PRO_FAT
+             ,DBAMV.PRO_FAT		   PRO_FAT_SUS
+             ,DBAMV.TAB_SIASUS                 TAB_SIASUS
+             ,DBAMV.TIP_ANEST                   TIP_ANEST
+             ,DBAMV.CONVENIO                     CONVENIO
+             ,DBAMV.CEN_CIR                      CEN_CIR
+             ,DBAMV.ESTOQUE                      ESTOQUE
+             ,DBAMV.SETOR                        SETOR
+Where PRESTADOR_AVISO.CD_PRESTADOR     =  PRESTADOR.CD_PRESTADOR(+)
+AND    PRESTADOR_AVISO.CD_ATI_MED               =  ATI_MED.CD_ATI_MED(+)
+AND    AVISO_CIRURGIA.CD_AVISO_CIRURGIA   =  CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+AND    CIRURGIA_AVISO.CD_CIRURGIA_AVISO    =  PRESTADOR_AVISO.CD_CIRURGIA_AVISO(+)
+AND    AVISO_CIRURGIA.TP_SITUACAO                  = 'R'
+AND    CIRURGIA_AVISO.CD_CIRURGIA                   = CIRURGIA.CD_CIRURGIA
+AND    AVISO_CIRURGIA.CD_CEN_CIR  = CEN_CIR.CD_CEN_CIR
+AND    CEN_CIR.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+AND    ESTOQUE.CD_SETOR   = SETOR.CD_SETOR
+AND    SETOR.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+AND    CIRURGIA.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT(+)
+AND    CIRURGIA.CD_PRO_FAT_SUS = PRO_FAT_SUS.CD_PRO_FAT(+)
+AND    CIRURGIA.CD_SSM = TAB_SIASUS.CD_SSM(+)
+AND    AVISO_CIRURGIA.CD_TIP_ANEST = TIP_ANEST.CD_TIP_ANEST(+)
+AND    CIRURGIA_AVISO.CD_CONVENIO = CONVENIO.CD_CONVENIO(+)
+AND   AVISO_CIRURGIA.DT_REALIZACAO  BETWEEN TO_DATE(:CAMPO_DATA_INI || ' 00' ,'DD/MM/YYYY hh24')  AND  TO_DATE(:CAMPO_DATA_FIM || '23','DD/MM/YYYY hh24')
+UNION ALL
+SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA                                                            CD_AVISO_CIRURGIA
+             ,PRESTADOR.CD_PRESTADOR                                                                            CD_PRESTADOR
+             ,PRESTADOR.NM_PRESTADOR                                                                           NM_PRESTADOR
+             ,AVISO_CIRURGIA.DT_REALIZACAO                                                                    DT_REALIZACAO
+	   ,To_Char(AVISO_CIRURGIA.DT_REALIZACAO, 'HH24')                                           HR_ENT_SALA
+             ,AVISO_CIRURGIA.DT_INICIO_ANESTESIA                                                          DT_INICIO_ANESTESIA
+	   ,To_Char(AVISO_CIRURGIA.DT_INICIO_ANESTESIA, 'HH24')                                     HR_INI_ANEST
+             ,AVISO_CIRURGIA.DT_FIM_ANESTESIA                                                               DT_FIM_ANESTESIA
+	   ,To_Char(AVISO_CIRURGIA.DT_FIM_ANESTESIA, 'HH24')                                        HR_FIM_ANEST
+             ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_ANESTESIA,
+                                 AVISO_CIRURGIA.DT_FIM_ANESTESIA,
+                                 '-'), 'HH24' )                                                                                       MED_ANEST
+             ,AVISO_CIRURGIA.DT_INICIO_CIRURGIA                                                             DT_INICIO_CIRURGIA
+	   ,To_Char(AVISO_CIRURGIA.DT_INICIO_CIRURGIA, 'HH24')                                      HR_INI_CIR
+             ,AVISO_CIRURGIA.DT_FIM_CIRURGIA                                                                  DT_FIM_CIRURGIA
+	   ,To_Char(AVISO_CIRURGIA.DT_FIM_CIRURGIA, 'HH24')                                         HR_FIM_CIR
+             ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_CIRURGIA,
+                                 AVISO_CIRURGIA.DT_FIM_CIRURGIA,
+                                 '-'), 'HH24' )                                                                                       MED_CIR
+             ,AVISO_CIRURGIA.DT_INICIO_LIMPEZA                                                               DT_INICIO_LIMPEZA
+	   ,To_Char(AVISO_CIRURGIA.DT_INICIO_LIMPEZA, 'HH24')                                       HR_INI_LIMP
+             ,AVISO_CIRURGIA.DT_FIM_LIMPEZA                                                                    DT_FIM_LIMPEZA
+	   ,To_Char(AVISO_CIRURGIA.DT_FIM_LIMPEZA, 'HH24')                                          HR_FIM_LIMP
+             ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_LIMPEZA,
+                                 AVISO_CIRURGIA.DT_FIM_LIMPEZA,
+                                 '-'), 'HH24' )                                                                                       MED_LIMP
+             ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_CIRURGIA,
+                                  AVISO_CIRURGIA.VL_TEMPO_DURACAO,
+                                  '+'), 'HH24' )                                                                                     SAI_SALA
+             ,TO_CHAR( SOMA_SUB_DATA(AVISO_CIRURGIA.DT_REALIZACAO,
+                                (SOMA_SUB_DATA(AVISO_CIRURGIA.DT_INICIO_CIRURGIA,
+                                 AVISO_CIRURGIA.VL_TEMPO_DURACAO,
+                                 '+')),
+                                 '-'), 'HH24' )                                                                                       MED_GERAL
+               ,DECODE( CONVENIO.TP_CONVENIO, 'P', PRO_FAT.CD_PRO_FAT,
+					'C', PRO_FAT.CD_PRO_FAT,
+					'H', PRO_FAT_SUS.CD_SUS,
+                                                                                'A', TAB_SIASUS.CD_SSM,
+                                                                                '   '   )                       CD_PRO_FAT
+               ,DECODE( CONVENIO.TP_CONVENIO, 'P', PRO_FAT.DS_PRO_FAT,
+					'C', PRO_FAT.DS_PRO_FAT,
+					'H', PRO_FAT_SUS.DS_SUS,
+                                                                                'A', TAB_SIASUS.DS_TITULO,
+                                                                                CIRURGIA.DS_CIRURGIA   )                 DS_PRO_FAT
+             ,TIP_ANEST.CD_TIP_ANEST                                                                                  CD_TIP_ANEST
+             ,TIP_ANEST.DS_TIP_ANEST                                                                                  DS_TIP_ANEST
+               ,CIRURGIA.DS_CIRURGIA						DS_CIRURGIA
+FROM   DBAMV.EQUIPE_MEDICA              EQUIPE_MEDICA
+             ,DBAMV.EQUIPE_PRESTADOR    EQUIPE_PRESTADOR
+             ,DBAMV.PRESTADOR                   PRESTADOR
+             ,DBAMV.AVISO_CIRURGIA           AVISO_CIRURGIA
+             ,DBAMV.CIRURGIA_AVISO           CIRURGIA_AVISO
+             ,DBAMV.CIRURGIA                        CIRURGIA
+             ,DBAMV.PRO_FAT                         PRO_FAT
+             ,DBAMV.TAB_SIASUS                   TAB_SIASUS
+             ,DBAMV.PRO_FAT                         PRO_FAT_SUS
+             ,DBAMV.TIP_ANEST                     TIP_ANEST
+             ,DBAMV.CONVENIO                       CONVENIO
+             ,DBAMV.SETOR                          SETOR
+             ,DBAMV.CEN_CIR                        CEN_CIR
+             ,DBAMV.ESTOQUE                        ESTOQUE
+WHERE  EQUIPE_MEDICA.CD_EQUIPE_MEDICA  =   AVISO_CIRURGIA.CD_EQUIPE_MEDICA
+AND    EQUIPE_MEDICA.CD_EQUIPE_MEDICA      =  EQUIPE_PRESTADOR.CD_EQUIPE_MEDICA
+AND    PRESTADOR.CD_PRESTADOR                   =  EQUIPE_PRESTADOR.CD_PRESTADOR
+AND EXISTS (SELECT TP_FUNCAO
+                         FROM DBAMV.ATI_MED
+                         WHERE  ATI_MED.CD_ATI_MED = EQUIPE_PRESTADOR.CD_ATI_MED
+                               AND  TP_FUNCAO = 'C' )
+AND    AVISO_CIRURGIA.TP_SITUACAO = 'R'
+AND    CIRURGIA_AVISO.CD_AVISO_CIRURGIA  = AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+AND    CIRURGIA_AVISO.CD_CIRURGIA              = CIRURGIA.CD_CIRURGIA
+AND    CIRURGIA.CD_PRO_FAT  =   PRO_FAT.CD_PRO_FAT(+)
+AND    CIRURGIA.CD_PRO_FAT_SUS   =   PRO_FAT_SUS.CD_PRO_FAT(+)
+AND    CIRURGIA.CD_SSM                     = TAB_SIASUS.CD_SSM(+)
+AND    AVISO_CIRURGIA.CD_TIP_ANEST = TIP_ANEST.CD_TIP_ANEST(+)
+AND    AVISO_CIRURGIA.CD_CEN_CIR  = CEN_CIR.CD_CEN_CIR
+AND    CEN_CIR.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+AND    ESTOQUE.CD_SETOR   = SETOR.CD_SETOR
+AND    SETOR.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+AND    CIRURGIA_AVISO.CD_CONVENIO = CONVENIO.CD_CONVENIO(+)
+AND    AVISO_CIRURGIA.DT_REALIZACAO  BETWEEN TO_DATE(:CAMPO_DATA_INI || ' 00' ,'DD/MM/YYYY hh24')  AND              TO_DATE(:CAMPO_DATA_FIM || '23','DD/MM/YYYY hh24')
+AND     NOT exists  ( SELECT  AVISO_CIRURGIA.CD_AVISO_CIRURGIA  CD_AVISO_CIRURGIA
+                                     FROM    (SELECT P_A.CD_PRESTADOR,
+                                                                   A_M.CD_ATI_MED,
+                                                                   A_M.DS_ATI_MED,
+                                                                   P_A.CD_CIRURGIA_AVISO,
+                                                                   P_A.CD_AVISO_CIRURGIA,
+                                                                   P_A.CD_CIRURGIA
+                                                       FROM DBAMV.PRESTADOR_AVISO P_A,
+                                                                   DBAMV.ATI_MED A_M
+                                                    WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                                                          AND  A_M.TP_FUNCAO = 'C'
+                                                    :CAMPO_CF_COND_PRESTA_SUB_Q) PRESTADOR_AVISO
+                                                ,DBAMV.AVISO_CIRURGIA     AVS_CIRURGIA
+                                                ,DBAMV.ATI_MED            ATI_MED
+                                                ,DBAMV.CIRURGIA_AVISO           CIRURGIA_AVISO
+                                WHERE  AVS_CIRURGIA.CD_AVISO_CIRURGIA   =  CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+                                      AND  CIRURGIA_AVISO.CD_CIRURGIA_AVISO    =  PRESTADOR_AVISO.CD_CIRURGIA_AVISO(+)
+                                      AND  PRESTADOR_AVISO.CD_ATI_MED  =  ATI_MED.CD_ATI_MED(+)
+                                      AND  AVS_CIRURGIA.TP_SITUACAO = 'R'
+                                      AND  AVS_CIRURGIA.CD_AVISO_CIRURGIA = AVISO_CIRURGIA.CD_AVISO_CIRURGIA )
+ORDER BY NM_PRESTADOR, DT_REALIZACAO
+)
+ORDER BY NM_PRESTADOR, CD_PRESTADOR, DT_REALIZACAO, DS_CIRURGIA

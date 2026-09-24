@@ -1,0 +1,82 @@
+/*----------------------------------------------------------------------------*/
+--R_EFICIE_ATEND_SINT
+SELECT a.cd_setor, s.nm_setor
+      ,Tp_Solsai_Pro
+      ,Cd_Solsai_Pro
+      ,Dt_Solsai_Pro
+      ,Hr_Solsai_Pro
+      ,Dt_Mvto_Estoque
+      ,Hr_Mvto_Estoque
+      ,Atend_Est
+      ,Qtd_produto
+      ,temp_tot FROM (
+Select Cd_Setor
+      ,Nm_Setor
+      ,Tp_Solsai_Pro
+      ,Cd_Solsai_Pro
+      ,Dt_Solsai_Pro
+      ,Hr_Solsai_Pro
+      ,Dt_Mvto_Estoque
+      ,Hr_Mvto_Estoque
+      ,Atend_Est
+      ,Qtd_produto
+      ,Decode(Sign(temp_tot),-1,0,temp_tot) temp_tot
+From ( Select Decode(Solsai_Pro.Tp_Solsai_Pro, 'E', Estoque.Cd_Setor, Setor.Cd_Setor ) Cd_Setor
+     , Setor.Nm_Setor Nm_Setor
+     , Decode (Solsai_Pro.Tp_Solsai_Pro, 'P', 'S', Decode (Solsai_Pro.Tp_Solsai_Pro, 'C', 'D', Solsai_Pro.Tp_Solsai_Pro), Solsai_Pro.Tp_Solsai_Pro, Solsai_Pro.Tp_Solsai_Pro) Tp_Solsai_Pro
+     , Solsai_Pro.Cd_Solsai_Pro Cd_Solsai_Pro
+     , To_Date(To_Char(nvl(Solsai_Pro.Dt_impressao,Solsai_Pro.Dt_gravacao), 'dd/mm/yyyy') ,'dd/mm/yyyy') Dt_Solsai_Pro
+     , To_Date(To_Char(nvl(Solsai_Pro.Dt_impressao,Solsai_Pro.Dt_gravacao), 'hh24') ,'hh24') Hr_Solsai_Pro
+     , Mvto_Estoque.Dt_Mvto_Estoque Dt_Mvto_Estoque
+     , Mvto_Estoque.Hr_Mvto_Estoque Hr_Mvto_Estoque
+     , Decode (Solsai_Pro.Tp_Solsai_Pro, 'P', Paciente.Nm_Paciente
+                                       , 'C', Paciente.Nm_Paciente
+                                       , 'S', Setor.Nm_Setor
+                                       , 'D', Setor.Nm_Setor
+                                       , 'E', Setor_des.Nm_Setor ) Atend_Est
+     , Count(Itmvto_Estoque.Cd_Produto)  Qtd_produto
+       ,round( ( Fnc_Mv_Recupera_Data_Hora( Mvto_Estoque.Dt_Mvto_Estoque, Mvto_Estoque.Hr_Mvto_Estoque )
+         - Fnc_Mv_Recupera_Data_Hora( To_Date(To_Char(nvl(Solsai_Pro.Dt_impressao,Solsai_Pro.Dt_gravacao), 'dd/mm/yyyy') ,'dd/mm/yyyy'), To_Date(To_Char(nvl(Solsai_Pro.Dt_impressao,Solsai_Pro.Dt_gravacao), 'hh24') ,'hh24') ) ) * 24, 2 ) temp_tot
+ From Dbamv.Solsai_Pro
+    , Dbamv.Setor
+    , Dbamv.Setor Setor_Des
+    , Dbamv.Mvto_Estoque
+    , Dbamv.Itmvto_Estoque
+    , Dbamv.Atendime
+    , Dbamv.Paciente
+    , Dbamv.Estoque
+    , Dbamv.Estoque Estoque_Destino
+Where Solsai_Pro.Cd_Solsai_Pro = Mvto_Estoque.Cd_Solsai_Pro
+  And Mvto_Estoque.Cd_Estoque    = Estoque.Cd_Estoque
+  And Mvto_Estoque.Cd_Estoque_destino  = Estoque_destino.Cd_Estoque
+  And Estoque_Destino.Cd_Setor(+)    = Setor_Des.Cd_Setor
+  And Mvto_Estoque.Cd_Setor    = Setor.Cd_Setor(+)
+  And Mvto_Estoque.Cd_Mvto_Estoque = Itmvto_Estoque.Cd_Mvto_Estoque
+  And Solsai_Pro.Dt_Solsai_Pro between :CAMPO_DTINI
+                                                          And 
+  And Atendime.Cd_Atendimento(+) = Mvto_Estoque.Cd_Atendimento
+  AND Estoque.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+  And Atendime.Cd_Paciente    = Paciente.Cd_Paciente(+)
+  And to_date( to_char (Mvto_Estoque.Dt_Mvto_Estoque, 'dd/mm/yyyy') || ' ' ||
+                       to_char (Mvto_Estoque.Hr_Mvto_Estoque, 'hh24') , 'dd/mm/yyyy hh24')
+   in ( Select max( to_date( to_char (Me.Dt_Mvto_Estoque, 'dd/mm/yyyy') || ' ' ||
+                                          to_char (Me.Hr_Mvto_Estoque, 'hh24') , 'dd/mm/yyyy hh24'))
+          from dbamv.Mvto_Estoque Me
+         where Me.Cd_Solsai_Pro = Mvto_Estoque.Cd_Solsai_Pro )
+Group By Decode(Solsai_Pro.Tp_Solsai_Pro, 'E', Estoque.Cd_Setor, Setor.Cd_Setor )
+     , Setor.Nm_Setor
+     , Decode (Solsai_Pro.Tp_Solsai_Pro, 'P', 'S', Decode (Solsai_Pro.Tp_Solsai_Pro, 'C', 'D', Solsai_Pro.Tp_Solsai_Pro), Solsai_Pro.Tp_Solsai_Pro, Solsai_Pro.Tp_Solsai_Pro)
+     , Solsai_Pro.Cd_Solsai_Pro
+     , To_Date(To_Char(nvl(Solsai_Pro.Dt_impressao,Solsai_Pro.Dt_gravacao), 'dd/mm/yyyy') ,'dd/mm/yyyy')
+     , To_Date(To_Char(nvl(Solsai_Pro.Dt_impressao,Solsai_Pro.Dt_gravacao), 'hh24') ,'hh24')
+     , Mvto_Estoque.Cd_Mvto_Estoque
+     , Mvto_Estoque.Dt_Mvto_Estoque
+     , Mvto_Estoque.Hr_Mvto_Estoque
+     , Decode (Solsai_Pro.Tp_Solsai_Pro, 'P', Paciente.Nm_Paciente
+                                       , 'C', Paciente.Nm_Paciente
+                                       , 'S', Setor.Nm_Setor
+                                       , 'D', Setor.Nm_Setor
+                                       , 'E', Setor_des.Nm_Setor )
+) ) a , dbamv.setor s
+WHERE a.cd_setor = s.cd_setor
+Order by tp_solsai_pro,nm_setor

@@ -1,0 +1,116 @@
+/*----------------------------------------------------------------------------*/
+--R_CMU
+SELECT InitCap( DS_RAZAO_SOCIAL) "DS_RAZAO_SOCIAL",
+	InitCap( DS_ENDERECO) "DS_ENDERECO",
+	NR_ENDERECO "NR_ENDERECO",
+	InitCap( NM_BAIRRO) "NM_BAIRRO",
+	regexp_replace(LPAD(cd_cgc, 14),'([0-9]{2})([0-9]{3})([0-9]{3})([0-9]{4})','\1\2\3/\4-') "CD_CGC",
+	cd_iest "CD_IEST"
+FROM dbamv.multi_empresas 
+WHERE cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CMU_INFORMACOES
+SELECT DISTINCT ord.cd_ord_com, 
+       pac.nm_paciente, 
+       conv.nm_convenio, 
+       reg.nr_guia, 
+       pac.cd_paciente, 
+       SUBSTR( undit.ds_localizacao, 1, INSTR(undit.ds_localizacao, ' ALA'))  "Andar", 
+       SUBSTR( undit.ds_localizacao, INSTR(undit.ds_localizacao, 'ALA'))   "Ala", 
+       atend.cd_leito, 
+       le.ds_leito, 
+       prest.nm_prestador , 
+       prest.ds_codigo_conselho, 
+       prcsus.ds_procedimento, 
+       prcsus.cd_procedimento, 
+       mvtoest.dt_mvto_estoque, 
+       ord.cd_fornecedor, 
+       forne.nm_fornecedor, 
+       forne.nm_contato 
+FROM   dbamv.consumo_paciente cons, 
+       dbamv.itconsumo_paciente itpac, 
+       dbamv.itmvto_estoque itest, 
+       dbamv.mvto_estoque mvtoest, 
+       dbamv.ord_com ord, 
+       dbamv.itreg_fat itreg, 
+       dbamv.reg_fat reg, 
+       dbamv.atendime atend, 
+       dbamv.produto prod, 
+       dbamv.procedimento_sus prcsus, 
+       dbamv.paciente pac, 
+       dbamv.prestador prest, 
+       dbamv.convenio conv, 
+       dbamv.leito le, 
+       dbamv.unid_int undit, 
+       dbamv.fornecedor forne 
+WHERE  cons.cd_consumo_paciente = itpac.cd_consumo_paciente 
+       AND itpac.cd_itmvto_estoque = itest.cd_itmvto_estoque 
+       AND itpac.cd_produto = itest.cd_produto 
+       AND itest.cd_mvto_estoque = mvtoest.cd_mvto_estoque 
+       AND ord.cd_consumo_paciente = cons.cd_consumo_paciente 
+       AND reg.cd_atendimento = cons.cd_atendimento 
+       AND atend.cd_atendimento = cons.cd_atendimento 
+       AND reg.cd_reg_fat = itreg.cd_reg_fat 
+       AND itreg.cd_reg_fat = reg.cd_reg_fat 
+       AND atend.cd_procedimento = prcsus.cd_procedimento 
+       AND atend.cd_atendimento = cons.cd_atendimento 
+       AND prod.cd_produto = itest.cd_produto 
+       AND atend.cd_paciente = pac.cd_paciente 
+       AND prest.cd_prestador = atend.cd_prestador 
+       AND atend.cd_convenio = conv.cd_convenio 
+       AND atend.cd_leito = le.cd_leito 
+       AND le.cd_unid_int = undit.cd_unid_int 
+       AND ord.cd_fornecedor = forne.cd_fornecedor 
+       AND itreg.tp_mvto = 'MGES_SUS'
+       AND ord.cd_ord_com = to_number(:CAMPO_CD_ORD_COM)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CMU_PRODUTOS
+SELECT 
+DISTINCT
+       ord.cd_ord_com, 
+       itest.cd_produto, 
+       prod.cd_procedimento_sus, 
+       itest.qt_movimentacao, 
+       prod.ds_produto||' - L: '||itest.cd_lote||' - V: '|| to_char(itest.dt_validade,'DD/MM/YYYY')||' - OC: '||ord.cd_ord_com AS ds_produto
+FROM   dbamv.consumo_paciente cons,
+       dbamv.itconsumo_paciente itpac, 
+       dbamv.itmvto_estoque itest, 
+       dbamv.mvto_estoque mvtoest, 
+       dbamv.ord_com ord, 
+       dbamv.itreg_fat itreg, 
+       dbamv.reg_fat reg, 
+       dbamv.atendime atend, 
+       dbamv.produto prod, 
+       dbamv.procedimento_sus prcsus, 
+       dbamv.paciente pac, 
+       dbamv.prestador prest, 
+       dbamv.convenio conv, 
+       dbamv.leito le, 
+       dbamv.unid_int undit, 
+       dbamv.fornecedor forne 
+WHERE  cons.cd_consumo_paciente = itpac.cd_consumo_paciente 
+       AND itpac.cd_itmvto_estoque = itest.cd_itmvto_estoque 
+       AND itpac.cd_produto = itest.cd_produto 
+       AND itest.cd_mvto_estoque = mvtoest.cd_mvto_estoque 
+       AND ord.cd_consumo_paciente = cons.cd_consumo_paciente 
+       AND reg.cd_atendimento = cons.cd_atendimento 
+       AND atend.cd_atendimento = cons.cd_atendimento 
+       AND reg.cd_reg_fat = itreg.cd_reg_fat 
+       AND itreg.cd_reg_fat = reg.cd_reg_fat 
+       AND atend.cd_procedimento = prcsus.cd_procedimento 
+       AND atend.cd_atendimento = cons.cd_atendimento 
+       AND prod.cd_produto = itest.cd_produto 
+       AND atend.cd_paciente = pac.cd_paciente 
+       AND prest.cd_prestador = atend.cd_prestador 
+       AND atend.cd_convenio = conv.cd_convenio 
+       AND atend.cd_leito = le.cd_leito 
+       AND le.cd_unid_int = undit.cd_unid_int 
+       AND ord.cd_fornecedor = forne.cd_fornecedor
+       AND itreg.tp_mvto = 'MGES_SUS' 
+       AND ord.cd_ord_com = to_number(:CAMPO_CD_ORD_COM)

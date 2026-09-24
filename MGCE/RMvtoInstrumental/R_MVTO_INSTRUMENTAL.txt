@@ -1,0 +1,22 @@
+/*----------------------------------------------------------------------------*/
+--R_MVTO_INSTRUMENTAL
+SELECT DISTINCT log_mvto_instrumental.cd_log, log_mvto_instrumental.cd_bem, usuarios.nm_usuario,
+      to_char( log_mvto_instrumental.dt_mvto_instrumental,'dd/mm/yyyy HH24') dt_mvto_instrumental,
+       Decode(tp_mvto_instrumental, 'CC', 'Cadastro na composição', 'EE','Entrada no Expurgo','ED', 'Entrada na Desinfecção',
+                  'EP', 'Entrada no Preparo','ES', 'Entrada na Esterilização', 'CS','Cancelamento da Esterilização',
+                  'EA', 'Entrada no Arsenal', 'SA','Saída do Arsenal', 'DA', 'Devolução ao Arsenal', 'TS', 'Transferência – Saída da composição',
+                  'TE', 'Transferência – Entrada na composição', 'RC', 'Remoção da Composição') tp_mvto_instrumental,
+     mvtocme.cd_setor_principal, mvtocme.nm_setor_principal, mvtocme.cd_prestador_identifica, mvtocme.nm_prestador_identifica
+FROM dbamv.log_mvto_instrumental,
+     dbasgu.usuarios,
+     (SELECT mvto_cme.cd_mvto_cme, it_mvto_cme.cd_bem, mvto_cme.cd_setor_principal, setor.nm_setor nm_setor_principal,
+             it_mvto_cme.cd_prestador_identifica, prestador.nm_prestador nm_prestador_identifica
+        FROM dbamv.mvto_cme,  dbamv.setor, dbamv.it_mvto_cme, dbamv.prestador
+       WHERE setor.cd_setor(+) = mvto_cme.cd_setor_principal
+         AND it_mvto_cme.cd_mvto_cme(+) = mvto_cme.cd_mvto_cme
+         AND prestador.cd_prestador(+) = it_mvto_cme.cd_prestador_identifica) mvtocme
+WHERE usuarios.cd_usuario = log_mvto_instrumental.cd_usuario_mvto
+AND mvtocme.cd_mvto_cme (+) = log_mvto_instrumental.cd_mvto_cme
+AND mvtocme.cd_bem(+) = log_mvto_instrumental.cd_bem
+AND log_mvto_instrumental.cd_bem = :CAMPO_CD_BEM
+order by log_mvto_instrumental.cd_log

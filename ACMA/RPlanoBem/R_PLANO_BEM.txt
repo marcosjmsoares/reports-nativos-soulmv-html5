@@ -1,0 +1,42 @@
+/*----------------------------------------------------------------------------*/
+--R_PLANO_BEM
+SELECT * FROM (
+SELECT  bem.cd_setor Centro_Custo
+      , SETor.nm_setor
+      , bem.cd_bem
+      , bem.ds_plaqueta
+      , bem.ds_bem
+      , prg.cd_plano
+      , pla.cd_plano_alterno
+      , pla.ds_plano
+      , Decode(Nvl(prg.tp_programacao,'P'), 'P', 'Periodica', 'Data Especifica') Tipo_Plano
+      , prg.cd_programacao_plano
+      , prg.cd_localidade
+      , loc.ds_localidade
+      , prg.sn_ativo
+      , prg.dt_ultima_manutencao Ultima_Manutencao
+      , prg.qt_dias Periodo
+      , prg.dt_proxima_manutencao Proxima_Manutencao
+      , prg.ds_dia_da_semana
+FROM dbamv.programacao_plano prg
+   , dbamv.plano_manutencao pla
+   , dbamv.bens bem
+   , dbamv.localidade loc
+   , dbamv.setor setor
+WHERE prg.cd_plano = pla.cd_plano
+  AND prg.cd_bem = bem.cd_bem
+  AND prg.cd_localidade = loc.cd_localidade
+  AND bem.cd_setor = Setor.cd_setor
+  AND (         ( :CAMPO_OPCAO_PERIODO = 'S' )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'U'  AND Prg.dt_Ultima_Manutencao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'P'  AND Prg.dt_Ultima_Geracao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+           )
+  AND (       ( :CAMPO_TIPO_PLANO <> 'P' )
+            OR (Prg.Qt_Dias = :CAMPO_PERIODICIDADE )
+           )
+ORDER BY bem.cd_setor, bem.cd_bem, pla.cd_plano_alterno
+)
+ORDER BY CENTRO_CUSTO,NM_SETOR,
+CD_BEM,DS_PLAQUETA,DS_BEM

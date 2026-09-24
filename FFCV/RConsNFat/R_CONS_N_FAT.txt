@@ -1,0 +1,174 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_N_FAT
+SELECT * FROM (
+SELECT   a.cd_setor
+        ,a.nm_setor
+        ,a.cd_gru_fat
+        ,a.ds_gru_fat
+        ,a.cd_pro_fat
+        ,a.ds_pro_fat
+        ,SUM(a.qt_mvto)    qt_mvto
+        ,SUM(a.vl_pro_fat) vl_pro_fat
+FROM (
+SELECT  
+         mvto.cd_setor                   cd_setor
+        ,setor.nm_setor                  nm_setor
+        ,gru_fat.cd_gru_fat              cd_gru_fat
+        ,gru_fat.ds_gru_fat              ds_gru_fat
+        ,pro_fat.cd_pro_fat              cd_pro_fat
+        ,pro_fat.ds_pro_fat              ds_pro_fat
+        ,nvl(itmvto.qt_movimentacao,1)   qt_mvto
+        ,Nvl(dbamv.val_proc_ffcv( produto.cd_pro_fat,
+                                  mvto.dt_mvto_estoque,
+                                  mvto.hr_mvto_estoque,
+                                  atendime.cd_convenio,
+                                  atendime.cd_con_pla,
+                                  atendime.tp_atendimento,
+                                  atendime.cd_tip_acom,
+                                  'T' ), 0 ) vl_pro_fat
+FROM     dbamv.itmvto_estoque itmvto
+        ,dbamv.mvto_estoque   mvto
+	,dbamv.estoque	      estoque
+        ,dbamv.produto        produto
+        ,dbamv.uni_pro        uni_pro
+        ,dbamv.setor          setor
+        ,dbamv.atendime       atendime
+        ,dbamv.gru_fat        gru_fat
+        ,dbamv.gru_pro        gru_pro
+        ,dbamv.pro_fat        pro_fat
+WHERE    TRUNC(mvto.dt_mvto_estoque) between :CAMPO_DT_INIC and 
+AND      mvto.tp_mvto_estoque      = 'P'
+AND      itmvto.cd_produto         = produto.cd_produto
+AND      uni_pro.cd_uni_pro        = itmvto.cd_uni_pro
+AND      itmvto.cd_mvto_estoque    = mvto.cd_mvto_estoque
+AND      mvto.cd_setor             = setor.cd_setor
+AND      mvto.cd_atendimento       = atendime.cd_atendimento
+AND	 MVTO.CD_ESTOQUE	   = ESTOQUE.CD_ESTOQUE 
+AND	 ESTOQUE.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+AND      produto.cd_pro_fat        = pro_fat.cd_pro_fat
+AND      pro_fat.cd_gru_pro        = gru_pro.cd_gru_pro
+AND      gru_pro.cd_gru_fat        = gru_fat.cd_gru_fat
+UNION ALL
+SELECT 
+         sal_cir.cd_setor                cd_setor
+        ,setor.nm_setor                  nm_setor
+        ,gru_fat.cd_gru_fat              cd_gru_fat
+        ,gru_fat.ds_gru_fat              ds_gru_fat
+        ,pro_fat.cd_pro_fat              cd_pro_fat
+        ,pro_fat.ds_pro_fat              ds_pro_fat        
+        ,nvl(avi_eqi.qt_utilizada,1)     qt_mvto
+        ,Nvl(dbamv.val_proc_ffcv( apa_eqi.cd_pro_fat,
+                                  avi_cir.dt_realizacao,
+                                  avi_cir.dt_realizacao,
+                                  atendime.cd_convenio,
+                                  atendime.cd_con_pla,
+                                  atendime.tp_atendimento,
+                                  atendime.cd_tip_acom,
+                                  'T' ), 0 ) vl_pro_fat
+FROM     dbamv.aviso_equipamentos avi_eqi
+        ,dbamv.aviso_cirurgia     avi_cir
+        ,dbamv.cen_cir            cen_cir
+        ,dbamv.aparelhos_equipto  apa_eqi
+        ,dbamv.sal_cir            sal_cir
+        ,dbamv.setor              setor
+        ,dbamv.atendime           atendime
+        ,dbamv.gru_fat            gru_fat
+        ,dbamv.gru_pro            gru_pro
+        ,dbamv.pro_fat            pro_fat
+WHERE  avi_cir.tp_situacao             = 'R'
+AND    trunc(avi_cir.dt_realizacao)    between :CAMPO_DT_INIC and 
+AND    avi_cir.cd_aviso_cirurgia       = avi_eqi.cd_aviso_cirurgia
+AND    avi_cir.cd_cen_cir              = cen_cir.cd_cen_cir
+AND    avi_eqi.cd_aparelho_equipamento = apa_eqi.cd_aparelho_equipamento
+AND    sal_cir.cd_sal_cir              = avi_cir.cd_sal_cir
+AND    sal_cir.cd_setor                = setor.cd_setor
+AND    avi_cir.cd_atendimento          = atendime.cd_atendimento
+AND    apa_eqi.cd_pro_fat              = pro_fat.cd_pro_fat
+AND    pro_fat.cd_gru_pro              = gru_pro.cd_gru_pro
+AND    gru_pro.cd_gru_fat              = gru_fat.cd_gru_fat
+UNION ALL
+SELECT  sal_cir.cd_setor                cd_setor
+       ,setor.nm_setor                  nm_setor
+       ,gru_fat.cd_gru_fat              cd_gru_fat
+       ,gru_fat.ds_gru_fat              ds_gru_fat
+       ,pro_fat.cd_pro_fat              cd_pro_fat
+       ,pro_fat.ds_pro_fat              ds_pro_fat       
+       ,nvl(avi_sangue.qt_realizado,1)  qt_mvto
+       ,Nvl(dbamv.val_proc_ffcv( sangue_deri.cd_pro_fat,
+                                 avi_cir.dt_realizacao,
+                                 avi_cir.dt_realizacao,
+                                 atendime.cd_convenio,
+                                 atendime.cd_con_pla,
+                                 atendime.tp_atendimento,
+                                 atendime.cd_tip_acom,
+                                 'T' ), 0 ) vl_pro_fat
+FROM     dbamv.sangue_aviso       avi_sangue
+        ,dbamv.aviso_cirurgia     avi_cir
+        ,dbamv.cen_cir            cen_cir
+        ,dbamv.sangue_derivados   sangue_deri
+        ,dbamv.sal_cir            sal_cir
+        ,dbamv.setor              setor
+        ,dbamv.atendime           atendime
+        ,dbamv.gru_fat            gru_fat
+        ,dbamv.gru_pro            gru_pro
+        ,dbamv.pro_fat            pro_fat
+WHERE  trunc(avi_cir.dt_realizacao)   between :CAMPO_DT_INIC and 
+AND    avi_cir.cd_aviso_cirurgia      = avi_sangue.cd_aviso_cirurgia
+AND    avi_cir.cd_cen_cir             = cen_cir.cd_cen_cir
+AND    avi_sangue.cd_sangue_derivados = sangue_deri.cd_sangue_derivados
+AND    avi_cir.tp_situacao            = 'R'
+AND    sal_cir.cd_sal_cir             = avi_cir.cd_sal_cir
+AND    sal_cir.cd_setor               = setor.cd_setor
+AND    avi_cir.cd_atendimento         = atendime.cd_atendimento
+AND    sangue_deri.cd_pro_fat         = pro_fat.cd_pro_fat
+AND    pro_fat.cd_gru_pro             = gru_pro.cd_gru_pro
+AND    gru_pro.cd_gru_fat             = gru_fat.cd_gru_fat
+UNION ALL
+SELECT 
+        unid_int.cd_setor                 cd_setor
+       ,setor.nm_setor                    nm_setor
+       ,gru_fat.cd_gru_fat                cd_gru_fat
+       ,gru_fat.ds_gru_fat                ds_gru_fat
+       ,pro_fat.cd_pro_fat              cd_pro_fat
+       ,pro_fat.ds_pro_fat              ds_pro_fat
+       ,Nvl(itpre_med.qt_itpre_med,1)     qt_mvto
+       ,Nvl(dbamv.val_proc_ffcv( tip_presc.cd_pro_fat,
+                                 pre_med.dt_pre_med,
+                                 pre_med.hr_pre_med,
+                                 atendime.cd_convenio,
+                                 atendime.cd_con_pla,
+                                 atendime.tp_atendimento,
+                                 atendime.cd_tip_acom,
+                                 'T' ), 0 ) vl_pro_fat
+FROM    dbamv.pre_med      pre_med
+       ,dbamv.itpre_med    itpre_med
+       ,dbamv.unid_int     unid_int
+       ,dbamv.tip_presc    tip_presc
+       ,dbamv.setor        setor
+       ,dbamv.atendime     atendime
+       ,dbamv.gru_fat      gru_fat
+       ,dbamv.gru_pro      gru_pro
+       ,dbamv.pro_fat      pro_fat
+WHERE  itpre_med.cd_importa_reg_fat is null
+AND    trunc( pre_med.dt_pre_med )  between :CAMPO_DT_INIC and 
+AND    pre_med.cd_pre_med           = itpre_med.cd_pre_med
+AND    tip_presc.cd_tip_presc       = itpre_med.cd_tip_presc
+AND    unid_int.cd_unid_int         = pre_med.cd_unid_int
+AND    tip_presc.cd_pro_fat         is not null
+AND    tip_presc.sn_fatura          = 'S'
+AND    unid_int.cd_setor            = setor.cd_setor
+AND    pre_med.cd_atendimento       = atendime.cd_atendimento
+AND    tip_presc.cd_pro_fat         = pro_fat.cd_pro_fat
+AND    pro_fat.cd_gru_pro           = gru_pro.cd_gru_pro
+AND    gru_pro.cd_gru_fat           = gru_fat.cd_gru_fat
+) a
+group by a.cd_setor
+        ,a.nm_setor
+        ,a.cd_gru_fat
+        ,a.ds_gru_fat
+        ,a.cd_pro_fat
+        ,a.ds_pro_fat
+order by nm_setor
+)
+ORDER BY CD_SETOR,NM_SETOR,
+CD_GRU_FAT,DS_GRU_FAT

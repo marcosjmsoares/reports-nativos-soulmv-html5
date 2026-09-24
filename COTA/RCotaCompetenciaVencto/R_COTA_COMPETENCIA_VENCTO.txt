@@ -1,0 +1,199 @@
+/*----------------------------------------------------------------------------*/
+--R_COTA_COMPETENCIA_VENCTO
+SELECT * FROM (
+select TRUNC(i.dt_vencimento)  data,
+       ltrim(decode(a.ds_con_pag,'',a.ds_fornecedor ||' Nº '||a.cd_con_pag,a.ds_con_pag)) descricao,
+       itmvto_cotas.vl_itmvto_cotas  vl_debito,
+       0    vl_credito
+     , cc.cd_competencia
+     , cc.cd_cota
+     , cota.ds_cota
+     , cota.cd_usuario
+     , cc.vl_orcado
+     , itmvto_cotas.sn_autorizado sn_autorizado
+     ,itmvto_cotas.sn_autorizado sn_autorizado1
+  from dbamv.cota_competencia cc,
+       dbamv.itcon_pag_cota c,
+       dbamv.con_pag a,
+       dbamv.ratcon_pag,
+       dbamv.itcon_pag i,
+       dbamv.cota,
+       dbamv.itmvto_cotas,
+        ( SELECT it.cd_con_pag cd_con_pag, Sum(it.vl_duplicata) VlDuplicataComp, to_char(it.dt_vencimento,'YYYYMM') Comp
+        FROM dbamv.itcon_pag it
+        GROUP BY it.cd_con_pag, to_char(it.dt_vencimento,'YYYYMM')
+        )  fnVlDuplicata
+where c.cd_ratcon_pag is not NULL
+  and itmvto_cotas.cd_ratcon_pag is not null
+  and cc.cd_competencia = itmvto_cotas.cd_competencia
+  and itmvto_cotas.sn_autorizado = 'S'
+  and itmvto_cotas.cd_ratcon_pag   = ratcon_pag.cd_ratcon_pag
+  AND fnVlDuplicata.cd_con_pag = a.cd_con_pag
+  AND fnVlDuplicata.comp = to_char(i.dt_vencimento,'YYYYMM')
+  and cc.cd_competencia = c.cd_competencia
+  and c.cd_ratcon_pag   = ratcon_pag.cd_ratcon_pag
+  and ratcon_pag.cd_con_pag        = a.cd_con_pag
+  and a.cd_previsao is null
+  and a.cd_con_pag = i.cd_con_pag
+  and cota.cd_cota = cc.cd_cota
+  and  to_char(i.dt_vencimento,'MM/YYYY') =  to_char( :CAMPO_COMPET ,'MM/YYYY')
+  and Cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+union ALL
+select  distinct(TRUNC(ent_pro.dt_entrada))  data  
+    ,'ENTRADA DE DOCUMENTO Nº '||ent_pro.nr_documento   descricao  
+      ,duplicata.vl_parcela   vl_debito  
+     , 0    vl_credito
+     , cota_competencia.cd_competencia cd_competencia
+     , cota_competencia.cd_cota
+     , cota.ds_cota
+     , cota.cd_usuario
+     , cota_competencia.vl_orcado
+     ,sn_autorizado
+      ,sn_autorizado sn_autorizado1
+from
+  dbamv.cota,
+  dbamv.cota_competencia,
+  dbamv.duplicata ,
+  (SELECT  ent_pro.dt_entrada,
+           ent_pro.cd_ent_pro,
+           ent_pro.nr_documento,
+           ent_pro.cd_fornecedor,
+           itc.cd_competencia ,
+           ent_pro.sn_autorizado
+     FROM dbamv.ent_pro,
+          (SELECT DISTINCT itent_pro.cd_ent_pro,
+                       it.cd_competencia
+             FROM dbamv.itent_pro_cota it,
+                  dbamv.itent_pro
+            WHERE itent_pro.cd_itent_pro = it.cd_itent_pro)itc
+    WHERE ent_pro.cd_ent_pro = itc.cd_ent_pro)ent_pro
+ where cota.cd_cota = cota_competencia.cd_cota
+   and cota_competencia.cd_competencia = ent_pro.cd_competencia
+   and  to_char(duplicata.dt_vencimento,'YYYYMM') = to_char(cota_competencia.dt_competencia, 'YYYYMM') 
+   and  to_char(duplicata.dt_vencimento,'YYYYMM') = to_char( :CAMPO_COMPET ,'YYYYMM')   
+   and  cota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and duplicata.cd_fornecedor = ent_pro.cd_fornecedor 
+   and duplicata.nr_documento = ent_pro.nr_documento 
+   and cota.cd_cota IN (select cota.cd_cota  
+	                      from dbamv.cota
+	                   , dbamv.cota_competencia 	cotaComp
+	                   , dbamv.cota_resp_autoriza	cotaResp
+	                where cota.cd_cota   = cotaComp.cd_cota
+	                  and cota.cd_cota    = cotaResp.cd_cota
+	                  and cotaResp.cd_usuario_autoriza = user)
+UNION all
+select  TRUNC(i.dt_vencimento )  data
+     , 'ENTRADA DE PRODUTO Nº '||ent_pro.cd_ent_pro ||' '||produto.ds_produto  descricao
+     ,(((nvl(i.vl_parcela,1) * 100)/nvl(fnVlDuplicata.VlDuplicataComp,1))/100) * it.vl_realizado vl_debito
+     , 0    vl_credito
+     , cota_competencia.cd_competencia
+     , cota_competencia.cd_cota
+     , cota.ds_cota
+     , cota.cd_usuario
+     , cota_competencia.vl_orcado
+     ,sn_autorizado
+     ,sn_autorizado sn_autorizado1
+from
+  dbamv.ent_pro,
+  dbamv.duplicata i,
+  dbamv.cota,
+  dbamv.cota_competencia,
+  dbamv.itent_pro_cota it,
+  dbamv.itent_pro,
+  dbamv.produto,
+  ( SELECT dup.nr_documento, dup.nr_serie, dup.cd_fornecedor,
+      Sum (dup.vl_parcela) VlDuplicataComp, to_char(dup.dt_vencimento,'YYYYMM') Comp
+  FROM dbamv.duplicata dup
+  GROUP BY dup.nr_documento, dup.nr_serie, dup.cd_fornecedor, to_char(dup.dt_vencimento,'YYYYMM')
+  )  fnVlDuplicata
+ where
+   ent_pro.nr_documento      = i.nr_documento
+   and ent_pro.nr_serie      = i.nr_serie
+   and ent_pro.cd_fornecedor = i.cd_fornecedor
+   AND fnVlDuplicata.nr_documento = ent_pro.nr_documento
+   AND fnVlDuplicata.nr_serie =  ent_pro.nr_serie
+   AND fnVlDuplicata.cd_fornecedor = ent_pro.cd_fornecedor
+   AND fnVlDuplicata.comp = to_char(i.dt_vencimento,'YYYYMM')
+   and cota.cd_cota = cota_competencia.cd_cota
+   and cota_competencia.cd_competencia = it.cd_competencia
+   and itent_pro.cd_produto   = produto.cd_produto
+   and it.cd_itent_pro = itent_pro.cd_itent_pro
+   and itent_pro.cd_ent_pro      = ent_pro.cd_ent_pro
+   and  to_char(i.dt_vencimento,'YYYYMM') = to_char(cota_competencia.dt_competencia, 'YYYYMM')
+   and  to_char(i.dt_vencimento,'MM/YYYY') = to_char( :CAMPO_COMPET ,'MM/YYYY')
+   and  cota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+union ALL
+SELECT  trunc(ord_com.dt_ord_com) data,
+       'PREVISÃO REF.ORDEM DE COMPRA Nº '||previsao.cd_ord_com descricao,
+       ord_dupl.vl_parcela  vl_debito,     
+        0    vl_credito,
+       ord_dupl_cota.cd_competencia   cd_competencia
+       , cota_competencia.cd_cota
+     , cota.ds_cota
+     , cota.cd_usuario
+     , cota_competencia.vl_orcado
+      ,sn_autorizado
+      ,sn_autorizado sn_autorizado1
+   FROM dbamv.ord_dupl_cota
+,dbamv.ord_com
+,dbamv.previsao
+,dbamv.cota_competencia
+,dbamv.cota
+,dbamv.ord_dupl   
+WHERE ord_com.cd_ord_com = previsao.cd_ord_com
+and ord_com.cd_ord_com = ord_dupl_cota.cd_ord_com
+and ord_dupl.cd_ord_com = ord_com.cd_ord_com
+and cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and cota_competencia.cd_competencia = ord_dupl_cota.cd_competencia
+and cota.cd_cota = cota_competencia.cd_cota
+and  to_char(cota_competencia.dt_competencia,'YYYYMM') = to_char( :CAMPO_COMPET ,'YYYYMM')
+and  previsao.cd_ord_com not in (select  cd_ord_com from dbamv.ent_pro  where ord_com.cd_ord_com = ent_pro.cd_ord_com ) 
+and cota.cd_cota IN (select cota.cd_cota  
+	                      from dbamv.cota
+	                   , dbamv.cota_competencia 	cotaComp
+	                   , dbamv.cota_resp_autoriza	cotaResp
+	                where cota.cd_cota   = cotaComp.cd_cota
+	                  and cota.cd_cota    = cotaResp.cd_cota
+	                  and cotaResp.cd_usuario_autoriza = user)
+and to_char(cota_competencia.dt_competencia ,'yyyymm')= to_char(ord_dupl.dt_vencimento ,'yyyymm')   
+   union ALL
+select TRUNC(dt_movimentacao)  data
+     , ds_movimentacao  descricao
+     , 0                vl_credito
+     , vl_movimentacao  vl_debito
+     , cd_competencia_transf   cd_competencia
+     , cota_competencia.cd_cota
+       , cota.ds_cota
+     , cota.cd_usuario
+     , cota_competencia.vl_orcado
+     , null sn_autorizado
+     , null sn_autorizado1
+  from dbamv.cota,
+       dbamv.mov_cota_competencia,
+       dbamv.cota_competencia
+ where mov_cota_competencia.cd_competencia = cota_competencia.cd_competencia
+ and cota.cd_cota = cota_competencia.cd_cota
+ and  to_char(mov_cota_competencia.dt_movimentacao,'MM/YYYY') =  to_char( :CAMPO_COMPET ,'MM/YYYY')
+ and Cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+Union all
+select TRUNC(dt_movimentacao)  data
+     , ds_movimentacao  descricao
+     , vl_movimentacao  vl_credito
+     , 0                vl_debito
+     , mov_cota_competencia.cd_competencia cd_competencia
+     , cota_competencia.cd_cota
+     , cota.ds_cota
+     , cota.cd_usuario
+     , cota_competencia.vl_orcado
+     , null sn_autorizado
+     , null sn_autorizado1
+  from dbamv.cota,
+       dbamv.mov_cota_competencia,
+       dbamv.cota_competencia
+ where(mov_cota_competencia.cd_competencia_transf = cota_competencia.cd_competencia) or  
+      (mov_cota_competencia.cd_competencia        = cota_competencia.cd_competencia)
+ and cota.cd_cota = cota_competencia.cd_cota
+ and  to_char(mov_cota_competencia.dt_movimentacao,'MM/YYYY') = to_char( :CAMPO_COMPET ,'MM/YYYY')
+ and Cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+)
+ORDER BY SN_AUTORIZADO1, DS_COTA, DATA, DESCRICAO

@@ -1,0 +1,223 @@
+/*----------------------------------------------------------------------------*/
+--R_DIVERGE_CONTA_KIT
+Select CD_ESPECIE,
+       DS_ESPECIE,
+       CD_ESTOQUE,
+       DT_CONTAGEM,
+       DT_GERACAO,
+       HR_CONTAGEM,
+       TP_CONTAGEM,
+       SN_ABERTO,
+       DS_ESTOQUE,
+       CD_CONTAGEM,
+       CD_PRODUTO,
+       CD_LOTE,
+       DT_VALIDADE,
+       DSP_CODIGO_DE_BARRAS,
+       CD_PROD_KIT,
+       DS_PROD_KIT,
+       DS_PRODUTO,
+       DS_UNIDADE,
+       VL_CUSTO_CONTAGEM * VL_FATOR_RELATORIO As VL_UNITARIO,
+       Case
+         When DSP_CODIGO_DE_BARRAS Is Null Then
+           Case
+             When CD_PROD_KIT = CD_KIT_IMPRESSAO Then
+               QTD_CONTAGEM / VL_FATOR_RELATORIO
+             Else
+               0
+           End
+         Else
+           QTD_CONTAGEM / VL_FATOR_RELATORIO
+       End As QT_ATUAL,
+       Case
+         When DSP_CODIGO_DE_BARRAS Is Null Then
+           Case
+             When CD_PROD_KIT = CD_KIT_IMPRESSAO Then
+               QTD_CONTAGEM * VL_CUSTO_CONTAGEM
+             Else
+               0
+           End
+         Else
+           QTD_CONTAGEM * VL_CUSTO_CONTAGEM
+       End As VL_ATUAL,
+       Case
+         When DSP_CODIGO_DE_BARRAS Is Null Then
+           Case
+             When CD_PROD_KIT = CD_KIT_IMPRESSAO Then
+               QT_KIT_ANTERIOR / VL_FATOR_RELATORIO
+             Else
+               0
+           End
+         Else
+           QT_KIT_ANTERIOR / VL_FATOR_RELATORIO
+       End As QT_ANTERIOR,
+       Case
+         When DSP_CODIGO_DE_BARRAS Is Null Then
+           Case
+             When CD_PROD_KIT = CD_KIT_IMPRESSAO Then
+               QT_KIT_ANTERIOR * VL_CUSTO_CONTAGEM
+             Else
+               0
+           End
+         Else
+           QT_KIT_ANTERIOR * VL_CUSTO_CONTAGEM
+       End As VL_ANTERIOR,
+       Case
+         When DSP_CODIGO_DE_BARRAS Is Null Then
+           Case
+             When CD_PROD_KIT = CD_KIT_IMPRESSAO Then
+               (QTD_CONTAGEM - QT_KIT_ANTERIOR) / VL_FATOR_RELATORIO
+             Else
+               0
+           End
+         Else
+           (QTD_CONTAGEM - QT_KIT_ANTERIOR) / VL_FATOR_RELATORIO
+       End As QT_DIFERENCA,
+       Case
+         When DSP_CODIGO_DE_BARRAS Is Null Then
+           Case
+             When CD_PROD_KIT = CD_KIT_IMPRESSAO Then
+               (QTD_CONTAGEM - QT_KIT_ANTERIOR) * VL_CUSTO_CONTAGEM
+             Else
+               0
+           End
+         Else
+           (QTD_CONTAGEM - QT_KIT_ANTERIOR) * VL_CUSTO_CONTAGEM
+       End As VL_DIFERENCA
+  From (Select CD_ESPECIE,
+               DS_ESPECIE,
+               CD_ESTOQUE,
+               DT_CONTAGEM,
+               DT_GERACAO,
+               HR_CONTAGEM,
+               TP_CONTAGEM,
+               SN_ABERTO,
+               DS_ESTOQUE,
+               CD_CONTAGEM,
+               CD_PRODUTO,
+               CD_LOTE,
+               DT_VALIDADE,
+               DSP_CODIGO_DE_BARRAS,
+               CD_PROD_KIT,
+               DS_PROD_KIT,
+               DS_PRODUTO,
+               DS_UNIDADE,
+               Sum(QT_KIT * VL_FATOR) As QTD_CONTAGEM,
+               VL_CUSTO_CONTAGEM,
+               QT_KIT_ANTERIOR,
+               VL_FATOR_RELATORIO,
+               CD_KIT_IMPRESSAO
+          From (Select PRODUTO.CD_ESPECIE,
+                       ESPECIE.DS_ESPECIE,
+                       CONTAGEM.CD_ESTOQUE,
+                       CONTAGEM.DT_CONTAGEM,
+                       CONTAGEM.DT_GERACAO,
+                       CONTAGEM.HR_CONTAGEM,
+                       Decode(CONTAGEM.TP_CONTAGEM,
+                              'K',
+                              'Somente alguns produtos kits',
+                              'Geral do Estoque dos kits') As TP_CONTAGEM,
+                       CONTAGEM.SN_ABERTO,
+                       ESTOQUE.DS_ESTOQUE,
+                       ITCONTAGEM.CD_CONTAGEM,
+                       ITCONTAGEM.CD_PRODUTO,
+                       ITCONTAGEM.CD_LOTE,
+                       ITCONTAGEM.DT_VALIDADE,
+                       ITCONTAGEM_KIT.DSP_CODIGO_DE_BARRAS,
+                       PROD_KIT.CD_PRODUTO As CD_PROD_KIT,
+                       PROD_KIT.DS_PRODUTO As DS_PROD_KIT,
+                       PRODUTO.DS_PRODUTO,
+                       DBAMV.Verif_Ds_Unid_Prod(PRODUTO.CD_PRODUTO, 'G') As DS_UNIDADE,
+                       Nvl(ITCONTAGEM.QT_KIT,
+                           0) As QT_KIT,
+                       UNI_PRO.VL_FATOR,
+                       DBAMV.Verif_Vl_Custo_Medio(ITCONTAGEM.CD_PRODUTO, Nvl(CONTAGEM.DT_GERACAO, CONTAGEM.DT_CONTAGEM), 'H', Null, Nvl(CONTAGEM.HR_GERACAO, CONTAGEM.HR_CONTAGEM)) As VL_CUSTO_CONTAGEM,
+                       DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO, 'G') As VL_FATOR_RELATORIO,
+                       Decode(CONTAGEM.SN_ABERTO,
+                              'S',
+                              (Select Sum(Nvl(LP.QT_KIT,
+                                              0))
+                                 From DBAMV.LOT_PRO LP
+                                Where LP.CD_PRODUTO = ITCONTAGEM.CD_PRODUTO
+                                  And LP.CD_ESTOQUE = CONTAGEM.CD_ESTOQUE
+                                  And Nvl(LP.DT_VALIDADE,
+                                          SysDate) = Nvl(ITCONTAGEM.DT_VALIDADE,
+                                                         SysDate)
+                                  And Nvl(LP.CD_LOTE,
+                                          '*.*') = Nvl(ITCONTAGEM.CD_LOTE,
+                                                       '*.*')),
+                              (Select Sum(Nvl(CE.QT_KIT,
+                                              0))
+                                 From DBAMV.COPIA_ESTOQUE CE
+                                Where CE.CD_PRODUTO = ITCONTAGEM.CD_PRODUTO
+                                  And CE.CD_ESTOQUE = CONTAGEM.CD_ESTOQUE
+                                  And CE.CD_CONTAGEM = ITCONTAGEM.CD_CONTAGEM
+                                  And Nvl(CE.DT_VALIDADE,
+                                          SysDate) = Nvl(ITCONTAGEM.DT_VALIDADE,
+                                                         SysDate)
+                                  And Nvl(CE.CD_LOTE,
+                                          '*.*') = Nvl(ITCONTAGEM.CD_LOTE,
+                                                       '*.*'))) As QT_KIT_ANTERIOR,
+                       (Select ICK.CD_KIT
+                         From DBAMV.ITCONTAGEM_KIT ICK,
+                                    DBAMV.PRODUTO P    
+                         Where ICK.DSP_CODIGO_DE_BARRAS Is Null
+                              And P.CD_PRODUTO = ICK.CD_KIT
+                              And ICK.CD_CONTAGEM = ITCONTAGEM.CD_CONTAGEM
+                              And ROWNUM = 1 ) 
+                                        As CD_KIT_IMPRESSAO
+                  From DBAMV.CONTAGEM
+            Inner Join DBAMV.ITCONTAGEM_KIT On
+                       ITCONTAGEM_KIT.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+            Inner Join DBAMV.ITCONTAGEM On
+                       ITCONTAGEM.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+                   And (ITCONTAGEM.DSP_COD_BARRAS_LEITURA = ITCONTAGEM_KIT.DSP_CODIGO_DE_BARRAS
+                     Or (ITCONTAGEM.DSP_COD_BARRAS_LEITURA Is Null
+                     And ITCONTAGEM_KIT.DSP_CODIGO_DE_BARRAS Is Null))
+            Inner Join DBAMV.ESTOQUE On
+                       ESTOQUE.CD_ESTOQUE = CONTAGEM.CD_ESTOQUE
+                   And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.PRODUTO PROD_KIT On
+                       PROD_KIT.CD_PRODUTO = ITCONTAGEM_KIT.CD_KIT
+            Inner Join DBAMV.PRODUTO On
+                       PRODUTO.CD_PRODUTO = ITCONTAGEM.CD_PRODUTO
+                   And PRODUTO.SN_MESTRE = 'N'
+            Inner Join DBAMV.UNI_PRO On
+                       UNI_PRO.CD_UNI_PRO = ITCONTAGEM.CD_UNI_PRO
+            Inner Join DBAMV.ESPECIE On
+                       ESPECIE.CD_ESPECIE = PRODUTO.CD_ESPECIE
+                 Where CONTAGEM.CD_CONTAGEM = :CAMPO_CD_CONTAGEM)
+      Group By CD_ESPECIE,
+               DS_ESPECIE,
+               CD_ESTOQUE,
+               DT_CONTAGEM,
+               DT_GERACAO,
+               HR_CONTAGEM,
+               TP_CONTAGEM,
+               SN_ABERTO,
+               DS_ESTOQUE,
+               CD_CONTAGEM,
+               CD_PRODUTO,
+               CD_LOTE,
+               DT_VALIDADE,
+               DSP_CODIGO_DE_BARRAS,
+               CD_PROD_KIT,
+               DS_PROD_KIT,
+               DS_PRODUTO,
+               DS_UNIDADE,
+               VL_CUSTO_CONTAGEM,
+               QT_KIT_ANTERIOR,
+               VL_FATOR_RELATORIO,
+               CD_KIT_IMPRESSAO)
+Order By 10,
+       4,
+       6,
+       5,
+       3,
+       9,
+       7,
+       8,
+       14,
+       16,
+       15

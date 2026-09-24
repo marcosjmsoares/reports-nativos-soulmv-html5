@@ -1,0 +1,73 @@
+/*----------------------------------------------------------------------------*/
+--R_PED_RX
+SELECT * FROM (
+SELECT  PED_RX.CD_ATENDIMENTO
+               ,PED_RX.CD_PED_RX
+               ,'*' || to_char(PED_RX.CD_PED_RX) || '*' as CD_PEDIDO_BARRAS
+               ,decode(PED_RX.TP_MOTIVO,'R','ROTINA','URGENCIA/EMERGENCIA') TP_MOTIVO
+               ,PED_RX.TP_LOCAL
+               ,PED_RX.NR_CONTROLE
+               ,PED_RX.DS_OBSERVACAO
+               ,PED_RX.DT_PEDIDO
+               ,PED_RX.DT_COLETA
+               ,PED_RX.HR_COLETA
+               ,ATENDIME.CD_PACIENTE
+               ,SETOR.NM_SETOR
+               ,DECODE(PED_RX.CD_PRESTADOR, NULL, PED_RX.NM_PRESTADOR, PRESTADOR.NM_PRESTADOR)  NM_PRESTADOR
+               ,DECODE(nvl(PACIENTE.SN_UTILIZA_NOME_SOCIAL, 'N'),'S', Nvl(PACIENTE.NM_SOCIAL_PACIENTE, PACIENTE.NM_PACIENTE), PACIENTE.NM_PACIENTE) NM_PACIENTE 
+               ,PACIENTE.TP_SEXO
+               ,PACIENTE.DT_NASCIMENTO
+               ,RTRIM(PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO,SysDate),' ')  NR_IDADE
+               ,CONVENIO.NM_CONVENIO
+               ,con_pla.ds_con_pla
+               ,ORI_ATE.DS_ORI_ATE
+               ,ITPED_RX.CD_EXA_RX
+               ,ITPED_RX.DT_ENTREGA
+               ,EXA_RX.DS_EXA_RX  ||  DECODE(ITPED_RX.DS_REGIAO,NULL, ITPED_RX.DS_REGIAO, (' - '  || ITPED_RX.DS_REGIAO))   DS_EXA_RX
+               ,PRESTADOR.DS_CODIGO_CONSELHO CRM
+               ,LEITO.CD_LEITO
+               ,LEITO.DS_RESUMO DS_LEITO_RESUMIDA
+               ,UNID_INT.CD_UNID_INT
+               ,UNID_INT.DS_UNID_INT
+               ,ITPED_RX.CD_ITPED_RX
+               ,SET_EXA.NM_SET_EXA NM_SETOR_EXE
+               ,decode(PRESTADOR_EXECUTOR.CD_PRESTADOR,Null, 0, PRESTADOR_EXECUTOR.CD_PRESTADOR)  COD_PREST_EXEC
+               ,decode(PRESTADOR_EXECUTOR.NM_PRESTADOR,Null, 'Não Informado', PRESTADOR_EXECUTOR.NM_PRESTADOR)  NOME_PREST_EXEC
+FROM     dbamv.PED_RX
+              ,dbamv.ATENDIME
+              ,dbamv.SETOR
+              ,dbamv.PRESTADOR
+              ,dbamv.PACIENTE
+              ,dbamv.CONVENIO
+              ,dbamv.con_pla
+              ,dbamv.ORI_ATE
+              ,dbamv.ITPED_RX
+              ,dbamv.EXA_RX
+              ,dbamv.LEITO
+              ,dbamv.UNID_INT
+              ,DBAMV.SET_EXA
+              ,Dbamv.Empresa_Convenio
+              ,DBAMV.PRESTADOR PRESTADOR_EXECUTOR
+Where PED_RX.CD_SET_EXA  =  SET_EXA.CD_SET_EXA
+and      Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And     Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+And     PED_RX.CD_PED_RX  =  :CAMPO_NR_PEDIDO
+AND         PED_RX.CD_SET_EXA IN ( SELECT PSDI_SET_EXA.CD_SET_EXA
+                                                                FROM DBAMV.PSDI_SET_EXA
+                                                                WHERE PSDI_SET_EXA.NM_USUARIO = USER )
+AND       ATENDIME.CD_ATENDIMENTO  =  PED_RX.CD_ATENDIMENTO
+AND       SETOR.CD_SETOR  =  PED_RX.CD_SETOR
+AND       PRESTADOR.CD_PRESTADOR(+)  =  PED_RX.CD_PRESTADOR
+AND       PACIENTE.CD_PACIENTE  =  ATENDIME.CD_PACIENTE
+AND       CONVENIO.CD_CONVENIO  =  ATENDIME.CD_CONVENIO
+AND        CON_PLA.CD_CON_PLA(+) = ATENDIME.CD_CON_PLA
+AND        CONVENIO.CD_CONVENIO = NVL(CON_PLA.CD_CONVENIO, CONVENIO.CD_CONVENIO)
+AND       ORI_ATE.CD_ORI_ATE  =   ATENDIME.CD_ORI_ATE
+AND        ITPED_RX.CD_PED_RX  =  PED_RX.CD_PED_RX
+AND        EXA_RX.CD_EXA_RX  =  ITPED_RX.CD_EXA_RX
+AND        ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+AND        LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+AND       PRESTADOR_EXECUTOR.CD_PRESTADOR(+)  =  ITPED_RX.CD_PRESTADOR
+)
+ORDER BY NOME_PREST_EXEC, DS_EXA_RX

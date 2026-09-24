@@ -1,0 +1,35 @@
+/*----------------------------------------------------------------------------*/
+--R_AGENDA_PRESTADOR_CIRU
+SELECT * FROM
+  (SELECT dt_inicio_age_cir dt_inicio_age_cir ,
+          dt_final_age_cir dt_final_age_cir ,
+          sal_cir.ds_sal_cir ds_sal_cir ,
+          age_cir.cd_aviso_cirurgia cd_aviso_cirurgia ,
+          DECODE(aviso_cirurgia.cd_paciente, NULL, aviso_cirurgia.nm_paciente, paciente.nm_paciente) nm_paciente ,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          cirurgia.ds_cirurgia ds_cirurgia ,
+          prestador_aviso.cd_prestador cd_prestador ,
+          prestador.nm_prestador nm_prestador
+   FROM dbamv.age_cir ,
+        dbamv.aviso_cirurgia ,
+        dbamv.sal_cir ,
+        dbamv.paciente ,
+        dbamv.prestador_aviso ,
+        dbamv.cirurgia_aviso ,
+        dbamv.cirurgia ,
+        dbamv.prestador ,
+        dbamv.setor
+   WHERE age_cir.cd_aviso_cirurgia = aviso_cirurgia.cd_aviso_cirurgia
+     AND age_cir.cd_sal_cir = sal_cir.cd_sal_cir
+     AND sal_cir.cd_setor = setor.cd_setor
+     AND setor.cd_multi_empresa = dbamv.pkg_mv2000.Le_empresa
+     AND aviso_cirurgia.cd_paciente = paciente.cd_paciente(+)
+     AND aviso_cirurgia.cd_aviso_cirurgia = prestador_aviso.cd_aviso_cirurgia
+     AND aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+     AND prestador_aviso.cd_cirurgia_aviso = cirurgia_aviso.cd_cirurgia_aviso
+     AND prestador_aviso.cd_prestador = prestador.cd_prestador
+     AND cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+     AND prestador_aviso.sn_principal = 'S'
+     AND trunc(dt_inicio_age_cir) = trunc(:CAMPO_DATA)   
+   ORDER BY prestador_aviso.nm_prestador,
+            dt_inicio_age_cir)

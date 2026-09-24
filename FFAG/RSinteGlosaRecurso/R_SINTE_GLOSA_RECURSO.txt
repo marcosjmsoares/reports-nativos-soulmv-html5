@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_SINTE_GLOSA_RECURSO
+select nf.cd_convenio,
+          co.nm_convenio,
+          nf.cd_remessa,
+          nf.nr_id_nota_fiscal,
+          sum(nf.vl_itfat_nf) vl_itfat_nf,
+          sum(gl.vl_glosa) vl_glosa,
+          sum(gl.vl_reapresentado) vl_reapresentado
+     from dbamv.convenio co,
+          dbamv.glosas gl,
+          (select nf.nr_id_nota_fiscal
+								 ,itnf.cd_remessa
+								 ,nf.cd_convenio
+								 ,itnf.cd_atendimento
+								 ,itnf.cd_prestador
+								 ,itnf.cd_reg_amb
+								 ,itnf.cd_reg_fat
+								 ,itnf.vl_itfat_nf
+					   from dbamv.nota_fiscal nf
+						     ,dbamv.itfat_nota_fiscal itnf
+						where nf.cd_nota_fiscal = itnf.cd_nota_fiscal) nf
+ where nf.cd_convenio    = co.cd_convenio
+   and gl.cd_atendimento = nf.cd_atendimento
+	 and nvl(gl.cd_prestador,0)   = nvl(nf.cd_prestador,0)
+   and (gl.cd_reg_amb     = nf.cd_reg_amb
+        or gl.cd_reg_fat  = nf.cd_reg_fat)
+   and gl.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and trunc(gl.dt_glosa) between to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy') and to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy')
+ group by nf.cd_convenio,
+          co.nm_convenio,
+          nf.cd_remessa,
+          nf.nr_id_nota_fiscal
+ order by 1,4

@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_POS_VALE_ANA
+SELECT ent_pro.cd_ent_pro
+     , ent_pro.dt_entrada
+     , ent_pro.cd_fornecedor
+     , fornecedor.nm_fornecedor
+     , nvl(ent_pro.nr_documento,0) nr_documento
+     , Decode (tip_doc.tp_entrada, 'V', 'VALE PENDENTE', 'VALE PAGO') SITUACAO
+     , tip_doc.ds_tip_doc
+     ,ent_pro.vl_total
+     ,dbamv.fnc_mges_total_pend_vale(ent_pro.cd_fornecedor, :CAMPO_DTINIC) saldo_anterior
+  FROM dbamv.tip_doc
+     , dbamv.fornecedor
+     , (select p.cd_especie,
+     	   p.cd_produto,
+     	   p.sn_padronizado,
+     	   p.cd_pro_fat, 
+     	   p.cd_pro_fat,
+     	   DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_MOVIMENTACAO,P.SN_MOVIMENTACAO)sn_movimentacao,
+     	   p.sn_consignado,
+     	   DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_BLOQUEIO_DE_COMPRA,P.SN_BLOQUEIO_DE_COMPRA) sn_bloqueio_de_compra,
+     	   p.sn_admitido,
+     	   p.cd_especie,
+     	   p.cd_classe,
+     	   p.cd_sub_cla    	   
+     	from 
+     	   produto p, 
+     	   empresa_produto ep
+     	where 
+     	   empresa_produto.cd_produto = produto.cd_produto 
+     	   and empresa_produto.cd_multi_empresa = Dbamv.Pkg_Mv2000.le_empresa) produto
+     , dbamv.empresa_produto
+     , dbamv.uni_pro
+     , dbamv.ent_pro
+     , dbamv.itent_pro
+     , dbamv.estoque
+     , dbamv.especie
+WHERE ent_pro.cd_ent_pro          = itent_pro.cd_ent_pro
+   AND ent_pro.cd_fornecedor       = fornecedor.cd_fornecedor
+   AND ent_pro.cd_estoque          = estoque.cd_estoque
+   AND ent_pro.cd_tip_doc          = tip_doc.cd_tip_doc
+   AND itent_pro.cd_produto        = produto.cd_produto
+   AND itent_pro.cd_uni_pro        = uni_pro.cd_uni_pro
+   AND produto.cd_especie          = especie.cd_especie
+   AND ent_pro.tp_documento_entrada= 'V'
+   AND ent_pro.dt_entrada >= :CAMPO_DTINIC
+   AND ent_pro.dt_entrada <= :CAMPO_DTFIM
+   AND estoque.cd_multi_empresa    = Dbamv.Pkg_Mv2000.le_empresa
+ ORDER BY CD_FORNECEDOR,NM_FORNECEDOR, ds_tip_doc, situacao

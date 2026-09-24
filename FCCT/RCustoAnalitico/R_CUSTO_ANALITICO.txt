@@ -1,0 +1,27 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_ANALITICO
+SELECT * FROM (
+select setor.nm_setor                                 nm_setor
+     , setor.cd_cen_cus                               cd_cen_cus
+     , lcto_setor.cd_lcto_contabil                 cd_lcto_contabil
+     , lcto_contabil.cd_lcto_movimento        cd_lcto_movimento
+     , decode( lcto_setor.cd_setor_debito, NULL, 0, lcto_setor.vl_lcto_setor ) vl_debito
+     , decode( lcto_setor.cd_setor_credito, NULL, 0, lcto_setor.vl_lcto_setor )vl_credito
+     , decode( lcto_setor.cd_setor_debito, NULL, lcto_contabil.cd_reduzido_credito, lcto_contabil.cd_reduzido_debito ) cd_reduzido_deb_cred
+     , lcto_contabil.cd_lote               cd_lote
+     , to_char(lcto_contabil.dt_lcto,'dd') dia
+     , ltrim( hp.ds_historico_padrao || ' ' || lcto_contabil.ds_complemento ) ds_complemento
+from   dbamv.lcto_contabil    lcto_contabil
+     , dbamv.lcto_setor           lcto_setor
+     , dbamv.setor                  setor
+     , dbamv.historico_padrao hp
+where to_date(to_char(lcto_contabil.dt_lcto,'mm/yyyy'),'mm/yyyy') >= :CAMPO_SALDO_MES
+  and to_date( to_char(lcto_contabil.dt_lcto,'mm/yyyy'),'mm/yyyy') <= :CAMPO_SALDO_MES
+  and ( lcto_setor.cd_setor_credito    = setor.cd_setor
+     or  lcto_setor.cd_setor_debito    = setor.cd_setor)
+  and  lcto_contabil.cd_lcto_contabil = lcto_setor.cd_lcto_contabil
+  and  hp.cd_historico_padrao(+)         = lcto_contabil.cd_historico_padrao
+Order by dia, cd_lote, cd_lcto_contabil
+)
+ORDER BY NM_SETOR,CD_CEN_CUS,
+CD_REDUZIDO_DEB_CRED

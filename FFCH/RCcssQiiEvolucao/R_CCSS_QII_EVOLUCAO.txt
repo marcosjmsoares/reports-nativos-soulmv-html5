@@ -1,0 +1,68 @@
+/*----------------------------------------------------------------------------*/
+--R_CCSS_QII_EVOLUCAO
+SELECT * FROM (
+SELECT   ffch_setor_ccss.cd_setor
+        ,setor.nm_setor
+        ,itprod.cd_item_producao
+        ,itprod.ds_item_producao
+        ,cf.dt_competencia
+        ,ffch_setor_ccss.cd_ccss
+        ,TO_DATE ( to_char (last_day ( add_months ( TO_DATE ( to_char ( cf.dt_competencia, 'mm/yyyy' ), 'mm/yyyy' ), -1 )) + 1, 'DD/MM/YYYY' ), 'DD/MM/YYYY' ) dt_inicial
+        ,last_day ( TO_DATE ( to_char ( cf.dt_competencia, 'dd/mm/yyyy' ), 'dd/mm/yyyy' )) dt_final
+        ,SUM (nvl ( cf.vl_custo_evento, 0 ) + nvl ( cf.vl_custo_genericos, 0 ) + nvl ( cf.vl_custo_especificos, 0 ) + nvl ( cf.vl_custo_matmed, 0 )) vl_custo_total
+        ,SUM ( nvl ( cf.vl_custo_matmed, 0 )) vl_consumo_matmed
+        ,SUM ( itprod.qtd_producao ) qtd_producao
+        ,SUM (last_day ( TO_DATE ( to_char ( cf.dt_competencia, 'dd/mm/yyyy' ), 'dd/mm/yyyy' )) - TO_DATE ( to_char (last_day ( add_months ( TO_DATE ( to_char ( cf.dt_competencia, 'mm/yyyy' ), 'mm/yyyy' ), -1 )) + 1, 'DD/MM/YYYY' ), 'DD/MM/YYYY' )
+           + 1 ) qtd_dias
+        ,SUM ( dbamv.ffch_ret_qtd_leito (
+             TO_DATE ( to_char (last_day ( add_months ( TO_DATE ( to_char ( cf.dt_competencia, 'mm/yyyy' ), 'mm/yyyy' ), -1 )) + 1, 'DD/MM/YYYY' ), 'DD/MM/YYYY' )
+            ,last_day ( TO_DATE ( to_char ( cf.dt_competencia, 'dd/mm/yyyy' ), 'dd/mm/yyyy' ))
+            ,ffch_setor_ccss.cd_setor
+            ,setor.cd_multi_empresa
+           )) qtd_leitos
+    FROM dbamv.ffch_setor_ccss
+        ,dbamv.setor
+        ,dbamv.custo_final cf
+       ,( SELECT pm.dt_competencia
+                ,ipm.cd_setor_destino cd_setor
+                ,ip.cd_item_producao
+                ,ip.ds_item_producao
+                ,SUM ( ipm.vl_producao_mensal ) qtd_producao
+           FROM dbamv.producao_mensal pm
+               ,dbamv.item_prod_mensal ipm
+               ,dbamv.item_producao ip
+               ,dbamv.setor setor
+               ,dbamv.setor_item setor_item
+          WHERE pm.dt_competencia >= TO_DATE (to_char (last_day ( add_months ( to_date(:CAMPO_DT_INICIAL,'dd/mm/yyyy'), -1 )) + 1, 'dd/mm/yyyy' ) || ' 00', 'dd/mm/yyyy hh24' )
+            AND pm.dt_competencia <= TO_DATE (to_char ( last_day ( to_date(:CAMPO_DT_FINAL,'dd/mm/yyyy') ), 'dd/mm/yyyy' ) || ' 23', 'dd/mm/yyyy hh24' )
+            AND pm.cd_producao_mensal = ipm.cd_producao_mensal
+            AND pm.cd_setor_origem IS NULL
+            AND pm.cd_item_producao = ip.cd_item_producao
+            AND ip.tp_direcionador = 2
+            AND pm.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            AND setor.cd_setor = ipm.cd_setor_destino
+            AND setor.cd_setor = setor_item.cd_setor
+            AND setor_item.cd_item_producao = ipm.cd_item_producao
+    GROUP BY pm.dt_competencia
+            ,ipm.cd_setor_destino
+            ,ip.cd_item_producao
+            ,ip.ds_item_producao ) itprod
+   WHERE ffch_setor_ccss.tp_config_q2 = decode(:CAMPO_RB_QUADRO,'2','1','3','2','4','3','5','4','6','5')
+     AND ffch_setor_ccss.cd_setor = cf.cd_setor
+     AND ffch_setor_ccss.cd_setor = itprod.cd_setor
+     AND ffch_setor_ccss.cd_setor = setor.cd_setor
+     AND ffch_setor_ccss.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND cf.dt_competencia >= TO_DATE (to_char (last_day ( add_months ( to_date(:CAMPO_DT_INICIAL,'dd/mm/yyyy'), -1 )) + 1, 'dd/mm/yyyy' ) || ' 00', 'dd/mm/yyyy hh24' )
+     AND cf.dt_competencia <=  TO_DATE (to_char ( last_day ( to_date(:CAMPO_DT_FINAL,'dd/mm/yyyy') ), 'dd/mm/yyyy' ) || ' 23', 'dd/mm/yyyy hh24' )
+     AND cf.dt_competencia = itprod.dt_competencia
+     AND (ffch_setor_ccss.cd_item_producao = itprod.cd_item_producao OR ffch_setor_ccss.cd_item_producao IS NULL)
+GROUP BY ffch_setor_ccss.cd_setor
+        ,setor.nm_setor
+        ,itprod.cd_item_producao
+        ,itprod.ds_item_producao
+        ,cf.dt_competencia
+        ,ffch_setor_ccss.cd_ccss
+)
+ORDER BY CD_CCSS,
+CD_SETOR,NM_SETOR,CD_ITEM_PRODUCAO,DS_ITEM_PRODUCAO

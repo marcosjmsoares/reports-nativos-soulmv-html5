@@ -1,0 +1,148 @@
+/*----------------------------------------------------------------------------*/
+--R_COTA_COMPETENCIA
+select a.ds_cota,
+       a.cd_usuario,
+       a.cd_competencia,
+       max(a.vl_orcado)  vl_orcado,
+       sum(a.vl_debito)   vl_debito,
+       sum(a.vl_credito)  vl_credito
+from(
+select cota.ds_cota,
+       cota.cd_usuario,
+       itmvto_cotas.cd_competencia   cd_competencia,
+       cota_competencia.vl_orcado,
+        itmvto_cotas.vl_itmvto_cotas vl_debito, 
+       0    vl_credito
+  from dbamv.cota,
+       dbamv.cota_competencia,
+       dbamv.itmvto_cotas,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.produto
+ where itmvto_cotas.cd_itent_pro is not null
+   and cota_competencia.cd_competencia = itmvto_cotas.cd_competencia
+   and cota.cd_cota = cota_competencia.cd_cota
+   and itmvto_cotas.cd_produto   = produto.cd_produto
+   and itmvto_cotas.cd_itent_pro = itent_pro.cd_itent_pro
+   and itent_pro.cd_ent_pro      = ent_pro.cd_ent_pro
+   and  to_char(cota_competencia.dt_competencia,'YYYYMM') = to_char( :CAMPO_COMPET ,'YYYYMM')
+   and  cota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and cota.cd_cota IN (select cota.cd_cota  
+	                      from dbamv.cota
+	                   , dbamv.cota_competencia 	cotaComp
+	                   , dbamv.cota_resp_autoriza	cotaResp
+	                where cota.cd_cota   = cotaComp.cd_cota
+	                  and cota.cd_cota    = cotaResp.cd_cota
+	                  and cotaResp.cd_usuario_autoriza = user
+ )
+union all
+select cota.ds_cota,
+       cota.cd_usuario,
+       itmvto_cotas.cd_competencia   cd_competencia,
+       cota_competencia.vl_orcado,
+       sum(itmvto_cotas.vl_itmvto_cotas) vl_debito,
+       0    vl_credito
+  from dbamv.cota,
+       dbamv.cota_competencia,
+       dbamv.itmvto_cotas,
+       dbamv.con_pag,
+       dbamv.ratcon_pag
+ where itmvto_cotas.cd_ratcon_pag is not null
+   and cota_competencia.cd_competencia = itmvto_cotas.cd_competencia
+   and cota.cd_cota = cota_competencia.cd_cota
+   and itmvto_cotas.cd_ratcon_pag   = ratcon_pag.cd_ratcon_pag
+   and ratcon_pag.cd_con_pag        = con_pag.cd_con_pag
+   and  to_char(cota_competencia.dt_competencia,'YYYYMM') = to_char( :CAMPO_COMPET ,'YYYYMM')
+   and Cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and cota.cd_cota IN (select cota.cd_cota 
+	                      from dbamv.cota
+	                   , dbamv.cota_competencia 	cotaComp
+	                   , dbamv.cota_resp_autoriza	cotaResp
+	                WHERE cota.cd_cota   = cotaComp.cd_cota
+	                  and cota.cd_cota    = cotaResp.cd_cota
+	                  and cotaResp.cd_usuario_autoriza = user
+                   )
+group by cota.ds_cota,
+       cota.cd_usuario,
+       itmvto_cotas.cd_competencia ,
+       cota_competencia.vl_orcado
+union all
+SELECT  cota.ds_cota,
+        cota.cd_usuario,
+        cota_competencia.cd_competencia   cd_competencia,
+        cota_competencia.vl_orcado,
+       sum(ord_com.vl_total) vl_debito,
+       0    vl_credito
+FROM dbamv.ord_dupl_cota
+,dbamv.ord_com
+,dbamv.previsao
+,dbamv.cota_competencia
+,dbamv.cota
+WHERE ord_com.cd_ord_com = previsao.cd_ord_com
+and ord_com.cd_ord_com = ord_dupl_cota.cd_ord_com
+and cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and cota_competencia.cd_competencia = ord_dupl_cota.cd_competencia
+and cota.cd_cota = cota_competencia.cd_cota
+and  to_char(cota_competencia.dt_competencia,'YYYYMM') = to_char( :CAMPO_COMPET ,'YYYYMM')
+and  previsao.cd_ord_com not in (select  cd_ord_com from dbamv.ent_pro  where ord_com.cd_ord_com = ent_pro.cd_ord_com ) 
+and cota.cd_cota IN (select cota.cd_cota 
+	                      from dbamv.cota
+	                   , dbamv.cota_competencia 	cotaComp
+	                   , dbamv.cota_resp_autoriza	cotaResp
+	                where  cota.cd_cota   = cotaComp.cd_cota
+	                  and cota.cd_cota    = cotaResp.cd_cota
+	                  and cotaResp.cd_usuario_autoriza = user
+                    )
+group by cota.ds_cota,
+       cota.cd_usuario,
+      cota_competencia.cd_competencia ,
+       cota_competencia.vl_orcado
+union all
+select cota.ds_cota,
+       cota.cd_usuario,
+       cota_competencia.cd_competencia   cd_competencia,
+       cota_competencia.vl_orcado,  
+       vl_movimentacao  vl_debito,
+       0                            vl_credito
+  from dbamv.mov_cota_competencia,
+       dbamv.cota,
+       dbamv.cota_competencia
+ where cota.cd_cota = cota_competencia.cd_cota
+   and cota_competencia.cd_competencia = mov_cota_competencia.cd_competencia
+   and  to_char(cota_competencia.dt_competencia,'YYYYMM') = to_char( :CAMPO_COMPET ,'YYYYMM')
+   and Cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and cota.cd_cota IN (select cota.cd_cota 
+	                      from dbamv.cota
+	                   , dbamv.cota_competencia 	cotaComp
+	                   , dbamv.cota_resp_autoriza	cotaResp
+	                where cota.cd_cota   = cotaComp.cd_cota
+	                  and cota.cd_cota    = cotaResp.cd_cota
+	                  and cotaResp.cd_usuario_autoriza = user
+                   )
+union all
+select cota.ds_cota,
+       cota.cd_usuario,
+       cota_competencia.cd_competencia   cd_competencia,
+       cota_competencia.vl_orcado, 
+       0                            vl_debito,
+       vl_movimentacao  vl_credito
+  from dbamv.mov_cota_competencia,
+       dbamv.cota,
+       dbamv.cota_competencia
+ where cota.cd_cota = cota_competencia.cd_cota
+   and cota_competencia.cd_competencia = mov_cota_competencia.cd_competencia_transf
+   and  to_char(cota_competencia.dt_competencia,'YYYYMM') = to_char( :CAMPO_COMPET ,'YYYYMM')
+   and Cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and cota.cd_cota IN (select cota.cd_cota 
+	                      from dbamv.cota
+	                   , dbamv.cota_competencia 	cotaComp
+	                   , dbamv.cota_resp_autoriza	cotaResp
+	                where cota.cd_cota   = cotaComp.cd_cota
+	                  and cota.cd_cota    = cotaResp.cd_cota
+	                  and cotaResp.cd_usuario_autoriza = user
+                    )
+  :CAMPO_CF_COTA
+)a
+group by a.ds_cota,
+         a.cd_usuario,
+         a.cd_competencia

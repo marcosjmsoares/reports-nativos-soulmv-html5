@@ -1,0 +1,54 @@
+/*----------------------------------------------------------------------------*/
+--R_CAUCAO_CAIXA_PACIENTE
+select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CAUCAO_CAIXA_PACIENTE_R_SAIDA_Q_SAIDA
+select  saida_nm_paciente         saida_nm_paciente
+		,saida_nm_social_paciente         saida_nm_social_paciente
+       ,sum(saida_vl_movimentacao)     saida_vl_movimentacao
+from (
+select initcap(p.nm_paciente)     saida_nm_paciente
+		,initcap(p.nm_social_paciente)     saida_nm_social_paciente
+      ,dbamv.fnc_fnfi_calcula_moeda(:CAMPO_DATA, :CAMPO_CD_MULTI_EMPRESA,dbamv.moeda_padrao(:CAMPO_CD_MULTI_EMPRESA),:CAMPO_CD_MOEDA,sum(ca.vl_caucao))saida_vl_movimentacao
+from   dbamv.caucao     ca
+      ,dbamv.mov_caixa  m
+      ,dbamv.doc_caixa  d
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+      ,dbamv.USUARIO_MULTI_EMPRESA UME
+where  m.cd_doc_caixa = d.cd_doc_caixa
+and    d.cd_caucao = ca.cd_caucao
+and    ca.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    m.dt_cancelamento is null
+and    m.tp_movimentacao = 'S'
+and    m.tp_origem_mov in ('CA','DE')
+and    trunc(m.dt_movimentacao) = :CAMPO_DATA
+and    a.cd_multi_empresa = UME.cd_multi_empresa
+and    ume.cd_id_usuario = user
+group by p.nm_paciente, p.nm_social_paciente
+union all
+select initcap(p.nm_paciente)     saida_nm_paciente
+		,initcap(p.nm_social_paciente)     saida_nm_social_paciente
+      ,dbamv.fnc_fnfi_calcula_moeda(:CAMPO_DATA, :CAMPO_CD_MULTI_EMPRESA,dbamv.moeda_padrao(:CAMPO_CD_MULTI_EMPRESA),:CAMPO_CD_MOEDA,sum(ca.vl_caucao))saida_vl_movimentacao
+from   dbamv.caucao     ca
+      ,dbamv.mov_caixa  m
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+      ,dbamv.USUARIO_MULTI_EMPRESA UME
+where  m.cd_caucao = ca.cd_caucao
+and    ca.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    not exists (select 'x' from dbamv.doc_caixa where doc_caixa.cd_caucao = ca.cd_caucao)
+and    m.dt_cancelamento is null
+and    m.tp_movimentacao = 'S'
+and    m.tp_origem_mov in ('CA','DE')
+and    trunc(m.dt_movimentacao) = :CAMPO_DATA
+and    a.cd_multi_empresa = UME.cd_multi_empresa
+and    ume.cd_id_usuario = user 
+group by p.nm_paciente, p.nm_social_paciente
+)
+group by saida_nm_paciente, saida_nm_social_paciente

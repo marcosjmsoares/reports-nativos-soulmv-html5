@@ -1,0 +1,103 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_FAT_SEMESTRAL
+SELECT * FROM (
+SELECT CD_CONVENIO    cd_convenio
+      ,NM_CONVENIO    nm_convenio
+      ,CD_ATENDIMENTO cd_atendimento
+      ,NM_PACIENTE    nm_paciente
+      ,DS_ORI_ATE     ds_ori_ate
+      ,DT_INICIAL     dt_inicial
+      ,DT_FINAL       dt_final
+      ,CONTA          conta
+      ,TIPO           tipo
+      ,QT_N_FATURADO  qt_n_faturado
+  FROM (SELECT CD_CONVENIO
+              ,NM_CONVENIO
+              ,CD_ATENDIMENTO
+              ,NM_PACIENTE
+              ,DS_ORI_ATE
+              ,DT_INICIAL
+              ,DT_FINAL
+              ,CONTA
+              ,TIPO
+              ,SUM(QT_N_FATURADO) QT_N_FATURADO
+          FROM (SELECT REG_FAT.CD_CONVENIO   CD_CONVENIO
+                      ,CONVENIO.NM_CONVENIO  NM_CONVENIO
+                      ,ATENDIME.CD_ATENDIMENTO          CD_ATENDIMENTO
+                      ,PACIENTE.NM_PACIENTE NM_PACIENTE
+                      ,ORI_ATE.DS_ORI_ATE DS_ORI_ATE
+                      ,REG_FAT.DT_INICIO DT_INICIAL
+                      ,REG_FAT.DT_FINAL DT_FINAL
+                      ,REG_FAT.CD_REG_FAT CONTA
+                      ,'A' TIPO
+                      ,DECODE ( REG_FAT.DT_FINAL, NULL, 0,  NVL(ITREG_FAT.VL_TOTAL_CONTA,0) ) QT_N_FATURADO
+                  FROM DBAMV.REG_FAT
+                      ,DBAMV.ATENDIME
+                      ,DBAMV.PACIENTE
+                      ,DBAMV.ORI_ATE
+                      ,DBAMV.CONVENIO
+                      ,DBAMV.ITREG_FAT
+	     ,Dbamv.Empresa_Convenio
+              Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+                  And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                  And ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+                   AND PACIENTE.CD_PACIENTE = ATENDIME.CD_PACIENTE
+                   AND ORI_ATE.CD_ORI_ATE = ATENDIME.CD_ORI_ATE
+                   AND (REG_FAT.SN_FECHADA = 'N' OR (REG_FAT.SN_FECHADA = 'S' AND REG_FAT.CD_REMESSA IS NULL)
+                    OR (REG_FAT.SN_FECHADA = 'S' AND EXISTS (SELECT CD_REMESSA FROM DBAMV.REMESSA_FATURA
+                                                               WHERE REMESSA_FATURA.CD_REMESSA = REG_FAT.CD_REMESSA
+                                                                 AND REMESSA_FATURA.SN_FECHADA = 'N')))
+                   AND NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+                   AND REG_FAT.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+                   AND REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                   AND ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+                   AND NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+                   AND CONVENIO.TP_CONVENIO <> 'H'
+                 UNION ALL
+                  SELECT CONVENIO.CD_CONVENIO             CD_CONVENIO
+                        ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+                        ,ATENDIME.CD_ATENDIMENTO          CD_ATENDIMENTO
+                        ,PACIENTE.NM_PACIENTE NM_PACIENTE
+                        ,ORI_ATE.DS_ORI_ATE DS_ORI_ATE
+                        ,ATENDIME.DT_ATENDIMENTO DT_INICIAL
+                        ,ATENDIME.DT_ATENDIMENTO DT_FINAL
+                        ,ITREG_AMB.CD_REG_AMB CONTA
+                        ,'I' TIPO
+                        ,DECODE( ITREG_AMB.SN_FATURA_IMPRESSA, 'S', NVL(ITREG_AMB.VL_TOTAL_CONTA,0), 0 ) QT_N_FATURADO
+                    FROM DBAMV.REG_AMB
+                        ,DBAMV.ITREG_AMB
+                        ,DBAMV.ATENDIME
+                        ,DBAMV.PACIENTE
+                        ,DBAMV.ORI_ATE
+                        ,DBAMV.CONVENIO
+  	        ,Dbamv.Empresa_Convenio
+             Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+                 And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                 And REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                 AND (ITREG_AMB.SN_FECHADA = 'N' OR (ITREG_AMB.SN_FECHADA = 'S' AND REG_AMB.CD_REMESSA IS NULL)
+                      OR (ITREG_AMB.SN_FECHADA = 'S' AND EXISTS (SELECT CD_REMESSA FROM DBAMV.REMESSA_FATURA
+                                                                  WHERE REMESSA_FATURA.CD_REMESSA = REG_AMB.CD_REMESSA
+                                                                    AND REMESSA_FATURA.SN_FECHADA = 'N')))
+                     AND ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+                     AND NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+                     AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                     AND ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+                     AND PACIENTE.CD_PACIENTE = ATENDIME.CD_PACIENTE
+                     AND ORI_ATE.CD_ORI_ATE = ATENDIME.CD_ORI_ATE
+                     AND NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                     AND CONVENIO.TP_CONVENIO <> 'H'
+                     :CAMPO_CF_CONVENIO)
+where nvl(qt_n_faturado,0) <> 0
+GROUP BY CD_CONVENIO
+        ,NM_CONVENIO
+        ,CD_ATENDIMENTO
+        ,NM_PACIENTE
+        ,DS_ORI_ATE
+        ,DT_INICIAL
+        ,DT_FINAL
+        ,CONTA
+        ,TIPO)
+ORDER BY DT_FINAL
+)
+ORDER BY NM_CONVENIO,CD_CONVENIO,
+TIPO,CD_ATENDIMENTO

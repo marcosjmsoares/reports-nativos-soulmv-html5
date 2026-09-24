@@ -1,0 +1,992 @@
+/*----------------------------------------------------------------------------*/
+--R_CENSO
+SELECT 'A' TIPO ,
+           LEITO.CD_UNID_INT CD_UNID_INT ,
+           LEITO.DS_RESUMO DS_RESUMO ,
+           LEITO.TP_OCUPACAO TP_OCUPACAO ,
+           LEITO.DS_ENFERMARIA DS_ENFERMARIA ,
+           UNID_INT.DS_UNID_INT DS_UNID_INT ,
+           DECODE(nvl(PACIENTE.SN_UTILIZA_NOME_SOCIAL, 'N'),'S', Nvl(PACIENTE.NM_SOCIAL_PACIENTE, PACIENTE.NM_PACIENTE), PACIENTE.NM_PACIENTE) NM_PACIENTE ,
+           PACIENTE.DT_NASCIMENTO DT_NASCIMENTO ,
+           CONVENIO.NM_CONVENIO NM_CONVENIO ,
+           PRESTADOR.NM_PRESTADOR NM_PRESTADOR ,
+           ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO ,
+           ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO ,
+           LEITO.CD_LEITO CD_LEITO ,
+           TO_NUMBER(NULL) CODIGO_RESUMO ,
+           NULL DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           LEITO.SN_EXTRA SN_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           PACIENTE.CD_PACIENTE CD_PACIENTE ,
+           SUB_PLANO.DS_SUB_PLANO ,
+           SERVICO.DS_SERVICO
+FROM DBAMV.V_INTERNADOS ,
+     DBAMV.LEITO ,
+     DBAMV.UNID_INT ,
+     DBAMV.ATENDIME ,
+     DBAMV.PACIENTE ,
+     DBAMV.CONVENIO ,
+     DBAMV.PRESTADOR ,
+     DBAMV.SUB_PLANO ,
+     DBAMV.SERVICO
+WHERE V_INTERNADOS.CD_LEITO (+) = LEITO.CD_LEITO 
+  AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+  AND :CAMPO_DATA >= leito.dt_ativacao
+  AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+  AND V_INTERNADOS.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO (+)
+  AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE (+)
+  AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO (+)
+  AND PRESTADOR.CD_PRESTADOR (+) = ATENDIME.CD_PRESTADOR 
+  AND ATENDIME.CD_SUB_PLANO = SUB_PLANO.CD_SUB_PLANO(+)
+  AND ATENDIME.CD_CONVENIO = SUB_PLANO.CD_CONVENIO(+)
+  AND ATENDIME.CD_CON_PLA = SUB_PLANO.CD_CON_PLA(+)
+  AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO (+)
+  AND LEITO.TP_SITUACAO = 'A' 
+UNION ALL
+SELECT 'A' TIPO ,
+           LEITO.CD_UNID_INT CD_UNID_INT ,
+           LEITO.DS_RESUMO DS_RESUMO ,
+           LEITO.TP_OCUPACAO TP_OCUPACAO ,
+           LEITO.DS_ENFERMARIA DS_ENFERMARIA ,
+           UNID_INT.DS_UNID_INT DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           LEITO.CD_LEITO CD_LEITO ,
+           TO_NUMBER(NULL) CODIGO_RESUMO ,
+           NULL DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           LEITO.SN_EXTRA SN_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM DBAMV.V_INTERNADOS ,
+     DBAMV.LEITO ,
+     DBAMV.UNID_INT ,
+     DBAMV.SETOR
+WHERE V_INTERNADOS.CD_LEITO (+) = LEITO.CD_LEITO 
+  AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+  AND :CAMPO_DATA >= leito.dt_ativacao
+  AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate) 
+  AND LEITO.TP_OCUPACAO not in ('O', 'I')
+  AND UNID_INT.CD_SETOR = SETOR.CD_SETOR
+  AND LEITO.TP_SITUACAO = 'A' 
+UNION ALL
+SELECT 'C' TIPO ,
+           TO_NUMBER(NULL) CD_UNID_INT ,
+           NULL DS_RESUMO ,
+           NULL TP_OCUPACAO ,
+           NULL DS_ENFERMARIA ,
+           NULL DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_LEITO ,
+           CONVENIO.CD_CONVENIO CODIGO_RESUMO ,
+           CONVENIO.NM_CONVENIO DESCRICAO_RESUMO ,
+           NVL(SUM(INTERNOS), 0) INTERNOS ,
+           NVL(SUM(INTERNOS_DIA), 0) INTERNOS_DIA ,
+           NVL(SUM(OBITOS_DIA), 0) OBITOS_DIA ,
+           NVL(SUM(ALTAS_DIA), 0) ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           NULL SN_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM
+  (SELECT CONVENIO.CD_CONVENIO ,
+          CONVENIO.NM_CONVENIO ,
+          NVL(COUNT(ATENDIME.CD_CONVENIO), 0) INTERNOS ,
+          0 INTERNOS_DIA ,
+          0 OBITOS_DIA ,
+          0 ALTAS_DIA
+   FROM DBAMV.LEITO LEITO ,
+        DBAMV.UNID_INT UNID_INT ,
+        DBAMV.ATENDIME ATENDIME ,
+        DBAMV.CONVENIO CONVENIO
+   WHERE atendime.CD_LEITO = LEITO.CD_LEITO
+    AND LEITO.TP_OCUPACAO IN ('O', 'I')
+    AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+    AND :CAMPO_DATA >= leito.dt_ativacao
+    AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+    AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+    AND LEITO.TP_SITUACAO = 'A' 
+    AND atendime.tp_atendimento IN ('I', 'U')
+    AND trunc(atendime.dt_alta) IS NULL 
+    AND :CAMPO_RESUMO = 'S' 
+   GROUP BY CONVENIO.CD_CONVENIO ,
+            CONVENIO.NM_CONVENIO
+   UNION ALL 
+   SELECT CONVENIO.CD_CONVENIO ,
+          CONVENIO.NM_CONVENIO ,
+          0 INTERNOS ,
+          NVL(SUM(DECODE(ATENDIME.DT_ATENDIMENTO, :CAMPO_DATA,1, 0)), 0) INTERNOS_DIA ,
+          NVL(SUM(DECODE(ATENDIME.DT_ALTA || MOT_ALT.TP_MOT_ALTA, :CAMPO_DATA || 'O', 1, 0)), 0) OBITOS_DIA ,
+          NVL(SUM(DECODE(ATENDIME.DT_ALTA || MOT_ALT.TP_MOT_ALTA, :CAMPO_DATA || 'D', 1, :CAMPO_DATA || 'A', 1, :CAMPO_DATA || 'T', 1, 0)), 0) ALTAS_DIA
+   FROM DBAMV.LEITO LEITO ,
+        DBAMV.UNID_INT UNID_INT ,
+        DBAMV.ATENDIME ATENDIME ,
+        DBAMV.CONVENIO CONVENIO ,
+        DBAMV.MOT_ALT MOT_ALT
+   WHERE ATENDIME.CD_LEITO = LEITO.CD_LEITO 
+     AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+     AND :CAMPO_DATA >= leito.dt_ativacao
+     AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+     AND ATENDIME.TP_ATENDIMENTO = 'I'
+     AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+     AND ATENDIME.CD_MOT_ALT = MOT_ALT.CD_MOT_ALT(+)
+     AND :CAMPO_RESUMO = 'S'
+     AND LEITO.TP_SITUACAO = 'A' 
+   GROUP BY CONVENIO.CD_CONVENIO ,
+            CONVENIO.NM_CONVENIO) CONVENIO
+WHERE NVL(CONVENIO.INTERNOS, 0) > 0
+  OR NVL(CONVENIO.INTERNOS_DIA, 0) > 0
+  OR NVL(CONVENIO.OBITOS_DIA, 0) > 0
+  OR NVL(CONVENIO.ALTAS_DIA, 0) > 0
+GROUP BY CONVENIO.CD_CONVENIO ,
+         CONVENIO.NM_CONVENIO
+UNION ALL
+SELECT 'D' TIPO ,
+           TO_NUMBER(NULL) CD_UNID_INT ,
+           NULL DS_RESUMO ,
+           NULL TP_OCUPACAO ,
+           NULL DS_ENFERMARIA ,
+           NULL DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_LEITO ,
+           CODIGO_RESUMO ,
+           DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           SUM(ATIVOS_ACOM) ATIVOS_ACOM ,
+           SUM(EXTRAS_ACOM) EXTRAS_ACOM ,
+           SUM(INTERNOS_ACOM) INTERNOS_ACOM ,
+           NULL SN_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM
+  (SELECT 'D' TIPO ,
+              TO_NUMBER(NULL) CD_UNID_INT ,
+              NULL DS_RESUMO ,
+              NULL TP_OCUPACAO ,
+              NULL DS_ENFERMARIA ,
+              NULL DS_UNID_INT ,
+              NULL NM_PACIENTE ,
+              TO_DATE(NULL) DT_NASCIMENTO ,
+              NULL NM_CONVENIO ,
+              NULL NM_PRESTADOR ,
+              TO_DATE(NULL) DT_ATENDIMENTO ,
+              TO_NUMBER(NULL) CD_ATENDIMENTO ,
+              TO_NUMBER(NULL) CD_LEITO ,
+              TIP_ACOM.CD_TIP_ACOM CODIGO_RESUMO ,
+              TIP_ACOM.DS_TIP_ACOM DESCRICAO_RESUMO ,
+              0 INTERNOS ,
+              0 INTERNOS_DIA ,
+              0 OBITOS_DIA ,
+              0 ALTAS_DIA ,
+              NVL(SUM(DECODE(SN_EXTRA, 'N', 1, 0)), 0) ATIVOS_ACOM ,
+              0 EXTRAS_ACOM ,
+              NVL(SUM(DECODE(TP_OCUPACAO, 'O', 1, 0)), 0) INTERNOS_ACOM ,
+              NULL SN_EXTRA ,
+              to_number(NULL) CD_CONV_UNID ,
+              NULL DS_CONV_UNID ,
+              0 QT_CONV_UNID ,
+              TO_NUMBER(NULL) CD_PACIENTE ,
+              NULL DS_SUB_PLANO ,
+              NULL DS_SERVICO
+   FROM DBAMV.LEITO ,
+        DBAMV.UNID_INT ,
+        DBAMV.TIP_ACOM ,
+        DBAMV.SETOR
+   WHERE LEITO.TP_SITUACAO = 'A' 
+     AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+     AND LEITO.CD_TIP_ACOM = TIP_ACOM.CD_TIP_ACOM
+     AND :CAMPO_RESUMO = 'S'
+     AND UNID_INT.CD_SETOR = SETOR.CD_SETOR 
+   GROUP BY TIP_ACOM.DS_TIP_ACOM ,
+            TIP_ACOM.CD_TIP_ACOM
+   UNION ALL 
+   SELECT 'D' TIPO ,
+              TO_NUMBER(NULL) CD_UNID_INT ,
+              NULL DS_RESUMO ,
+              NULL TP_OCUPACAO ,
+              NULL DS_ENFERMARIA ,
+              NULL DS_UNID_INT ,
+              NULL NM_PACIENTE ,
+              TO_DATE(NULL) DT_NASCIMENTO ,
+              NULL NM_CONVENIO ,
+              NULL NM_PRESTADOR ,
+              TO_DATE(NULL) DT_ATENDIMENTO ,
+              TO_NUMBER(NULL) CD_ATENDIMENTO ,
+              TO_NUMBER(NULL) CD_LEITO ,
+              TIP_ACOM.CD_TIP_ACOM CODIGO_RESUMO ,
+              TIP_ACOM.DS_TIP_ACOM DESCRICAO_RESUMO ,
+              0 INTERNOS ,
+              0 INTERNOS_DIA ,
+              0 OBITOS_DIA ,
+              0 ALTAS_DIA ,
+              0 ATIVOS_ACOM ,
+              NVL(SUM(DECODE(SN_EXTRA, 'S', 1, 0)), 0) EXTRAS_ACOM ,
+              0 INTERNOS_ACOM ,
+              NULL SN_EXTRA ,
+              to_number(NULL) CD_CONV_UNID ,
+              NULL DS_CONV_UNID ,
+              0 QT_CONV_UNID ,
+              TO_NUMBER(NULL) CD_PACIENTE ,
+              NULL DS_SUB_PLANO ,
+              NULL DS_SERVICO
+   FROM DBAMV.LEITO ,
+        DBAMV.UNID_INT ,
+        DBAMV.TIP_ACOM ,
+        DBAMV.SETOR
+   WHERE LEITO.TP_SITUACAO = 'A' 
+     AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+     AND LEITO.CD_TIP_ACOM = TIP_ACOM.CD_TIP_ACOM
+     AND :CAMPO_RESUMO = 'S'
+     AND LEITO.TP_OCUPACAO NOT IN ('V', 'L')
+     AND UNID_INT.CD_SETOR = SETOR.CD_SETOR 
+   GROUP BY TIP_ACOM.DS_TIP_ACOM ,
+            TIP_ACOM.CD_TIP_ACOM)
+GROUP BY CODIGO_RESUMO,
+         DESCRICAO_RESUMO
+UNION ALL
+SELECT 'B' TIPO ,
+           LEITO.CD_UNID_INT CD_UNID_INT ,
+           NULL DS_RESUMO ,
+           NULL TP_OCUPACAO ,
+           NULL DS_ENFERMARIA ,
+           UNID_INT.DS_UNID_INT DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_LEITO ,
+           TO_NUMBER(NULL) CODIGO_RESUMO ,
+           NULL DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           NULL SN_EXTRA ,
+           ATENDIME.CD_CONVENIO CD_CONV_UNID ,
+           CONVENIO.NM_CONVENIO DS_CONV_UNID ,
+           NVL(COUNT(*), 0) QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM DBAMV.V_INTERNADOS ,
+     DBAMV.LEITO ,
+     DBAMV.UNID_INT ,
+     DBAMV.ATENDIME ,
+     DBAMV.CONVENIO
+WHERE V_INTERNADOS.CD_LEITO = LEITO.CD_LEITO 
+  AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+  AND :CAMPO_DATA >= leito.dt_ativacao
+  AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+  AND V_INTERNADOS.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+  AND LEITO.TP_SITUACAO = 'A' 
+  AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO 
+  AND :CAMPO_CONVENIO = 'S' 
+GROUP BY LEITO.CD_UNID_INT ,
+         CONVENIO.NM_CONVENIO ,
+         UNID_INT.DS_UNID_INT ,
+         ATENDIME.CD_CONVENIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CENSO_RF_GERCONVB1_Q_CENSO
+SELECT 'C'                                          TIPO
+       ,TO_NUMBER(NULL)                             CD_UNID_INT
+       ,NULL                                        DS_RESUMO
+       ,NULL                                        TP_OCUPACAO
+       ,NULL                                        DS_ENFERMARIA
+       ,NULL                                        DS_UNID_INT
+       ,NULL                                        NM_PACIENTE
+       ,TO_DATE(NULL)                               DT_NASCIMENTO
+       ,NULL                                        NM_CONVENIO
+       ,NULL                                        NM_PRESTADOR
+       ,TO_DATE(NULL)                               DT_ATENDIMENTO
+       ,TO_NUMBER(NULL)                             CD_ATENDIMENTO
+       ,TO_NUMBER(NULL)                             CD_LEITO
+       ,CONVENIO.CD_CONVENIO                        CODIGO_RESUMO
+       ,CONVENIO.NM_CONVENIO                        DESCRICAO_RESUMO
+       ,NVL(SUM(INTERNOS),0)     INTERNOS
+       ,NVL(SUM(INTERNOS_DIA),0) INTERNOS_DIA
+       ,NVL(SUM(OBITOS_DIA),0)   OBITOS_DIA
+       ,NVL(SUM(ALTAS_DIA),0)    ALTAS_DIA
+       ,0 ATIVOS_ACOM
+       ,0 EXTRAS_ACOM
+       ,0 INTERNOS_ACOM
+       ,NULL                                        SN_EXTRA
+       ,to_number(null)                             CD_CONV_UNID
+       ,null                                        DS_CONV_UNID
+       ,0 QT_CONV_UNID
+       ,TO_NUMBER(NULL) CD_PACIENTE
+       ,NULL                       DS_SUB_PLANO
+FROM
+      (SELECT
+       CONVENIO.CD_CONVENIO
+      ,CONVENIO.NM_CONVENIO
+      ,NVL(COUNT(ATENDIME.CD_CONVENIO),0) INTERNOS
+      ,0 INTERNOS_DIA
+      ,0 OBITOS_DIA
+      ,0 ALTAS_DIA
+       FROM        DBAMV.V_INTERNADOS    V_INTERNADOS
+                  ,DBAMV.LEITO           LEITO
+                  ,DBAMV.UNID_INT        UNID_INT
+                  ,DBAMV.ATENDIME        ATENDIME
+                  ,DBAMV.CONVENIO        CONVENIO
+       WHERE       V_INTERNADOS.CD_LEITO  =  LEITO.CD_LEITO
+       AND        LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+       AND        :CAMPO_DATA >= leito.dt_ativacao
+       AND        :CAMPO_DATA <= nvl(leito.dt_desativacao,sysdate)
+       AND        ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+       AND        V_INTERNADOS.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+       AND         LEITO.TP_SITUACAO = 'A'
+       AND        LEITO.TP_OCUPACAO IN ('O','I')
+      AND  :CAMPO_RESUMO = 'S'
+       GROUP BY CONVENIO.CD_CONVENIO
+               ,CONVENIO.NM_CONVENIO
+       UNION ALL
+       SELECT
+       CONVENIO.CD_CONVENIO
+      ,CONVENIO.NM_CONVENIO
+      ,0 INTERNOS
+      ,NVL(SUM(DECODE(ATENDIME.DT_ATENDIMENTO,:CAMPO_DATA,1,0)),0)                        INTERNOS_DIA
+      ,NVL(SUM(DECODE(ATENDIME.DT_ALTA || MOT_ALT.TP_MOT_ALTA,:CAMPO_DATA || 'O',1,0)),0) OBITOS_DIA
+      ,NVL(SUM(DECODE(ATENDIME.DT_ALTA || MOT_ALT.TP_MOT_ALTA,:CAMPO_DATA || 'D',1,
+          :CAMPO_DATA || 'A',1,:CAMPO_DATA || 'T',1,0)),0)                          ALTAS_DIA
+       FROM        DBAMV.LEITO           LEITO
+                  ,DBAMV.UNID_INT        UNID_INT
+                  ,DBAMV.ATENDIME        ATENDIME
+                  ,DBAMV.CONVENIO        CONVENIO
+                  ,DBAMV.MOT_ALT         MOT_ALT
+       WHERE       ATENDIME.CD_LEITO  =  LEITO.CD_LEITO
+       AND        LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+       AND        :CAMPO_DATA >= leito.dt_ativacao
+       AND        :CAMPO_DATA <= nvl(leito.dt_desativacao,sysdate)
+       AND        ATENDIME.TP_ATENDIMENTO = 'I'
+       AND        ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+       AND        ATENDIME.CD_MOT_ALT = MOT_ALT.CD_MOT_ALT(+)
+      AND  :CAMPO_RESUMO = 'S'
+      AND         LEITO.TP_SITUACAO = 'A'
+       AND        LEITO.TP_OCUPACAO IN ('O','I')
+       GROUP BY CONVENIO.CD_CONVENIO
+               ,CONVENIO.NM_CONVENIO) CONVENIO
+WHERE NVL(CONVENIO.INTERNOS,0) > 0   OR
+      NVL(CONVENIO.INTERNOS_DIA,0) > 0  OR
+      NVL(CONVENIO.OBITOS_DIA,0) > 0  OR
+      NVL(CONVENIO.ALTAS_DIA,0) > 0
+GROUP BY CONVENIO.CD_CONVENIO
+        ,CONVENIO.NM_CONVENIO
+ ORDER BY codigo_resumo
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CENSO_RF_TIPACOMODACAO1_Q_CENSO
+SELECT  'D'                          TIPO
+       ,TO_NUMBER(NULL)              CD_UNID_INT
+       ,NULL                         DS_RESUMO
+       ,NULL                         TP_OCUPACAO
+       ,NULL                         DS_ENFERMARIA
+       ,NULL                         DS_UNID_INT
+       ,NULL                         NM_PACIENTE
+       ,TO_DATE(NULL)                DT_NASCIMENTO
+       ,NULL                         NM_CONVENIO
+       ,NULL                         NM_PRESTADOR
+       ,TO_DATE(NULL)                DT_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_LEITO
+       , CODIGO_RESUMO
+       , DESCRICAO_RESUMO
+       ,0                            INTERNOS
+       ,0                            INTERNOS_DIA
+       ,0                            OBITOS_DIA
+       ,0                            ALTAS_DIA
+       ,SUM(ATIVOS_ACOM) ATIVOS_ACOM
+       ,SUM(EXTRAS_ACOM) EXTRAS_ACOM
+       ,SUM(INTERNOS_ACOM) INTERNOS_ACOM
+       ,SUM(EXTRAS_INT_ACOM)         EXTRAS_INT_ACOM
+       ,NULL                         SN_EXTRA
+       ,to_number(null)              CD_CONV_UNID
+       ,null                         DS_CONV_UNID
+       ,0                            QT_CONV_UNID
+       ,TO_NUMBER(NULL)              CD_PACIENTE
+       ,NULL                       DS_SUB_PLANO
+FROM
+(
+SELECT  'D'                          TIPO
+       ,TO_NUMBER(NULL)              CD_UNID_INT
+       ,NULL                         DS_RESUMO
+       ,NULL                         TP_OCUPACAO
+       ,NULL                         DS_ENFERMARIA
+       ,NULL                         DS_UNID_INT
+       ,NULL                         NM_PACIENTE
+       ,TO_DATE(NULL)                DT_NASCIMENTO
+       ,NULL                         NM_CONVENIO
+       ,NULL                         NM_PRESTADOR
+       ,TO_DATE(NULL)                DT_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_LEITO
+       ,TIP_ACOM.CD_TIP_ACOM         CODIGO_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM         DESCRICAO_RESUMO
+       ,0                            INTERNOS
+       ,0                            INTERNOS_DIA
+       ,0                            OBITOS_DIA
+       ,0                            ALTAS_DIA
+       ,0 ATIVOS_ACOM
+       ,0 EXTRAS_ACOM
+       ,NVL(SUM(DECODE(TP_OCUPACAO,'O',1,'I',1,0)),0) INTERNOS_ACOM
+       ,0 EXTRAS_INT_ACOM
+       ,NULL                         SN_EXTRA
+       ,to_number(null)              CD_CONV_UNID
+       ,null                         DS_CONV_UNID
+       ,0                            QT_CONV_UNID
+       ,TO_NUMBER(NULL)              CD_PACIENTE
+       ,NULL                       DS_SUB_PLANO
+FROM    DBAMV.LEITO
+       ,      DBAMV.UNID_INT
+       ,      DBAMV.TIP_ACOM
+       ,      DBAMV.SETOR
+       ,      DBAMV.V_INTERNADOS
+       ,      DBAMV.ATENDIME
+       ,      DBAMV.CONVENIO
+WHERE      LEITO.TP_SITUACAO = 'A' 
+     AND   LEITO.CD_UNID_INT =  UNID_INT.CD_UNID_INT
+     AND   LEITO.CD_TIP_ACOM =  TIP_ACOM.CD_TIP_ACOM
+     AND  :CAMPO_RESUMO = 'S'
+     AND  UNID_INT.CD_SETOR = SETOR.CD_SETOR
+     AND V_INTERNADOS.CD_LEITO=LEITO.CD_LEITO
+     AND V_INTERNADOS.CD_ATENDIMENTO=ATENDIME.CD_ATENDIMENTO
+     AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+    GROUP BY  TIP_ACOM.DS_TIP_ACOM
+              ,TIP_ACOM.CD_TIP_ACOM
+UNION ALL
+SELECT  'D'                          TIPO
+       ,TO_NUMBER(NULL)              CD_UNID_INT
+       ,NULL                         DS_RESUMO
+       ,NULL                         TP_OCUPACAO
+       ,NULL                         DS_ENFERMARIA
+       ,NULL                         DS_UNID_INT
+       ,NULL                         NM_PACIENTE
+       ,TO_DATE(NULL)                DT_NASCIMENTO
+       ,NULL                         NM_CONVENIO
+       ,NULL                         NM_PRESTADOR
+       ,TO_DATE(NULL)                DT_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_LEITO
+       ,TIP_ACOM.CD_TIP_ACOM         CODIGO_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM         DESCRICAO_RESUMO
+       ,0                            INTERNOS
+       ,0                            INTERNOS_DIA
+       ,0                            OBITOS_DIA
+       ,0                            ALTAS_DIA
+       ,0  ATIVOS_ACOM
+       ,NVL(SUM(DECODE(SN_EXTRA,'S',1,0)),0)   EXTRAS_ACOM
+       ,0 INTERNOS_ACOM
+       ,0 EXTRAS_INT_ACOM
+       ,NULL                         SN_EXTRA
+       ,to_number(null)              CD_CONV_UNID
+       ,null                         DS_CONV_UNID
+       ,0                            QT_CONV_UNID
+       ,TO_NUMBER(NULL)              CD_PACIENTE
+       ,NULL                       DS_SUB_PLANO
+FROM    DBAMV.LEITO
+       ,      DBAMV.UNID_INT
+       ,      DBAMV.TIP_ACOM
+       ,      DBAMV.SETOR
+WHERE      LEITO.TP_SITUACAO = 'A' 
+     AND   LEITO.CD_UNID_INT =  UNID_INT.CD_UNID_INT
+     AND   LEITO.CD_TIP_ACOM =  TIP_ACOM.CD_TIP_ACOM
+     AND  :CAMPO_RESUMO = 'S'
+     AND  UNID_INT.CD_SETOR = SETOR.CD_SETOR
+    GROUP BY  TIP_ACOM.DS_TIP_ACOM
+              ,TIP_ACOM.CD_TIP_ACOM
+UNION ALL
+SELECT  'D'                          TIPO
+       ,TO_NUMBER(NULL)              CD_UNID_INT
+       ,NULL                         DS_RESUMO
+       ,NULL                         TP_OCUPACAO
+       ,NULL                         DS_ENFERMARIA
+       ,NULL                         DS_UNID_INT
+       ,NULL                         NM_PACIENTE
+       ,TO_DATE(NULL)                DT_NASCIMENTO
+       ,NULL                         NM_CONVENIO
+       ,NULL                         NM_PRESTADOR
+       ,TO_DATE(NULL)                DT_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_LEITO
+       ,TIP_ACOM.CD_TIP_ACOM         CODIGO_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM         DESCRICAO_RESUMO
+       ,0                            INTERNOS
+       ,0                            INTERNOS_DIA
+       ,0                            OBITOS_DIA
+       ,0                            ALTAS_DIA
+       ,0  ATIVOS_ACOM
+       ,0  EXTRAS_ACOM
+       ,0 INTERNOS_ACOM
+       ,NVL(SUM(DECODE(SN_EXTRA,'S',1,0)),0)  EXTRAS_INT_ACOM
+       ,NULL                         SN_EXTRA
+       ,to_number(null)              CD_CONV_UNID
+       ,null                         DS_CONV_UNID
+       ,0                            QT_CONV_UNID
+       ,TO_NUMBER(NULL)              CD_PACIENTE
+       ,NULL                       DS_SUB_PLANO
+FROM    DBAMV.LEITO
+       ,      DBAMV.UNID_INT
+       ,      DBAMV.TIP_ACOM
+       ,      DBAMV.SETOR
+       ,      DBAMV.V_INTERNADOS
+       ,      DBAMV.ATENDIME
+       ,      DBAMV.CONVENIO
+WHERE      LEITO.TP_SITUACAO = 'A' 
+     AND   LEITO.CD_UNID_INT =  UNID_INT.CD_UNID_INT
+     AND   LEITO.CD_TIP_ACOM =  TIP_ACOM.CD_TIP_ACOM
+     AND   :CAMPO_RESUMO = 'S'
+     AND   LEITO.TP_OCUPACAO in ('O','I')
+     AND   LEITO.SN_EXTRA    = 'S'
+     AND   UNID_INT.CD_SETOR = SETOR.CD_SETOR
+     AND V_INTERNADOS.CD_LEITO=LEITO.CD_LEITO
+     AND V_INTERNADOS.CD_ATENDIMENTO=ATENDIME.CD_ATENDIMENTO
+     AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+    GROUP BY  TIP_ACOM.DS_TIP_ACOM
+              ,TIP_ACOM.CD_TIP_ACOM
+UNION ALL
+SELECT  'D'                          TIPO
+       ,TO_NUMBER(NULL)              CD_UNID_INT
+       ,NULL                         DS_RESUMO
+       ,NULL                         TP_OCUPACAO
+       ,NULL                         DS_ENFERMARIA
+       ,NULL                         DS_UNID_INT
+       ,NULL                         NM_PACIENTE
+       ,TO_DATE(NULL)                DT_NASCIMENTO
+       ,NULL                         NM_CONVENIO
+       ,NULL                         NM_PRESTADOR
+       ,TO_DATE(NULL)                DT_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_ATENDIMENTO
+       ,TO_NUMBER(NULL)              CD_LEITO
+       ,TIP_ACOM.CD_TIP_ACOM         CODIGO_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM         DESCRICAO_RESUMO
+       ,0                            INTERNOS
+       ,0                            INTERNOS_DIA
+       ,0                            OBITOS_DIA
+       ,0                            ALTAS_DIA
+       ,NVL(SUM(DECODE(SN_EXTRA,'N',1,0)),0)   ATIVOS_ACOM
+       ,0 EXTRAS_ACOM
+       ,0 INTERNOS_ACOM
+       ,0 EXTRAS_INT_ACOM
+       ,NULL                         SN_EXTRA
+       ,to_number(null)              CD_CONV_UNID
+       ,null                         DS_CONV_UNID
+       ,0                            QT_CONV_UNID
+       ,TO_NUMBER(NULL)              CD_PACIENTE
+       ,NULL                       DS_SUB_PLANO
+FROM    DBAMV.LEITO
+       ,      DBAMV.UNID_INT
+       ,      DBAMV.TIP_ACOM
+       ,      DBAMV.SETOR
+WHERE      LEITO.TP_SITUACAO = 'A' 
+     AND   LEITO.CD_UNID_INT =  UNID_INT.CD_UNID_INT
+     AND   LEITO.CD_TIP_ACOM =  TIP_ACOM.CD_TIP_ACOM
+     AND  :CAMPO_RESUMO = 'S'
+     AND  UNID_INT.CD_SETOR = SETOR.CD_SETOR
+    GROUP BY  TIP_ACOM.DS_TIP_ACOM
+              ,TIP_ACOM.CD_TIP_ACOM
+)
+GROUP BY CODIGO_RESUMO, DESCRICAO_RESUMO
+ORDER BY CODIGO_RESUMO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CENSO_RF_UNIDINT1_Q_1
+SELECT 'A' TIPO ,
+           LEITO.CD_UNID_INT CD_UNID_INT ,
+           LEITO.DS_RESUMO DS_RESUMO ,
+           LEITO.TP_OCUPACAO TP_OCUPACAO ,
+           LEITO.DS_ENFERMARIA DS_ENFERMARIA ,
+           UNID_INT.DS_UNID_INT DS_UNID_INT ,
+           DECODE(nvl(PACIENTE.SN_UTILIZA_NOME_SOCIAL, 'N'),'S', Nvl(PACIENTE.NM_SOCIAL_PACIENTE, PACIENTE.NM_PACIENTE), PACIENTE.NM_PACIENTE) NM_PACIENTE ,
+           PACIENTE.DT_NASCIMENTO DT_NASCIMENTO ,
+           CONVENIO.NM_CONVENIO NM_CONVENIO ,
+           PRESTADOR.NM_PRESTADOR NM_PRESTADOR ,
+           ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO ,
+           ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO ,
+           LEITO.CD_LEITO CD_LEITO ,
+           TO_NUMBER(NULL) CODIGO_RESUMO ,
+           NULL DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           LEITO.SN_EXTRA SN_EXTRA ,
+           decode(NVL(LEITO.SN_EXTRA, 'N'), 'N', 1, 0) LEITO_N_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           PACIENTE.CD_PACIENTE CD_PACIENTE ,
+           SUB_PLANO.DS_SUB_PLANO ,
+           SERVICO.DS_SERVICO
+FROM DBAMV.V_INTERNADOS ,
+     DBAMV.LEITO ,
+     DBAMV.UNID_INT ,
+     DBAMV.ATENDIME ,
+     DBAMV.PACIENTE ,
+     DBAMV.CONVENIO ,
+     DBAMV.PRESTADOR ,
+     DBAMV.SUB_PLANO ,
+     DBAMV.SERVICO
+WHERE V_INTERNADOS.CD_LEITO (+) = LEITO.CD_LEITO 
+  AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+  AND :CAMPO_DATA >= leito.dt_ativacao
+  AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+  AND V_INTERNADOS.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO (+)
+  AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE (+)
+  AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO (+)
+  AND PRESTADOR.CD_PRESTADOR (+) = ATENDIME.CD_PRESTADOR 
+  AND ATENDIME.CD_SUB_PLANO = SUB_PLANO.CD_SUB_PLANO(+)
+  AND ATENDIME.CD_CONVENIO = SUB_PLANO.CD_CONVENIO(+)
+  AND ATENDIME.CD_CON_PLA = SUB_PLANO.CD_CON_PLA(+)
+  AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO (+)
+  AND LEITO.TP_SITUACAO = 'A' 
+UNION ALL
+SELECT 'A' TIPO ,
+           LEITO.CD_UNID_INT CD_UNID_INT ,
+           LEITO.DS_RESUMO DS_RESUMO ,
+           LEITO.TP_OCUPACAO TP_OCUPACAO ,
+           LEITO.DS_ENFERMARIA DS_ENFERMARIA ,
+           UNID_INT.DS_UNID_INT DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           LEITO.CD_LEITO CD_LEITO ,
+           TO_NUMBER(NULL) CODIGO_RESUMO ,
+           NULL DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           LEITO.SN_EXTRA SN_EXTRA ,
+           decode(NVL(LEITO.SN_EXTRA, 'N'), 'N', 1, 0) LEITO_N_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM DBAMV.V_INTERNADOS ,
+     DBAMV.LEITO ,
+     DBAMV.UNID_INT ,
+     DBAMV.SETOR
+WHERE V_INTERNADOS.CD_LEITO (+) = LEITO.CD_LEITO 
+  AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+  AND :CAMPO_DATA >= leito.dt_ativacao
+  AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate) 
+  AND LEITO.TP_OCUPACAO not in ('O', 'I', 'N') 
+  AND UNID_INT.CD_SETOR = SETOR.CD_SETOR
+  AND LEITO.TP_SITUACAO = 'A' 
+UNION ALL
+SELECT 'C' TIPO ,
+           TO_NUMBER(NULL) CD_UNID_INT ,
+           NULL DS_RESUMO ,
+           NULL TP_OCUPACAO ,
+           NULL DS_ENFERMARIA ,
+           NULL DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_LEITO ,
+           CONVENIO.CD_CONVENIO CODIGO_RESUMO ,
+           CONVENIO.NM_CONVENIO DESCRICAO_RESUMO ,
+           NVL(SUM(INTERNOS), 0) INTERNOS ,
+           NVL(SUM(INTERNOS_DIA), 0) INTERNOS_DIA ,
+           NVL(SUM(OBITOS_DIA), 0) OBITOS_DIA ,
+           NVL(SUM(ALTAS_DIA), 0) ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           NULL SN_EXTRA ,
+           NULL LEITO_N_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM
+  (SELECT CONVENIO.CD_CONVENIO ,
+          CONVENIO.NM_CONVENIO ,
+          NVL(COUNT(ATENDIME.CD_CONVENIO), 0) INTERNOS ,
+          0 INTERNOS_DIA ,
+          0 OBITOS_DIA ,
+          0 ALTAS_DIA
+   FROM DBAMV.LEITO LEITO ,
+        DBAMV.UNID_INT UNID_INT ,
+        DBAMV.ATENDIME ATENDIME ,
+        DBAMV.CONVENIO CONVENIO
+   WHERE atendime.CD_LEITO = LEITO.CD_LEITO
+    AND LEITO.TP_OCUPACAO IN ('O', 'I')
+    AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+    AND :CAMPO_DATA >= leito.dt_ativacao
+    AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+    AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+    AND LEITO.TP_SITUACAO = 'A' 
+    AND atendime.tp_atendimento IN ('I', 'U')
+    AND trunc(atendime.dt_alta) IS NULL   
+    AND :CAMPO_RESUMO = 'S'  
+   GROUP BY CONVENIO.CD_CONVENIO ,
+            CONVENIO.NM_CONVENIO
+   UNION ALL 
+   SELECT CONVENIO.CD_CONVENIO ,
+          CONVENIO.NM_CONVENIO ,
+          0 INTERNOS ,
+          NVL(SUM(DECODE(ATENDIME.DT_ATENDIMENTO, :CAMPO_DATA,1, 0)), 0) INTERNOS_DIA ,
+          NVL(SUM(DECODE(ATENDIME.DT_ALTA || MOT_ALT.TP_MOT_ALTA, :CAMPO_DATA || 'O', 1, 0)), 0) OBITOS_DIA ,
+          NVL(SUM(DECODE(ATENDIME.DT_ALTA || MOT_ALT.TP_MOT_ALTA, :CAMPO_DATA || 'D', 1, :CAMPO_DATA || 'A', 1, :CAMPO_DATA || 'T', 1, 0)), 0) ALTAS_DIA
+   FROM DBAMV.LEITO LEITO ,
+        DBAMV.UNID_INT UNID_INT ,
+        DBAMV.ATENDIME ATENDIME ,
+        DBAMV.CONVENIO CONVENIO ,
+        DBAMV.MOT_ALT MOT_ALT
+   WHERE ATENDIME.CD_LEITO = LEITO.CD_LEITO 
+    AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+    AND :CAMPO_DATA >= leito.dt_ativacao
+    AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+    AND ATENDIME.TP_ATENDIMENTO = 'I'
+    AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+    AND ATENDIME.CD_MOT_ALT = MOT_ALT.CD_MOT_ALT(+)
+    AND :CAMPO_RESUMO = 'S'
+    AND LEITO.TP_SITUACAO = 'A' 
+   GROUP BY CONVENIO.CD_CONVENIO ,
+            CONVENIO.NM_CONVENIO) CONVENIO
+WHERE NVL(CONVENIO.INTERNOS, 0) > 0
+  OR NVL(CONVENIO.INTERNOS_DIA, 0) > 0
+  OR NVL(CONVENIO.OBITOS_DIA, 0) > 0
+  OR NVL(CONVENIO.ALTAS_DIA, 0) > 0
+GROUP BY CONVENIO.CD_CONVENIO ,
+         CONVENIO.NM_CONVENIO
+UNION ALL
+SELECT 'D' TIPO ,
+           TO_NUMBER(NULL) CD_UNID_INT ,
+           NULL DS_RESUMO ,
+           NULL TP_OCUPACAO ,
+           NULL DS_ENFERMARIA ,
+           NULL DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_LEITO ,
+           CODIGO_RESUMO ,
+           DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           SUM(ATIVOS_ACOM) ATIVOS_ACOM ,
+           SUM(EXTRAS_ACOM) EXTRAS_ACOM ,
+           SUM(INTERNOS_ACOM) INTERNOS_ACOM ,
+           NULL SN_EXTRA ,
+           NULL LEITO_N_EXTRA ,
+           to_number(NULL) CD_CONV_UNID ,
+           NULL DS_CONV_UNID ,
+           0 QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM
+  (SELECT 'D' TIPO ,
+          TO_NUMBER(NULL) CD_UNID_INT ,
+          NULL DS_RESUMO ,
+          NULL TP_OCUPACAO ,
+          NULL DS_ENFERMARIA ,
+          NULL DS_UNID_INT ,
+          NULL NM_PACIENTE ,
+          TO_DATE(NULL) DT_NASCIMENTO ,
+          NULL NM_CONVENIO ,
+          NULL NM_PRESTADOR ,
+          TO_DATE(NULL) DT_ATENDIMENTO ,
+          TO_NUMBER(NULL) CD_ATENDIMENTO ,
+          TO_NUMBER(NULL) CD_LEITO ,
+          TIP_ACOM.CD_TIP_ACOM CODIGO_RESUMO ,
+          TIP_ACOM.DS_TIP_ACOM DESCRICAO_RESUMO ,
+          0 INTERNOS ,
+          0 INTERNOS_DIA ,
+          0 OBITOS_DIA ,
+          0 ALTAS_DIA ,
+          NVL(SUM(DECODE(SN_EXTRA, 'N', 1, 0)), 0) ATIVOS_ACOM ,
+          0 EXTRAS_ACOM ,
+          NVL(SUM(DECODE(TP_OCUPACAO, 'O', 1, 0)), 0) INTERNOS_ACOM ,
+          NULL SN_EXTRA ,
+          NULL LEITO_N_EXTRA ,
+          to_number(NULL) CD_CONV_UNID ,
+          NULL DS_CONV_UNID ,
+          0 QT_CONV_UNID ,
+          TO_NUMBER(NULL) CD_PACIENTE ,
+          NULL DS_SUB_PLANO ,
+          NULL DS_SERVICO
+   FROM DBAMV.LEITO ,
+        DBAMV.UNID_INT ,
+        DBAMV.TIP_ACOM ,
+        DBAMV.SETOR
+   WHERE LEITO.TP_SITUACAO = 'A' 
+     AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+     AND LEITO.CD_TIP_ACOM = TIP_ACOM.CD_TIP_ACOM
+     AND :CAMPO_RESUMO = 'S'
+     AND UNID_INT.CD_SETOR = SETOR.CD_SETOR 
+   GROUP BY TIP_ACOM.DS_TIP_ACOM ,
+            TIP_ACOM.CD_TIP_ACOM
+   UNION ALL 
+   SELECT 'D' TIPO ,
+          TO_NUMBER(NULL) CD_UNID_INT ,
+          NULL DS_RESUMO ,
+          NULL TP_OCUPACAO ,
+          NULL DS_ENFERMARIA ,
+          NULL DS_UNID_INT ,
+          NULL NM_PACIENTE ,
+          TO_DATE(NULL) DT_NASCIMENTO ,
+          NULL NM_CONVENIO ,
+          NULL NM_PRESTADOR ,
+          TO_DATE(NULL) DT_ATENDIMENTO ,
+          TO_NUMBER(NULL) CD_ATENDIMENTO ,
+          TO_NUMBER(NULL) CD_LEITO ,
+          TIP_ACOM.CD_TIP_ACOM CODIGO_RESUMO ,
+          TIP_ACOM.DS_TIP_ACOM DESCRICAO_RESUMO ,
+          0 INTERNOS ,
+          0 INTERNOS_DIA ,
+          0 OBITOS_DIA ,
+          0 ALTAS_DIA ,
+          0 ATIVOS_ACOM ,
+          NVL(SUM(DECODE(SN_EXTRA, 'S', 1, 0)), 0) EXTRAS_ACOM ,
+          0 INTERNOS_ACOM ,
+          NULL SN_EXTRA ,
+          NULL LEITO_N_EXTRA ,
+          to_number(NULL) CD_CONV_UNID ,
+          NULL DS_CONV_UNID ,
+          0 QT_CONV_UNID ,
+          TO_NUMBER(NULL) CD_PACIENTE ,
+          NULL DS_SUB_PLANO ,
+          NULL DS_SERVICO
+   FROM DBAMV.LEITO ,
+        DBAMV.UNID_INT ,
+        DBAMV.TIP_ACOM ,
+        DBAMV.SETOR
+   WHERE LEITO.TP_SITUACAO = 'A' 
+     AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+     AND LEITO.CD_TIP_ACOM = TIP_ACOM.CD_TIP_ACOM
+     AND :CAMPO_RESUMO = 'S'
+     AND LEITO.TP_OCUPACAO NOT IN ('V', 'L')
+     AND UNID_INT.CD_SETOR = SETOR.CD_SETOR 
+   GROUP BY TIP_ACOM.DS_TIP_ACOM ,
+            TIP_ACOM.CD_TIP_ACOM)
+GROUP BY CODIGO_RESUMO,
+         DESCRICAO_RESUMO
+UNION ALL
+SELECT 'B' TIPO ,
+           LEITO.CD_UNID_INT CD_UNID_INT ,
+           NULL DS_RESUMO ,
+           NULL TP_OCUPACAO ,
+           NULL DS_ENFERMARIA ,
+           UNID_INT.DS_UNID_INT DS_UNID_INT ,
+           NULL NM_PACIENTE ,
+           TO_DATE(NULL) DT_NASCIMENTO ,
+           NULL NM_CONVENIO ,
+           NULL NM_PRESTADOR ,
+           TO_DATE(NULL) DT_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_ATENDIMENTO ,
+           TO_NUMBER(NULL) CD_LEITO ,
+           TO_NUMBER(NULL) CODIGO_RESUMO ,
+           NULL DESCRICAO_RESUMO ,
+           0 INTERNOS ,
+           0 INTERNOS_DIA ,
+           0 OBITOS_DIA ,
+           0 ALTAS_DIA ,
+           0 ATIVOS_ACOM ,
+           0 EXTRAS_ACOM ,
+           0 INTERNOS_ACOM ,
+           NULL SN_EXTRA ,
+           NULL LEITO_N_EXTRA ,
+           ATENDIME.CD_CONVENIO CD_CONV_UNID ,
+           CONVENIO.NM_CONVENIO DS_CONV_UNID ,
+           NVL(COUNT(*), 0) QT_CONV_UNID ,
+           TO_NUMBER(NULL) CD_PACIENTE ,
+           NULL DS_SUB_PLANO ,
+           NULL DS_SERVICO
+FROM DBAMV.V_INTERNADOS ,
+     DBAMV.LEITO ,
+     DBAMV.UNID_INT ,
+     DBAMV.ATENDIME ,
+     DBAMV.CONVENIO
+WHERE V_INTERNADOS.CD_LEITO = LEITO.CD_LEITO
+  AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+  AND :CAMPO_DATA >= leito.dt_ativacao
+  AND :CAMPO_DATA <= nvl(leito.dt_desativacao, sysdate)
+  AND V_INTERNADOS.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+  AND LEITO.TP_SITUACAO = 'A' 
+  AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO 
+  AND :CAMPO_CONVENIO = 'S' 
+GROUP BY LEITO.CD_UNID_INT ,
+         CONVENIO.NM_CONVENIO ,
+         UNID_INT.DS_UNID_INT ,
+         ATENDIME.CD_CONVENIO

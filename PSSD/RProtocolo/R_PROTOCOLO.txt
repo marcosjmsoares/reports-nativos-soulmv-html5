@@ -1,0 +1,39 @@
+/*----------------------------------------------------------------------------*/
+--R_PROTOCOLO
+SELECT * FROM (
+SELECT  entrega_exame_sadt.cd_entrega_exame                                    cd_entrega_exame
+               ,entrega_exame_sadt.nm_responsavel                                         nm_responsavel
+               ,entrega_exame_sadt.dt_entrega_exame                                     dt_entrega_exame
+               ,to_char(entrega_exame_sadt.dt_entrega_exame,'HH')   hr_entrega_exame
+               ,atendime.cd_atendimento                                                            cd_atendimento
+               ,itped_lab.cd_ped_lab                                                                   cd_ped_lab
+               ,paciente.cd_paciente                                                                   cd_paciente
+               ,paciente.nm_paciente                                                                  nm_paciente
+               ,(SELECT Pac.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE PAC WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND atendime.CD_PACIENTE = PAC.CD_PACIENTE) NM_SOCIAL_PACIENTE
+               ,itped_lab.cd_exa_lab                                                                   cd_exa_lab
+               ,exa_lab.nm_exa_lab                                                                    nm_exa_lab
+               ,itped_lab.cd_itped_lab                                                                 cd_itped_lab
+FROM   dbamv.entrega_exame_sadt
+             ,dbamv.itentrega_exame_sadt
+             ,dbamv.itped_lab
+             ,dbamv.ped_lab
+             ,dbamv.atendime
+             ,dbamv.paciente
+             ,dbamv.exa_lab
+WHERE  entrega_exame_sadt.cd_entrega_exame  =  itentrega_exame_sadt.cd_entrega_exame
+AND        itentrega_exame_sadt.cd_ped_lab  =  itped_lab.cd_ped_lab
+AND        itentrega_exame_sadt.cd_exa_lab  =  itped_lab.cd_exa_lab
+AND       atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        itentrega_exame_sadt.cd_itped_lab  =  itped_lab.cd_itped_lab
+AND        itped_lab.cd_ped_lab  =  ped_lab.cd_ped_lab
+AND        ped_lab.cd_atendimento  =  atendime.cd_atendimento
+AND EXISTS (SELECT 1
+                       FROM DBAMV.USUARIOS_SET_EXA
+                       WHERE USUARIOS_SET_EXA.CD_SET_EXA = ITPED_LAB.CD_SET_EXA
+                       AND   USUARIOS_SET_EXA.NM_USUARIO = USER)
+AND       atendime.cd_paciente  =  paciente.cd_paciente
+AND       itped_lab.cd_exa_lab  =  exa_lab.cd_exa_lab
+AND      entrega_exame_sadt.cd_entrega_exame LIKE :CAMPO_ENTREGA
+)
+ORDER BY CD_ENTREGA_EXAME,NM_RESPONSAVEL,DT_ENTREGA_EXAME,HR_ENTREGA_EXAME,
+CD_PED_LAB,CD_ATENDIMENTO,CD_PACIENTE,NM_PACIENTE

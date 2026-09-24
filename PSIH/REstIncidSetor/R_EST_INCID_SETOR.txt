@@ -1,0 +1,115 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_INCID_SETOR
+SELECT 1 FROM DUAL
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_INCID_SETOR_R_1_Q_MES_ANO
+SELECT To_Char( DATA, 'YYYYMM')  ANO_MES
+    ,  To_Char( DATA, 'MM/YYYY')  MES_ANO
+		, NVL(SAIDAS1.SAIDAS, 0) SAIDAS
+		, NVL(QTD_PAC_DIA1.QTD_PAC_DIA, 0) QTD_PAC_DIA
+		, NVL(CS_QTD_IH.TOTAL_QTD_IH, 0) TOTAL_QTD_IH
+		, NVL(QTD_PAC_IH1.QTD_PAC_IH, 0) QTD_PAC_IH
+FROM
+    (SELECT ( :CAMPO_DT_INICIAL -1 ) + ROWNUM  DATA
+      	 FROM DBAMV.CID
+         WHERE (  :CAMPO_DT_INICIAL -1 ) + ROWNUM  <=  :CAMPO_DT_FINAL
+    ) CONTADOR
+	, (SELECT  To_Char(data_unid,'YYYYMM')  ANO_MES1
+	         , SUM(rdu_sai_altas + rdu_sai_obitos +   DECODE (  SN_UNIDADE_FECHADA, 'S', rdu_sai_transfpara , 0 ) ) SAIDAS
+       FROM DBAMV.INDICADOR_ESTATISTICA_HOSP
+       WHERE SN_INDICADOR_GLOBAL = 'N'
+         AND SN_REG_INF = 'N'
+			 GROUP BY To_Char(data_unid,'YYYYMM')
+       ORDER BY 1
+     ) SAIDAS1
+	, (SELECT To_Char(data_unid,'YYYYMM') ANO_MES
+	        , Sum(( RDU_PAC_INT_00H   +  RDU_ENT_INTERNADOS + RDU_ENT_TRANSF ) -
+               ( RDU_SAI_ALTAS       +    RDU_SAI_TRANSFPARA  + RDU_SAI_OBITOS ) )QTD_PAC_DIA
+       FROM DBAMV.INDICADOR_ESTATISTICA_HOSP
+       WHERE SN_INDICADOR_GLOBAL = 'N'
+         AND SN_REG_INF = 'N'
+      GROUP BY To_Char(data_unid,'YYYYMM')
+      ORDER BY 1
+			)	 QTD_PAC_DIA1
+	, (
+		SELECT DATA5 ANO_MES  , SUM ( QTD_IH ) TOTAL_QTD_IH
+		FROM (
+		SELECT TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM') DATA5
+           		,Count(reg_inf.Cd_Reg_Inf) QTD_IH
+  		From Dbamv.Reg_Inf
+          		,Dbamv.Unid_Int
+         		,Dbamv.Atendime
+ 		Where Reg_Inf.Tp_Infec 	         = 'H'
+     		And Reg_Inf.Tp_Sit           = 'C'
+     		And Reg_Inf.Cd_Unid_Int 	   = Unid_Int.Cd_Unid_Int
+     		And Trunc(Reg_Inf.Dt_Reg_Inf) Between :CAMPO_DT_INICIAL  And 
+     		And Reg_Inf.cd_atendimento   = Atendime.cd_atendimento
+		GROUP BY TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM')
+		UNION
+		SELECT TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM') DATA5
+          ,Count(reg_inf.Cd_Reg_Inf) QTD_IH
+  		From Dbamv.Reg_Inf
+         		,Dbamv.Atendime
+         		,Dbamv.Aviso_Cirurgia
+         		,DBAMV.CEN_CIR
+ 		Where Reg_Inf.Tp_Infec 	         = 'H'
+     		And Reg_Inf.Tp_Sit           = 'C'
+     		And Trunc(Reg_Inf.Dt_Reg_Inf) Between :CAMPO_DT_INICIAL  And 
+     		And Reg_Inf.cd_atendimento     = Atendime.cd_atendimento
+     		And Reg_Inf.Cd_Aviso_Cirurgia  = Aviso_Cirurgia.Cd_Aviso_Cirurgia
+     		AND AVISO_CIRURGIA.CD_CEN_CIR = CEN_CIR.CD_CEN_CIR
+     		AND CEN_CIR.CD_CEN_CIR = DECODE(  '' ,  'S' , CEN_CIR.CD_CEN_CIR , -1  )
+		GROUP BY TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM')
+		)
+		GROUP BY DATA5
+		ORDER BY 1
+	   	) CS_QTD_IH
+		,(
+			SELECT DATA_REG_INF ANO_MES , SUM( QTD_PAC_IH ) QTD_PAC_IH
+			FROM (
+			SELECT TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM') DATA_REG_INF
+           			,Count(Distinct atendime.Cd_Paciente) QTD_PAC_IH
+  			From Dbamv.Reg_Inf
+          			,Dbamv.Unid_Int
+          			,Dbamv.Atendime
+          			,Dbamv.Leito
+ 			Where Reg_Inf.Tp_Infec 	          = 'H'
+     			And Reg_Inf.Tp_Sit                      = 'C'
+     			And Reg_inf.cd_leito                    = leito.cd_leito
+     			And Leito.Cd_Unid_Int 	          = Unid_Int.Cd_Unid_Int
+     			And Trunc(Reg_Inf.Dt_Reg_Inf) Between :CAMPO_DT_INICIAL  And 
+     			And Reg_Inf.cd_atendimento      = Atendime.cd_atendimento
+			GROUP BY TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM')
+			UNION
+			SELECT TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM') DATA_REG_INF
+           			,Count(Distinct atendime.Cd_Paciente) QTD_PAC_IH
+  			From Dbamv.Reg_Inf
+          			,Dbamv.Atendime
+          			,Dbamv.Leito
+          			,Dbamv.Aviso_Cirurgia
+          			,DBAMV.CEN_CIR
+ 			Where Reg_Inf.Tp_Infec 	          = 'H'
+     			And Reg_Inf.Tp_Sit                      = 'C'
+     			And Trunc(Reg_Inf.Dt_Reg_Inf) Between :CAMPO_DT_INICIAL  And 
+     			And Reg_Inf.cd_atendimento      = Atendime.cd_atendimento
+     			And Reg_Inf.Cd_Aviso_Cirurgia   = Aviso_Cirurgia.Cd_Aviso_Cirurgia
+     			AND AVISO_CIRURGIA.CD_CEN_CIR = DECODE ('' , 'S' , CEN_CIR.CD_CEN_CIR , -1 )
+			GROUP BY TO_CHAR(REG_INF.DT_REG_INF,'YYYYMM')
+			)
+		GROUP BY DATA_REG_INF
+		ORDER BY 1
+		 )	QTD_PAC_IH1
+WHERE To_Char( DATA, 'YYYYMM') = SAIDAS1.ANO_MES1(+)
+AND   To_Char( DATA, 'YYYYMM') = QTD_PAC_DIA1.ANO_MES(+)
+AND   To_Char( DATA, 'YYYYMM') = CS_QTD_IH.ANO_MES(+)
+AND   To_Char( DATA, 'YYYYMM') = QTD_PAC_IH1.ANO_MES(+)
+GROUP BY  To_Char( DATA, 'YYYYMM')
+       ,  To_Char( DATA, 'MM/YYYY')
+       ,  SAIDAS1.SAIDAS
+       ,  QTD_PAC_DIA1.QTD_PAC_DIA
+       ,  CS_QTD_IH.TOTAL_QTD_IH
+       ,  QTD_PAC_IH1.QTD_PAC_IH
+ORDER BY  To_Char( DATA, 'YYYYMM') ASC

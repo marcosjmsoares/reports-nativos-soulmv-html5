@@ -1,0 +1,29 @@
+/*----------------------------------------------------------------------------*/
+--R_SITUACAO_NF
+SELECT * FROM (
+SELECT CONV.NM_CONVENIO    CONVENIO
+     , NF.NR_ID_NOTA_FISCAL NF
+     , NF.DT_EMISSAO     EMISSAO_NF
+     , nvl(NF.VL_TOTAL_NOTA,0)  VL_NF
+     , nvl(NF.VL_ISS,0) VL_ISS_NF
+     , sum(nvl(REC.VL_RECEBIDO,0) + nvl(REC.VL_IMPOSTO_RETIDO,0)) VL_PAGO
+     , SUM(nvl(REC.VL_IMPOSTO_RETIDO,0)) VL_ISS_RET
+  FROM DBAMV.NOTA_FISCAL NF
+     , DBAMV.CONVENIO    CONV
+     , dbamv.reccon_rec  rec
+     , dbamv.con_rec     c
+     , dbamv.itcon_rec   it
+ WHERE CONV.CD_CONVENIO = NF.CD_CONVENIO
+   AND NF.CD_NOTA_FISCAL = c.CD_NOTA_FISCAL
+   AND NF.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+   and c.cd_con_rec = it.cd_con_rec
+   and rec.dt_estorno IS NULL
+   and it.cd_itcon_rec = rec.cd_itcon_rec(+)
+ GROUP BY CONV.NM_CONVENIO
+     , NF.NR_ID_NOTA_FISCAL
+     , NF.DT_EMISSAO
+     , NF.VL_TOTAL_NOTA
+     , NF.VL_ISS
+:CAMPO_CF_ORDEM
+)
+ORDER BY CONVENIO,EMISSAO_NF,NF

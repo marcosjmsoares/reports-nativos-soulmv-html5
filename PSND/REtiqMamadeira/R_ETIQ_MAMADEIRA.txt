@@ -1,0 +1,54 @@
+/*----------------------------------------------------------------------------*/
+--R_ETIQ_MAMADEIRA
+SELECT tipo_refeicao.ds_tipo_refeicao,
+       atendime.cd_atendimento,
+       paciente.cd_paciente,
+       mov_cardapio.cd_mov_cardapio,
+       paciente.nm_paciente,
+       manipulador.cd_manipulador,
+       manipulador.ds_manipulador,
+       bico_mamadeira.cd_bico_mamadeira,
+       bico_mamadeira.ds_bico_mamadeira,
+       prato.cd_prato,
+       prato.ds_prato,
+       itmov_lactario.ds_validade,
+       itmov_lactario.nr_volume,
+       mov_cardapio.obs_nutricao ds_observacao,
+       unid_int.ds_unid_int,
+       leito.ds_resumo,
+       mov_cardapio.obs_nutricao,
+       TO_CHAR(tipo_refeicao.hr_inicio_refeicao,'HH24') AS hr_inicio_refeicao,
+       TO_CHAR(tipo_refeicao.hr_termino_refeicao,'HH24') AS hr_termino_refeicao
+FROM   dbamv.atendime,
+       dbamv.paciente,
+       dbamv.mov_cardapio,
+       dbamv.itmov_lactario,
+       dbamv.leito,
+       dbamv.unid_int,
+       dbamv.tipo_refeicao,
+       dbamv.bico_mamadeira,
+       dbamv.manipulador,
+       dbamv.prato,
+       dbamv.copa
+WHERE  atendime.tp_atendimento = 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_atendimento = mov_cardapio.cd_atendimento
+AND    mov_cardapio.cd_tipo_refeicao = tipo_refeicao.cd_tipo_refeicao
+AND    atendime.cd_leito = leito.cd_leito
+AND    leito.cd_unid_int = unid_int.cd_unid_int
+AND    mov_cardapio.tp_movimentacao = 'M'
+AND    tipo_refeicao.tp_status_refeicao = 'L'
+AND    leito.cd_copa = copa.cd_copa(+)
+AND    mov_cardapio.cd_mov_cardapio = itmov_lactario.cd_mov_cardapio
+AND    itmov_lactario.cd_prato = prato.cd_prato
+AND    itmov_lactario.cd_bico_mamadeira = bico_mamadeira.cd_bico_mamadeira(+)
+AND    itmov_lactario.cd_manipulador = manipulador.cd_manipulador(+)
+AND    ATENDIME.DT_ATENDIMENTO(+) <= :CAMPO_DATA
+AND    mov_cardapio.cd_mov_cardapio = (SELECT MAX(cd_mov_cardapio)
+                                       FROM   dbamv.mov_cardapio mov
+                                       WHERE  mov.cd_atendimento = atendime.cd_atendimento
+                                       AND    mov.cd_tipo_refeicao = tipo_refeicao.cd_tipo_refeicao
+                                       AND   TRUNC(mov_cardapio.dt_mov_cardapio) = :CAMPO_DATA
+                                       )
+AND   atendime.cd_multi_empresa = nvl(dbamv.pkg_mv2000.le_empresa, atendime.cd_multi_empresa)

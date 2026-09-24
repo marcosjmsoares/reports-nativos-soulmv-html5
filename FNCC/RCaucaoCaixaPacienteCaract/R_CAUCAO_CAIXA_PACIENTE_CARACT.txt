@@ -1,0 +1,65 @@
+/*----------------------------------------------------------------------------*/
+--R_CAUCAO_CAIXA_PACIENTE_CARACT
+select initcap(p.nm_paciente)    entrada_nm_paciente
+      ,sum(c.vl_caucao)          entrada_vl_movimentacao
+from   dbamv.mov_caixa  m
+      ,dbamv.caucao     c
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+where  m.cd_caucao = c.cd_caucao
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and    c.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    m.dt_cancelamento is null
+and    m.cd_caucao is not null
+and    m.tp_movimentacao = 'E'
+and    m.tp_origem_mov = 'CA'
+and    trunc(m.dt_movimentacao) = :CAMPO_DATA
+group by p.nm_paciente
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CAUCAO_CAIXA_PACIENTE_CARACT_R_SAIDA_Q_SAIDA
+select  saida_nm_paciente         saida_nm_paciente
+       ,sum(saida_vl_movimentacao)     saida_vl_movimentacao
+from (
+select initcap(p.nm_paciente)     saida_nm_paciente
+      ,sum(ca.vl_caucao)          saida_vl_movimentacao
+from   dbamv.caucao     ca
+      ,dbamv.mov_caixa  m
+      ,dbamv.doc_caixa  d
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+where  m.cd_doc_caixa = d.cd_doc_caixa
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+and    d.cd_caucao = ca.cd_caucao
+and    ca.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    m.dt_cancelamento is null
+and    m.tp_movimentacao = 'S'
+and    m.tp_origem_mov in ('CA','DE')
+and    trunc(m.dt_movimentacao) = :CAMPO_DATA
+group by p.nm_paciente
+union all
+select initcap(p.nm_paciente)     saida_nm_paciente
+      ,sum(ca.vl_caucao)          saida_vl_movimentacao
+from   dbamv.caucao     ca
+      ,dbamv.mov_caixa  m
+      ,dbamv.atendime   a
+      ,dbamv.paciente   p
+where  m.cd_caucao = ca.cd_caucao
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and    a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+and    ca.cd_atendimento = a.cd_atendimento
+and    a.cd_paciente = p.cd_paciente
+and    not exists (select 'x' from dbamv.doc_caixa where doc_caixa.cd_caucao = ca.cd_caucao)
+and    m.dt_cancelamento is null
+and    m.tp_movimentacao = 'S'
+and    m.tp_origem_mov in ('CA','DE')
+and    trunc(m.dt_movimentacao) = :CAMPO_DATA
+group by p.nm_paciente
+)
+group by saida_nm_paciente

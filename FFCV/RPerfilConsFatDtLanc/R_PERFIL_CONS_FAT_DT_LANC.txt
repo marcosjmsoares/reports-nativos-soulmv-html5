@@ -1,0 +1,326 @@
+/*----------------------------------------------------------------------------*/
+--R_PERFIL_CONS_FAT_DT_LANC
+select * from (
+SELECT TP_GRU_PRO TP_GRU_PRO1,
+       DECODE(TP_GRU_PRO, 'MD','MEDICAMENTOS', 'MT','MATERIAIS', 'SH','SERVICOS HOSPITALARES', 'SD','SERVICOS DIAGNOSTICOS',
+                          'SP','SERVICOS PROFISSIONAIS', 'OP','ORTESES E PROTESES', 'OU','OUTROS LANCAMENTOS', 'NAO DEFINIDO')  DS_GRU_PRO,
+       Sum(Nvl(QT_SAIDA,0)) QT_SAIDA1, Sum(Nvl(QT_LANCAMENTO,0)) QT_LANCAMENTO1,
+       Sum(Nvl(VL_SAIDA,0)) VL_SAIDA1, Sum(Nvl(VALOR_PAGAR,0)) VALOR_PAGAR1
+  FROM (
+SELECT GRU_PRO.TP_GRU_PRO                   TP_GRU_PRO
+              ,Nvl(ITREG_FAT.QT_LANCAMENTO,0)          QT_LANCAMENTO
+              ,Nvl(ITREG_FAT.VL_TOTAL_CONTA,0)         VALOR_PAGAR
+              ,0                                                             QT_SAIDA
+              ,0                                                             VL_SAIDA
+FROM     DBAMV.REG_FAT                                  REG_FAT
+              ,DBAMV.CONVENIO                                CONVENIO
+              ,DBAMV.ITREG_FAT                               ITREG_FAT
+              ,DBAMV.PRO_FAT                                  PRO_FAT
+              ,DBAMV.GRU_PRO                                 GRU_PRO
+WHERE      ITREG_FAT.DT_LANCAMENTO  BETWEEN  TO_DATE(:CAMPO_DT_INICIO||' 00','DD/MM/YYYY HH24')  AND TO_DATE(:CAMPO_DT_FINAL||' 23','DD/MM/YYYY HH24')  
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+AND        NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+AND        NVL(REG_FAT.SN_DIAGNO,'N') = 'N'
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+SELECT GRU_PRO.TP_GRU_PRO                 TP_GRU_PRO
+              ,Nvl(ITREG_AMB.QT_LANCAMENTO,0)      QT_LANCAMENTO
+              ,Nvl(ITREG_AMB.VL_TOTAL_CONTA,0)      VALOR_PAGAR
+              ,0                                                          QT_SAIDA
+              ,0                                                          VL_SAIDA
+FROM    DBAMV.ATENDIME                             ATENDIME
+             ,DBAMV.ITREG_AMB                           ITREG_AMB
+             ,DBAMV.CONVENIO                             CONVENIO
+             ,DBAMV.REG_AMB                              REG_AMB
+             ,DBAMV.PRO_FAT                               PRO_FAT
+             ,DBAMV.GRU_PRO                              GRU_PRO
+WHERE       ATENDIME.DT_ATENDIMENTO  BETWEEN  TO_DATE(:CAMPO_DT_INICIO||' 00','DD/MM/YYYY HH24')  AND TO_DATE(:CAMPO_DT_FINAL||' 23','DD/MM/YYYY HH24')  
+AND        ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND        NVL(REG_AMB.SN_DIAGNO,'N') = 'N'
+AND        NVL(ITREG_AMB.TP_PAGAMENTO, 'X') <> 'C'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+SELECT GRU_PRO.TP_GRU_PRO                     TP_GRU_PRO
+              ,Nvl(ITREG_FAT.QT_LANCAMENTO,0)           QT_LANCAMENTO
+              ,Nvl(ITREG_FAT.VL_TOTAL_CONTA,0)           VALOR_PAGAR
+              ,0                                                              QT_SAIDA
+              ,0                                                              VL_SAIDA
+FROM     DBAMV.REG_FAT                                  REG_FAT
+              ,DBAMV.CONVENIO                                CONVENIO
+              ,DBAMV.ITREG_FAT                               ITREG_FAT
+              ,DBAMV.PRO_FAT                                  PRO_FAT
+              ,DBAMV.GRU_PRO                                 GRU_PRO
+WHERE  TRUNC(ITREG_FAT.DT_LANCAMENTO)  BETWEEN  TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY')
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE      = 'N'
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        NVL(REG_FAT.SN_DIAGNO,'N') = 'N'
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+SELECT GRU_PRO.TP_GRU_PRO                TP_GRU_PRO
+             ,Nvl(ITREG_AMB.QT_LANCAMENTO,0)      QT_LANCAMENTO
+              ,Nvl(ITREG_AMB.VL_TOTAL_CONTA,0)    VALOR_PAGAR
+              ,0                                                          QT_SAIDA
+              ,0                                                          VL_SAIDA
+FROM    DBAMV.ATENDIME                             ATENDIME
+             ,DBAMV.ITREG_AMB                           ITREG_AMB
+             ,DBAMV.CONVENIO                             CONVENIO
+             ,DBAMV.REG_AMB                              REG_AMB
+             ,DBAMV.PRO_FAT                               PRO_FAT
+             ,DBAMV.GRU_PRO                              GRU_PRO
+WHERE  TRUNC(ATENDIME.DT_ATENDIMENTO)  BETWEEN  TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY')
+AND        ATENDIME.CD_ATENDIMENTO =  ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'N'
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        NVL(REG_AMB.SN_DIAGNO,'N') = 'N'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+select  gru_pro.tp_gru_pro       TP_GRU_PRO
+          ,0                                    QT_LANCAMENTO
+          ,0                                     VALOR_PAGAR
+          ,decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator )  / decode( produto.vl_fator_pro_fat, 0 , 1, nvl(produto.vl_fator_pro_fat, 1) )  QT_SAIDA
+          ,decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *
+                         dbamv.verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+                         mvto_estoque.dt_mvto_estoque,
+                         'H',
+                         NULL,
+                         mvto_estoque.hr_mvto_estoque ) )  VL_SAIDA
+from    dbamv.gru_pro,
+           dbamv.pro_fat,
+           dbamv.produto,
+           dbamv.uni_pro,
+           dbamv.itmvto_estoque,
+           dbamv.mvto_Estoque,
+           dbamv.estoque
+where  mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C' )
+ and    mvto_estoque.dt_mvto_estoque  between  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  and  to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') 
+ and    gru_pro.cd_gru_pro  =  pro_fat.cd_gru_pro
+ and    pro_fat.cd_pro_fat = produto.cd_pro_fat
+ and    itmvto_estoque.cd_uni_pro = uni_pro.cd_uni_pro
+ and    itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+ and    estoque.cd_estoque = mvto_estoque.cd_estoque
+ AND  estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ and    itmvto_estoque.cd_produto = produto.cd_produto
+ and    produto.sn_mestre = 'N'
+UNION ALL
+SELECT 'SH'                                                      TP_GRU_PRO
+              ,0                                                           QT_LANCAMENTO
+              ,0                                                           VALOR_PAGAR
+              ,DBAMV.CALC_DIARIAS(:CAMPO_DT_INICIO, :CAMPO_DT_FINAL, TRUNC(MOV_INT.DT_MOV_INT), TRUNC(MOV_INT.DT_LIB_MOV) )    QT_SAIDA
+              ,0                                                           VL_SAIDA
+FROM   DBAMV.ATENDIME
+            ,DBAMV.MOV_INT
+            ,DBAMV.CONVENIO
+            ,DBAMV.TIP_ACOM
+            ,DBAMV.ACOMOD_PRO_FAT
+            ,DBAMV.PRO_FAT
+WHERE ( ( TRUNC(MOV_INT.DT_MOV_INT)  BETWEEN TO_DATE(:CAMPO_DT_INICIO, 'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL, 'DD/MM/YYYY') ) OR
+                 ( TRUNC(MOV_INT.DT_LIB_MOV)  BETWEEN TO_DATE(:CAMPO_DT_INICIO, 'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL, 'DD/MM/YYYY') ) )
+AND       ATENDIME.TP_ATENDIMENTO = 'I'
+AND       ATENDIME.CD_ATENDIMENTO =  MOV_INT.CD_ATENDIMENTO
+and       atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND ACOMOD_PRO_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND       CONVENIO.CD_CONVENIO         =  MOV_INT.CD_CONVENIO
+AND       TIP_ACOM.CD_TIP_ACOM          =  MOV_INT.CD_TIP_ACOM
+AND       ATENDIME.CD_CONVENIO         =  ACOMOD_PRO_FAT.CD_CONVENIO
+AND       ATENDIME.CD_CON_PLA           =  ACOMOD_PRO_FAT.CD_CON_PLA
+AND       TIP_ACOM.CD_TIP_ACOM          =  ACOMOD_PRO_FAT.CD_TIP_ACOM
+AND       PRO_FAT.CD_PRO_FAT             =  ACOMOD_PRO_FAT.CD_PRO_FAT
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_COND_CONVENIO
+)
+GROUP BY TP_GRU_PRO
+)
+ORDER BY TP_GRU_PRO1
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PERFIL_CONS_FAT_DT_LANC_ITENS
+select * from (
+SELECT TP_GRU_PRO, CD_PRO_FAT, DS_PRO_FAT, DS_UNIDADE,
+       sum(QT_LANCAMENTO) QT_LANCAMENTO, sum(VALOR_PAGAR) VALOR_PAGAR,
+       sum(QT_SAIDA) QT_SAIDA, Trunc(sum(VL_SAIDA),2) VL_SAIDA
+  FROM (
+SELECT GRU_PRO.TP_GRU_PRO                   TP_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                      CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                      DS_PRO_FAT
+              ,PRO_FAT.DS_UNIDADE                       DS_UNIDADE
+              ,Nvl(ITREG_FAT.QT_LANCAMENTO,0)          QT_LANCAMENTO
+              ,Nvl(ITREG_FAT.VL_TOTAL_CONTA,0)         VALOR_PAGAR
+              ,0                                                             QT_SAIDA
+              ,0                                                             VL_SAIDA
+FROM     DBAMV.REG_FAT                                  REG_FAT
+              ,DBAMV.CONVENIO                                CONVENIO
+              ,DBAMV.ITREG_FAT                               ITREG_FAT
+              ,DBAMV.PRO_FAT                                  PRO_FAT
+              ,DBAMV.GRU_PRO                                 GRU_PRO
+WHERE      ITREG_FAT.DT_LANCAMENTO  BETWEEN  TO_DATE(:CAMPO_DT_INICIO||' 00','DD/MM/YYYY HH24')  AND TO_DATE(:CAMPO_DT_FINAL||' 23','DD/MM/YYYY HH24')  
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+AND        NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+AND        NVL(REG_FAT.SN_DIAGNO,'N') = 'N'
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+SELECT GRU_PRO.TP_GRU_PRO                 TP_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                   CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                   DS_PRO_FAT
+              ,PRO_FAT.DS_UNIDADE                    DS_UNIDADE
+              ,Nvl(ITREG_AMB.QT_LANCAMENTO,0)      QT_LANCAMENTO
+              ,Nvl(ITREG_AMB.VL_TOTAL_CONTA,0)      VALOR_PAGAR
+              ,0                                                          QT_SAIDA
+              ,0                                                          VL_SAIDA
+FROM    DBAMV.ATENDIME                             ATENDIME
+             ,DBAMV.ITREG_AMB                           ITREG_AMB
+             ,DBAMV.CONVENIO                             CONVENIO
+             ,DBAMV.REG_AMB                              REG_AMB
+             ,DBAMV.PRO_FAT                               PRO_FAT
+             ,DBAMV.GRU_PRO                              GRU_PRO
+WHERE       ATENDIME.DT_ATENDIMENTO  BETWEEN  TO_DATE(:CAMPO_DT_INICIO||' 00','DD/MM/YYYY HH24')  AND TO_DATE(:CAMPO_DT_FINAL||' 23','DD/MM/YYYY HH24')  
+AND        ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND        NVL(REG_AMB.SN_DIAGNO,'N') = 'N'
+AND        NVL(ITREG_AMB.TP_PAGAMENTO, 'X') <> 'C'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+SELECT GRU_PRO.TP_GRU_PRO                     TP_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                       CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                       DS_PRO_FAT
+              ,PRO_FAT.DS_UNIDADE                       DS_UNIDADE
+              ,Nvl(ITREG_FAT.QT_LANCAMENTO,0)           QT_LANCAMENTO
+              ,Nvl(ITREG_FAT.VL_TOTAL_CONTA,0)           VALOR_PAGAR
+              ,0                                                              QT_SAIDA
+              ,0                                                              VL_SAIDA
+FROM     DBAMV.REG_FAT                                  REG_FAT
+              ,DBAMV.CONVENIO                                CONVENIO
+              ,DBAMV.ITREG_FAT                               ITREG_FAT
+              ,DBAMV.PRO_FAT                                  PRO_FAT
+              ,DBAMV.GRU_PRO                                 GRU_PRO
+WHERE  TRUNC(ITREG_FAT.DT_LANCAMENTO)  BETWEEN  TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY')
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE      = 'N'
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        NVL(REG_FAT.SN_DIAGNO,'N') = 'N'
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+SELECT GRU_PRO.TP_GRU_PRO                TP_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                   CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                   DS_PRO_FAT
+              ,PRO_FAT.DS_UNIDADE                   DS_UNIDADE
+              ,Nvl(ITREG_AMB.QT_LANCAMENTO,0)      QT_LANCAMENTO
+              ,Nvl(ITREG_AMB.VL_TOTAL_CONTA,0)    VALOR_PAGAR
+              ,0                                                          QT_SAIDA
+              ,0                                                          VL_SAIDA
+FROM    DBAMV.ATENDIME                             ATENDIME
+             ,DBAMV.ITREG_AMB                           ITREG_AMB
+             ,DBAMV.CONVENIO                             CONVENIO
+             ,DBAMV.REG_AMB                              REG_AMB
+             ,DBAMV.PRO_FAT                               PRO_FAT
+             ,DBAMV.GRU_PRO                              GRU_PRO
+WHERE  TRUNC(ATENDIME.DT_ATENDIMENTO)  BETWEEN  TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY')
+AND        ATENDIME.CD_ATENDIMENTO =  ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'N'
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        NVL(REG_AMB.SN_DIAGNO,'N') = 'N'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO NOT in ('H','A')
+UNION ALL
+select  gru_pro.tp_gru_pro       TP_GRU_PRO
+          ,pro_fat.cd_pro_fat         CD_PRO_FAT
+          ,pro_fat.ds_pro_fat         DS_PRO_FAT
+          ,pro_fat.ds_unidade       DS_UNIDADE
+          ,0                                    QT_LANCAMENTO
+          ,0                                     VALOR_PAGAR
+          ,decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator )  / decode( produto.vl_fator_pro_fat, 0 , 1, nvl(produto.vl_fator_pro_fat, 1) )  QT_SAIDA
+          ,decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator *
+                         dbamv.verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+                         mvto_estoque.dt_mvto_estoque,
+                         'H',
+                         NULL,
+                         mvto_estoque.hr_mvto_estoque ) )  VL_SAIDA
+from    dbamv.gru_pro,
+           dbamv.pro_fat,
+           dbamv.produto,
+           dbamv.uni_pro,
+           dbamv.itmvto_estoque,
+           dbamv.mvto_Estoque,
+           dbamv.estoque
+where  mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C' )
+ and    mvto_estoque.dt_mvto_estoque  between  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  and  to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') 
+ and    gru_pro.cd_gru_pro  =  pro_fat.cd_gru_pro
+ and    pro_fat.cd_pro_fat = produto.cd_pro_fat
+ and    itmvto_estoque.cd_uni_pro = uni_pro.cd_uni_pro
+ and    itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+ and    estoque.cd_estoque = mvto_estoque.cd_estoque
+ AND  estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ and    itmvto_estoque.cd_produto = produto.cd_produto
+ and    produto.sn_mestre = 'N'
+UNION ALL
+SELECT 'SH'                                                      TP_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT
+              ,PRO_FAT.DS_UNIDADE                     DS_UNIDADE
+              ,0                                                           QT_LANCAMENTO
+              ,0                                                           VALOR_PAGAR
+              ,DBAMV.CALC_DIARIAS(:CAMPO_DT_INICIO, :CAMPO_DT_FINAL, TRUNC(MOV_INT.DT_MOV_INT), TRUNC(MOV_INT.DT_LIB_MOV) )    QT_SAIDA
+              ,0                                                           VL_SAIDA
+FROM   DBAMV.ATENDIME
+            ,DBAMV.MOV_INT
+            ,DBAMV.CONVENIO
+            ,DBAMV.TIP_ACOM
+            ,DBAMV.ACOMOD_PRO_FAT
+            ,DBAMV.PRO_FAT
+WHERE ( ( TRUNC(MOV_INT.DT_MOV_INT)  BETWEEN TO_DATE(:CAMPO_DT_INICIO, 'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL, 'DD/MM/YYYY') ) OR
+                 ( TRUNC(MOV_INT.DT_LIB_MOV)  BETWEEN TO_DATE(:CAMPO_DT_INICIO, 'DD/MM/YYYY')  AND TO_DATE(:CAMPO_DT_FINAL, 'DD/MM/YYYY') ) )
+AND       ATENDIME.TP_ATENDIMENTO = 'I'
+AND       ATENDIME.CD_ATENDIMENTO =  MOV_INT.CD_ATENDIMENTO
+and       atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND ACOMOD_PRO_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND       CONVENIO.CD_CONVENIO         =  MOV_INT.CD_CONVENIO
+AND       TIP_ACOM.CD_TIP_ACOM          =  MOV_INT.CD_TIP_ACOM
+AND       ATENDIME.CD_CONVENIO         =  ACOMOD_PRO_FAT.CD_CONVENIO
+AND       ATENDIME.CD_CON_PLA           =  ACOMOD_PRO_FAT.CD_CON_PLA
+AND       TIP_ACOM.CD_TIP_ACOM          =  ACOMOD_PRO_FAT.CD_TIP_ACOM
+AND       PRO_FAT.CD_PRO_FAT             =  ACOMOD_PRO_FAT.CD_PRO_FAT
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_COND_CONVENIO
+)
+GROUP BY TP_GRU_PRO, CD_PRO_fAT, DS_PRO_FAT, DS_UNIDADE
+)
+WHERE TP_GRU_PRO = :CAMPO_TP_GRU_PRO
+ORDER BY TP_GRU_PRO, CD_PRO_FAT

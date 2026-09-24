@@ -1,0 +1,85 @@
+/*----------------------------------------------------------------------------*/
+--R_COMP_FAT_X_CONS
+SELECT * FROM (
+SELECT   cp.nm_setor nm_setor
+        ,cp.cd_setor cd_setor
+        ,cp.tp_analise_desempenho cd_item_res
+        ,cp.ds_desempenho ds_item_res
+        ,periodo.dt_comp dt_comp
+        ,SUM ( decode (
+             cp.dt_comp_cp
+            ,periodo.dt_comp, cp.valor
+            ,0
+           )) valor
+        ,SUM ( decode (
+             cp.dt_comp_cp
+            ,periodo.dt_comp, cp.valor_pdireto
+            ,0
+           )) valor_pdireto
+    FROM ( SELECT  setor.nm_setor nm_setor
+                  ,setor.cd_setor cd_setor
+                  ,item_res.tp_analise_desempenho
+                  ,decode (
+                     item_res.tp_analise_desempenho
+                    ,'MT', 'Material'
+                    ,'MD', 'Medicamentos'
+                    ,'HN', 'Honorários'
+                    ,'GS', 'Gases'
+                    ,'DT', 'Diárias e Taxas'
+                    ,'NO', 'Não Operacional'
+                    ,NULL, 'Não Classificado'
+                   ) ds_desempenho
+                  ,to_char ( custo_primario.dt_competencia, 'yyyy/mm' ) dt_comp_cp
+                  ,SUM ( nvl ( custo_primario.vl_custo_setor, 0 )) valor
+                  ,SUM ( nvl ( custo_primario.vl_custo_pdireto, 0 )) valor_pdireto
+              FROM dbamv.custo_primario
+                  ,dbamv.setor
+                  ,dbamv.item_res
+             WHERE custo_primario.dt_competencia BETWEEN TO_DATE (to_char (last_day ( add_months ( to_date(:CAMPO_DT_INI,'dd/mm/yyyy') , -1 )) + 1, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+                                                     AND TO_DATE (to_char ( last_day ( to_date(:CAMPO_DT_FIM,'dd/mm/yyyy') ), 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+               AND custo_primario.cd_setor = setor.cd_setor
+               AND custo_primario.cd_item_res = item_res.cd_item_res
+               AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          GROUP BY setor.nm_setor
+                  ,setor.cd_setor
+                  ,item_res.tp_analise_desempenho
+                  ,decode (
+                     item_res.tp_analise_desempenho
+                    ,'MT', 'Material'
+                    ,'MD', 'Medicamentos'
+                    ,'HN', 'Honorários'
+                    ,'GS', 'Gases'
+                    ,'DT', 'Diárias e Taxas'
+                    ,'NO', 'Não Operacional'
+                    ,NULL, 'Não Classificado'
+                   )
+                  ,to_char ( custo_primario.dt_competencia, 'yyyy/mm' )) cp
+        , ( SELECT to_char ( competencia.dt_competencia, 'yyyy/mm' ) dt_comp
+             FROM dbamv.competencia
+            WHERE competencia.dt_competencia >= TO_DATE (to_char (last_day ( add_months ( to_date(:CAMPO_DT_INI,'dd/mm/yyyy'), -1 )) + 1, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+              AND competencia.dt_competencia <= TO_DATE (to_char ( last_day ( to_date(:CAMPO_DT_FIM,'dd/mm/yyyy') ), 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+              AND competencia.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) periodo
+GROUP BY cp.nm_setor
+        ,cp.cd_setor
+        ,cp.tp_analise_desempenho
+        ,cp.ds_desempenho
+        ,periodo.dt_comp
+  HAVING SUM ( decode (
+             cp.dt_comp_cp
+            ,periodo.dt_comp, nvl ( cp.valor, 0 )
+            ,0
+           )) > 0
+      OR SUM ( decode (
+            cp.dt_comp_cp
+           ,periodo.dt_comp, nvl ( cp.valor_pdireto, 0 )
+           ,0
+          )) > 0
+ORDER BY cp.nm_setor
+        ,cp.cd_setor
+        ,cp.tp_analise_desempenho
+        ,cp.ds_desempenho
+        ,periodo.dt_comp
+)
+ORDER BY NM_SETOR,CD_SETOR,
+CD_ITEM_RES,DS_ITEM_RES,
+DT_COMP

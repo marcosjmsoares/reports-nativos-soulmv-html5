@@ -1,0 +1,77 @@
+/*----------------------------------------------------------------------------*/
+--R_GLOSA_RETORNO
+SELECT * FROM (
+select atendime.cd_atendimento,
+       ltrim(paciente.cd_paciente)||' - '||paciente.nm_paciente nm_paciente,
+       'Hospitalar' tipo,
+       reg_fat.cd_reg_fat cd_conta,
+       itreg_fat.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       sum(itreg_fat.vl_total_conta) vl_cobrado,
+       sum(nvl(retorno.vl_recebido,0)+nvl(retorno.vl_filme_recebido,0)) vl_pago,
+       motivo_glosa.ds_motivo_glosa
+  from dbamv.atendime,
+       dbamv.retorno_fatura retorno,
+       dbamv.paciente,
+       dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.pro_fat,
+       dbamv.motivo_glosa
+ where retorno.tp_conta          = 'I'
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and retorno.cd_retorno_fatura = :CAMPO_RETORNO
+   and reg_fat.cd_remessa        =   :CAMPO_REMESSA_BASE
+   and retorno.cd_conta          = reg_fat.cd_reg_fat
+   and itreg_fat.cd_reg_fat      = reg_fat.cd_reg_fat
+   and itreg_fat.cd_lancamento   = retorno.cd_lancamento
+   and atendime.cd_atendimento   = reg_fat.cd_atendimento
+   and paciente.cd_paciente      = atendime.cd_paciente
+   and pro_fat.cd_pro_fat        = itreg_fat.cd_pro_fat
+   and retorno.cd_motivo_glosa   = motivo_glosa.cd_motivo_glosa(+)
+   and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+ group by atendime.cd_atendimento,
+       ltrim(paciente.cd_paciente)||' - '||paciente.nm_paciente,
+       'Hospitalar',
+       reg_fat.cd_reg_fat,
+       itreg_fat.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       motivo_glosa.ds_motivo_glosa
+union all
+select atendime.cd_atendimento,
+       ltrim(paciente.cd_paciente)||' - '||paciente.nm_paciente nm_paciente,
+       'Ambulatorial' tipo,
+       reg_amb.cd_reg_amb cd_conta,
+       itreg_amb.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       sum(itreg_amb.vl_total_conta) vl_cobrado,
+       sum(nvl(retorno.vl_recebido,0)+nvl(retorno.vl_filme_recebido,0)) vl_pago,
+       motivo_glosa.ds_motivo_glosa
+  from dbamv.atendime,
+       dbamv.retorno_fatura retorno,
+       dbamv.paciente,
+       dbamv.reg_amb,
+       dbamv.itreg_amb,
+       dbamv.pro_fat,
+       dbamv.motivo_glosa
+ where retorno.tp_conta          <> 'I'
+   AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+   and retorno.cd_retorno_fatura = :CAMPO_RETORNO
+   and reg_amb.cd_remessa        = :CAMPO_REMESSA_BASE
+   and retorno.cd_conta          = reg_amb.cd_reg_amb
+   and itreg_amb.cd_reg_amb      = reg_amb.cd_reg_amb
+   and itreg_amb.cd_lancamento   = retorno.cd_lancamento
+   and atendime.cd_atendimento   = itreg_amb.cd_atendimento
+   and paciente.cd_paciente      = atendime.cd_paciente
+   and pro_fat.cd_pro_fat        = itreg_amb.cd_pro_fat
+   and retorno.cd_motivo_glosa   = motivo_glosa.cd_motivo_glosa(+)
+ group by atendime.cd_atendimento,
+       ltrim(paciente.cd_paciente)||' - '||paciente.nm_paciente,
+       'Ambulatorial',
+       reg_amb.cd_reg_amb,
+       itreg_amb.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       motivo_glosa.ds_motivo_glosa
+ order by 6
+)
+ORDER BY CD_ATENDIMENTO,NM_PACIENTE,TIPO

@@ -1,0 +1,56 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_FILA_ESPERA
+SELECT CD_PACIENTE
+     , NR_TELEFONE_CONTATO
+     , to_char(DT_AGENDA, 'dd/mm/yyyy') DT_AGENDA
+     , CD_AGENDA
+     , NM_PACIENTE
+     , NM_SOCIAL_PACIENTE
+     , DS_TURMA
+     , nvl(QT_PARTICIPANTES, 999)         QT_PARTICIPANTES
+  FROM
+      (
+       SELECT agenda_turma_fila.cd_paciente                       CD_PACIENTE
+            , agenda_turma_fila.nr_telefone_contato               NR_TELEFONE_CONTATO
+            , agenda_turma.dt_agenda                              DT_AGENDA
+            , agenda_turma.cd_setor                               CD_SETOR
+            , agenda_turma_fila.cd_agenda_turma                   CD_AGENDA
+            , agenda_turma_fila.nm_paciente                       NM_PACIENTE
+            , (SELECT PA.NM_SOCIAL_PACIENTE
+        		FROM DBAMV.PACIENTE PA
+        		WHERE PA.CD_PACIENTE = agenda_turma_fila.CD_PACIENTE
+          			AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE
+            , turma.ds_turma                                      DS_TURMA
+            , turma.cd_turma                                      TURMA_ITEM
+            , qt_participantes                                    QT_PARTICIPANTES
+            , -1                                                  QT_MARCADOS
+         FROM dbamv.agenda_turma_fila
+            , dbamv.agenda_turma
+            , dbamv.turma
+        WHERE dbamv.agenda_turma_fila.cd_agenda_turma         = dbamv.agenda_turma.cd_agenda_turma
+          AND dbamv.agenda_turma.cd_turma                     = dbamv.turma.cd_turma
+          AND EXISTS (SELECT 1
+                        FROM dbamv.agenda_turma_prestador
+                       WHERE cd_agenda_turma = agenda_turma_fila.cd_agenda_turma
+                         :CAMPO_CF_COND_CD_PRESTADOR)
+       UNION ALL
+       SELECT agenda_fila_espera.cd_paciente                                   CD_PACIENTE
+            , agenda_fila_espera.nr_fone                                       NR_FONE
+            , nvl(agenda_central.dt_agenda, agenda_fila_espera.dt_fila_espera) DT_AGENDA
+            ,  nvl(agenda_fila_espera.cd_setor, agenda_central.cd_setor)       CD_SETOR
+            , agenda_central.cd_agenda_central                                 CD_AGENDA
+            , agenda_fila_espera.nm_paciente                                   NM_PACIENTE
+            , (SELECT PA.NM_SOCIAL_PACIENTE
+        		FROM DBAMV.PACIENTE PA
+        		WHERE PA.CD_PACIENTE = agenda_fila_espera.CD_PACIENTE
+          			AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE
+            , 'ITEM AGENDAMENTO'                                               DS_TURMA
+            , agenda_fila_espera.cd_item_agendamento                           TURMA_ITEM
+            , agenda_central.qt_atendimento                                    QT_PARTICIPANTES
+            , agenda_central.qt_marcados                                       QT_MARCADOS
+         FROM dbamv.agenda_fila_espera
+            , dbamv.agenda_central
+        WHERE dbamv.agenda_fila_espera.cd_agenda_central = dbamv.agenda_central.cd_agenda_central(+)
+        :CAMPO_CF_FILA_ESPERA_CD_PRESTADOR
+      ) FILA_AGENDA
+      where dt_agenda between :CAMPO_DT_INICIAL

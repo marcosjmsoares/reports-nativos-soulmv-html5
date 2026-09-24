@@ -1,0 +1,129 @@
+/*----------------------------------------------------------------------------*/
+--R_REG_ENTR_CFOP
+Select Ent_Pro.Dt_Entrada           Dt_Ent
+          ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento) Numero
+          ,documento_entrada.nr_serie   Serie
+          ,documento_entrada.dt_emissao Dt_Doc
+          ,cfop.nr_cfop                 Cfop
+          ,aliquota_icms.cd_detalhamento ICMS
+          ,fornecedor.cd_fornecedor     Cd_fornecedor
+          ,fornecedor.nm_fornecedor     Razao_Social
+          ,substr(to_char(fornecedor.nr_cgc_cpf),1,2)||'.'||
+           substr(to_char(fornecedor.nr_cgc_cpf),3,3)||'.'||
+           substr(to_char(fornecedor.nr_cgc_cpf),6,3)||'/'||
+           substr(to_char(fornecedor.nr_cgc_cpf),9,4)||'-'||
+           substr(to_char(fornecedor.nr_cgc_cpf),13,2) Codigo_Emitente
+          ,fornecedor.nr_insc_est       Insc_estadual
+          ,documento_entrada.vl_imposto_icms    Aliquota
+          ,aliquota_icms.vl_perc_aliquota Perc_Icms
+          ,cidade.cd_uf                 UF
+          ,ent_pro.cd_estoque           Estoque
+          ,sum(Itent_Pro.Vl_Total_Custo_Real) valor_operacao
+          ,sum( Itent_Pro.Vl_Total_Custo_Real  ) *  (nvl(aliquota_icms.vl_perc_aliquota,100)/100) Outras
+          ,ent_pro.cd_valor_operacao Vl_Operacao
+ From  dbamv.ent_pro
+          ,dbamv.itent_pro
+          ,dbamv.documento_entrada
+          ,dbamv.cfop
+          ,dbamv.fornecedor
+          ,dbamv.cidade
+          ,dbamv.produto
+          ,dbamv.especie
+          ,dbamv.tip_doc
+          ,dbamv.aliquota_icms
+          ,dbamv.constituicao_empresa
+          ,DBAMV.CONFIGEST
+Where ent_pro.nr_documento  = documento_entrada.nr_documento
+    and ent_pro.cd_fornecedor = documento_entrada.cd_fornecedor
+    and ent_pro.nr_serie  = documento_entrada.nr_serie
+    and ent_pro.cd_cfop    = cfop.cd_cfop
+    and ent_pro.cd_fornecedor = fornecedor.cd_fornecedor
+    and CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+    and cidade.cd_cidade   = fornecedor.cd_cidade
+    and produto.cd_produto = itent_pro.cd_produto
+    and produto.cd_especie = especie.cd_especie
+    and ent_pro.cd_ent_pro = itent_pro.cd_ent_pro
+    and tip_doc.cd_tip_doc = documento_entrada.cd_tip_doc
+    and ent_pro.cd_tip_doc = documento_entrada.cd_tip_doc
+    and ent_pro.dt_entrada between :CAMPO_DTINIC and 
+    and documento_entrada.cd_multi_empresa = dbamv.Pkg_Mv2000.Le_Empresa
+    and documento_entrada.Tp_Documento_Entrada = 'N'  
+    and aliquota_icms.cd_cfop (+) = cfop.cd_cfop
+    and constituicao_empresa.cd_constituicao_empresa(+) = fornecedor.cd_constituicao_empresa
+    and (aliquota_icms.cd_cfop is null or
+            aliquota_icms.cd_constituicao_empresa = constituicao_empresa.cd_constituicao_empresa)
+Group by ent_pro.dt_entrada
+         ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento)
+         ,documento_entrada.nr_serie
+         ,documento_entrada.dt_emissao
+         ,cfop.nr_cfop
+         ,fornecedor.cd_fornecedor
+         ,fornecedor.nm_fornecedor
+         ,fornecedor.nr_cgc_cpf
+         ,fornecedor.nr_insc_est
+         ,documento_entrada.vl_imposto_icms
+         ,aliquota_icms.vl_perc_aliquota
+         ,cidade.cd_uf
+         ,ent_pro.cd_estoque
+         ,aliquota_icms.cd_detalhamento
+         ,ent_pro.cd_valor_operacao
+Union All
+Select Ent_pro.dt_entrada                  Dt_Ent
+          ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento) Numero
+          ,Ent_pro.nr_serie                       Serie
+          ,Ent_pro.dt_emissao                  Dt_Doc
+          ,Cfop.nr_cfop                             Cfop
+          ,0 Icms 
+          ,Fornecedor.cd_fornecedor       Cd_fornecedor
+          ,Fornecedor.nm_fornecedor       Razao_Social
+          ,substr(to_char(Fornecedor.Nr_Cgc_Cpf),1,2)||'.'||
+           substr(to_char(Fornecedor.Nr_Cgc_Cpf),3,3)||'.'||
+           substr(to_char(Fornecedor.Nr_Cgc_Cpf),6,3)||'/'||
+           substr(to_char(Fornecedor.Nr_Cgc_Cpf),9,4)||'-'||
+           substr(to_char(Fornecedor.Nr_Cgc_Cpf),13,2) Codigo_Emitente
+          ,Fornecedor.Nr_Insc_Est             Insc_estadual
+          ,0    Aliquota
+          ,aliquota_icms.vl_perc_aliquota Perc_Icms
+          ,Cidade.Cd_Uf                            UF
+          ,Ent_Pro.Cd_Estoque                 Estoque
+          ,sum(Itent_Pro.Vl_Total_Custo_Real) Valor_Operacao
+          ,sum( Itent_Pro.Vl_Total_Custo_Real  ) *  (nvl(aliquota_icms.vl_perc_aliquota,100)/100) Outras
+          ,Ent_Pro.Cd_Valor_Operacao     Vl_Operacao
+  From Dbamv.Ent_Pro
+          ,Dbamv.Itent_Pro
+          ,Dbamv.Cfop
+          ,Dbamv.Fornecedor
+          ,Dbamv.Cidade
+          ,Dbamv.Produto
+          ,Dbamv.Especie
+          ,Dbamv.Aliquota_Icms
+          ,Dbamv.Constituicao_Empresa
+          ,Dbamv.estoque
+          ,DBAMV.CONFIGEST
+Where Ent_Pro.Cd_Cfop           = Cfop.Cd_Cfop
+    and Ent_Pro.Cd_Fornecedor = Fornecedor.Cd_Fornecedor
+    and Cidade.Cd_Cidade          = Fornecedor.Cd_Cidade
+    and Produto.cd_produto        = itent_pro.cd_produto
+    and Produto.cd_especie        = especie.cd_especie
+    and Ent_pro.cd_ent_pro        = itent_pro.cd_ent_pro
+    and CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+    and Ent_pro.cd_estoque       = estoque.cd_estoque
+    and Ent_pro.tp_documento_entrada in ('C','E') 
+    and Estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    and Ent_pro.dt_entrada between :CAMPO_DTINIC and 
+    and Aliquota_icms.cd_cfop (+) = cfop.cd_cfop
+    and Constituicao_empresa.cd_constituicao_empresa (+) = fornecedor.cd_constituicao_empresa
+Group by Ent_Pro.Dt_Entrada
+        ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento)
+        ,Ent_Pro.Nr_Serie
+        ,Ent_Pro.Dt_Emissao
+        ,Cfop.Nr_Cfop
+        ,Fornecedor.Cd_Fornecedor
+        ,Fornecedor.Nm_Fornecedor
+        ,Fornecedor.Nr_Cgc_Cpf
+        ,Fornecedor.Nr_Insc_Est
+        ,Aliquota_Icms.Vl_Perc_Aliquota
+        ,Cidade.Cd_Uf
+        ,Ent_Pro.Cd_Estoque
+        ,Ent_Pro.Cd_Valor_Operacao
+Order by Dt_Ent

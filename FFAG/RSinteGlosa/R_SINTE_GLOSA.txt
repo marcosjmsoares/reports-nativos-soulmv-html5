@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_SINTE_GLOSA
+SELECT * FROM (
+Select nf.cd_convenio,
+       co.nm_convenio,
+       gl.cd_setor,
+       se.nm_setor,
+       gl.cd_motivo_glosa,
+       mg.ds_motivo_glosa,
+       sum(nf.vl_itfat_nf) vl_itfat_nf,
+       sum(gl.vl_glosa) vl_glosa,
+       sum(gl.vl_reapresentado) vl_reapresentado
+ from dbamv.convenio co,
+      dbamv.glosas gl,
+      dbamv.setor se,
+      (select nf.nr_id_nota_fiscal
+						 ,itnf.cd_remessa
+						 ,nf.cd_convenio
+						 ,itnf.cd_atendimento
+						 ,itnf.cd_prestador
+						 ,itnf.cd_reg_amb
+						 ,itnf.cd_reg_fat
+						 ,itnf.vl_itfat_nf
+				 from dbamv.nota_fiscal nf
+				     ,dbamv.itfat_nota_fiscal itnf
+				where nf.cd_nota_fiscal = itnf.cd_nota_fiscal) nf,
+      dbamv.motivo_glosa mg
+where nf.cd_convenio = co.cd_convenio
+  and gl.cd_setor = se.cd_setor
+  and gl.cd_atendimento = nf.cd_atendimento
+	and nvl(gl.cd_prestador,0) = nvl(nf.cd_prestador ,0)
+  and (gl.cd_reg_amb = nf.cd_reg_amb
+       or gl.cd_reg_fat = nf.cd_reg_fat)
+  and gl.cd_motivo_glosa = mg.cd_motivo_glosa
+  and gl.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and trunc(gl.dt_glosa) between :CAMPO_DT_INICIO group by nf.cd_convenio,
+         co.nm_convenio,
+         gl.cd_setor,
+         se.nm_setor,
+         gl.cd_motivo_glosa,
+         mg.ds_motivo_glosa
+order by 1,3
+)
+ORDER BY CD_CONVENIO,NM_CONVENIO,
+CD_SETOR,NM_SETOR,cd_motivo_glosa

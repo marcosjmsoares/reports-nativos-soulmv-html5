@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_ANALISE_OXIGENIO
+SELECT * FROM (
+select a.cd_item_res  cd_item_res
+      ,a.ds_item_res      ds_item_res
+      ,a.cd_setor           cd_setor
+      ,a.nm_setor           nm_setor
+      ,sum(a.custo) custo
+ from(
+select custo_primario.cd_item_res cd_item_res,
+       item_res.ds_item_res ds_item_res,
+       custo_primario.cd_setor cd_setor,
+       setor.nm_setor nm_setor,
+       nvl((custo_primario.vl_custo_setor),0) custo
+from dbamv.item_res,
+     dbamv.custo_primario,
+     dbamv.setor
+where custo_primario.cd_item_res = item_res.cd_item_res and
+      item_res.sn_gases = 'S' AND
+      custo_primario.dt_competencia = To_Date(:CAMPO_DT_INI, 'mm/yyyy') and
+      custo_primario.cd_setor = setor.cd_setor and
+      setor.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+union
+select receita_setor.cd_item_res,
+       item_res.ds_item_res,
+       receita_setor.cd_setor cd_setor,
+       setor.nm_setor nm_setor,
+       0 custo
+from dbamv.item_res,
+     dbamv.receita_setor,
+     dbamv.setor
+where receita_setor.cd_item_res = item_res.cd_item_res and
+      item_res.sn_gases = 'S' AND
+      receita_setor.dt_competencia = To_Date(:CAMPO_DT_INI, 'mm/yyyy') and
+      receita_setor.cd_setor = setor.cd_setor and
+      setor.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+)a
+group by a.cd_item_res
+        ,a.ds_item_res
+        ,a.cd_setor
+        ,a.nm_setor
+)
+ORDER BY DS_ITEM_RES,CD_ITEM_RES

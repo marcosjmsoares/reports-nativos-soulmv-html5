@@ -1,0 +1,103 @@
+/*----------------------------------------------------------------------------*/
+--R_ANALISE_PACOTE_DT_LANC
+SELECT * FROM (
+SELECT CONVENIO.CD_CONVENIO CD_CONVENIO
+             ,CONVENIO.NM_CONVENIO  NM_CONVENIO
+             ,PRO_FAT.CD_PRO_FAT                                    CD_PRO_INT
+             ,PRO_FAT.DS_PRO_FAT                                    DS_PRO_INT
+             ,ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+             ,PACIENTE.CD_PACIENTE CD_PACIENTE
+             ,PACIENTE.NM_PACIENTE  NM_PACIENTE
+             ,(REG_FAT.DT_FINAL - REG_FAT.DT_INICIO)   PERMANENCIA
+             ,SUM(itREG_FAT.VL_TOTAL_CONTA)                  VL_PACOTE
+FROM   DBAMV.ATENDIME
+             ,DBAMV.PACIENTE
+             ,DBAMV.REG_FAT
+             ,DBAMV.CONVENIO
+             ,DBAMV.ITREG_FAT
+             ,DBAMV.PRO_FAT,
+	     dbamv.empresa_convenio
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'S'
+AND        ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+AND        CONVENIO.TP_CONVENIO <> 'H'
+and  ( select count(it.cd_pro_fat)
+            from dbamv.itreg_fat it, dbamv.pro_fat pr,
+                    dbamv.reg_fat rg,   dbamv.remessa_fatura rm
+           where it.cd_pro_fat = pr.cd_pro_fat
+             and rg.cd_reg_fat = it.cd_reg_fat
+             and pr.sn_pacote = 'S'
+             and rg.cd_atendimento = ATENDIME.CD_ATENDIMENTO
+             and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and rm.cd_remessa(+)     = rg.cd_remessa
+             and it.dt_lancamento between to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  and  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+             and ( :CAMPO_PROCED   = '%' or it.cd_pro_fat     = ITREG_FAT.CD_PRO_FAT )                   ) = 1
+GROUP BY CONVENIO.CD_CONVENIO
+                   ,CONVENIO.NM_CONVENIO
+                   ,PRO_FAT.CD_PRO_FAT
+                   ,PRO_FAT.DS_PRO_FAT
+                   ,ATENDIME.CD_ATENDIMENTO
+                   ,PACIENTE.CD_PACIENTE
+                   ,PACIENTE.NM_PACIENTE
+                   ,(REG_FAT.DT_FINAL - REG_FAT.DT_INICIO)
+UNION ALL
+SELECT CONVENIO.CD_CONVENIO CD_CONVENIO
+              ,CONVENIO.NM_CONVENIO NM_CONVENIO
+              ,PRO_FAT.CD_PRO_FAT                 CD_PRO_INT
+              ,PRO_FAT.DS_PRO_FAT                 DS_PRO_INT
+              ,ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE NM_PACIENTE
+              ,1                                                                  PERMANENCIA
+              ,SUM(ITREG_AMB.VL_TOTAL_CONTA)    VL_PACOTE
+FROM    DBAMV.ATENDIME
+             ,DBAMV.PACIENTE
+             ,DBAMV.ITREG_AMB
+             ,DBAMV.PRO_FAT
+             ,DBAMV.CONVENIO
+             ,DBAMV.REG_AMB,
+	     dbamv.empresa_convenio
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'S'
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND        ATENDIME.DT_ATENDIMENTO BETWEEN to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+and  ( select count(it.cd_pro_fat)
+            from dbamv.itreg_amb it, dbamv.pro_fat pr, dbamv.atendime at,
+                 dbamv.reg_amb rg,   dbamv.remessa_fatura rm
+           where it.cd_pro_fat = pr.cd_pro_fat
+             and rg.cd_reg_amb = it.cd_reg_amb
+             and pr.sn_pacote = 'S'
+             and it.cd_atendimento = ATENDIME.CD_ATENDIMENTO
+             and at.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and at.cd_atendimento = it.cd_atendimento
+             and rm.cd_remessa(+)     = rg.cd_remessa
+             and at.dt_atendimento between to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  and  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+             and ( :CAMPO_PROCED   = '%' or it.cd_pro_fat     = ITREG_AMB.CD_PRO_FAT )      ) = 1
+GROUP BY CONVENIO.CD_CONVENIO
+                   ,CONVENIO.NM_CONVENIO
+                   ,PRO_FAT.CD_PRO_FAT
+                   ,PRO_FAT.DS_PRO_FAT
+                   ,ATENDIME.CD_ATENDIMENTO
+                   ,PACIENTE.CD_PACIENTE
+                   ,PACIENTE.NM_PACIENTE
+                   ,1
+)
+ORDER BY CD_CONVENIO,NM_CONVENIO,
+DS_PRO_INT,CD_PRO_INT

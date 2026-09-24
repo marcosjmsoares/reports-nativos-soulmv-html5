@@ -1,0 +1,58 @@
+/*----------------------------------------------------------------------------*/
+--R_CIR_DATA
+SELECT * FROM
+  (SELECT avi_cir.cd_aviso_cirurgia cd_aviso_cirurgia ,
+          avi_cir.cd_atendimento cd_atendimento ,
+          avi_cir.cd_paciente cd_paciente ,
+          cir_avi.cd_cirurgia_aviso cd_cirurgia_aviso ,
+          (SELECT decode(PACIENTE.SN_UTILIZA_NOME_SOCIAL,'S', Nvl(PACIENTE.NM_SOCIAL_PACIENTE, PACIENTE.NM_PACIENTE), 'N', PACIENTE.NM_PACIENTE) Nome FROM dbamv.paciente  WHERE paciente.cd_paciente = avi_cir.cd_paciente) NM_PACIENTE,
+          avi_cir.nr_telefone_contato nr_telefone_contato ,
+          trunc(avi_cir.dt_realizacao) dt_realizacao ,
+          to_char(avi_cir.dt_realizacao, 'hh24') hr_inicio ,
+          to_char(dbamv.soma_sub_data(avi_cir.dt_realizacao, avi_cir.vl_tempo_duracao, '+'), 'hh24') hr_fim ,
+          dbamv.f_verif_prestador(avi_cir.cd_aviso_cirurgia, cirurgia.cd_cirurgia) cd_cirurgiao ,
+          dbamv.f_verif_prestador_anest(avi_cir.cd_aviso_cirurgia, cirurgia.cd_cirurgia) cd_anestesista ,
+          avi_cir.cd_cen_cir cd_cen_cir ,
+          cen_cir.ds_cen_cir ds_cen_cir ,
+          sal_cir.ds_sal_cir ds_sal_cir ,
+          leito.ds_resumo ds_resumo ,
+          cirurgia.cd_cirurgia cd_cirurgia , 
+          DECODE(nvl(CIR_AVI.DS_NPADRONIZADO, 'XXX'), 'XXX' , CIRURGIA.DS_CIRURGIA , 'N.P.' || CIR_AVI.DS_NPADRONIZADO) ds_cirurgia ,
+          convenio.nm_convenio nm_convenio ,
+          cirurgia.tp_cirurgia tp_cirurgia ,
+          tip_anest.DS_TIP_ANEST DS_TIP_ANEST
+   FROM dbamv.cen_cir cen_cir ,
+        dbamv.sal_cir sal_cir ,
+        dbamv.aviso_cirurgia avi_cir ,
+        dbamv.cirurgia cirurgia ,
+        dbamv.cirurgia_aviso cir_avi ,
+        dbamv.atendime atendime ,
+        dbamv.leito leito ,
+        dbamv.convenio convenio ,
+        dbamv.tip_anest tip_anest , 
+        Dbamv.Empresa_Convenio
+   WHERE Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA 
+     AND Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND avi_cir.cd_aviso_cirurgia = cir_avi.cd_aviso_cirurgia
+     AND cir_avi.cd_cirurgia = cirurgia.cd_cirurgia
+     AND cir_avi.cd_convenio = convenio.cd_convenio
+     AND avi_cir.cd_sal_cir = sal_cir.cd_sal_cir
+     AND avi_cir.cd_cen_cir = cen_cir.cd_cen_cir
+     AND avi_cir.tp_situacao = 'R'
+     AND avi_cir.cd_tip_anest = tip_anest.cd_tip_anest (+)
+     AND avi_cir.cd_atendimento = atendime.cd_atendimento
+     AND atendime.cd_leito = leito.cd_leito(+)
+     AND avi_cir.dt_realizacao BETWEEN To_Date(Concat(To_Char(:CAMPO_DATA_INI,'dd/mm/yyyy'), '00'), 'dd/mm/yyyy hh24') AND To_Date(Concat(To_Char(:CAMPO_DATA_FIM,'dd/mm/yyyy'), '23'), 'dd/mm/yyyy hh24') 
+   ORDER BY hr_inicio)
+ORDER BY CD_CEN_CIR,
+         DS_CEN_CIR,
+         DT_REALIZACAO,
+         CD_ATENDIMENTO,
+         CD_PACIENTE,
+         NM_PACIENTE,
+         NR_TELEFONE_CONTATO,
+         HR_INICIO,
+         CD_AVISO_CIRURGIA,
+         HR_FIM,
+         TP_CIRURGIA

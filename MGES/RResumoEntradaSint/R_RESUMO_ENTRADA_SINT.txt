@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_RESUMO_ENTRADA_SINT
+SELECT cd_produto
+     , ds_produto
+     , ds_unidade
+     , Sum(qt_entrada) qt_entrada
+     , vl_custo_real
+     , Sum(vl_total) vl_total
+     , vl_custo_medio
+  FROM (
+SELECT  itent_pro.cd_produto,
+                   produto.ds_produto,
+                   uni_pro.ds_unidade,
+                   itent_pro.qt_entrada qt_entrada,
+                   Decode(ent_pro.tp_documento_entrada,'P',Decode(:CAMPO_CD_VALORES,'N',itent_pro.vl_custo_real, itent_pro.vl_unitario_producao), itent_pro.vl_custo_real ) vl_custo_real,
+                   Decode(ent_pro.tp_documento_entrada,'P',Decode(:CAMPO_CD_VALORES,'N',itent_pro.vl_total_custo_real, itent_pro.vl_total_producao), itent_pro.vl_total_custo_real )  vl_total
+                  , DBAMV.VERIF_VL_CUSTO_MEDIO(itent_pro.cd_produto
+                                            ,ent_pro.dt_entrada
+                                            ,'H'
+                                            ,Null
+                                            ,ent_pro.hr_entrada
+                                            ,estoque.cd_multi_empresa
+                                            ) VL_CUSTO_MEDIO
+FROM   dbamv.tip_doc,
+       dbamv.fornecedor,
+       dbamv.produto,
+       dbamv.uni_pro,
+       dbamv.ent_pro,
+       dbamv.itent_pro,
+       dbamv.estoque
+WHERE  ent_pro.cd_ent_pro    = itent_pro.cd_ent_pro
+AND        ent_pro.cd_fornecedor = fornecedor.cd_fornecedor (+)
+AND        ent_pro.cd_estoque = estoque.cd_estoque
+AND        ent_pro.cd_tip_doc  = tip_doc.cd_tip_doc
+AND        itent_pro.cd_produto  = produto.cd_produto
+AND        itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+AND        trunc(ent_pro.dt_entrada) BETWEEN :CAMPO_DTINIC  AND 
+AND        Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND ( ( :CAMPO_SN_EXIBE_ENT_CONSIG = 'N' AND ent_pro.tp_documento_entrada != 'C')
+         OR :CAMPO_SN_EXIBE_ENT_CONSIG = 'S')
+:CAMPO_CF_SUB_CLAS
+) GROUP BY cd_produto
+     , ds_produto
+     , ds_unidade
+     , vl_custo_real
+     , vl_custo_medio
+order by ds_produto

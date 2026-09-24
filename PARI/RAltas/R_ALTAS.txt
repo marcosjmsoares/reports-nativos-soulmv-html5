@@ -1,0 +1,98 @@
+/*----------------------------------------------------------------------------*/
+--R_ALTAS
+SELECT * FROM (
+SELECT DISTINCT
+               MOT_ALT.CD_MOT_ALT
+              ,MOT_ALT.DS_MOT_ALT
+              ,ATENDIME.CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE
+              ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE
+              ,DBAMV.PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, SYSDATE )      IDADE_PAC
+	      	  ,CASE WHEN PACIENTE.DT_NASCIMENTO > ATENDIME.DT_ALTA THEN
+                'Dt Nasc. maior que dt. da alta'
+	      	    ELSE
+                DBAMV.PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, ATENDIME.DT_ALTA )
+              END IDADE_OBT
+              ,ATENDIME.CD_CONVENIO
+              ,CONVENIO.NM_CONVENIO
+              ,ATENDIME.CD_CID
+              ,CID_ATE.CD_CID cd_cid1
+              ,ATENDIME.DT_ATENDIMENTO
+              ,LEITO.DS_RESUMO
+              ,LEITO.DS_ENFERMARIA
+              ,ATENDIME.DT_ALTA
+              ,ATENDIME.HR_ALTA
+              ,(ATENDIME.DT_ALTA - ATENDIME.DT_ATENDIMENTO)    DIAS
+              ,PACIENTE.DT_NASCIMENTO
+              ,PACIENTE.TP_SITUACAO
+FROM    DBAMV.ATENDIME
+             ,DBAMV.PACIENTE
+             ,DBAMV.CONVENIO
+             ,DBAMV.MOT_ALT
+             ,DBAMV.CID_ATE
+             ,DBAMV.LEITO
+             ,DBAMV.UNID_INT
+WHERE TRUNC(ATENDIME.DT_ALTA)  BETWEEN  trunc(:CAMPO_DATINI)  AND  trunc(:CAMPO_DATFIM)
+and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND       ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_MOT_ALT  =  MOT_ALT.CD_MOT_ALT(+)
+AND       ATENDIME.TP_ATENDIMENTO ='I'
+AND       ATENDIME.CD_ATENDIMENTO  =  CID_ATE.CD_ATENDIMENTO(+)
+AND       (CID_ATE.CD_CID  =  ( SELECT CID2.CD_CID
+                                                     FROM DBAMV.CID_ATE  CID2
+                                                     WHERE CID2.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+                                                     AND  ROWNUM < 2 )
+                OR CID_ATE.CD_CID IS NULL )
+AND       ATENDIME.CD_LEITO  =  LEITO.CD_LEITO(+)
+AND        LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT(+)
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT DISTINCT
+               MOT_ALT.CD_MOT_ALT
+              ,MOT_ALT.DS_MOT_ALT
+              ,ATENDIME.CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE
+              ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE
+              ,DBAMV.PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, SYSDATE )      IDADE_PAC
+	      	  ,CASE WHEN PACIENTE.DT_NASCIMENTO > ATENDIME.DT_ALTA THEN
+                'Dt Nasc. maior que dt. da alta'
+	      	  ELSE
+                DBAMV.PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, ATENDIME.DT_ALTA )
+              END IDADE_OBT
+              ,ATENDIME.CD_CONVENIO
+              ,CONVENIO.NM_CONVENIO
+              ,ATENDIME.CD_CID
+              ,CID_ATE.CD_CID cd_cid1
+              ,ATENDIME.DT_ATENDIMENTO
+              ,TO_CHAR(NULL)
+              ,TO_CHAR(NULL)
+              ,ATENDIME.DT_ALTA
+              ,ATENDIME.HR_ALTA
+              ,(ATENDIME.DT_ALTA - ATENDIME.DT_ATENDIMENTO)    DIAS
+              ,PACIENTE.DT_NASCIMENTO
+              ,PACIENTE.TP_SITUACAO
+FROM    DBAMV.ATENDIME
+             ,DBAMV.PACIENTE
+             ,DBAMV.CONVENIO
+             ,DBAMV.MOT_ALT
+             ,DBAMV.CID_ATE
+             ,(SELECT cd_unid_int FROM dbamv.config_hoca WHERE cd_multi_empresa =   :CAMPO_CD_MULTI_EMPRESA ) UNID_INT
+WHERE TRUNC(ATENDIME.DT_ALTA)  BETWEEN  trunc(:CAMPO_DATINI)  AND  trunc(:CAMPO_DATFIM)
+and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND       ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_MOT_ALT  =  MOT_ALT.CD_MOT_ALT(+)
+AND       ATENDIME.TP_ATENDIMENTO='H'
+AND       ATENDIME.CD_ATENDIMENTO  =  CID_ATE.CD_ATENDIMENTO(+)
+AND       (CID_ATE.CD_CID  =  ( SELECT CID2.CD_CID
+                                                     FROM DBAMV.CID_ATE  CID2
+                                                     WHERE CID2.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+                                                     AND  ROWNUM < 2 )
+                OR CID_ATE.CD_CID IS NULL )
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_COMPUTA_RN
+)
+ORDER BY CD_MOT_ALT

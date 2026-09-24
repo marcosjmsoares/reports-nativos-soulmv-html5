@@ -1,0 +1,23 @@
+/*----------------------------------------------------------------------------*/
+--R_PROCEDIMENTO_SUS
+select tp_registro
+     , cd_procedimento
+     , LTrim(ds_procedimento) ds_procedimento
+     , dt_validade_inicial
+     , dt_validade_final
+     , decode(tp_sexo, 'A', 'Ambos', 'F', 'Feminino', 'M', 'Masculino') tp_sexo
+  from ( select decode(procedimento_detalhe_vigencia.sn_aih_principal,'S', '2-Internação'
+                      , decode(procedimento_detalhe_vigencia.sn_apac_principal, 'S', '4-Ambulatório Individualizado'
+                              , decode(procedimento_detalhe_vigencia.sn_bpa_individualizado,'S','4-Ambulatório Individualizado'
+                                      , decode(procedimento_detalhe_vigencia.sn_bpa_consolidado,'S', '5-Ambulatório Consolidado', null)))) tp_registro
+              , procedimento_sus.cd_procedimento
+              , procedimento_sus.ds_procedimento
+              , procedimento_detalhe_vigencia.tp_sexo
+              , procedimento_detalhe_vigencia.dt_validade_inicial
+              , procedimento_detalhe_vigencia.dt_validade_final
+           from dbamv.procedimento_sus
+              , dbamv.procedimento_detalhe_vigencia
+          where procedimento_sus.cd_procedimento = procedimento_detalhe_vigencia.cd_procedimento
+            and trunc(:CAMPO_COMPET,'MONTH') between trunc(procedimento_detalhe_vigencia.dt_validade_inicial,'MONTH')
+                                             and trunc(nvl(procedimento_detalhe_vigencia.dt_validade_final,:CAMPO_COMPET),'MONTH') )
+ where tp_registro is not null

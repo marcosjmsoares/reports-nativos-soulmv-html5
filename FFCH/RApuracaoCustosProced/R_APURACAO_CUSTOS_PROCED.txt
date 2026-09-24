@@ -1,0 +1,992 @@
+/*----------------------------------------------------------------------------*/
+--R_APURACAO_CUSTOS_PROCED
+SELECT DISTINCT 1 RETORNO
+  FROM dbamv.custo_unitario
+ WHERE To_Char(custo_unitario.dt_competencia,'MM/YYYY') = :CAMPO_DTINI
+   AND custo_unitario.cd_multi_empresa = PKG_MV2000.LE_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_APURACAO_CUSTOS_PROCED_GRUPO
+SELECT * FROM (
+SELECT   gru_pro.ds_gru_pro ds_gru_pro11
+        ,setor.nm_setor nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp11
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ))
+                                                                                                                                                                                                                                                  ds_pro_fat11
+        ,SUM ( custo_unitario.qt_producao ) count11
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo11
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat11
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri11
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed11
+        ,nvl ( custo_unitario.vl_genericos, 0 ) vl_gen11
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp11
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor11
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+     AND custo_unitario.cd_convenio IS NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ))
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,pro_fat.vl_tempo
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND ( gru_pro.cd_gru_pro(+) = pro_fat.cd_gru_pro )
+     AND custo_unitario.cd_exa_lab IS NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_ssm.nm_gru_ssm
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.tab_siasus
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.gru_ssm
+   WHERE custo_unitario.cd_ssm = tab_siasus.cd_ssm
+     AND custo_unitario.cd_setor = setor.cd_setor
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND gru_ssm.cd_gru_ssm = tab_siasus.cd_gru_ssm
+     AND :CAMPO_PRO_FAT = '%'
+GROUP BY gru_ssm.nm_gru_ssm
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.procedimento_sus ps
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.procedimento_sus_detalhe psd
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_procedimento_sus = ps.cd_procedimento(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_procedimento_sus = psd.cd_procedimento
+     AND Nvl(psd.cd_gru_pro, ( SELECT Min(pdv.cd_gru_pro) from dbamv.procedimento_detalhe_vigencia pdv   WHERE pdv.cd_procedimento=psd.cd_procedimento))= gru_pro.cd_gru_pro
+     AND custo_unitario.cd_pro_fat IS NULL
+     AND custo_unitario.cd_convenio IS NULL
+     AND :CAMPO_PRO_FAT = '%'
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,psd.vl_tempo
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'PSSD - EXAMES LABORATORIAIS' ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.exa_lab exa_lab
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_lab = exa_lab.cd_exa_lab(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_lab IS NOT NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+GROUP BY setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'PSDI - EXAMES IMAGEM' ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )   vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.exa_rx exa_rx
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_rx = exa_rx.cd_exa_rx(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_rx IS NOT NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+GROUP BY setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'IMPORTAÇÃO XML' ds_gru_pro
+        ,setor.nm_setor
+        ,setor.cd_setor
+        ,TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', ax.nm_atividade_gen, to_char ( ax.cd_atividade_gen ) || ' - ' || ax.nm_atividade_gen ) ds_pro_fat
+        ,SUM( custo_unitario.qt_producao ) COUNT
+        ,SUM( custo_unitario.vl_fator ) vl_tempo
+        ,SUM( NVL( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,NVL( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM( NVL( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,NVL( custo_unitario.vl_genericos, 0 ) vl_gen
+        ,NVL( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM( NVL( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM( NVL( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,NVL( custo_unitario.sn_gases, 'N' ) sn_gases
+FROM     dbamv.atividade_xml ax
+        ,dbamv.custo_unitario
+        ,dbamv.setor
+WHERE    custo_unitario.cd_atividade = ax.cd_atividade_gen
+AND      custo_unitario.cd_setor = setor.cd_setor(+)
+AND      TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+AND      setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      custo_unitario.qt_producao <> 0
+AND      custo_unitario.cd_convenio IS NULL
+AND      custo_unitario.cd_exa_lab IS NULL
+AND      custo_unitario.cd_exa_rx IS NULL
+AND      custo_unitario.cd_atividade IS NOT NULL
+GROUP BY setor.nm_setor
+        ,setor.cd_setor
+        ,TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,NVL( custo_unitario.vl_primario, 0 )
+        , NVL( custo_unitario.vl_genericos, 0 )
+        , NVL( custo_unitario.vl_especificos, 0 )
+        ,decode ( '', 'N', ax.nm_atividade_gen, to_char ( ax.cd_atividade_gen ) || ' - ' || ax.nm_atividade_gen )
+        ,NVL( custo_unitario.sn_gases, 'N' )
+)
+ORDER BY NM_SETOR, dt_comp11,ds_pro_fat11
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_APURACAO_CUSTOS_PROCED_R_2_Q_11
+SELECT * FROM (
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao )) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+     AND gru_pro.tp_custo = 1
+     AND custo_unitario.cd_convenio IS NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+   and  custo_unitario.cd_exa_rx is null
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ))
+        ,pro_fat.vl_tempo
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+    and  custo_unitario.cd_exa_rx is null
+     AND gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao )
+UNION
+SELECT   gru_ssm.nm_gru_ssm
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+    FROM dbamv.tab_siasus
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.gru_ssm
+   WHERE custo_unitario.cd_ssm = tab_siasus.cd_ssm
+     AND custo_unitario.cd_setor = setor.cd_setor
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+     and  custo_unitario.cd_exa_rx is null
+     AND gru_ssm.cd_gru_ssm = tab_siasus.cd_gru_ssm
+     AND :CAMPO_PRO_FAT = '%'
+GROUP BY gru_ssm.nm_gru_ssm
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo )
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+    FROM dbamv.procedimento_sus ps
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+,        dbamv.procedimento_sus_detalhe psd
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_procedimento_sus = ps.cd_procedimento(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_procedimento_sus = psd.cd_procedimento
+     AND Nvl(psd.cd_gru_pro, ( SELECT Min(pdv.cd_gru_pro) from dbamv.procedimento_detalhe_vigencia pdv   WHERE pdv.cd_procedimento=psd.cd_procedimento))= gru_pro.cd_gru_pro
+     AND gru_pro.tp_custo = 1
+     AND custo_unitario.cd_pro_fat IS NULL
+     AND custo_unitario.cd_convenio IS NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+    and  custo_unitario.cd_exa_rx is null
+     AND :CAMPO_PRO_FAT = '%'
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento )
+        ,psd.vl_tempo
+UNION
+SELECT   'PSSD - EXAMES LABORATORIAIS' ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+    FROM dbamv.exa_lab exa_lab
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_lab = exa_lab.cd_exa_lab(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_lab IS NOT NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+GROUP BY  setor.nm_setor
+         ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+         ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab )
+UNION
+SELECT   'PSDI - EXAMES IMAGEM' ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+    FROM dbamv.exa_rx exa_rx
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_rx = exa_rx.cd_exa_rx(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_rx IS NOT NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+GROUP BY setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx )
+)
+ORDER BY DT_COMP,NM_SETOR,
+DS_GRU_PRO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_APURACAO_CUSTOS_PROCED_R_4_Q_111
+SELECT * FROM (
+SELECT   gru_pro.ds_gru_pro ds_gru_pro11
+        ,setor.nm_setor nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp11
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ))
+                                                                                                                                                                                                                                                  ds_pro_fat11
+        ,SUM ( custo_unitario.qt_producao ) count11
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo11
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat11
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri11
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed11
+        ,nvl ( custo_unitario.vl_genericos, 0 ) vl_gen11
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp11
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor11
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+     AND custo_unitario.cd_convenio IS NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ))
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,pro_fat.vl_tempo
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND ( gru_pro.cd_gru_pro(+) = pro_fat.cd_gru_pro )
+     AND custo_unitario.cd_exa_lab IS NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_ssm.nm_gru_ssm
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.tab_siasus
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.gru_ssm
+   WHERE custo_unitario.cd_ssm = tab_siasus.cd_ssm
+     AND custo_unitario.cd_setor = setor.cd_setor
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND gru_ssm.cd_gru_ssm = tab_siasus.cd_gru_ssm
+     AND :CAMPO_PRO_FAT = '%'
+GROUP BY gru_ssm.nm_gru_ssm
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.procedimento_sus ps
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.procedimento_sus_detalhe psd
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_procedimento_sus = ps.cd_procedimento(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_procedimento_sus = psd.cd_procedimento
+     AND Nvl(psd.cd_gru_pro, ( SELECT Min(pdv.cd_gru_pro) from dbamv.procedimento_detalhe_vigencia pdv   WHERE pdv.cd_procedimento=psd.cd_procedimento))= gru_pro.cd_gru_pro
+     AND custo_unitario.cd_pro_fat IS NULL
+     AND custo_unitario.cd_convenio IS NULL
+     AND :CAMPO_PRO_FAT = '%'
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,psd.vl_tempo
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'PSSD - EXAMES LABORATORIAIS' ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )  vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.exa_lab exa_lab
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_lab = exa_lab.cd_exa_lab(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_lab IS NOT NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+GROUP BY setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'PSDI - EXAMES IMAGEM' ds_gru_pro
+        ,setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,nvl ( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,nvl ( custo_unitario.vl_genericos, 0 )   vl_gen
+        ,nvl ( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.exa_rx exa_rx
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_rx = exa_rx.cd_exa_rx(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_rx IS NOT NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+GROUP BY setor.nm_setor, setor.cd_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx )
+        ,nvl ( custo_unitario.vl_primario, 0 )
+        ,nvl ( custo_unitario.vl_genericos, 0 )
+        ,nvl ( custo_unitario.vl_especificos, 0 )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'IMPORTAÇÃO XML' ds_gru_pro
+        ,setor.nm_setor
+        ,setor.cd_setor
+        ,TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', ax.nm_atividade_gen, to_char ( ax.cd_atividade_gen ) || ' - ' || ax.nm_atividade_gen ) ds_pro_fat
+        ,SUM( custo_unitario.qt_producao ) COUNT
+        ,SUM( custo_unitario.vl_fator ) vl_tempo
+        ,SUM( NVL( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,NVL( custo_unitario.vl_primario, 0 ) vl_pri
+        ,SUM( NVL( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,NVL( custo_unitario.vl_genericos, 0 ) vl_gen
+        ,NVL( custo_unitario.vl_especificos, 0 ) vl_esp
+        ,SUM( NVL( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM( NVL( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,NVL( custo_unitario.sn_gases, 'N' ) sn_gases
+FROM     dbamv.atividade_xml ax
+        ,dbamv.custo_unitario
+        ,dbamv.setor
+WHERE    custo_unitario.cd_atividade = ax.cd_atividade_gen
+AND      custo_unitario.cd_setor = setor.cd_setor(+)
+AND      TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+AND      setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      custo_unitario.qt_producao <> 0
+AND      custo_unitario.cd_convenio IS NULL
+AND      custo_unitario.cd_exa_lab IS NULL
+AND      custo_unitario.cd_exa_rx IS NULL
+AND      custo_unitario.cd_atividade IS NOT NULL
+GROUP BY setor.nm_setor
+        ,setor.cd_setor
+        ,TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,NVL( custo_unitario.vl_primario, 0 )
+        , NVL( custo_unitario.vl_genericos, 0 )
+        , NVL( custo_unitario.vl_especificos, 0 )
+        ,decode ( '', 'N', ax.nm_atividade_gen, to_char ( ax.cd_atividade_gen ) || ' - ' || ax.nm_atividade_gen )
+        ,NVL( custo_unitario.sn_gases, 'N' )
+)
+ORDER BY NM_SETOR, dt_comp11,ds_pro_fat11
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_APURACAO_CUSTOS_PROCED_R_4_Q_111_subreport1
+SELECT DS_PRO_FAT11,
+       COUNT11,
+       VL_TEMPO11,
+       VL_PRECO_EXA11,
+       NM_SETOR,
+       SN_GASES
+  FROM (
+SELECT   gru_pro.ds_gru_pro ds_gru_pro11
+        ,setor.nm_setor nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp11
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ))
+                                                                                                                                                                                                                                                  ds_pro_fat11
+        ,SUM ( custo_unitario.qt_producao ) count11
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo11
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat11
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri11
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed11
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen11
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp11
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor11
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+     AND custo_unitario.cd_convenio IS NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+     AND setor.cd_setor = :CAMPO_CD_SETOR
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ), nvl ( to_char ( pro_fat.cd_pro_fat ), item_producao.cd_item_producao ) || ' - ' || nvl ( pro_fat.ds_pro_fat, item_producao.ds_item_producao ))
+        ,pro_fat.vl_tempo
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.pro_fat
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.item_producao
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_pro_fat = pro_fat.cd_pro_fat(+)
+     AND custo_unitario.cd_item_producao = item_producao.cd_item_producao
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND ( gru_pro.cd_gru_pro(+) = pro_fat.cd_gru_pro )
+     AND custo_unitario.cd_exa_lab IS NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+     AND setor.cd_setor = :CAMPO_CD_SETOR
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', item_producao.ds_item_producao, to_char ( item_producao.cd_item_producao ) || ' - ' || item_producao.ds_item_producao )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_ssm.nm_gru_ssm
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.tab_siasus
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.gru_ssm
+   WHERE custo_unitario.cd_ssm = tab_siasus.cd_ssm
+     AND custo_unitario.cd_setor = setor.cd_setor
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_convenio IS NULL
+     AND gru_ssm.cd_gru_ssm = tab_siasus.cd_gru_ssm
+     AND setor.cd_setor = :CAMPO_CD_SETOR
+GROUP BY gru_ssm.nm_gru_ssm
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', '(*)' || tab_siasus.ds_titulo, to_char ( tab_siasus.cd_ssm ) || ' -(*) ' || tab_siasus.ds_titulo )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.procedimento_sus ps
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+        ,dbamv.procedimento_sus_detalhe psd
+        ,dbamv.gru_pro
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_procedimento_sus = ps.cd_procedimento(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_procedimento_sus = psd.cd_procedimento
+     AND Nvl(psd.cd_gru_pro, ( SELECT Min(pdv.cd_gru_pro) from dbamv.procedimento_detalhe_vigencia pdv   WHERE pdv.cd_procedimento=psd.cd_procedimento))= gru_pro.cd_gru_pro
+     AND custo_unitario.cd_pro_fat IS NULL
+     AND custo_unitario.cd_convenio IS NULL
+     AND setor.cd_setor = :CAMPO_CD_SETOR
+GROUP BY gru_pro.ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', ps.ds_procedimento, to_char ( ps.cd_procedimento ) || ' - ' || ps.ds_procedimento )
+        ,psd.vl_tempo
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'PSSD - EXAMES LABORATORIAIS' ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.exa_lab exa_lab
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_lab = exa_lab.cd_exa_lab(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_lab IS NOT NULL
+     AND custo_unitario.cd_exa_rx IS NULL
+     AND setor.cd_setor = :CAMPO_CD_SETOR
+GROUP BY setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', exa_lab.nm_exa_lab, to_char ( exa_lab.cd_exa_lab ) || ' - ' || exa_lab.nm_exa_lab )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'PSDI - EXAMES IMAGEM' ds_gru_pro
+        ,setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx ) ds_pro_fat
+        ,SUM ( custo_unitario.qt_producao ) COUNT
+        ,SUM ( custo_unitario.vl_fator ) vl_tempo
+        ,SUM ( nvl ( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM ( nvl ( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM ( nvl ( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM ( nvl ( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM ( nvl ( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM ( nvl ( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM ( nvl ( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,nvl ( custo_unitario.sn_gases, 'N' ) sn_gases
+    FROM dbamv.exa_rx exa_rx
+        ,dbamv.setor
+        ,dbamv.custo_unitario
+   WHERE custo_unitario.cd_setor = setor.cd_setor(+)
+     AND custo_unitario.cd_exa_rx = exa_rx.cd_exa_rx(+)
+     AND to_char ( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_unitario.qt_producao <> 0
+     AND custo_unitario.cd_exa_rx IS NOT NULL
+     AND custo_unitario.cd_exa_lab IS NULL
+     AND setor.cd_setor = :CAMPO_CD_SETOR
+GROUP BY setor.nm_setor
+        ,to_char ( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', exa_rx.ds_exa_rx, to_char ( exa_rx.cd_exa_rx ) || ' - ' || exa_rx.ds_exa_rx )
+        ,nvl ( custo_unitario.sn_gases, 'N' )
+UNION
+SELECT   'IMPORTAÇÃO XML' ds_gru_pro
+        ,setor.nm_setor
+        ,TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' ) dt_comp
+        ,decode ( '', 'N', ax.nm_atividade_gen, to_char ( ax.cd_atividade_gen ) || ' - ' || ax.nm_atividade_gen ) ds_pro_fat
+        ,SUM( custo_unitario.qt_producao ) COUNT
+        ,SUM( custo_unitario.vl_fator ) vl_tempo
+        ,SUM( NVL( custo_unitario.vl_materiais_diretos, 0 )) vl_mat
+        ,SUM( NVL( custo_unitario.vl_primario, 0 )) vl_pri
+        ,SUM( NVL( custo_unitario.vl_matmed, 0 )) vl_matmed
+        ,SUM( NVL( custo_unitario.vl_genericos, 0 )) vl_gen
+        ,SUM( NVL( custo_unitario.vl_especificos, 0 )) vl_esp
+        ,SUM( NVL( custo_unitario.vl_unitario_honorarios, 0 )) vl_honor
+        ,SUM( NVL( custo_unitario.vl_preco_exame, 0 )) vl_preco_exa11
+        ,NVL( custo_unitario.sn_gases, 'N' ) sn_gases
+FROM     dbamv.atividade_xml ax
+        ,dbamv.custo_unitario
+        ,dbamv.setor
+WHERE    custo_unitario.cd_atividade = ax.cd_atividade_gen
+AND      custo_unitario.cd_setor = setor.cd_setor(+)
+AND      TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' ) = :CAMPO_DTINI
+AND      setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      custo_unitario.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      custo_unitario.qt_producao <> 0
+AND      custo_unitario.cd_convenio IS NULL
+AND      custo_unitario.cd_exa_lab IS NULL
+AND      custo_unitario.cd_exa_rx IS NULL
+AND      custo_unitario.cd_atividade IS NOT NULL
+AND      setor.cd_setor = :CAMPO_CD_SETOR
+GROUP BY setor.nm_setor
+        ,setor.cd_setor
+        ,TO_CHAR( custo_unitario.dt_competencia, 'MM/YYYY' )
+        ,decode ( '', 'N', ax.nm_atividade_gen, to_char ( ax.cd_atividade_gen ) || ' - ' || ax.nm_atividade_gen )
+        ,NVL( custo_unitario.sn_gases, 'N' )
+)
+ORDER BY DS_PRO_FAT11

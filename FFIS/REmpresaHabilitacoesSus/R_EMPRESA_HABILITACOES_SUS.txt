@@ -1,0 +1,25 @@
+/*----------------------------------------------------------------------------*/
+--R_EMPRESA_HABILITACOES_SUS
+Select *
+  From ( SELECT EmpHab.Cd_Habilitacao
+              , Hab.Ds_Habilitacao
+              , EmpHab.Dt_Validade_Inicial
+              , EmpHab.Dt_Validade_Final
+              , ( Decode( NVL( ( Select EmpHabIn.Cd_Habilitacao
+                                   From Dbamv.Empresa_Habilitacoes_Sus EmpHabIn
+                                  Where EmpHabIn.Cd_Multi_Empresa = EmpHab.Cd_Multi_Empresa
+                                    And EmpHabIn.Cd_Habilitacao   = EmpHab.Cd_Habilitacao
+                                    And TRUNC(EmpHabIn.Dt_Validade_Inicial) = TRUNC(EmpHab.Dt_Validade_Inicial)
+                                    And TRUNC(NVL(EmpHabIn.Dt_Validade_Final,SYSDATE))   = TRUNC(NVL(EmpHab.Dt_Validade_Final,SYSDATE))
+                                    And TRUNC(NVL(EmpHabIn.Dt_Validade_Final,SYSDATE+1000))  >= TRUNC(SysDate)
+)
+                                    , 'ERR' ), 'ERR', 'Vencida', 'Válida' )
+              ) St_Validade
+           From Dbamv.Empresa_Habilitacoes_Sus EmpHab
+              , Dbamv.Habilitacoes_Sus Hab
+          Where EmpHab.Cd_Multi_Empresa = dbamv.pkg_mv2000.le_empresa
+            And EmpHab.Dt_Validade_Inicial Is Not Null
+            And EmpHab.Cd_Habilitacao = Hab.Cd_Habilitacao
+)
+ORDER BY CD_HABILITACAO,DS_HABILITACAO,
+DT_VALIDADE_INICIAL,DT_VALIDADE_FINAL,ST_VALIDADE

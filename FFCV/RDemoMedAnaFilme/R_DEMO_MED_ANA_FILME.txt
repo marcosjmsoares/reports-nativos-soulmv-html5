@@ -1,0 +1,625 @@
+/*----------------------------------------------------------------------------*/
+--R_DEMO_MED_ANA_FILME
+SELECT * FROM (
+SELECT DECODE(:CAMPO_QUEBRA_PREST,'S',CD_PRESTADOR,NULL) QUEBRA_PREST
+                , DT_INICIO
+	,DT_FINAL
+	,CD_ATENDIMENTO
+	,CD_PACIENTE
+	,NM_PACIENTE
+	,CD_PRESTADOR
+	,NM_PRESTADOR
+	,CD_REG_REPASSE
+	,CD_CONVENIO
+	,NM_CONVENIO
+	,CD_PRO_FAT
+	,DS_PRO_FAT
+	,DS_ATI_MED
+	,VALOR_PAGAR
+	,QT_LANCAMENTO
+	,DT_ENTREGA
+	,HR_LANCA
+	,CONTA
+	,DT_LANCAMENTO
+	,TP_PAGAMENTO
+	,CD_CONVENIO2
+                ,VL_SEM_FILME
+                ,VL_FILME_UNITARIO
+                ,CD_LANCAMENTO
+FROM
+(
+SELECT distinct TRUNC(REG_FAT.DT_INICIO)				DT_INICIO
+	,TRUNC(REG_FAT.DT_FINAL)					DT_FINAL
+	,ATENDIME.CD_ATENDIMENTO					CD_ATENDIMENTO
+	,PACIENTE.CD_PACIENTE						CD_PACIENTE
+	,PACIENTE.NM_PACIENTE						NM_PACIENTE
+	,PRESTADOR.CD_PRESTADOR					CD_PRESTADOR
+	,PRESTADOR.NM_PRESTADOR					NM_PRESTADOR
+	,PRESTADOR.CD_REG_REPASSE					CD_REG_REPASSE
+	,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))	CD_CONVENIO
+	,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)		NM_CONVENIO
+	,PRO_FAT.CD_PRO_FAT						CD_PRO_FAT
+	,PRO_FAT.DS_PRO_FAT						DS_PRO_FAT
+	,ATI_MED.DS_ATI_MED						DS_ATI_MED
+              ,DECODE( :CAMPO_ACRES_DESC,
+                                'Sim', ITLAN_MED.VL_LIQUIDO,
+                                'Não', (ITLAN_MED.VL_ATO * ITREG_FAT.QT_LANCAMENTO)       )   VALOR_PAGAR
+	,ITREG_FAT.QT_LANCAMENTO					QT_LANCAMENTO
+	,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)			DT_ENTREGA
+	,TO_CHAR(ITREG_FAT.HR_LANCAMENTO, 'HH24')			HR_LANCA
+	,ITREG_FAT.CD_REG_FAT						CONTA
+	,ITREG_FAT.DT_LANCAMENTO					DT_LANCAMENTO
+	,ITLAN_MED.TP_PAGAMENTO					TP_PAGAMENTO
+	,CONVENIO.CD_CONVENIO						CD_CONVENIO2
+	,DECODE( :CAMPO_ACRES_DESC,'Sim',ITLAN_MED.VL_LIQUIDO - ( NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * ITREG_FAT.QT_LANCAMENTO * ( ATI_MED.VL_PERCENTUAL_PAGO /100 ) )
+             ,'Não',(ITLAN_MED.VL_ATO * ITREG_FAT.QT_LANCAMENTO)-(NVL(ITREG_FAT.VL_FILME_UNITARIO,0)*ITREG_FAT.QT_LANCAMENTO*(ATI_MED.VL_PERCENTUAL_PAGO/100 ))) VL_SEM_FILME
+    ,(NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1)) 	VL_FILME_UNITARIO
+    ,ITREG_FAT.CD_LANCAMENTO
+FROM   	 DBAMV.ATENDIME		ATENDIME
+	,DBAMV.PACIENTE		PACIENTE
+	,DBAMV.REG_FAT			REG_FAT
+	,DBAMV.CONVENIO		CONVENIO
+	,DBAMV.ITREG_FAT		ITREG_FAT
+	,DBAMV.PRO_FAT			PRO_FAT
+	,DBAMV.ITLAN_MED		ITLAN_MED
+	,DBAMV.PRESTADOR		PRESTADOR
+	,DBAMV.ATI_MED			ATI_MED
+	,DBAMV.REMESSA_FATURA	REMESSA
+	,DBAMV.FATURA			FATURA
+	,DBAMV.ITAGRUPAMENTO
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+and         atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and          atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT
+AND        ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO
+AND        ITLAN_MED.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        ITLAN_MED.CD_ATI_MED = ATI_MED.CD_ATI_MED
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         itreg_fat.sn_pertence_pacote = 'N'
+and         nvl(reg_fat.sn_diagno, 'N') = 'N'
+AND        REG_FAT.CD_MULTI_EMPRESA = ATENDIME.CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND       ( (ATENDIME.CD_ORI_ATE = ITAGRUPAMENTO.CD_ORI_ATE        AND
+             REG_FAT.CD_CONVENIO = ITAGRUPAMENTO.CD_CONVENIO       AND
+             REMESSA.CD_AGRUPAMENTO = ITAGRUPAMENTO.CD_AGRUPAMENTO AND
+             ITAGRUPAMENTO.TP_AGRUPAMENTO = 'H' AND REMESSA.CD_AGRUPAMENTO IS NOT NULL )
+             OR REMESSA.CD_AGRUPAMENTO IS NULL)
+UNION
+SELECT TRUNC(REG_FAT.DT_INICIO)                    			DT_INICIO
+              ,TRUNC(REG_FAT.DT_FINAL)                    				DT_FINAL
+             ,ATENDIME.CD_ATENDIMENTO                 				CD_ATENDIMENTO
+             ,PACIENTE.CD_PACIENTE                           				CD_PACIENTE
+             ,PACIENTE.NM_PACIENTE                          				NM_PACIENTE
+             ,PRESTADOR.CD_PRESTADOR                 				CD_PRESTADOR
+             ,PRESTADOR.NM_PRESTADOR                 				NM_PRESTADOR
+             ,PRESTADOR.CD_REG_REPASSE             				CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))    	CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)                       	NM_CONVENIO
+             ,PRO_FAT.CD_PRO_FAT                              				CD_PRO_FAT
+             ,PRO_FAT.DS_PRO_FAT                              				DS_PRO_FAT
+             ,' '                                                                    				DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA)  VALOR_PAGAR
+             ,ITREG_FAT.QT_LANCAMENTO                    				QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)     			DT_ENTREGA
+             ,TO_CHAR(ITREG_FAT.HR_LANCAMENTO, 'HH24')    			HR_LANCA
+             ,ITREG_FAT.CD_REG_FAT                                                  			CONTA
+             ,ITREG_FAT.DT_LANCAMENTO					DT_LANCAMENTO
+             ,ITREG_FAT.TP_PAGAMENTO					TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO						CD_CONVENIO2
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0) - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1))),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) *  NVL(ITREG_FAT.QT_LANCAMENTO,1)))                         VL_SEM_FILME
+               ,(NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1)) 															VL_FILME_UNITARIO
+               ,ITREG_FAT.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                    ATENDIME
+            ,DBAMV.PACIENTE                     PACIENTE
+            ,DBAMV.REG_FAT                      REG_FAT
+            ,DBAMV.CONVENIO                    CONVENIO
+            ,DBAMV.ITREG_FAT                   ITREG_FAT
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+            ,DBAMV.ITAGRUPAMENTO
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+and         atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        ITREG_FAT.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         itreg_fat.sn_pertence_pacote = 'N'
+and         nvl(reg_fat.sn_diagno, 'N') = 'N'
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_MULTI_EMPRESA = ATENDIME.CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND       (ATENDIME.CD_ORI_ATE = ITAGRUPAMENTO.CD_ORI_ATE        AND
+             REG_FAT.CD_CONVENIO = ITAGRUPAMENTO.CD_CONVENIO       AND
+             REMESSA.CD_AGRUPAMENTO = ITAGRUPAMENTO.CD_AGRUPAMENTO AND
+             ITAGRUPAMENTO.TP_AGRUPAMENTO = 'H'          AND
+             REMESSA.CD_AGRUPAMENTO IS NOT NULL )
+UNION
+SELECT  TRUNC(REG_FAT.DT_INICIO)                    			DT_INICIO
+              ,TRUNC(REG_FAT.DT_FINAL)                    				DT_FINAL
+             ,ATENDIME.CD_ATENDIMENTO                 				CD_ATENDIMENTO
+             ,PACIENTE.CD_PACIENTE                           				CD_PACIENTE
+             ,PACIENTE.NM_PACIENTE                          				NM_PACIENTE
+             ,PRESTADOR.CD_PRESTADOR                 				CD_PRESTADOR
+             ,PRESTADOR.NM_PRESTADOR                 				NM_PRESTADOR
+             ,PRESTADOR.CD_REG_REPASSE             				CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))    	CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)                       	NM_CONVENIO
+             ,PRO_FAT.CD_PRO_FAT                              				CD_PRO_FAT
+             ,PRO_FAT.DS_PRO_FAT                              				DS_PRO_FAT
+             ,' '                                                                    				DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA)  VALOR_PAGAR
+             ,ITREG_FAT.QT_LANCAMENTO                    				QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)     			DT_ENTREGA
+             ,TO_CHAR(ITREG_FAT.HR_LANCAMENTO, 'HH24')    			HR_LANCA
+             ,ITREG_FAT.CD_REG_FAT                                                  			CONTA
+             ,ITREG_FAT.DT_LANCAMENTO					DT_LANCAMENTO
+             ,ITREG_FAT.TP_PAGAMENTO					TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO						CD_CONVENIO2
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0) - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1))),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) *  NVL(ITREG_FAT.QT_LANCAMENTO,1)))                         VL_SEM_FILME
+               ,(NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1)) 															VL_FILME_UNITARIO
+               ,ITREG_FAT.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                    ATENDIME
+            ,DBAMV.PACIENTE                     PACIENTE
+            ,DBAMV.REG_FAT                      REG_FAT
+            ,DBAMV.CONVENIO                    CONVENIO
+            ,DBAMV.ITREG_FAT                   ITREG_FAT
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        ITREG_FAT.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         itreg_fat.sn_pertence_pacote = 'N'
+and         nvl(reg_fat.sn_diagno, 'N') = 'N'
+AND        REG_FAT.CD_MULTI_EMPRESA = ATENDIME.CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND        REMESSA.CD_AGRUPAMENTO IS NULL
+UNION
+SELECT  DISTINCT TRUNC(ATENDIME.DT_ATENDIMENTO)		DT_INICIO
+              ,TRUNC(ATENDIME.DT_ATENDIMENTO)			DT_FINAL
+              ,ATENDIME.CD_ATENDIMENTO				CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE					CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE					NM_PACIENTE
+              ,PRESTADOR.CD_PRESTADOR				CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR				NM_PRESTADOR
+              ,PRESTADOR.CD_REG_REPASSE                               		CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))    CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)                       NM_CONVENIO
+              ,PRO_FAT.CD_PRO_FAT                                               		CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                                               		DS_PRO_FAT
+              ,ATI_MED.DS_ATI_MED                                                		DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_AMB.VL_TOTAL_CONTA)  VALOR_PAGAR
+              ,ITREG_AMB.QT_LANCAMENTO                                   		QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)         		DT_ENTREGA
+             ,TO_CHAR(ITREG_AMB.HR_LANCAMENTO, 'HH24')     		HR_LANCA
+             ,ITREG_AMB.CD_REG_AMB                                                  		CONTA
+             ,ATENDIME.DT_ATENDIMENTO                                      		DT_LANCAMENTO
+             ,ITREG_AMB.TP_PAGAMENTO                                            		TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO     				CD_CONVENIO2
+             ,DECODE ( :CAMPO_ACRES_DESC,
+             'Não',
+             (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)) - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) ) ,
+             'Sim',ITREG_AMB.VL_TOTAL_CONTA - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) )) 		VL_SEM_FILME
+               ,(NVL(ITREG_AMB.VL_FILME_UNITARIO,0) * NVL(ITREG_AMB.QT_LANCAMENTO,1)) 														VL_FILME_UNITARIO
+               ,ITREG_AMB.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                   ATENDIME
+            ,DBAMV.PACIENTE                    PACIENTE
+            ,DBAMV.CONVENIO                   CONVENIO
+            ,DBAMV.ITREG_AMB                 ITREG_AMB
+            ,DBAMV.REG_AMB                     REG_AMB
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+            ,DBAMV.ATI_MED                      ATI_MED
+            ,DBAMV.ITAGRUPAMENTO
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        ITREG_AMB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        ITREG_AMB.CD_ATI_MED = ATI_MED.CD_ATI_MED(+)
+AND        REG_AMB.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and        itreg_amb.sn_pertence_pacote = 'N'
+and        nvl(reg_amb.sn_diagno, 'N') = 'N'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND       (ATENDIME.CD_ORI_ATE = ITAGRUPAMENTO.CD_ORI_ATE
+           AND  ITREG_AMB.CD_CONVENIO = ITAGRUPAMENTO.CD_CONVENIO
+           AND   REMESSA.CD_AGRUPAMENTO = ITAGRUPAMENTO.CD_AGRUPAMENTO
+           AND  ITAGRUPAMENTO.TP_AGRUPAMENTO = 'A'
+           AND  REMESSA.CD_AGRUPAMENTO IS NOT NULL )
+union
+SELECT DISTINCT  TRUNC(ATENDIME.DT_ATENDIMENTO)		DT_INICIO
+              ,TRUNC(ATENDIME.DT_ATENDIMENTO)			DT_FINAL
+              ,ATENDIME.CD_ATENDIMENTO				CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE					CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE					NM_PACIENTE
+              ,PRESTADOR.CD_PRESTADOR				CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR				NM_PRESTADOR
+              ,PRESTADOR.CD_REG_REPASSE                               		CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))    CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)                       NM_CONVENIO
+              ,PRO_FAT.CD_PRO_FAT                                               		CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                                               		DS_PRO_FAT
+              ,ATI_MED.DS_ATI_MED                                                		DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_AMB.VL_TOTAL_CONTA)  VALOR_PAGAR
+              ,ITREG_AMB.QT_LANCAMENTO                                   		QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)         		DT_ENTREGA
+             ,TO_CHAR(ITREG_AMB.HR_LANCAMENTO, 'HH24')     		HR_LANCA
+             ,ITREG_AMB.CD_REG_AMB                                                  		CONTA
+             ,ATENDIME.DT_ATENDIMENTO                                      		DT_LANCAMENTO
+             ,ITREG_AMB.TP_PAGAMENTO                                            		TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO     				CD_CONVENIO2
+             ,DECODE ( :CAMPO_ACRES_DESC,
+             'Não',
+             (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)) - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) ) ,
+             'Sim',
+              ITREG_AMB.VL_TOTAL_CONTA - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) )) 		VL_SEM_FILME
+               ,(NVL(ITREG_AMB.VL_FILME_UNITARIO,0) * NVL(ITREG_AMB.QT_LANCAMENTO,1)) 														VL_FILME_UNITARIO
+               ,ITREG_AMB.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                   ATENDIME
+            ,DBAMV.PACIENTE                    PACIENTE
+            ,DBAMV.CONVENIO                   CONVENIO
+            ,DBAMV.ITREG_AMB                 ITREG_AMB
+            ,DBAMV.REG_AMB                     REG_AMB
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+            ,DBAMV.ATI_MED                      ATI_MED
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        ITREG_AMB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        ITREG_AMB.CD_ATI_MED = ATI_MED.CD_ATI_MED(+)
+AND        REG_AMB.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and        itreg_amb.sn_pertence_pacote = 'N'
+and        nvl(reg_amb.sn_diagno, 'N') = 'N'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND        REMESSA.CD_AGRUPAMENTO IS NULL
+UNION
+SELECT   TRUNC(REG_FAT.DT_INICIO)                    			DT_INICIO
+              ,TRUNC(REG_FAT.DT_FINAL)                    				DT_FINAL
+              ,ATENDIME.CD_ATENDIMENTO                				CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE                          				CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE                         				NM_PACIENTE
+              ,PRESTADOR.CD_PRESTADOR                				CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR                				NM_PRESTADOR
+              ,PRESTADOR.CD_REG_REPASSE             				CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))    	CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)                       	NM_CONVENIO
+              ,PRO_FAT.CD_PRO_FAT                             				CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                             				DS_PRO_FAT
+              ,ATI_MED.DS_ATI_MED                              				DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC,
+                                'Sim', ITLAN_MED.VL_LIQUIDO,
+                                'Não', (ITLAN_MED.VL_ATO * ITREG_FAT.QT_LANCAMENTO)       )   VALOR_PAGAR
+             ,ITREG_FAT.QT_LANCAMENTO                                          			QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)              			DT_ENTREGA
+             ,TO_CHAR(ITREG_FAT.HR_LANCAMENTO, 'HH24')     			HR_LANCA
+             ,ITREG_FAT.CD_REG_FAT                                                  			CONTA
+             ,ITREG_FAT.DT_LANCAMENTO                                          			DT_LANCAMENTO
+             ,ITLAN_MED.TP_PAGAMENTO                                            			TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO     					CD_CONVENIO2
+             ,DECODE( :CAMPO_ACRES_DESC,'Sim', ITLAN_MED.VL_LIQUIDO - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0)*ITREG_FAT.QT_LANCAMENTO*(ATI_MED.VL_PERCENTUAL_PAGO/100))
+                     ,'Não', (ITLAN_MED.VL_ATO*ITREG_FAT.QT_LANCAMENTO) -( NVL(ITREG_FAT.VL_FILME_UNITARIO,0)*ITREG_FAT.QT_LANCAMENTO*(ATI_MED.VL_PERCENTUAL_PAGO/100)))  VL_SEM_FILME
+               ,(NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1)) 															VL_FILME_UNITARIO
+               ,ITREG_FAT.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                       ATENDIME
+            ,DBAMV.PACIENTE                        PACIENTE
+            ,DBAMV.REG_FAT                         REG_FAT
+            ,DBAMV.CONVENIO                       CONVENIO
+            ,DBAMV.ITREG_FAT                      ITREG_FAT
+            ,DBAMV.PRO_FAT                         PRO_FAT
+            ,DBAMV.ITLAN_MED                     ITLAN_MED
+            ,DBAMV.PRESTADOR                   PRESTADOR
+            ,DBAMV.ATI_MED                          ATI_MED
+            ,DBAMV.REMESSA_FATURA        REMESSA
+            ,DBAMV.FATURA                           FATURA
+            ,DBAMV.ITAGRUPAMENTO
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'N'
+AND        ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT
+AND        ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO
+AND        ITLAN_MED.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        ITLAN_MED.CD_ATI_MED = ATI_MED.CD_ATI_MED
+AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         nvl(reg_fat.sn_diagno, 'N') = 'N'
+AND        REG_FAT.CD_MULTI_EMPRESA = ATENDIME.CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND       ( (ATENDIME.CD_ORI_ATE = ITAGRUPAMENTO.CD_ORI_ATE        AND
+             REG_FAT.CD_CONVENIO = ITAGRUPAMENTO.CD_CONVENIO       AND
+             REMESSA.CD_AGRUPAMENTO = ITAGRUPAMENTO.CD_AGRUPAMENTO AND
+             ITAGRUPAMENTO.TP_AGRUPAMENTO = 'H'          AND
+             REMESSA.CD_AGRUPAMENTO IS NOT NULL )
+             OR
+             REMESSA.CD_AGRUPAMENTO IS NULL
+           )
+UNION
+SELECT TRUNC(REG_FAT.DT_INICIO)                    		DT_INICIO
+              ,TRUNC(REG_FAT.DT_FINAL)                   			DT_FINAL
+             ,ATENDIME.CD_ATENDIMENTO                 			CD_ATENDIMENTO
+             ,PACIENTE.CD_PACIENTE                           			CD_PACIENTE
+             ,PACIENTE.NM_PACIENTE                          			NM_PACIENTE
+             ,PRESTADOR.CD_PRESTADOR                 			CD_PRESTADOR
+             ,PRESTADOR.NM_PRESTADOR                 			NM_PRESTADOR
+             ,PRESTADOR.CD_REG_REPASSE             			CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))    CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)		NM_CONVENIO
+             ,PRO_FAT.CD_PRO_FAT                              			CD_PRO_FAT
+             ,PRO_FAT.DS_PRO_FAT                              			DS_PRO_FAT
+             ,' '                                           					DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA)  VALOR_PAGAR
+             ,ITREG_FAT.QT_LANCAMENTO                    			QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)     		DT_ENTREGA
+             ,TO_CHAR(ITREG_FAT.HR_LANCAMENTO, 'HH24')    		HR_LANCA
+             ,ITREG_FAT.CD_REG_FAT                                                  		CONTA
+             ,ITREG_FAT.DT_LANCAMENTO                                          		DT_LANCAMENTO
+             ,ITREG_FAT.TP_PAGAMENTO                                            		TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO     				CD_CONVENIO2
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0) - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1))),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) *  NVL(ITREG_FAT.QT_LANCAMENTO,1)))                         VL_SEM_FILME
+               ,(NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1)) 														VL_FILME_UNITARIO
+               ,ITREG_FAT.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                    ATENDIME
+            ,DBAMV.PACIENTE                     PACIENTE
+            ,DBAMV.REG_FAT                      REG_FAT
+            ,DBAMV.CONVENIO                    CONVENIO
+            ,DBAMV.ITREG_FAT                   ITREG_FAT
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+            ,DBAMV.ITAGRUPAMENTO
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'N'
+AND        ITREG_FAT.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         nvl(reg_fat.sn_diagno, 'N') = 'N'
+AND        REG_FAT.CD_MULTI_EMPRESA = ATENDIME.CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND       ( (ATENDIME.CD_ORI_ATE = ITAGRUPAMENTO.CD_ORI_ATE        AND
+             REG_FAT.CD_CONVENIO = ITAGRUPAMENTO.CD_CONVENIO       AND
+             REMESSA.CD_AGRUPAMENTO = ITAGRUPAMENTO.CD_AGRUPAMENTO AND
+             ITAGRUPAMENTO.TP_AGRUPAMENTO = 'H'          AND
+             REMESSA.CD_AGRUPAMENTO IS NOT NULL )
+             OR
+             REMESSA.CD_AGRUPAMENTO IS NULL
+           )
+UNION
+SELECT TRUNC(REG_FAT.DT_INICIO)                    		DT_INICIO
+              ,TRUNC(REG_FAT.DT_FINAL)                   			DT_FINAL
+             ,ATENDIME.CD_ATENDIMENTO                 			CD_ATENDIMENTO
+             ,PACIENTE.CD_PACIENTE                           			CD_PACIENTE
+             ,PACIENTE.NM_PACIENTE                          			NM_PACIENTE
+             ,PRESTADOR.CD_PRESTADOR                 			CD_PRESTADOR
+             ,PRESTADOR.NM_PRESTADOR                 			NM_PRESTADOR
+             ,PRESTADOR.CD_REG_REPASSE             			CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))    CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)		NM_CONVENIO
+             ,PRO_FAT.CD_PRO_FAT                              			CD_PRO_FAT
+             ,PRO_FAT.DS_PRO_FAT                              			DS_PRO_FAT
+             ,' '                                           					DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA)  VALOR_PAGAR
+             ,ITREG_FAT.QT_LANCAMENTO                    			QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)     		DT_ENTREGA
+             ,TO_CHAR(ITREG_FAT.HR_LANCAMENTO, 'HH24')    		HR_LANCA
+             ,ITREG_FAT.CD_REG_FAT                                                  		CONTA
+             ,ITREG_FAT.DT_LANCAMENTO                                          		DT_LANCAMENTO
+             ,ITREG_FAT.TP_PAGAMENTO                                            		TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO     				CD_CONVENIO2
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_FAT.VL_TOTAL_CONTA + NVL(ITREG_FAT.VL_DESCONTO,0) - NVL(ITREG_FAT.VL_ACRESCIMO,0) - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1))),
+                                     'Sim', ITREG_FAT.VL_TOTAL_CONTA - (NVL(ITREG_FAT.VL_FILME_UNITARIO,0) *  NVL(ITREG_FAT.QT_LANCAMENTO,1)))                         VL_SEM_FILME
+               ,(NVL(ITREG_FAT.VL_FILME_UNITARIO,0) * NVL(ITREG_FAT.QT_LANCAMENTO,1)) 														VL_FILME_UNITARIO
+               ,ITREG_FAT.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                    ATENDIME
+            ,DBAMV.PACIENTE                     PACIENTE
+            ,DBAMV.REG_FAT                      REG_FAT
+            ,DBAMV.CONVENIO                    CONVENIO
+            ,DBAMV.ITREG_FAT                   ITREG_FAT
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'N'
+AND        ITREG_FAT.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        REG_FAT.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         nvl(reg_fat.sn_diagno, 'N') = 'N'
+AND        REG_FAT.CD_MULTI_EMPRESA = ATENDIME.CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND        REMESSA.CD_AGRUPAMENTO IS NULL
+UNION
+SELECT DISTINCT TRUNC(ATENDIME.DT_ATENDIMENTO)			DT_INICIO
+              ,TRUNC(ATENDIME.DT_ATENDIMENTO)				DT_FINAL
+              ,ATENDIME.CD_ATENDIMENTO					CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE						CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE						NM_PACIENTE
+              ,PRESTADOR.CD_PRESTADOR					CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR					NM_PRESTADOR
+              ,PRESTADOR.CD_REG_REPASSE					CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))	CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)			NM_CONVENIO
+              ,PRO_FAT.CD_PRO_FAT						CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT						DS_PRO_FAT
+              ,ATI_MED.DS_ATI_MED						DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_AMB.VL_TOTAL_CONTA)  VALOR_PAGAR
+              ,ITREG_AMB.QT_LANCAMENTO					QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)				DT_ENTREGA
+             ,TO_CHAR(ITREG_AMB.HR_LANCAMENTO, 'HH24')			HR_LANCA
+             ,ITREG_AMB.CD_REG_AMB						CONTA
+             ,ATENDIME.DT_ATENDIMENTO					DT_LANCAMENTO
+             ,ITREG_AMB.TP_PAGAMENTO					TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO						CD_CONVENIO2
+             ,DECODE ( :CAMPO_ACRES_DESC,
+             'Não',
+             (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)) - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) ) ,
+             'Sim',
+              ITREG_AMB.VL_TOTAL_CONTA - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) )) 		VL_SEM_FILME
+               ,(NVL(ITREG_AMB.VL_FILME_UNITARIO,0) * NVL(ITREG_AMB.QT_LANCAMENTO,1)) 															VL_FILME_UNITARIO
+               ,ITREG_AMB.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                   ATENDIME
+            ,DBAMV.PACIENTE                    PACIENTE
+            ,DBAMV.CONVENIO                   CONVENIO
+            ,DBAMV.ITREG_AMB                 ITREG_AMB
+            ,DBAMV.REG_AMB                     REG_AMB
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+            ,DBAMV.ATI_MED                      ATI_MED
+            ,DBAMV.ITAGRUPAMENTO
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'N'
+AND        ITREG_AMB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        ITREG_AMB.CD_ATI_MED = ATI_MED.CD_ATI_MED(+)
+AND        REG_AMB.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         nvl(reg_amb.sn_diagno, 'N') = 'N'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND       (ATENDIME.CD_ORI_ATE = ITAGRUPAMENTO.CD_ORI_ATE
+           AND ITREG_AMB.CD_CONVENIO = ITAGRUPAMENTO.CD_CONVENIO
+           AND REMESSA.CD_AGRUPAMENTO = ITAGRUPAMENTO.CD_AGRUPAMENTO
+           AND  ITAGRUPAMENTO.TP_AGRUPAMENTO = 'A'
+           AND REMESSA.CD_AGRUPAMENTO IS NOT NULL )
+UNION
+SELECT DISTINCT TRUNC(ATENDIME.DT_ATENDIMENTO)			DT_INICIO
+              ,TRUNC(ATENDIME.DT_ATENDIMENTO)				DT_FINAL
+              ,ATENDIME.CD_ATENDIMENTO					CD_ATENDIMENTO
+              ,PACIENTE.CD_PACIENTE						CD_PACIENTE
+              ,PACIENTE.NM_PACIENTE						NM_PACIENTE
+              ,PRESTADOR.CD_PRESTADOR					CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR					NM_PRESTADOR
+              ,PRESTADOR.CD_REG_REPASSE					CD_REG_REPASSE
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.CD_CONVENIO, to_number(null))	CD_CONVENIO
+              ,decode(:CAMPO_TP_QUEBRA, 'Sim', CONVENIO.NM_CONVENIO, null)			NM_CONVENIO
+              ,PRO_FAT.CD_PRO_FAT						CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT						DS_PRO_FAT
+              ,ATI_MED.DS_ATI_MED						DS_ATI_MED
+             ,DECODE( :CAMPO_ACRES_DESC, 'Não', (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)),
+                                     'Sim', ITREG_AMB.VL_TOTAL_CONTA)  VALOR_PAGAR
+              ,ITREG_AMB.QT_LANCAMENTO					QT_LANCAMENTO
+             ,TRUNC(REMESSA.DT_ENTREGA_DA_FATURA)				DT_ENTREGA
+             ,TO_CHAR(ITREG_AMB.HR_LANCAMENTO, 'HH24')			HR_LANCA
+             ,ITREG_AMB.CD_REG_AMB						CONTA
+             ,ATENDIME.DT_ATENDIMENTO					DT_LANCAMENTO
+             ,ITREG_AMB.TP_PAGAMENTO					TP_PAGAMENTO
+             ,CONVENIO.CD_CONVENIO						CD_CONVENIO2
+             ,DECODE ( :CAMPO_ACRES_DESC,
+             'Não',
+             (ITREG_AMB.VL_TOTAL_CONTA + NVL(ITREG_AMB.VL_DESCONTO,0) - NVL(ITREG_AMB.VL_ACRESCIMO,0)) - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) ) ,
+             'Sim',
+              ITREG_AMB.VL_TOTAL_CONTA - ( NVL(ITREG_AMB.VL_FILME_UNITARIO,0) *  NVL(ITREG_AMB.QT_LANCAMENTO,1) )) 		VL_SEM_FILME
+               ,(NVL(ITREG_AMB.VL_FILME_UNITARIO,0) * NVL(ITREG_AMB.QT_LANCAMENTO,1)) 															VL_FILME_UNITARIO
+               ,ITREG_AMB.CD_LANCAMENTO
+FROM   DBAMV.ATENDIME                   ATENDIME
+            ,DBAMV.PACIENTE                    PACIENTE
+            ,DBAMV.CONVENIO                   CONVENIO
+            ,DBAMV.ITREG_AMB                 ITREG_AMB
+            ,DBAMV.REG_AMB                     REG_AMB
+            ,DBAMV.PRO_FAT                      PRO_FAT
+            ,DBAMV.PRESTADOR                PRESTADOR
+            ,DBAMV.REMESSA_FATURA     REMESSA
+            ,DBAMV.FATURA                        FATURA
+            ,DBAMV.ATI_MED                      ATI_MED
+WHERE  
+                ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.SN_PACOTE = 'N'
+AND        ITREG_AMB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        ITREG_AMB.CD_ATI_MED = ATI_MED.CD_ATI_MED(+)
+AND        REG_AMB.CD_REMESSA = REMESSA.CD_REMESSA
+AND        REMESSA.CD_FATURA = FATURA.CD_FATURA
+and         nvl(reg_amb.sn_diagno, 'N') = 'N'
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND        REMESSA.CD_AGRUPAMENTO IS NULL
+:CAMPO_CF_IMP_PAGA
+)
+)
+ORDER BY QUEBRA_PREST,
+NM_PRESTADOR,CD_PRESTADOR,CD_REG_REPASSE,
+NM_CONVENIO,CD_CONVENIO,
+:CAMPO_CF_ORDEM,
+CD_ATENDIMENTO,DT_INICIO,DT_ENTREGA,CD_PACIENTE,NM_PACIENTE,CONTA,DT_FINAL,
+DT_LANCAMENTO,HR_LANCA,CD_PRO_FAT,DS_PRO_FAT,DS_ATI_MED,TP_PAGAMENTO

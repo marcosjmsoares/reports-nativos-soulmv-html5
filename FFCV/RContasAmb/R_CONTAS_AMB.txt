@@ -1,0 +1,186 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_AMB
+SELECT DISTINCT
+               PACIENTE.CD_PACIENTE CD_PACIENTE,
+               dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) NM_PACIENTE,
+               PACIENTE.DT_NASCIMENTO,
+               PACIENTE.NR_DOCUMENTO,
+               PACIENTE.DS_ENDERECO,
+               PACIENTE.NR_ENDERECO,
+               PACIENTE.NM_BAIRRO,
+               PACIENTE.NR_CEP,
+               ATENDIME.CD_ATENDIMENTO,
+               ATENDIME.DT_ATENDIMENTO,
+               ATENDIME.HR_ATENDIMENTO,
+               ATENDIME.DT_VAL_GUIA,
+               ATENDIME.NR_GUIA,
+               ATENDIME.CD_TIP_ACOM,
+               ATENDIME.CD_MOT_ALT,
+               PRESTADOR.NM_PRESTADOR,
+               PRESTADOR.DS_CODIGO_CONSELHO,
+               CONVENIO.NM_CONVENIO,
+               CONVENIO.TP_CONVENIO,
+               CID.CD_CID,
+               CID.DS_CID,
+               TIP_ACOM.DS_TIP_ACOM,
+               CIDADE.NM_CIDADE,
+               CIDADE.CD_UF,
+               REG_AMB.CD_REG_AMB,
+               REG_AMB.DT_LANCAMENTO,
+               REG_AMB.DT_LANCAMENTO_FINAL,
+               GUIA.NR_GUIA,
+               REG_AMB.VL_ACRESCIMO_CONTA,
+               REG_AMB.VL_DESCONTO_CONTA,
+               REG_AMB.VL_TOTAL_CONTA,
+               REG_AMB.CD_REMESSA,
+               ITREG_AMB.CD_CON_PLA,
+               REG_AMB.CD_CONVENIO CD_CONVENIO,
+               CON_PLA.DS_CON_PLA,
+               ATENDIME.CD_SUB_PLANO
+FROM DBAMV.PACIENTE PACIENTE,
+            DBAMV.CIDADE CIDADE,
+            DBAMV.ATENDIME ATENDIME,
+            DBAMV.GUIA,
+            DBAMV.PRESTADOR PRESTADOR,
+            DBAMV.CONVENIO CONVENIO,
+            DBAMV.CID CID,
+            DBAMV.TIP_ACOM TIP_ACOM,
+            DBAMV.REG_AMB REG_AMB,
+            DBAMV.ITREG_AMB ITREG_AMB,
+            DBAMV.CON_PLA CON_PLA
+Where ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+  AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND     REG_AMB.CD_REG_AMB = :CAMPO_CD_REG_AMB
+  AND     ITREG_AMB.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+  AND     REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+  AND     PACIENTE.CD_CIDADE    = CIDADE.CD_CIDADE(+)
+  AND     ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+  AND     ATENDIME.CD_CID       = CID.CD_CID (+)
+  AND     ATENDIME.CD_TIP_ACOM  = TIP_ACOM.CD_TIP_ACOM (+)
+  AND     ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+  AND     REG_AMB.CD_GUIA = GUIA.CD_GUIA (+)
+  AND     ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+  AND     REG_AMB.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+  AND     ( CON_PLA.CD_CON_PLA    = ITREG_AMB.CD_CON_PLA
+  AND       CON_PLA.CD_CONVENIO   = REG_AMB.CD_CONVENIO )
+  AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_AMB_R_ITENS_Q_ITENS
+SELECT * FROM (
+select cd_reg_amb,
+           cd_lancamento,
+           dt_fechamento,
+           cd_gru_pro,
+           ds_gru_pro,
+           cd_pro_fat,
+           ds_pro_fat,
+           cd_prestador,
+           nm_prestador,
+           qt_lancamento,
+           vl_unitario
+from
+   ( SELECT ITREG_amb.cd_REG_amb,
+                    ITREG_amb.cd_lancamento,
+	    ITREG_amb.dt_fechamento,
+                    gru_pro.cd_gru_pro,
+                    gru_pro.ds_gru_pro,
+                    ITREG_amb.cd_pro_fat,
+                    PRO_FAT.ds_pro_fat,
+                    ITREG_amb.cd_prestador,
+                    PRESTADOR.nm_prestador,
+	    ITREG_amb.qt_lancamento,
+                    ITREG_amb.vl_unitario
+      FROM   DBAMV.ITREG_amb,
+                   DBAMV.PRO_FAT,
+ 	               DBAMV.PRESTADOR,
+                   dbamv.Usuario_unid_int,
+                   DBAMV.GRU_PRO
+    WHERE  itreg_amb.cd_pro_fat = PRO_FAT.CD_PRO_FAT
+      and       itreg_amb.cd_prestador = PRESTADOR.cd_prestador (+)
+      and       nvl(itreg_amb.tp_pagamento, 'S') <> 'C'
+      and       itreg_amb.sn_pertence_pacote = 'N'
+      and      gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+      and      Usuario_unid_int.cd_setor = ITREG_amb.cd_setor
+      and      Usuario_unid_int.cd_id_usuario = user
+      and      itreg_amb.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+      and      itreg_amb.cd_reg_amb = :CAMPO_CD_REG_AMB ) Item
+order by Item.dt_fechamento,
+              item.cd_gru_pro
+)
+ORDER BY CD_GRU_PRO,DS_GRU_PRO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_AMB_R_SETOR_Q_RESUMO_SETOR
+SELECT * FROM (
+Select Resumo.cd_setor,
+       Resumo.nm_setor,
+       Resumo.cd_seq_resumo_setor,
+       Resumo.tp_gru_pro,
+       Resumo.cd_gru_pro,
+       Resumo.ds_gru_pro,
+       Resumo.tp_proced,
+       Resumo.cd_seq_resumo_gru_pro,
+       Resumo.vl_total_conta,
+       Resumo.vl_acrescimo,
+       Resumo.vl_desconto,
+       Resumo.vl_filme
+from (Select itreg_amb.cd_setor,
+             setor.nm_setor,
+             nvl(setor.cd_seq_resumo,99) cd_seq_resumo_setor,
+             gru_pro.tp_gru_pro,
+             gru_pro.cd_gru_pro,
+             gru_pro.ds_gru_pro,
+             Decode( gru_pro.tp_gru_pro, 'SP', 'Honorário Médico',
+                                                          'SD', 'Serviço Diagnóstico',
+                                                          'SH', 'Serviço Hospitalar',
+                                                          'MT', 'Material',
+                                                          'MD', 'Medicamento',
+                                                          'OP', 'Órtese e Prótese' ) tp_proced,
+             itfor_apre_gru_pro.cd_seq_resumo cd_seq_resumo_gru_pro,
+             Sum( itreg_amb.vl_total_conta) vl_total_conta,
+             Sum( itreg_amb.vl_acrescimo ) vl_acrescimo,
+             Sum( itreg_amb.vl_desconto ) vl_desconto,
+             Sum( itreg_amb.vl_filme_unitario * itreg_amb.qt_lancamento ) vl_filme
+        From dbamv.itreg_amb,
+             dbamv.reg_amb,
+       dbamv.gru_fat,
+       dbamv.gru_pro,
+       dbamv.pro_fat,
+       dbamv.setor,
+       dbamv.convenio,
+       dbamv.for_apre,
+       dbamv.itfor_apre_gru_pro,
+       dbamv.Usuario_unid_int
+       ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+   AND REG_AMB.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+   and gru_pro.cd_gru_pro = pro_fat.cd_gru_pro
+   and itreg_amb.cd_setor = setor.cd_setor
+   and nvl(itreg_amb.tp_pagamento, 'P') = 'P'
+   and nvl(itreg_amb.sn_pertence_pacote, 'X') <> 'S'
+   and reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+   and convenio.cd_convenio = reg_amb.cd_convenio
+   and for_apre.cd_for_apre = convenio.cd_for_apre
+   and itfor_apre_gru_pro.cd_for_apre = for_apre.cd_for_apre
+   and itfor_apre_gru_pro.cd_gru_pro = gru_pro.cd_gru_pro
+   and Usuario_unid_int.cd_setor = Setor.cd_setor
+   and Usuario_unid_int.cd_id_usuario = user
+   and itreg_amb.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+   and reg_amb.cd_reg_amb = :CAMPO_CD_REG_AMB
+Group by  itreg_amb.cd_setor,
+                setor.nm_setor,
+                nvl(setor.cd_seq_resumo,99),
+                gru_pro.cd_gru_pro,
+                gru_pro.ds_gru_pro,
+                gru_pro.tp_gru_pro,
+                itfor_apre_gru_pro.cd_seq_resumo) resumo
+order by Resumo.vl_total_conta,resumo.cd_gru_pro desc
+)

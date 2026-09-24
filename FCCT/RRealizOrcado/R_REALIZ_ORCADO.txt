@@ -1,0 +1,90 @@
+/*----------------------------------------------------------------------------*/
+--R_REALIZ_ORCADO
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_REALIZ_ORCADO_R_2_Q_2
+SELECT * FROM (
+select  agrupa.dt_orcamento            dt_orcamento
+          ,AGRUPA.DT_ORCAMENTO3     DT_ORCAMENTO3
+         ,agrupa.cd_setor                     cd_setor
+         ,agrupa.cd_contabil                  cd_contabil
+         ,agrupa.nm_setor                     nm_setor
+         ,agrupa.ds_conta                     ds_conta
+         ,sum(agrupa.vl_orcamento)            vl_orcamento
+         ,sum(agrupa.vl_saldo_mes)            vl_saldo_mes
+from(
+select   to_char(orcamento.dt_orcamento,'yyyy')    dt_orcamento
+          ,ORCAMENTO.DT_ORCAMENTO            DT_ORCAMENTO3
+         ,orcamento.cd_setor                       cd_setor
+         ,plano_contas.cd_contabil                 cd_contabil
+         ,orcamento.vl_orcamento                   vl_orcamento
+         ,Sum(saldo_contabil.vl_saldo_mes)          vl_saldo_mes
+         ,setor.nm_setor                           nm_setor
+         ,plano_contas.ds_conta                    ds_conta
+ from dbamv.plano_contas              plano_contas
+       ,dbamv.orcamento               orcamento
+       ,dbamv.setor                   setor
+       ,dbamv.multi_empresas   multi_empresas
+       ,dbamv.saldo_contabil      saldo_contabil
+where orcamento.cd_reduzido             = plano_contas.cd_reduzido
+and    orcamento.cd_reduzido              = saldo_contabil.cd_reduzido
+and    orcamento.cd_setor                   = saldo_contabil.cd_setor
+and   orcamento.dt_orcamento            =  saldo_contabil.dt_saldo_mes
+and   orcamento.cd_setor                    = setor.cd_setor
+and   multi_empresas.cd_multi_empresa = plano_contas.cd_multi_empresa
+and   plano_contas.cd_multi_empresa= :CAMPO_CD_MULTI_EMPRESA
+group by orcamento.dt_orcamento,orcamento.cd_setor
+,plano_contas.cd_contabil ,plano_contas.ds_conta
+,orcamento.vl_orcamento
+,setor.nm_setor) agrupa
+group by agrupa.dt_orcamento,agrupa.cd_setor
+,AGRUPA.DT_ORCAMENTO3
+,agrupa.cd_contabil ,agrupa.ds_conta
+,agrupa.vl_orcamento ,agrupa.vl_saldo_mes
+,agrupa.nm_setor
+order by agrupa.cd_setor, agrupa.cd_contabil
+)
+ORDER BY DT_ORCAMENTO3,DT_ORCAMENTO,
+CD_SETOR,NM_SETOR,
+CD_CONTABIL,DS_CONTA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_REALIZ_ORCADO_R_5_Q_1
+SELECT * FROM (
+SELECT	plano_contas.cd_contabil		cd_contabil,
+	plano_contas.ds_conta		ds_conta,
+	orcamento.vl_orcamento		vl_orcamento,
+	orcamento.cd_setor			cd_setor,
+	decode(:CAMPO_DATA_MES,'13',to_char(orcamento.dt_orcamento,'yyyy'),to_char(orcamento.dt_orcamento,'mm/yyyy'))  dt_orcamento,
+	ORCAMENTO.DT_ORCAMENTO	DT_ORCAMENTO_,
+	setor.nm_setor			nm_setor,
+	Sum(saldo_contabil.vl_saldo_mes)	vl_saldo_mes,
+	SUM(saldo_contabil.vl_credito)	vl_credito,
+	SUM(saldo_contabil.vl_debito)	vl_debito
+FROM	dbamv.plano_contas		plano_contas,
+	dbamv.orcamento			orcamento,
+	dbamv.setor			setor,
+	dbamv.multi_empresas		multi_empresas,
+	dbamv.saldo_contabil	saldo_contabil
+WHERE	orcamento.cd_reduzido		= plano_contas.cd_reduzido
+AND	orcamento.cd_reduzido		= saldo_contabil.cd_reduzido
+AND	orcamento.cd_setor		                = saldo_contabil.cd_setor
+AND	orcamento.dt_orcamento		=  saldo_contabil.dt_saldo_mes
+AND	orcamento.cd_setor		                = setor.cd_setor
+AND	multi_empresas.cd_multi_empresa	= plano_contas.cd_multi_empresa
+AND	plano_contas.cd_multi_empresa	= :CAMPO_CD_MULTI_EMPRESA
+GROUP BY plano_contas.cd_contabil,
+	plano_contas.ds_conta,
+	orcamento.vl_orcamento,
+	orcamento.cd_setor,
+	decode(:CAMPO_DATA_MES,'13',to_char(orcamento.dt_orcamento,'yyyy'),to_char(orcamento.dt_orcamento,'mm/yyyy')),
+	ORCAMENTO.DT_ORCAMENTO,
+	setor.nm_setor
+)
+ORDER BY DT_ORCAMENTO_,DT_ORCAMENTO,
+CD_SETOR,NM_SETOR

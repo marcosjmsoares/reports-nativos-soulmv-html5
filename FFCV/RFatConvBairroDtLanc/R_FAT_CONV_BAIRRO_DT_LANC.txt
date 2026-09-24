@@ -1,0 +1,123 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_CONV_BAIRRO_DT_LANC
+SELECT * FROM (
+SELECT   NM_CONVENIO
+                ,NM_BAIRRO
+                ,SUM(NVL(VL_TOTAL_CONTA,0)) VL_TOTAL_CONTA
+                ,COUNT(NVL(QT_TOTAL_ATEND,0)) QT_TOTAL_ATEND
+FROM     ( SELECT                  convenio.nm_convenio
+                              , paciente.nm_bairro
+                              , sum(NVL( itreg_fat.vl_total_conta,0) )  vl_total_conta
+                              , count(distinct nvl(atendime.cd_atendimento,0))  qt_total_atend
+                  FROM   dbamv.itreg_fat
+                             , dbamv.reg_fat
+                             , dbamv.remessa_fatura
+                             , dbamv.fatura
+                             , dbamv.convenio
+                             , dbamv.atendime
+                             , dbamv.paciente
+                  WHERE       itreg_fat.cd_reg_fat     = reg_fat.cd_reg_fat
+                  and         itreg_fat.dt_lancamento between  to_date(:CAMPO_DT_INICIO,'dd/mm/yyyy')  and  (to_date(:CAMPO_DT_FINAL,'dd/mm/yyyy') + 0.9)
+                  and         paciente.cd_paciente     = atendime.cd_paciente
+                  and         reg_fat.cd_remessa       = remessa_fatura.cd_remessa
+                  and         remessa_fatura.cd_fatura = fatura.cd_fatura
+                  and         itreg_fat.sn_pertence_pacote = 'N'
+                  and         NVL(reg_fat.sn_diagno, 'N') = 'N'
+                  and         nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+                  and         reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                  and         reg_fat.cd_convenio = convenio.cd_convenio
+                  and         convenio.tp_convenio <> 'H'
+                  and         reg_fat.cd_atendimento = atendime.cd_atendimento
+                  and         paciente.nm_bairro is not null
+                  GROUP BY            convenio.nm_convenio
+                                    , paciente.nm_bairro
+               UNION ALL
+               SELECT   convenio.nm_convenio
+                               , paciente.nm_bairro
+                               , sum(NVL( itreg_amb.vl_total_conta,0) )  vl_total_conta
+                               , count(distinct nvl(atendime.cd_atendimento,0))  qt_total_conta
+               FROM         dbamv.itreg_amb             itreg_amb
+                          , dbamv.reg_amb               reg_amb
+                          , dbamv.remessa_fatura        remessa_fatura
+                          , dbamv.fatura                fatura
+                          , dbamv.convenio              convenio
+                          , dbamv.atendime              atendime
+                          , dbamv.paciente              paciente
+               WHERE  itreg_amb.cd_reg_amb     = reg_amb.cd_reg_amb
+               and   atendime.dt_atendimento between  to_date(:CAMPO_DT_INICIO,'dd/mm/yyyy')  and  (to_date(:CAMPO_DT_FINAL,'dd/mm/yyyy') + 0.9)
+               and    paciente.cd_paciente     = atendime.cd_paciente
+               and    reg_amb.cd_remessa       = remessa_fatura.cd_remessa
+               and    remessa_fatura.cd_fatura = fatura.cd_fatura
+               and    itreg_amb.sn_pertence_pacote = 'N'
+               and    NVL(reg_amb.sn_diagno, 'N') = 'N'
+               and    nvl(itreg_amb.tp_pagamento,'X') <> 'C'
+               and    reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and    reg_amb.cd_convenio = convenio.cd_convenio
+               and    convenio.tp_convenio <> 'H'
+               and    itreg_amb.cd_atendimento = atendime.cd_atendimento
+               and    paciente.nm_bairro is not null
+               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+               GROUP BY        convenio.nm_convenio
+                             , paciente.nm_bairro
+         UNION ALL
+              SELECT          convenio.nm_convenio
+                            , paciente.nm_bairro
+                            , sum( NVL(itreg_fat.vl_total_conta,0) )  vl_total_conta
+                            , count(distinct nvl(atendime.cd_atendimento,0))  qt_total_conta
+              FROM         dbamv.itreg_fat
+                         , dbamv.reg_fat
+                         , dbamv.remessa_fatura
+                         , dbamv.fatura
+                         , dbamv.pro_fat
+                         , dbamv.convenio
+                         , dbamv.atendime
+                         , dbamv.paciente
+              WHERE       itreg_fat.cd_reg_fat     = reg_Fat.cd_reg_fat
+              and         itreg_fat.dt_lancamento between  to_date(:CAMPO_DT_INICIO,'dd/mm/yyyy')  and  (to_date(:CAMPO_DT_FINAL,'dd/mm/yyyy') + 0.9)
+              and         paciente.cd_paciente     = atendime.cd_paciente
+              and         reg_fat.cd_remessa       = remessa_fatura.cd_remessa
+              and         remessa_fatura.cd_fatura = fatura.cd_fatura
+              and         itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+              and         pro_fat.sn_pacote = 'N'
+              and         NVL(reg_fat.sn_diagno, 'N') = 'N'
+              and         reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              and         reg_fat.cd_convenio = convenio.cd_convenio
+              and         convenio.tp_convenio <> 'H'
+              and         reg_fat.cd_atendimento = atendime.cd_atendimento
+              and         paciente.nm_bairro is not null
+              GROUP BY           convenio.nm_convenio
+                               , paciente.nm_bairro
+              UNION ALL
+              SELECT    convenio.nm_convenio
+                            , paciente.nm_bairro
+                            , sum( NVL(itreg_amb.vl_total_conta,0) )  vl_total_conta
+                            , count(distinct nvl(atendime.cd_atendimento,0))  qt_total_conta
+               FROM         dbamv.itreg_amb             itreg_amb
+                          , dbamv.reg_amb               reg_amb
+                          , dbamv.remessa_fatura        remessa_fatura
+                          , dbamv.fatura                fatura
+                          , dbamv.pro_fat               pro_fat
+                          , dbamv.convenio              convenio
+                          , dbamv.atendime              atendime
+                          , dbamv.paciente              paciente
+               WHERE  itreg_amb.cd_reg_amb     = reg_amb.cd_reg_amb
+               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+               and   atendime.dt_atendimento between  to_date(:CAMPO_DT_INICIO,'dd/mm/yyyy')  and  (to_date(:CAMPO_DT_FINAL,'dd/mm/yyyy') + 0.9)
+               and    paciente.cd_paciente     = atendime.cd_paciente
+               and    reg_amb.cd_remessa       = remessa_fatura.cd_remessa
+               and    remessa_fatura.cd_fatura = fatura.cd_fatura
+               and    itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               and    pro_fat.sn_pacote = 'N'
+               and    NVL(reg_amb.sn_diagno, 'N') = 'N'
+               and    reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and    reg_amb.cd_convenio = convenio.cd_convenio
+               and    convenio.tp_convenio <> 'H'
+               and    itreg_amb.cd_atendimento = atendime.cd_atendimento
+               and    paciente.nm_bairro is not null
+               GROUP BY   convenio.nm_convenio
+                                   , paciente.nm_bairro ) Fatura
+GROUP BY NM_CONVENIO,
+                    NM_BAIRRO
+)
+ORDER BY NM_CONVENIO,
+NM_BAIRRO

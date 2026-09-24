@@ -1,0 +1,29 @@
+/*----------------------------------------------------------------------------*/
+--R_ID_ETIQ_TRANSF
+select to_char(id.cd_identificador, 'fm9999900000000') cd_identificador
+      ,id.cd_produto
+      ,transf.ds_produto
+      ,transf.ds_unidade
+      ,id.cd_lote
+      ,id.dt_validade
+from   dbamv.identificador_etiqueta id
+      ,(select    itmvto_estoque.cd_produto,
+                  Nvl( produto.ds_produto_resumido, produto.ds_produto ) ds_produto,
+                  uni_pro.ds_unidade,
+                  itmvto_estoque.cd_lote,
+                  itmvto_estoque.dt_validade
+        from      dbamv.itmvto_estoque
+                 ,dbamv.produto
+                 ,dbamv.uni_pro
+        where   Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+	and      itmvto_estoque.cd_mvto_estoque = :CAMPO_MVTO_ESTOQUE
+        and      itmvto_estoque.cd_produto = produto.cd_produto
+        and      itmvto_estoque.cd_uni_pro = uni_pro.cd_uni_pro
+        and      produto.sn_imprime_etiqueta in ('S','F')) transf
+where  id.cd_produto = transf.cd_produto
+and    NVL(id.cd_lote, 'OK')    = NVL(transf.cd_lote, 'OK')
+AND    id.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    NVL(id.dt_validade, SYSDATE) = NVL(transf.dt_validade, SYSDATE)

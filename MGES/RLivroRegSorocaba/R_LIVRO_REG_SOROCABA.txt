@@ -1,0 +1,272 @@
+/*----------------------------------------------------------------------------*/
+--R_LIVRO_REG_SOROCABA
+SELECT  Decode( '', 'P', ItContagem.cd_produto,'A',ItContagem.cd_produto,0 ) Quebra_Produto
+     , ITCONTAGEM.CD_PRODUTO                                                        CD_PRODUTO
+     , ITCONTAGEM.CD_PRODUTO                                                     || ' - ' ||  PRODUTO.DS_PRODUTO     DS_PRODUTO
+     , dbamv.verif_ds_unid_prod(ITCONTAGEM.CD_PRODUTO)                              DS_UNIDADE
+     , PRODUTO.CD_DCB                                                               CD_DCB
+     , sum( (NVL(ITCONTAGEM.QT_ESTOQUE,0) + NVL( ITCONTAGEM.QT_ESTOQUE_DOADO,0)) * UNI_PRO.VL_FATOR)/ dbamv.verif_vl_fator_prod(ITCONTAGEM.CD_PRODUTO)     QUANTIDADE
+     , TRUNC(CONTAGEM.DT_GERACAO)                                                   DATA
+     , to_char(CONTAGEM.HR_GERACAO, 'hh24' )                                  HORA
+     , CONTAGEM.CD_CONTAGEM                                                         DOCUMENTO
+     ,NULL                                                                                                              DS_DESTINO
+     , 'Contagem'                                                                   OPERACAO
+     ,  ESTOQUE.CD_ESTOQUE  CD_ESTOQUE
+     ,  ESTOQUE.DS_ESTOQUE  DS_ESTOQUE 
+     , dbamv.verif_vl_fator_prod(ITCONTAGEM.CD_PRODUTO)                             VL_FATOR
+     , Null							                                                            nulo
+     , Null							                                                            Responsavel
+     ,'N'							                                                              SN_CONSIGNADO
+  FROM dbamv.ITCONTAGEM                      ITCONTAGEM
+     , dbamv.CONTAGEM                               CONTAGEM
+     , dbamv.PRODUTO                                PRODUTO
+     , dbamv.UNI_PRO                                 UNI_PRO
+     , dbamv.ESTOQUE                                ESTOQUE
+ WHERE CONTAGEM.DT_GERACAO      >= TRUNC(:CAMPO_DTINIC) 
+   AND CONTAGEM.DT_GERACAO       < TRUNC(:CAMPO_DTFIM+1)
+   AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND ITCONTAGEM.CD_PRODUTO    = PRODUTO.CD_PRODUTO
+   AND ITCONTAGEM.CD_CONTAGEM   = CONTAGEM.CD_CONTAGEM
+   AND ITCONTAGEM.CD_UNI_PRO    = UNI_PRO.CD_UNI_PRO
+   AND CONTAGEM.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+   AND exists ( select cd_produto 
+                  from dbamv.itportaria
+                 where itportaria.cd_produto = produto.cd_produto 
+                     :CAMPO_CF_PORTARIA )             
+GROUP BY ITCONTAGEM.CD_PRODUTO
+     , ITCONTAGEM.CD_PRODUTO                                                     || ' - ' ||  PRODUTO.DS_PRODUTO     
+		   , PRODUTO.VL_CUSTO_MEDIO
+       , dbamv.verif_ds_unid_prod(ITCONTAGEM.CD_PRODUTO)
+       , PRODUTO.CD_DCB
+       , CONTAGEM.DT_GERACAO
+       , CONTAGEM.HR_GERACAO
+       , CONTAGEM.CD_CONTAGEM
+       , ESTOQUE.CD_ESTOQUE
+       , ESTOQUE.DS_ESTOQUE
+      , dbamv.verif_vl_fator_prod(ITCONTAGEM.CD_PRODUTO)
+     , CONTAGEM.CD_CONTAGEM  || ' ' ||  'Contagem - '  || ESTOQUE.DS_ESTOQUE                                         
+UNION ALL
+SELECT Decode( '', 'P', ITMVTO_ESTOQUE.CD_PRODUTO, 'A', ITMVTO_ESTOQUE.CD_PRODUTO,0 )   Quebra_Produto
+     , ITMVTO_ESTOQUE.CD_PRODUTO         						                                           CD_PRODUTO
+     ,  ITMVTO_ESTOQUE.CD_PRODUTO                                                     || ' - ' ||  PRODUTO.DS_PRODUTO     DS_PRODUTO
+     , UNI_PRO.DS_UNIDADE                                    						                       DS_UNIDADE
+     , PRODUTO.CD_DCB                                           						                   CD_DCB
+     , DECODE(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,'D', SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO),'C' , SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO),SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO) * -1 ) QUANTIDADE
+     , TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE)         					                                   DATA
+     , TO_CHAR(MVTO_ESTOQUE.HR_MVTO_ESTOQUE, 'hh24' )         			                     HORA
+     , MVTO_ESTOQUE.CD_MVTO_ESTOQUE        						                                         DOCUMENTO
+,DECODE(NVL(MVTO_ESTOQUE.CD_SOLSAI_PRO,0), 0, DECODE(UPPER(MVTO_ESTOQUE.TP_MVTO_ESTOQUE),'P', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'PD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE)
+			                                                                                        ,'S', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'PD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'SD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA SETOR - '||SETOR.NM_SETOR))
+																																															,'C', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'DG ', 'DP ')||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE
+    			                                                                                    ,'D', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'DG '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'DP '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'DS '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE SETOR - '||SETOR.NM_SETOR)))			                                                                                        
+			                                            , DECODE(UPPER(MVTO_ESTOQUE.TP_MVTO_ESTOQUE),'P', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GS ', DECODE(NVL(SOLSAI_PRO.CD_PRE_MED,0),SOLSAI_PRO.CD_PRE_MED,'PR ', 'PS ')) ||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE
+			                                                                                        ,'S', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GS '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'PS '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'SS '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA SETOR - '||SETOR.NM_SETOR))
+																																															,'C', 'SP '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE
+    			                                                                                    ,'D', DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'SP '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'DD '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - DEVOLUÇÃO DE SETOR - '||SETOR.NM_SETOR))											)  DS_DESTINO
+     , DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                		 'X', 'Baixa De Produtos',
+                 		'S', Decode( Mvto_Paciente.Nm_Paciente, Null, 'Saida Setor', 'Saida Paciente.' )   ,
+                 		'P', 'Saida Paciente'   ,
+                 		'D', 'Devol. De Setor'  ,
+                 		'C', 'Devol. De Paciente' ,
+                 		'T', 'Transf. De Estoque ',
+                 		'M', 'Manipul.  Produtos' ,
+                 		'O', 'Doação  Produtos',
+                 		'E', 'Saida De Emprestimo',
+                                                'R','Transf. Empresa',
+                 		'V', 'Venda De Produtos',
+                    'N','Devolucao De Vendas'  )             					                       OPERACAO
+     , ESTOQUE.CD_ESTOQUE   CD_ESTOQUE
+     , ESTOQUE.DS_ESTOQUE   DS_ESTOQUE 
+     , UNI_PRO.VL_FATOR
+     , Null							                                                            nulo
+     , nvl( PRESTADOR_PACIENTE.DS_CODIGO_CONSELHO, PRESTADOR_ESTOQUE.DS_CODIGO_CONSELHO)  || ' - ' || Nvl( Prestador_Paciente.Nm_Prestador , Prestador_Estoque.Nm_Prestador) RESPONSAVEL
+     , 'N'									                                                                   SN_CONSIGNADO
+  FROM dbamv.MVTO_ESTOQUE   MVTO_ESTOQUE
+     , dbamv.MVTO_PACIENTE	MVTO_PACIENTE
+     , dbamv.ITMVTO_ESTOQUE ITMVTO_ESTOQUE
+     , dbamv.PRODUTO        PRODUTO
+     , dbamv.UNI_PRO        UNI_PRO
+     , dbamv.ATENDIME       ATENDIMENTO
+     , dbamv.PACIENTE       PACIENTE
+     , dbamv.SETOR          SETOR
+     , dbamv.ESTOQUE        ESTOQUE
+     , dbamv.ESTOQUE        ESTOQUE_DESTINO
+     , dbamv.PRESTADOR		  PRESTADOR_ESTOQUE
+     , dbamv.PRESTADOR		  PRESTADOR_PACIENTE
+     , dbamv.FORNECEDOR		  FORNECEDOR
+     ,dbamv.SOLSAI_PRO                          SOLSAI_PRO
+ WHERE MVTO_ESTOQUE.DT_MVTO_ESTOQUE >= TRUNC(:CAMPO_DTINIC) 
+   AND MVTO_ESTOQUE.DT_MVTO_ESTOQUE < TRUNC(:CAMPO_DTFIM+1)
+   AND ESTOQUE.CD_MULTI_EMPRESA                    = :CAMPO_CD_MULTI_EMPRESA
+   AND ITMVTO_ESTOQUE.CD_PRODUTO                   = PRODUTO.CD_PRODUTO
+   AND ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE              = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+   AND ITMVTO_ESTOQUE.CD_UNI_PRO                   = UNI_PRO.CD_UNI_PRO
+   AND MVTO_ESTOQUE.CD_ATENDIMENTO                 = ATENDIMENTO.CD_ATENDIMENTO (+)
+   AND ATENDIMENTO.CD_PACIENTE                     = PACIENTE.CD_PACIENTE (+)
+   AND MVTO_ESTOQUE.CD_SETOR                       = SETOR.CD_SETOR(+)
+   AND MVTO_ESTOQUE.CD_ESTOQUE_DESTINO             = ESTOQUE_DESTINO.CD_ESTOQUE(+)
+   AND MVTO_PACIENTE.CD_MVTO_ESTOQUE	          (+)= MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+   AND MVTO_ESTOQUE.CD_SOLSAI_PRO             =SOLSAI_PRO.CD_SOLSAI_PRO(+)
+   AND ITMVTO_ESTOQUE.CD_UNI_PRO                   = UNI_PRO.CD_UNI_PRO
+   AND MVTO_ESTOQUE.CD_ESTOQUE                     = ESTOQUE.CD_ESTOQUE
+   AND PRESTADOR_ESTOQUE.CD_PRESTADOR	          (+)= Mvto_Estoque.Cd_Prestador
+   AND PRESTADOR_PACIENTE.CD_PRESTADOR	        (+)= Mvto_Paciente.Cd_Prestador
+   AND MVTO_ESTOQUE.CD_FORNECEDOR                  = FORNECEDOR.CD_FORNECEDOR(+)
+   AND exists ( select cd_produto 
+                  from dbamv.itportaria
+                 where itportaria.cd_produto = produto.cd_produto 
+	                 :CAMPO_CF_PORTARIA )      
+ AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE in ('P', 'S', 'C', 'D', 'X')
+ GROUP BY ITMVTO_ESTOQUE.CD_PRODUTO
+     ,  ITMVTO_ESTOQUE.CD_PRODUTO                                                     || ' - ' ||  PRODUTO.DS_PRODUTO 
+        , UNI_PRO.DS_UNIDADE
+        , PRODUTO.CD_DCB
+        , MVTO_ESTOQUE.TP_MVTO_ESTOQUE
+        , MVTO_ESTOQUE.DT_MVTO_ESTOQUE
+        , MVTO_ESTOQUE.HR_MVTO_ESTOQUE
+        , MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+,DECODE(NVL(MVTO_ESTOQUE.CD_SOLSAI_PRO,0), 0, DECODE(UPPER(MVTO_ESTOQUE.TP_MVTO_ESTOQUE),'P', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'PD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE)
+			                                                                                        ,'S', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'PD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'SD '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - SAÍDA PARA SETOR - '||SETOR.NM_SETOR))
+																																															,'C', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'DG ', 'DP ')||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE
+    			                                                                                    ,'D', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'DG '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'DP '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'DS '||MVTO_ESTOQUE.CD_MVTO_ESTOQUE||' - DEVOLUÇÃO DE SETOR - '||SETOR.NM_SETOR)))			                                                                                        
+			                                            , DECODE(UPPER(MVTO_ESTOQUE.TP_MVTO_ESTOQUE),'P', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GS ', DECODE(NVL(SOLSAI_PRO.CD_PRE_MED,0),SOLSAI_PRO.CD_PRE_MED,'PR ', 'PS ')) ||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE
+			                                                                                        ,'S', DECODE(NVL(MVTO_ESTOQUE.CD_AVISO_CIRURGIA,0),MVTO_ESTOQUE.CD_AVISO_CIRURGIA,'GS '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'PS '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'SS '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - SAÍDA PARA SETOR - '||SETOR.NM_SETOR))
+																																															,'C', 'SP '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE
+    			                                                                                    ,'D', DECODE(NVL(MVTO_ESTOQUE.CD_ATENDIMENTO,0),MVTO_ESTOQUE.CD_ATENDIMENTO,'SP '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - DEVOLUÇÃO DE PACIENTE INTERNADO - '||PACIENTE.NM_PACIENTE, 'DD '||MVTO_ESTOQUE.CD_SOLSAI_PRO||' - DEVOLUÇÃO DE SETOR - '||SETOR.NM_SETOR))											)    
+        , ESTOQUE.CD_ESTOQUE
+        , ESTOQUE.DS_ESTOQUE
+        , UNI_PRO.VL_FATOR
+        , PRESTADOR_PACIENTE.DS_CODIGO_CONSELHO
+        , PRESTADOR_ESTOQUE.DS_CODIGO_CONSELHO
+        , PRESTADOR_PACIENTE.NM_PRESTADOR
+        , PRESTADOR_ESTOQUE.NM_PRESTADOR
+        , MVTO_PACIENTE.NM_PACIENTE
+        , ESTOQUE_DESTINO.DS_ESTOQUE
+        , FORNECEDOR.NM_FORNECEDOR
+        , SETOR.NM_SETOR
+        , Itmvto_Estoque.Cd_Itmvto_Estoque
+UNION ALL
+SELECT  Decode( '', 'P', ITENT_PRO.CD_PRODUTO, 'A', ITENT_PRO.CD_PRODUTO, 0 ) Quebra_Produto
+     , ITENT_PRO.CD_PRODUTO                                                   CD_PRODUTO
+     , ITENT_PRO.CD_PRODUTO   || ' - ' ||  PRODUTO.DS_PRODUTO     DS_PRODUTO
+     , UNI_PRO.DS_UNIDADE                                                         DS_UNIDADE
+     , PRODUTO.CD_DCB                                                                CD_DCB
+     , Sum(ITENT_PRO.QT_ENTRADA)                                           QUANTIDADE
+     , TRUNC(ENT_PRO.DT_ENTRADA)                                         DATA
+     , to_char(ENT_PRO.HR_ENTRADA,'hh24')                      HORA
+     , ENT_PRO.CD_ENT_PRO                                                        DOCUMENTO
+     , 'NF ' || ENT_PRO.NR_DOCUMENTO  || ' - ' || INITCAP( FORNEC.NM_FORNECEDOR )                                DS_DESTINO
+     , INITCAP(TIP_DOC.DS_TIP_DOC)                                            OPERACAO
+    , ESTOQUE.CD_ESTOQUE  CD_ESTOQUE
+    , ESTOQUE.DS_ESTOQUE  DS_ESTOQUE
+    , UNI_PRO.VL_FATOR
+    , Null							                                                            nulo
+    , Null						 Responsavel
+    , Ent_Pro.Sn_Consignado				 SN_CONSIGNADO
+  FROM dbamv.ITENT_PRO                         ITENT_PRO
+     , dbamv.ENT_PRO                             ENT_PRO
+     , dbamv.PRODUTO                            PRODUTO
+     , dbamv.TIP_DOC                              TIP_DOC
+     , dbamv.UNI_PRO                              UNI_PRO
+     , dbamv.FORNECEDOR                     FORNEC
+     , dbamv.ESTOQUE
+ WHERE  ENT_PRO.DT_ENTRADA  >= TRUNC(:CAMPO_DTINIC) 
+    AND ENT_PRO.DT_ENTRADA  < TRUNC(:CAMPO_DTFIM+1) 
+    AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    AND ITENT_PRO.CD_PRODUTO    =   PRODUTO.CD_PRODUTO
+    AND ITENT_PRO.CD_ENT_PRO     =   ENT_PRO.CD_ENT_PRO
+    AND ENT_PRO.CD_TIP_DOC          =   TIP_DOC.CD_TIP_DOC
+    AND ITENT_PRO.CD_UNI_PRO      =   UNI_PRO.CD_UNI_PRO
+    AND ENT_PRO.CD_FORNECEDOR =   FORNEC.CD_FORNECEDOR(+)
+    AND ITENT_PRO.CD_UNI_PRO      =   UNI_PRO.CD_UNI_PRO
+    AND ENT_PRO.CD_ESTOQUE         =  ESTOQUE.CD_ESTOQUE    
+    AND exists ( select cd_produto 
+                   from dbamv.itportaria
+                  where itportaria.cd_produto = produto.cd_produto 
+                   :CAMPO_CF_PORTARIA )             
+  GROUP BY ITENT_PRO.CD_PRODUTO
+     , ITENT_PRO.CD_PRODUTO   || ' - ' ||  PRODUTO.DS_PRODUTO   
+         , UNI_PRO.DS_UNIDADE
+         , PRODUTO.CD_DCB
+         , ENT_PRO.DT_ENTRADA
+         , ENT_PRO.HR_ENTRADA
+         , ENT_PRO.CD_ENT_PRO
+         , ENT_PRO.NR_DOCUMENTO
+         , FORNEC.NM_FORNECEDOR
+         , TIP_DOC.DS_TIP_DOC
+         , ESTOQUE.CD_ESTOQUE        
+         , ESTOQUE.DS_ESTOQUE
+         , UNI_PRO.VL_FATOR
+         , ENT_PRO.SN_CONSIGNADO
+UNION ALL
+SELECT null Quebra_Produto
+     , ( select max(cd_produto) from dbamv.produto ) CD_PRODUTO
+     , '9876543210'   DS_PRODUTO
+     , 'XXXXXXXX'                                                         DS_UNIDADE
+     , '1'                                                                CD_DCB
+     , 0                                           QUANTIDADE
+     , TRUNC(sysdate)                                         DATA
+     , to_char(sysdate,'hh24')                      HORA
+     , 1                                                        DOCUMENTO
+     , 'XXXXXXXX' DS_DESTINO
+     , 'XXXXXXXX'                                            OPERACAO
+    ,  (select max(cd_estoque) from dbamv.estoque ) CD_ESTOQUE
+    , 'XXXXXXXX'  DS_ESTOQUE
+    ,  1
+    , Null							                                                            nulo
+    , Null						 Responsavel
+    , 'N'				 SN_CONSIGNADO
+  FROM dual
+UNION ALL
+SELECT Decode( '', 'P', ITDEV_FOR.CD_PRODUTO, 'A', ITDEV_FOR.CD_PRODUTO,0 ) Quebra_Produto
+     , ITDEV_FOR.CD_PRODUTO
+     , ITDEV_FOR.CD_PRODUTO || ' - ' || PRODUTO.DS_PRODUTO
+     , UNI_PRO.DS_UNIDADE 
+     , PRODUTO.CD_DCB                                                       	CD_DCB
+     , Sum(ITDEV_FOR.QT_DEVOLVIDA) * -1            		QUANTIDADE
+     , TRUNC(DEV_FOR.DT_DEVOLUCAO)               		DATA
+     , TO_CHAR(DEV_FOR.HR_DEVOLUCAO, 'hh24' ) 	HORA
+     , DEV_FOR.CD_DEVOLUCAO                      		DOCUMENTO
+     , 'DF ' || DEV_FOR.CD_DEVOLUCAO   || ' - ' ||  INITCAP( FORNECEDOR.NM_FORNECEDOR )      	DS_DESTINO
+     , 'Dev. P/  Fornecedor'             			OPERACAO  
+     , ESTOQUE.CD_ESTOQUE   CD_ESTOQUE
+     , ESTOQUE.DS_ESTOQUE   DS_ESTOQUE
+     , UNI_PRO.VL_FATOR                                 
+     , Null							                                                            nulo
+     , Null						Responsavel
+     , 'N'						SN_CONSIGNADO
+ FROM DBAMV.ESTOQUE
+    , DBAMV.DEV_FOR
+    , DBAMV.ITDEV_FOR
+    , DBAMV.UNI_PRO
+    , DBAMV.FORNECEDOR
+    , DBAMV.PRODUTO
+    , DBAMV.ENT_PRO
+    , dbamv.itent_pro
+WHERE DEV_FOR.DT_DEVOLUCAO >= Trunc(:CAMPO_DTINIC)
+ AND DEV_FOR.DT_DEVOLUCAO  < Trunc(:CAMPO_DTFIM+1 )
+  AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  AND ITDEV_FOR.CD_DEVOLUCAO = DEV_FOR.CD_DEVOLUCAO
+  AND ITDEV_FOR.CD_PRODUTO = PRODUTO.CD_PRODUTO
+  AND ITDEV_FOR.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+  AND DEV_FOR.CD_ENT_PRO    = ENT_PRO.CD_ENT_PRO
+  AND ENT_PRO.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR       
+  AND ENT_PRO.CD_ESTOQUE    = ESTOQUE.CD_ESTOQUE 
+  and itdev_for.cd_itent_pro = itent_pro.cd_itent_pro
+  AND exists ( select cd_produto 
+                 from dbamv.itportaria
+                where itportaria.cd_produto = produto.cd_produto 
+                    :CAMPO_CF_PORTARIA )             
+GROUP BY ITDEV_FOR.CD_PRODUTO
+     , ITDEV_FOR.CD_PRODUTO || ' - ' || PRODUTO.DS_PRODUTO
+       , UNI_PRO.DS_UNIDADE
+       , PRODUTO.CD_DCB
+       , DEV_FOR.DT_DEVOLUCAO
+       , DEV_FOR.HR_DEVOLUCAO
+       , DEV_FOR.CD_DEVOLUCAO
+       , FORNECEDOR.NM_FORNECEDOR  
+       , ESTOQUE.CD_ESTOQUE
+       , ESTOQUE.DS_ESTOQUE
+       , UNI_PRO.VL_FATOR
+ORDER BY  DS_PRODUTO,7,8, OPERACAO

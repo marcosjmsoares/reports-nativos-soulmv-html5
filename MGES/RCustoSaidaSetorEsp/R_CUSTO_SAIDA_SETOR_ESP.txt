@@ -1,0 +1,757 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_ESP
+Select 1 Cd_Setor_Ini,
+	'Nao Imprime' Nm_Setor_Ini,
+	999999 Cd_Setor_Fim,
+	'A' Nm_Setor_Fim
+  From Dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_ESP_R_3_Q_TOTAL
+select CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+      ,sum(diferenca) diferenca
+      from (
+SELECT  ESPECIE.CD_ESPECIE
+              ,ESPECIE.DS_ESPECIE
+              ,0  QTD_ITENS_PRODUTO
+             ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                             mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 0, 1 ) ) VL_ATUAL
+              ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                              mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 1, 0 ) ) VL_DOADO
+       , 0 diferenca
+FROM    DBAMV.MVTO_ESTOQUE
+       ,DBAMV.SETOR
+       ,DBAMV.ESTOQUE
+       ,DBAMV.ITMVTO_ESTOQUE
+       ,DBAMV.UNI_PRO
+       ,DBAMV.PRODUTO
+       ,DBAMV.ESPECIE
+       ,DBAMV.GRUPO_DE_CUSTO
+WHERE Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DATA_INI AND 
+  AND  MVTO_ESTOQUE.CD_SETOR           = SETOR.CD_SETOR
+  AND  ITMVTO_ESTOQUE.CD_UNI_PRO    = UNI_PRO.CD_UNI_PRO
+  AND  MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+  AND  ITMVTO_ESTOQUE.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.CD_ESPECIE                    = ESPECIE.CD_ESPECIE
+  AND  MVTO_ESTOQUE.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+  AND  SETOR.CD_SETOR BETWEEN :CAMPO_CD_SETOR_INI AND 
+  AND  SETOR.CD_GRUPO_DE_CUSTO      = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+GROUP BY
+     GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+    ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+    ,SETOR.CD_SETOR
+    ,SETOR.NM_SETOR
+    ,ESPECIE.CD_ESPECIE
+    ,ESPECIE.DS_ESPECIE
+union all
+SELECT CD_ESPECIE
+     , DS_ESPECIE
+     , 0 vl_atual
+     , 0 qtd_itens_produto
+     , 0 vl_doado
+     ,round(sum(( QTD_CONTAGEM * VL_CUSTO_CONTAGEM ) - ( qt_estoque   * VL_CUSTO_CONTAGEM )), 2) diferenca
+FROM (
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , SUM( NVL( ROUND(ITCONTAGEM.QT_ESTOQUE_DOADO, 2), 0) +
+                 NVL( ROUND(ITCONTAGEM.QT_ESTOQUE      , 2), 0) * UNI_PRO.VL_FATOR) QTD_CONTAGEM
+     , DECODE  (dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM))) VL_CUSTO_CONTAGEM
+     , round(QTD_ESTOQUE.qt_estoque, 2 )qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+     , ( SELECT CE.CD_PRODUTO
+              , CE.CD_ESTOQUE
+              , CE.CD_CONTAGEM
+              , round(sum(nvl(CE.qt_estoque,0)), 2) qt_estoque
+             FROM DBAMV.copia_estoque CE
+             WHERE Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Empresa_Produto.Cd_Produto = Ce.Cd_Produto
+                        :CAMPO_CF_EMPRESAS_SUB_SELECT)
+             GROUP BY CE.CD_PRODUTO
+                               , CE.CD_ESTOQUE
+                               , CE.CD_CONTAGEM ) QTD_ESTOQUE
+WHERE  ITCONTAGEM.CD_CONTAGEM        = CONTAGEM.CD_CONTAGEM
+  AND  ITCONTAGEM.CD_UNI_PRO     = UNI_PRO.CD_UNI_PRO
+  AND  CONTAGEM.CD_ESTOQUE       = ESTOQUE.CD_ESTOQUE
+  AND  ITCONTAGEM.CD_PRODUTO   = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.SN_MESTRE            = 'N'
+  AND  PRODUTO.CD_ESPECIE            = ESPECIE.CD_ESPECIE
+  AND  SETOR.CD_SETOR                    = ESTOQUE.CD_SETOR
+  AND  GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+  AND  trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                                                                                   AND 
+  AND  QTD_ESTOQUE.CD_PRODUTO            = PRODUTO.CD_PRODUTO
+  AND  QTD_ESTOQUE.CD_ESTOQUE             = ESTOQUE.CD_ESTOQUE
+  AND  QTD_ESTOQUE.CD_CONTAGEM          = CONTAGEM.CD_CONTAGEM
+GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , DECODE  (dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                  dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)))
+     , QTD_ESTOQUE.qt_estoque
+union all
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , 0 QTD_CONTAGEM
+     , 0 VL_CUSTO_CONTAGEM
+     , 0 qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM_DA_ABERTURA
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+ WHERE ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+   AND UNI_PRO.CD_PRODUTO                 = PRODUTO.CD_PRODUTO
+   AND UNI_PRO.TP_RELATORIOS              = 'R'
+   AND CONTAGEM.CD_ESTOQUE                = ESTOQUE.CD_ESTOQUE
+   AND ITCONTAGEM_DA_ABERTURA.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+   AND NOT EXISTS (SELECT IC.CD_PRODUTO
+                     FROM DBAMV.ITCONTAGEM IC
+                    WHERE IC.CD_CONTAGEM  = ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM
+                      AND IC.CD_PRODUTO   = ITCONTAGEM_DA_ABERTURA.CD_PRODUTO)
+   AND PRODUTO.SN_MESTRE                  = 'N'
+   AND PRODUTO.CD_ESPECIE                 = ESPECIE.CD_ESPECIE
+   AND NVL(CONTAGEM.SN_ABERTO,'S')        = 'S'
+   AND SETOR.CD_SETOR                     = ESTOQUE.CD_SETOR
+   AND GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+   AND trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                                        GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , CONTAGEM.CD_ESTOQUE
+       , CONTAGEM.CD_CONTAGEM
+       , ITCONTAGEM_DA_ABERTURA.CD_PRODUTO ) tab
+ group by CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+     , CD_SETOR
+     , NM_SETOR
+     , CD_ESPECIE
+     , DS_ESPECIE
+:CAMPO_CF_ORDEM
+)
+Group by  CD_ESPECIE
+                ,DS_ESPECIE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_ESP_R_GRUPO_CUSTO1_Q_SAI_SETOR
+SELECT * FROM (
+select Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+     ,diferenca
+      from (
+SELECT  Decode( :CAMPO_LIST_QUEBRA, 'S', Setor.Cd_Setor, 0 ) Quebra_Setor
+              ,GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+              ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+              ,SETOR.CD_SETOR
+              ,SETOR.NM_SETOR
+              ,ESPECIE.CD_ESPECIE
+              ,ESPECIE.DS_ESPECIE
+              , COUNT( ITMVTO_ESTOQUE.CD_PRODUTO) QTD_ITENS_PRODUTO
+              ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                             mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 0, 1 ) ) VL_ATUAL
+               ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                              mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 1, 0 ) ) VL_DOADO
+       , 0 diferenca
+FROM    DBAMV.MVTO_ESTOQUE
+       ,DBAMV.SETOR
+       ,DBAMV.ESTOQUE
+       ,DBAMV.ITMVTO_ESTOQUE
+       ,DBAMV.UNI_PRO
+       ,DBAMV.PRODUTO
+       ,DBAMV.ESPECIE
+       ,DBAMV.GRUPO_DE_CUSTO
+WHERE  Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DATA_INI AND 
+  AND  MVTO_ESTOQUE.CD_SETOR           = SETOR.CD_SETOR
+  AND  ITMVTO_ESTOQUE.CD_UNI_PRO    = UNI_PRO.CD_UNI_PRO
+  AND  MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+  AND  ITMVTO_ESTOQUE.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.CD_ESPECIE                    = ESPECIE.CD_ESPECIE
+  AND  MVTO_ESTOQUE.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+  AND  SETOR.CD_SETOR BETWEEN :CAMPO_CD_SETOR_INI AND 
+  AND  SETOR.CD_GRUPO_DE_CUSTO      = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+GROUP BY
+     GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+    ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+    ,SETOR.CD_SETOR
+    ,SETOR.NM_SETOR
+    ,ESPECIE.CD_ESPECIE
+    ,ESPECIE.DS_ESPECIE
+union all
+SELECT 0 quebra_setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+     , CD_SETOR
+     , NM_SETOR
+     , CD_ESPECIE
+     , DS_ESPECIE
+     , 0 vl_atual
+      , 0 qtd_itens_produto
+     , 0 vl_doado
+     ,round(sum(( QTD_CONTAGEM * VL_CUSTO_CONTAGEM ) - ( qt_estoque   * VL_CUSTO_CONTAGEM )), 2) diferenca
+FROM (
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , SUM( NVL( ROUND(ITCONTAGEM.QT_ESTOQUE_DOADO, 2), 0) +
+                 NVL( ROUND(ITCONTAGEM.QT_ESTOQUE      , 2), 0) * UNI_PRO.VL_FATOR) QTD_CONTAGEM
+     , DECODE  (dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM))) VL_CUSTO_CONTAGEM
+     , round(QTD_ESTOQUE.qt_estoque, 2 )qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+     , ( SELECT CE.CD_PRODUTO
+              , CE.CD_ESTOQUE
+              , CE.CD_CONTAGEM
+              , round(sum(nvl(CE.qt_estoque,0)), 2) qt_estoque
+             FROM DBAMV.copia_estoque CE
+             WHERE Exists ( Select Empresa_Produto.Cd_Produto
+                              From Dbamv.Empresa_Produto
+                             Where Empresa_Produto.Cd_Produto = Ce.Cd_Produto
+                                   :CAMPO_CF_EMPRESAS_SUB_SELECT  )
+             GROUP BY CE.CD_PRODUTO
+                               , CE.CD_ESTOQUE
+                               , CE.CD_CONTAGEM ) QTD_ESTOQUE
+WHERE  ITCONTAGEM.CD_CONTAGEM        = CONTAGEM.CD_CONTAGEM
+  AND  ITCONTAGEM.CD_UNI_PRO     = UNI_PRO.CD_UNI_PRO
+  AND  CONTAGEM.CD_ESTOQUE       = ESTOQUE.CD_ESTOQUE
+  AND  ITCONTAGEM.CD_PRODUTO   = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.SN_MESTRE            = 'N'
+  AND  PRODUTO.CD_ESPECIE            = ESPECIE.CD_ESPECIE
+  AND  SETOR.CD_SETOR                    = ESTOQUE.CD_SETOR
+  AND  GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+  AND  trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                          AND 
+  AND  QTD_ESTOQUE.CD_PRODUTO            = PRODUTO.CD_PRODUTO
+  AND  QTD_ESTOQUE.CD_ESTOQUE             = ESTOQUE.CD_ESTOQUE
+  AND  QTD_ESTOQUE.CD_CONTAGEM          = CONTAGEM.CD_CONTAGEM
+GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , DECODE  (dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                  dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)))
+     , QTD_ESTOQUE.qt_estoque
+union all
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , 0 QTD_CONTAGEM
+     , 0 VL_CUSTO_CONTAGEM
+     , 0 qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM_DA_ABERTURA
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+ WHERE ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+   AND UNI_PRO.CD_PRODUTO                 = PRODUTO.CD_PRODUTO
+   AND UNI_PRO.TP_RELATORIOS              = 'R'
+   AND CONTAGEM.CD_ESTOQUE                = ESTOQUE.CD_ESTOQUE
+   AND ITCONTAGEM_DA_ABERTURA.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+   AND NOT EXISTS (SELECT IC.CD_PRODUTO
+                     FROM DBAMV.ITCONTAGEM IC
+                    WHERE IC.CD_CONTAGEM  = ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM
+                      AND IC.CD_PRODUTO   = ITCONTAGEM_DA_ABERTURA.CD_PRODUTO)
+   AND PRODUTO.SN_MESTRE                  = 'N'
+   AND PRODUTO.CD_ESPECIE                 = ESPECIE.CD_ESPECIE
+   AND NVL(CONTAGEM.SN_ABERTO,'S')        = 'S'
+   AND SETOR.CD_SETOR                     = ESTOQUE.CD_SETOR
+   AND GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+   AND trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                                        GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , CONTAGEM.CD_ESTOQUE
+       , CONTAGEM.CD_CONTAGEM
+       , ITCONTAGEM_DA_ABERTURA.CD_PRODUTO ) tab
+ group by CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+     , CD_SETOR
+     , NM_SETOR
+     , CD_ESPECIE
+     , DS_ESPECIE
+)
+Group by Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,diferenca
+:CAMPO_CF_ORDEM
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_ESP_R_GRUPO_CUSTO2_Q_SAI_SETOR
+SELECT * FROM (
+select Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+     ,diferenca
+      from (
+SELECT  Decode( :CAMPO_LIST_QUEBRA, 'S', Setor.Cd_Setor, 0 ) Quebra_Setor
+              ,GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+              ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+              ,SETOR.CD_SETOR
+              ,SETOR.NM_SETOR
+              ,ESPECIE.CD_ESPECIE
+              ,ESPECIE.DS_ESPECIE
+              , COUNT( ITMVTO_ESTOQUE.CD_PRODUTO) QTD_ITENS_PRODUTO
+              ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                             mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 0, 1 ) ) VL_ATUAL
+               ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                              mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 1, 0 ) ) VL_DOADO
+       , 0 diferenca
+FROM    DBAMV.MVTO_ESTOQUE
+       ,DBAMV.SETOR
+       ,DBAMV.ESTOQUE
+       ,DBAMV.ITMVTO_ESTOQUE
+       ,DBAMV.UNI_PRO
+       ,DBAMV.PRODUTO
+       ,DBAMV.ESPECIE
+       ,DBAMV.GRUPO_DE_CUSTO
+WHERE  Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DATA_INI AND 
+  AND  MVTO_ESTOQUE.CD_SETOR           = SETOR.CD_SETOR
+  AND  ITMVTO_ESTOQUE.CD_UNI_PRO    = UNI_PRO.CD_UNI_PRO
+  AND  MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+  AND  ITMVTO_ESTOQUE.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.CD_ESPECIE                    = ESPECIE.CD_ESPECIE
+  AND  MVTO_ESTOQUE.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+  AND  SETOR.CD_SETOR BETWEEN :CAMPO_CD_SETOR_INI AND 
+  AND  SETOR.CD_GRUPO_DE_CUSTO      = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+GROUP BY
+     GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+    ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+    ,SETOR.CD_SETOR
+    ,SETOR.NM_SETOR
+    ,ESPECIE.CD_ESPECIE
+    ,ESPECIE.DS_ESPECIE
+union all
+SELECT 0 quebra_setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+     , CD_SETOR
+     , NM_SETOR
+     , CD_ESPECIE
+     , DS_ESPECIE
+     , 0 vl_atual
+      , 0 qtd_itens_produto
+     , 0 vl_doado
+     ,round(sum(( QTD_CONTAGEM * VL_CUSTO_CONTAGEM ) - ( qt_estoque   * VL_CUSTO_CONTAGEM )), 2) diferenca
+FROM (
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , SUM( NVL( ROUND(ITCONTAGEM.QT_ESTOQUE_DOADO, 2), 0) +
+                 NVL( ROUND(ITCONTAGEM.QT_ESTOQUE      , 2), 0) * UNI_PRO.VL_FATOR) QTD_CONTAGEM
+     , DECODE  (dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM))) VL_CUSTO_CONTAGEM
+     , round(QTD_ESTOQUE.qt_estoque, 2 )qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+     , ( SELECT CE.CD_PRODUTO
+              , CE.CD_ESTOQUE
+              , CE.CD_CONTAGEM
+              , round(sum(nvl(CE.qt_estoque,0)), 2) qt_estoque
+             FROM DBAMV.copia_estoque CE
+             WHERE Exists ( Select Empresa_Produto.Cd_Produto
+                              From Dbamv.Empresa_Produto
+                             Where Empresa_Produto.Cd_Produto = Ce.Cd_Produto
+                                   :CAMPO_CF_EMPRESAS_SUB_SELECT  )
+             GROUP BY CE.CD_PRODUTO
+                               , CE.CD_ESTOQUE
+                               , CE.CD_CONTAGEM ) QTD_ESTOQUE
+WHERE  ITCONTAGEM.CD_CONTAGEM        = CONTAGEM.CD_CONTAGEM
+  AND  ITCONTAGEM.CD_UNI_PRO     = UNI_PRO.CD_UNI_PRO
+  AND  CONTAGEM.CD_ESTOQUE       = ESTOQUE.CD_ESTOQUE
+  AND  ITCONTAGEM.CD_PRODUTO   = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.SN_MESTRE            = 'N'
+  AND  PRODUTO.CD_ESPECIE            = ESPECIE.CD_ESPECIE
+  AND  SETOR.CD_SETOR                    = ESTOQUE.CD_SETOR
+  AND  GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+  AND  trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                                                                                   AND 
+  AND  QTD_ESTOQUE.CD_PRODUTO            = PRODUTO.CD_PRODUTO
+  AND  QTD_ESTOQUE.CD_ESTOQUE             = ESTOQUE.CD_ESTOQUE
+  AND  QTD_ESTOQUE.CD_CONTAGEM          = CONTAGEM.CD_CONTAGEM
+GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , DECODE  (dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                  dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)))
+     , QTD_ESTOQUE.qt_estoque
+union all
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , 0 QTD_CONTAGEM
+     , 0 VL_CUSTO_CONTAGEM
+     , 0 qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM_DA_ABERTURA
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+ WHERE ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+   AND UNI_PRO.CD_PRODUTO                 = PRODUTO.CD_PRODUTO
+   AND UNI_PRO.TP_RELATORIOS              = 'R'
+   AND CONTAGEM.CD_ESTOQUE                = ESTOQUE.CD_ESTOQUE
+   AND ITCONTAGEM_DA_ABERTURA.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+   AND NOT EXISTS (SELECT IC.CD_PRODUTO
+                     FROM DBAMV.ITCONTAGEM IC
+                    WHERE IC.CD_CONTAGEM  = ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM
+                      AND IC.CD_PRODUTO   = ITCONTAGEM_DA_ABERTURA.CD_PRODUTO)
+   AND PRODUTO.SN_MESTRE                  = 'N'
+   AND PRODUTO.CD_ESPECIE                 = ESPECIE.CD_ESPECIE
+   AND NVL(CONTAGEM.SN_ABERTO,'S')        = 'S'
+   AND SETOR.CD_SETOR                     = ESTOQUE.CD_SETOR
+   AND GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+   AND trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                                        GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , CONTAGEM.CD_ESTOQUE
+       , CONTAGEM.CD_CONTAGEM
+       , ITCONTAGEM_DA_ABERTURA.CD_PRODUTO ) tab
+ group by CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+     , CD_SETOR
+     , NM_SETOR
+     , CD_ESPECIE
+     , DS_ESPECIE
+)
+Group by Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,diferenca
+:CAMPO_CF_ORDEM
+)
+ORDER BY CD_GRUPO_DE_CUSTO,DS_GRUPO_DE_CUSTO,
+QUEBRA_SETOR,CD_SETOR,NM_SETOR
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_ESP_R_SETOR4_Q_SAI_SETOR
+SELECT * FROM (
+select Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+     ,diferenca
+      from (
+SELECT  Decode( :CAMPO_LIST_QUEBRA, 'S', Setor.Cd_Setor, 0 ) Quebra_Setor
+              ,GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+              ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+              ,SETOR.CD_SETOR
+              ,SETOR.NM_SETOR
+              ,ESPECIE.CD_ESPECIE
+              ,ESPECIE.DS_ESPECIE
+              , COUNT( ITMVTO_ESTOQUE.CD_PRODUTO) QTD_ITENS_PRODUTO
+              ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                             mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 0, 1 ) ) VL_ATUAL
+               ,SUM(ITMVTO_ESTOQUE.QT_MOVIMENTACAO * (NVL( verif_vl_custo_medio(itmvto_estoque.cd_produto,
+                              mvto_estoque.dt_mvto_estoque,:CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ),
+                              0) * uni_pro.vl_fator ) * decode ( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C',  -1, 'N',
+                              -1,1  ) * decode(itmvto_estoque.tp_estoque, 'D', 1, 0 ) ) VL_DOADO
+       , 0 diferenca
+FROM    DBAMV.MVTO_ESTOQUE
+       ,DBAMV.SETOR
+       ,DBAMV.ESTOQUE
+       ,DBAMV.ITMVTO_ESTOQUE
+       ,DBAMV.UNI_PRO
+       ,DBAMV.PRODUTO
+       ,DBAMV.ESPECIE
+       ,DBAMV.GRUPO_DE_CUSTO
+WHERE  Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DATA_INI AND 
+  AND  MVTO_ESTOQUE.CD_SETOR           = SETOR.CD_SETOR
+  AND  ITMVTO_ESTOQUE.CD_UNI_PRO    = UNI_PRO.CD_UNI_PRO
+  AND  MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+  AND  ITMVTO_ESTOQUE.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.CD_ESPECIE                    = ESPECIE.CD_ESPECIE
+  AND  MVTO_ESTOQUE.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+  AND  SETOR.CD_SETOR BETWEEN :CAMPO_CD_SETOR_INI AND 
+  AND  SETOR.CD_GRUPO_DE_CUSTO      = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+GROUP BY
+     GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+    ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+    ,SETOR.CD_SETOR
+    ,SETOR.NM_SETOR
+    ,ESPECIE.CD_ESPECIE
+    ,ESPECIE.DS_ESPECIE
+union all
+SELECT 0 quebra_setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+     , CD_SETOR
+     , NM_SETOR
+     , CD_ESPECIE
+     , DS_ESPECIE
+     , 0 vl_atual
+      , 0 qtd_itens_produto
+     , 0 vl_doado
+     ,round(sum(( QTD_CONTAGEM * VL_CUSTO_CONTAGEM ) - ( qt_estoque   * VL_CUSTO_CONTAGEM )), 2) diferenca
+FROM (
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , SUM( NVL( ROUND(ITCONTAGEM.QT_ESTOQUE_DOADO, 2), 0) +
+                 NVL( ROUND(ITCONTAGEM.QT_ESTOQUE      , 2), 0) * UNI_PRO.VL_FATOR) QTD_CONTAGEM
+     , DECODE  (dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                dbamv.verif_vl_custo_medio
+               ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                        NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM))) VL_CUSTO_CONTAGEM
+     , round(QTD_ESTOQUE.qt_estoque, 2 )qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+     , ( SELECT CE.CD_PRODUTO
+              , CE.CD_ESTOQUE
+              , CE.CD_CONTAGEM
+              , round(sum(nvl(CE.qt_estoque,0)), 2) qt_estoque
+             FROM DBAMV.copia_estoque CE
+             WHERE Exists ( Select Empresa_Produto.Cd_Produto
+                              From Dbamv.Empresa_Produto
+                             Where Empresa_Produto.Cd_Produto = Ce.Cd_Produto
+                                   :CAMPO_CF_EMPRESAS_SUB_SELECT  )
+             GROUP BY CE.CD_PRODUTO
+                               , CE.CD_ESTOQUE
+                               , CE.CD_CONTAGEM ) QTD_ESTOQUE
+WHERE  ITCONTAGEM.CD_CONTAGEM        = CONTAGEM.CD_CONTAGEM
+  AND  ITCONTAGEM.CD_UNI_PRO     = UNI_PRO.CD_UNI_PRO
+  AND  CONTAGEM.CD_ESTOQUE       = ESTOQUE.CD_ESTOQUE
+  AND  ITCONTAGEM.CD_PRODUTO   = PRODUTO.CD_PRODUTO
+  AND  PRODUTO.SN_MESTRE            = 'N'
+  AND  PRODUTO.CD_ESPECIE            = ESPECIE.CD_ESPECIE
+  AND  SETOR.CD_SETOR                    = ESTOQUE.CD_SETOR
+  AND  GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+  AND  trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                                                                                   AND 
+  AND  QTD_ESTOQUE.CD_PRODUTO            = PRODUTO.CD_PRODUTO
+  AND  QTD_ESTOQUE.CD_ESTOQUE             = ESTOQUE.CD_ESTOQUE
+  AND  QTD_ESTOQUE.CD_CONTAGEM          = CONTAGEM.CD_CONTAGEM
+GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , DECODE  (dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO,
+                  dbamv.verif_vl_custo_medio
+                 ( ITCONTAGEM.CD_PRODUTO, NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM), '', NULL,
+                                          NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)))
+     , QTD_ESTOQUE.qt_estoque
+union all
+SELECT GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+     , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PRODUTO.CD_ESPECIE
+     , ESPECIE.DS_ESPECIE
+     , 0 QTD_CONTAGEM
+     , 0 VL_CUSTO_CONTAGEM
+     , 0 qt_estoque
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM_DA_ABERTURA
+     , DBAMV.UNI_PRO
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.GRUPO_DE_CUSTO
+     , DBAMV.SETOR
+ WHERE ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+   AND UNI_PRO.CD_PRODUTO                 = PRODUTO.CD_PRODUTO
+   AND UNI_PRO.TP_RELATORIOS              = 'R'
+   AND CONTAGEM.CD_ESTOQUE                = ESTOQUE.CD_ESTOQUE
+   AND ITCONTAGEM_DA_ABERTURA.CD_PRODUTO  = PRODUTO.CD_PRODUTO
+   AND NOT EXISTS (SELECT IC.CD_PRODUTO
+                     FROM DBAMV.ITCONTAGEM IC
+                    WHERE IC.CD_CONTAGEM  = ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM
+                      AND IC.CD_PRODUTO   = ITCONTAGEM_DA_ABERTURA.CD_PRODUTO)
+   AND PRODUTO.SN_MESTRE                  = 'N'
+   AND PRODUTO.CD_ESPECIE                 = ESPECIE.CD_ESPECIE
+   AND NVL(CONTAGEM.SN_ABERTO,'S')        = 'S'
+   AND SETOR.CD_SETOR                     = ESTOQUE.CD_SETOR
+   AND GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO   = SETOR.CD_GRUPO_DE_CUSTO
+   AND trunc(CONTAGEM.DT_CONTAGEM)  BETWEEN :CAMPO_DATA_INI
+                                        GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+       , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+       , SETOR.CD_SETOR
+       , SETOR.NM_SETOR
+       , PRODUTO.CD_ESPECIE
+       , ESPECIE.DS_ESPECIE
+       , CONTAGEM.CD_ESTOQUE
+       , CONTAGEM.CD_CONTAGEM
+       , ITCONTAGEM_DA_ABERTURA.CD_PRODUTO ) tab
+ group by CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+     , CD_SETOR
+     , NM_SETOR
+     , CD_ESPECIE
+     , DS_ESPECIE
+)
+Group by Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,diferenca
+:CAMPO_CF_ORDEM
+)
+ORDER BY CD_GRUPO_DE_CUSTO,DS_GRUPO_DE_CUSTO,
+QUEBRA_SETOR,
+CD_SETOR,NM_SETOR

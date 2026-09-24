@@ -1,0 +1,264 @@
+/*----------------------------------------------------------------------------*/
+--R_FLU_CAI_GER
+select  data,
+        nvl( sum( decode( tp_grupo, 'DESPESA', decode( tp_situacao, 'P', vl_total, 'P/R',vl_total, 0 ))), 0 ) vl_Pag_Prev,
+        nvl( sum( decode( tp_grupo, 'DESPESA', decode( tp_situacao, 'R', vl_total, 'P/R',vl_total, 0 ))), 0 ) vl_Pag_Realiz,
+        nvl( sum( decode( tp_grupo, 'RECEITA', decode( tp_situacao, 'P', vl_total, 'P/R',vl_total, 0 ))), 0 ) vl_Receb_Prev,
+        nvl( sum( decode( tp_grupo, 'RECEITA', decode( tp_situacao, 'R', vl_total, 'P/R',vl_total, 0 ))), 0 ) vl_Receb_Realiz
+  from  (
+            select  'DESPESA'           tp_grupo,
+                    'P'                 tp_situacao,
+                    trunc(itcon_pag.dt_vencimento) data,
+                    sum(round((nvl(ratcon_pag.vl_rateio, 0) / (con_pag.vl_bruto_conta + nvl(con_pag.vl_desconto, 0) - nvl(con_pag.vl_acrescimo, 0)))
+                    * (itcon_pag.vl_duplicata), 2) ) vl_total
+              from  dbamv.con_pag       con_pag,
+                    dbamv.itcon_pag     itcon_pag,
+                    dbamv.ratcon_pag    ratcon_pag
+             where  trunc(itcon_pag.dt_vencimento) >= :CAMPO_DATA_INI
+               and  trunc(itcon_pag.dt_vencimento) < :CAMPO_DATA_FIM + 1
+               and  con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and  con_pag.cd_con_pag = ratcon_pag.cd_con_pag
+               and  con_pag.cd_con_pag = itcon_pag.cd_con_pag
+               and not exists (select c.cd_con_pag
+                                         from dbamv.con_pag c
+                                              , dbamv.processo p
+                                      where c.cd_processo = p.cd_processo
+                                         and p.cd_multi_empresa = con_pag.cd_multi_empresa
+                                         and c.cd_con_pag = con_pag.cd_con_pag
+                                         and p.cd_estrutural in ('1.2.1.1.5'))
+               and  con_pag.cd_con_pag_dev is null
+               and  con_pag.vl_bruto_conta <> 0
+               and  ratcon_pag.vl_rateio <> 0
+            group by 'DESPESA',
+                     'P',
+                     trunc(itcon_pag.dt_vencimento)
+            union all
+            select  'DESPESA'           tp_grupo,
+                    'R'                 tp_situacao,
+                    trunc(pagcon_pag.dt_pagamento) data,
+                    sum(decode(nvl(con_pag.vl_bruto_conta, 0), 0, 0, ROUND((nvl(ratcon_pag.vl_rateio, 0) / (con_pag.vl_bruto_conta + nvl(con_pag.vl_desconto, 0) - nvl(con_pag.vl_acrescimo, 0)))
+                    * NVL (pagcon_pag.vl_pago, 0), 2))) vl_total
+              from  dbamv.con_pag		con_pag,
+                    dbamv.itcon_pag		itcon_pag,
+                    dbamv.ratcon_pag	ratcon_pag,
+                    dbamv.pagcon_pag	pagcon_pag
+             where  con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and  con_pag.cd_con_pag = ratcon_pag.cd_con_pag
+               and  con_pag.cd_con_pag = itcon_pag.cd_con_pag
+               and  pagcon_pag.tp_pagamento <> '3'
+               and  itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+               and not exists (select c.cd_con_pag
+                                         from dbamv.con_pag c
+                                              , dbamv.processo p
+                                      where c.cd_processo = p.cd_processo
+                                         and p.cd_multi_empresa = con_pag.cd_multi_empresa
+                                         and c.cd_con_pag = con_pag.cd_con_pag
+                                         and p.cd_estrutural in ('1.2.1.1.5'))
+               and  con_pag.cd_con_pag_dev is null
+               and  itcon_pag.tp_quitacao in ('Q', 'P')
+               and  con_pag.vl_bruto_conta <> 0
+               and  ratcon_pag.vl_rateio <> 0
+            group by 'DESPESA',
+                     'R',
+                     trunc(pagcon_pag.dt_pagamento)
+            union all
+            select  'DESPESA'           tp_grupo,
+                    'R'                 tp_situacao,
+                    :CAMPO_CF_RET_DATA_PAG_MOV data,
+                    sum(decode(nvl(con_pag.vl_bruto_conta, 0), 0, 0,ROUND((nvl(ratcon_pag.vl_rateio, 0) / (con_pag.vl_bruto_conta + nvl(con_pag.vl_desconto, 0) - nvl(con_pag.vl_acrescimo, 0)))
+                    * NVL (pagcon_pag.vl_pago, 0), 2))) vl_total
+              from  dbamv.con_pag		con_pag,
+                    dbamv.itcon_pag		itcon_pag,
+                    dbamv.ratcon_pag	ratcon_pag,
+                    dbamv.pagcon_pag	pagcon_pag,
+                    dbamv.cheque 		chq,
+                    dbamv.mov_concor mov
+             where  con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and  con_pag.cd_con_pag = itcon_pag.cd_con_pag
+               and  itcon_pag.tp_quitacao in( 'Q', 'P' )
+               and  itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+               and  pagcon_pag.tp_pagamento = '3'
+               and  pagcon_pag.cd_cheque = chq.cd_cheque
+               and  chq.cd_cheque = mov.cd_cheque
+               and  pagcon_pag.cd_con_cor = mov.cd_con_cor
+               and  pagcon_pag.cd_cheque = mov.cd_cheque
+               and not exists (select c.cd_con_pag
+                                         from dbamv.con_pag c
+                                              , dbamv.processo p
+                                      where c.cd_processo = p.cd_processo
+                                         and p.cd_multi_empresa = con_pag.cd_multi_empresa
+                                         and c.cd_con_pag = con_pag.cd_con_pag
+                                         and p.cd_estrutural in ('1.2.1.1.5'))
+               and  con_pag.cd_con_pag_dev is null
+               and  con_pag.cd_con_pag = ratcon_pag.cd_con_pag
+               and  con_pag.vl_bruto_conta <> 0
+               and  ratcon_pag.vl_rateio <> 0
+            group by 'DESPESA',
+                     'R',
+                     :CAMPO_CF_RET_DATA_PAG_MOV
+            union all
+            select	'RECEITA'        tp_grupo,
+                    'P'              tp_situacao,
+                    trunc(itcon_rec.dt_prevista_recebimento) data,
+                    sum(rat_conrec.vl_rateio) vl_total
+              from  dbamv.con_rec con_rec,
+                    dbamv.itcon_rec itcon_rec,
+                    dbamv.rat_conrec rat_conrec
+             where  itcon_rec.dt_prevista_recebimento >= :CAMPO_DATA_INI
+               and  itcon_rec.dt_prevista_recebimento < :CAMPO_DATA_FIM + 1
+               and  con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and  itcon_rec.cd_con_rec = con_rec.cd_con_rec
+               and  con_rec.cd_con_rec = rat_conrec.cd_con_rec
+            group by 'RECEITA',
+                     'P',
+                     trunc(itcon_rec.dt_prevista_recebimento)
+            union all
+            select  'RECEITA'           tp_grupo,
+                    'R'                 tp_situacao,
+                    trunc(reccon_rec.dt_recebimento) data,
+                    sum(dbamv.calcula_valor_rateio ( con_rec.cd_con_rec , rat_conrec.rowid , Reccon_rec.Vl_Recebido , rat_conrec.vl_Rateio)) vl_total
+              from  dbamv.con_rec 		con_rec,
+                    dbamv.itcon_rec 	itcon_rec,
+                    dbamv.rat_conrec 	rat_conrec,
+                    dbamv.reccon_rec 	reccon_rec
+             where  con_rec.cd_con_rec = itcon_rec.cd_con_rec
+               and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+               and  (reccon_rec.tp_recebimento not in ('1', '4')
+                    or (   reccon_rec.tp_recebimento = '4' and
+                        exists (select  'X'
+                                  from  dbamv.rec_mov_con   rmov,
+                                        dbamv.mov_concor    movc
+                                 where  rmov.cd_reccon_rec = reccon_rec.cd_reccon_rec
+                                   and  rmov.cd_mov_concor = movc.cd_mov_concor
+                                   and  movc.cd_fornecedor is null
+                                   and  movc.cd_lan_concor not in (select conf.cd_lanca_credito_convenio
+                                                                     from dbamv.config_financ conf
+                                                                    where conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA))))
+               and  con_rec.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+               and  itcon_rec.tp_quitacao IN ('Q', 'P', 'G', 'L')
+               and  rat_conrec.cd_con_rec(+) = con_rec.cd_con_rec
+               and  reccon_rec.dt_estorno is null
+               and  reccon_rec.dt_recebimento >= :CAMPO_DATA_INI
+               and  reccon_rec.dt_recebimento < :CAMPO_DATA_FIM + 1
+            group by 'RECEITA',
+                     'R',
+                     trunc(reccon_rec.dt_recebimento)
+            union all
+            select  'RECEITA'           tp_grupo,
+                    'R'                 tp_situacao,
+                    trunc(reccon_rec.dt_recebimento) data,
+                    sum(dbamv.calcula_valor_rateio ( con_rec.cd_con_rec , rat_conrec.rowid , Reccon_rec.Vl_Recebido , rat_conrec.vl_Rateio)) vl_total
+              from  dbamv.con_rec 		con_rec,
+                    dbamv.itcon_rec 	itcon_rec,
+                    dbamv.rat_conrec 	rat_conrec,
+                    dbamv.reccon_rec 	reccon_rec,
+                    dbamv.rec_mov_con  rec_mov_con,
+                    dbamv.mov_concor   mov_concor,
+                    dbamv.lan_concor   lan_concor,
+                    dbamv.config_financ conf
+             where  con_rec.cd_con_rec = itcon_rec.cd_con_rec
+               and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+               and  reccon_rec.cd_reccon_rec = rec_mov_con.cd_reccon_rec
+               and  rec_mov_con.cd_mov_concor = mov_concor.cd_mov_concor
+               and  mov_concor.cd_lan_concor = lan_concor.cd_lan_concor
+               and  conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and  mov_concor.cd_lan_concor = conf.cd_lanca_credito_convenio
+               and  mov_concor.cd_fornecedor = con_rec.cd_fornecedor
+               and  Reccon_rec.tp_recebimento = '4'
+               and  con_rec.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+               and  itcon_rec.tp_quitacao IN ('Q', 'P', 'G', 'L')
+               and  rat_conrec.cd_con_rec(+) = con_rec.cd_con_rec
+               and  reccon_rec.dt_estorno is null
+               and  reccon_rec.dt_recebimento >= :CAMPO_DATA_INI
+               and  reccon_rec.dt_recebimento < :CAMPO_DATA_FIM + 1
+            group by 'RECEITA',
+                     'R',
+                     trunc(reccon_rec.dt_recebimento)
+            union all
+            select  'RECEITA'             tp_grupo,
+                    'R'                   tp_situacao,
+                    :CAMPO_CF_RET_DATA_REC_MOV_CC_CX data,
+                    sum(dbamv.calcula_valor_rateio ( con_rec.cd_con_rec , rat_conrec.rowid , Reccon_rec.Vl_Recebido , rat_conrec.vl_Rateio)) vl_total
+              from  dbamv.con_rec    	  con_rec,
+                    dbamv.itcon_rec       itcon_rec,
+                    dbamv.rat_conrec      rat_conrec,
+                    dbamv.reccon_rec      reccon_rec,
+                    dbamv.doc_caixa       doc,
+                    dbamv.mov_concor      cc,
+                    dbamv.mov_caixa
+             where  con_rec.cd_con_rec = itcon_rec.cd_con_rec
+               and  con_rec.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+               and  reccon_rec.cd_itcon_rec     = itcon_rec.cd_itcon_rec
+               and  reccon_rec.tp_recebimento   = '1'
+               and  reccon_rec.cd_caixa is not null
+               and  reccon_rec.cd_doc_caixa = doc.cd_doc_caixa
+               and  reccon_rec.cd_mov_caixa = mov_caixa.cd_mov_caixa
+               and  doc.cd_doc_caixa        = mov_caixa.cd_doc_caixa
+               and  itcon_rec.tp_quitacao in ('Q', 'P', 'G', 'L')
+               and  rat_conrec.cd_con_rec(+) = con_rec.cd_con_rec
+               and  reccon_rec.dt_estorno is null
+            group by 'RECEITA',
+                     'R',
+                     :CAMPO_CF_RET_DATA_REC_MOV_CC_CX
+            union all
+            select  'RECEITA'               tp_grupo,
+                    'R'                     tp_situacao,
+                    :CAMPO_CF_RET_DATA_REC_MOV    data,
+                    sum(dbamv.calcula_valor_rateio ( con_rec.cd_con_rec , rat_conrec.rowid , Reccon_rec.Vl_Recebido , rat_conrec.vl_Rateio)) vl_total
+              from  dbamv.con_rec     	    con_rec,
+                    dbamv.itcon_rec         itcon_rec,
+                    dbamv.reccon_rec        reccon_rec,
+                    dbamv.rec_mov_con       rec_mc,
+                    dbamv.mov_concor        cc,
+                    dbamv.rat_conrec  rat_conrec
+             where  con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and  con_rec.cd_con_rec = itcon_rec.cd_con_rec
+               and  itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' )
+               and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+               and  reccon_rec.tp_recebimento = '1'
+               and  reccon_rec.cd_caixa is null
+               and  reccon_rec.cd_reccon_rec = rec_mc.cd_reccon_rec
+               and  rec_mc.cd_mov_concor  = cc.cd_mov_concor
+               and  rat_conrec.cd_con_rec(+) = con_rec.cd_con_rec
+               and  reccon_rec.dt_estorno is null
+            group by 'RECEITA',
+                     'R',
+                     :CAMPO_CF_RET_DATA_REC_MOV
+            union all
+            select  decode( lan_concor.tp_operacao_saldo_conta, '0', decode(lan_concor.tp_operacao_saldo_aplicacao, '-', 'DESPESA', 'RECEITA'),'-', 'DESPESA', 'RECEITA' ) tp_grupo,
+                    'P/R' tp_situacao,
+                    trunc( mov_concor.dt_movimentacao) data,
+                    sum(nvl(mov_concor.vl_movimentacao, 0) - nvl( Mov_concor.vl_conciliado, 0 )) vl_total
+              from  dbamv.mov_concor,
+                    dbamv.con_cor,
+                    dbamv.lan_concor
+             where  mov_concor.dt_movimentacao >= :CAMPO_DATA_INI
+               and  mov_concor.dt_movimentacao < :CAMPO_DATA_FIM + 1
+               and  con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and  mov_concor.cd_con_cor = con_cor.cd_con_cor
+               and  lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+               and  ( (  mov_concor.cd_aplicacao is not null and nvl( lan_concor.tp_operacao_saldo_conta, '0' )  = '0'
+                    and nvl( lan_concor.tp_operacao_saldo_aplicacao, '0' )  <> '0' )
+                    or  mov_concor.cd_aplicacao is null )
+               and  mov_concor.cd_bordero is null
+               and  mov_concor.cd_con_cor_transferencia is null
+               and  mov_concor.cd_mov_concor_transferencia is null
+               and  mov_concor.cd_mov_caixa is null
+               and  mov_concor.cd_pagcon_pag is null
+               and  mov_concor.cd_cheque is null
+               and  mov_concor.vl_movimentacao  - nvl( Mov_concor.vl_conciliado, 0 ) > 0
+               and (not exists( select cd_mov_concor
+                                 from dbamv.rec_mov_con r
+                                where r.cd_mov_concor = Mov_concor.cd_mov_concor )
+                    or exists( select cd_mov_concor
+                                 from dbamv.rec_mov_con r
+                                where r.cd_mov_concor = Mov_concor.cd_mov_concor
+                              and mov_concor.cd_fornecedor is not null
+                              and mov_concor.cd_lan_concor  in ( select conf.cd_lanca_credito_convenio
+                                                                   from dbamv.config_financ conf
+                                                                  where conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)))
+            group by decode( lan_concor.tp_operacao_saldo_conta, '0', decode(lan_concor.tp_operacao_saldo_aplicacao, '-', 'DESPESA', 'RECEITA'),'-', 'DESPESA', 'RECEITA' ),
+                     'P/R',
+                     trunc( mov_concor.dt_movimentacao) )
+group by data
+order by data

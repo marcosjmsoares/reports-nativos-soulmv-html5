@@ -1,0 +1,134 @@
+/*----------------------------------------------------------------------------*/
+--R_PAGGRURES_SINT
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PAGGRURES_SINT_R_CD_GRU_RES_G_PAGGRURES
+SELECT CD_GRU_RES
+      ,DS_GRU_RES
+      ,CD_ITEM_RES
+      ,DS_ITEM_RES
+      ,NM_FANTASIA
+      ,Sum(VL_BRUTO) VL_BRUTO
+      ,Sum(VL_ACRESCIMO_CONTA) VL_ACRESCIMO_CONTA
+      ,Sum(VL_DESCONTO_CONTA) VL_DESCONTO_CONTA
+      ,Sum(VL_ACRESCIMO_TOTAL) VL_ACRESCIMO
+      ,Sum(VL_DESCONTO) VL_DESCONTO
+      ,Sum(VL_PAGO) VL_PAGO
+      ,Round(Sum((vl_pago_real * vl_rateio)/decode(vl_bruto,0,1,vl_bruto)),2) vl_rateio
+  FROM (
+SELECT GRU_RES.CD_GRU_RES CD_GRU_RES
+      ,GRU_RES.DS_GRU_RES DS_GRU_RES
+      ,ITEM_RES.CD_ITEM_RES CD_ITEM_RES
+      ,ITEM_RES.DS_ITEM_RES DS_ITEM_RES
+      ,DECODE( CON_PAG.CD_FORNECEDOR, '',CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA) NM_FANTASIA
+      ,Sum((NVL(CON_PAG.VL_BRUTO_CONTA,0) + (NVL(CON_PAG.VL_DESCONTO,0) - NVL(CON_PAG.VL_ACRESCIMO,0)))) VL_BRUTO
+      ,Sum(nvl(CON_PAG.VL_ACRESCIMO,0)) VL_ACRESCIMO_CONTA
+      ,Sum(nvl(CON_PAG.VL_DESCONTO,0)) VL_DESCONTO_CONTA
+      ,0 VL_ACRESCIMO
+      ,Sum(dbamv.calcula_valor_rateio (con_pag.cd_con_pag, ratcon_pag.ROWID,(NVL (pagcon_pag.VL_ACRESCIMO,0) ),ratcon_pag.vl_rateio,2)) VL_ACRESCIMO_TOTAL
+      ,Sum(dbamv.calcula_valor_rateio (con_pag.cd_con_pag, ratcon_pag.ROWID,(NVL (pagcon_pag.VL_DESCONTO,0) ),ratcon_pag.vl_rateio,2)) VL_DESCONTO
+      ,Sum(dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                   ratcon_pag.ROWID,
+                                  (NVL (pagcon_pag.vl_pago, 0)),
+                                  ratcon_pag.vl_rateio,2)) VL_PAGO
+      ,Sum(RATCON_PAG.VL_RATEIO) VL_RATEIO
+      ,Sum(NVL (pagcon_pag.vl_pago, 0) - NVL (pagcon_pag.vl_acrescimo,0) + NVL (pagcon_pag.vl_desconto,0)) vl_pago_real
+  FROM dbamv.PAGCON_PAG       PAGCON_PAG
+      ,dbamv.ITCON_PAG        ITCON_PAG
+      ,dbamv.CON_PAG          CON_PAG
+      ,dbamv.RATCON_PAG       RATCON_PAG
+      ,dbamv.ITEM_RES         ITEM_RES
+      ,dbamv.FORNECEDOR       FORNECEDOR
+      ,dbamv.GRU_RES          GRU_RES
+      ,DBAMV.SETOR            SETOR
+      ,dbamv.BORDERO          BORDERO
+ WHERE CON_PAG.CD_MULTI_EMPRESA             = :CAMPO_CD_MULTI_EMPRESA
+   AND CON_PAG.CD_CON_PAG                   = RATCON_PAG.CD_CON_PAG(+)
+   AND RATCON_PAG.CD_ITEM_RES               = ITEM_RES.CD_ITEM_RES(+)
+   AND ITEM_RES.CD_GRU_RES                  = GRU_RES.CD_GRU_RES(+)
+   AND CON_PAG.CD_CON_PAG                   = ITCON_PAG.CD_CON_PAG
+   AND ITCON_PAG.CD_ITCON_PAG               = PAGCON_PAG.CD_ITCON_PAG
+   AND CON_PAG.CD_FORNECEDOR                =  FORNECEDOR.CD_FORNECEDOR(+)
+   AND PAGCON_PAG.CD_BORDERO                = BORDERO.CD_BORDERO(+)
+   AND  PAGCON_PAG.TP_PAGAMENTO             <> '3'
+   AND NOT EXISTS (SELECT CD_CON_PAG_AGRUP
+                     FROM DBAMV.ITCON_PAG
+                    WHERE CD_CON_PAG_AGRUP = CON_PAG.CD_CON_PAG)
+   AND CON_PAG.CD_PREVISAO   IS NULL
+   AND NOT (RATCON_PAG.VL_RATEIO = 0)
+ AND ITCON_PAG.TP_QUITACAO LIKE :CAMPO_QUITACAO
+GROUP BY GRU_RES.CD_GRU_RES
+      ,GRU_RES.DS_GRU_RES
+      ,ITEM_RES.CD_ITEM_RES
+      ,ITEM_RES.DS_ITEM_RES
+      ,CON_PAG.CD_FORNECEDOR
+      ,CON_PAG.DS_FORNECEDOR
+      ,FORNECEDOR.NM_FANTASIA
+      ,PAGCON_PAG.VL_ACRESCIMO
+      ,PAGCON_PAG.VL_DESCONTO
+UNION ALL
+SELECT GRU_RES.CD_GRU_RES CD_GRU_RES
+      ,GRU_RES.DS_GRU_RES DS_GRU_RES
+      ,ITEM_RES.CD_ITEM_RES CD_ITEM_RES
+      ,ITEM_RES.DS_ITEM_RES DS_ITEM_RES
+      ,DECODE( CON_PAG.CD_FORNECEDOR, '',CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA) NM_FANTASIA
+      ,Sum((NVL(CON_PAG.VL_BRUTO_CONTA,0) + (NVL(CON_PAG.VL_DESCONTO,0) - NVL(CON_PAG.VL_ACRESCIMO,0)))) VL_BRUTO
+      ,Sum(nvl(CON_PAG.VL_ACRESCIMO,0)) VL_ACRESCIMO_CONTA
+      ,Sum(nvl(CON_PAG.VL_DESCONTO,0)) VL_DESCONTO_CONTA
+      ,0 VL_ACRESCIMO
+      ,Sum(dbamv.calcula_valor_rateio (con_pag.cd_con_pag, ratcon_pag.ROWID,(NVL (pagcon_pag.VL_ACRESCIMO,0) ),ratcon_pag.vl_rateio,2)) VL_ACRESCIMO_TOTAL
+      ,Sum(dbamv.calcula_valor_rateio (con_pag.cd_con_pag, ratcon_pag.ROWID,(NVL (pagcon_pag.VL_DESCONTO,0) ),ratcon_pag.vl_rateio,2)) VL_DESCONTO
+      ,Sum(dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                   ratcon_pag.ROWID,
+                                  (NVL (pagcon_pag.vl_pago, 0)),
+                                  ratcon_pag.vl_rateio,2)) VL_PAGO
+      ,Sum(RATCON_PAG.VL_RATEIO) VL_RATEIO
+      ,Sum(NVL (pagcon_pag.vl_pago, 0) - NVL (pagcon_pag.vl_acrescimo,0) + NVL (pagcon_pag.vl_desconto,0)) vl_pago_real
+  FROM dbamv.PAGCON_PAG       PAGCON_PAG
+      ,dbamv.ITCON_PAG        ITCON_PAG
+      ,dbamv.CON_PAG          CON_PAG
+      ,dbamv.RATCON_PAG       RATCON_PAG
+      ,dbamv.ITEM_RES         ITEM_RES
+      ,dbamv.FORNECEDOR       FORNECEDOR
+	  ,dbamv.CHEQUE           CHEQUE
+      ,dbamv.GRU_RES          GRU_RES
+      ,DBAMV.MOV_CONCOR       MOV_CONCOR
+      ,DBAMV.SETOR            SETOR
+ WHERE CON_PAG.CD_MULTI_EMPRESA    = :CAMPO_CD_MULTI_EMPRESA
+   AND CON_PAG.CD_CON_PAG          = RATCON_PAG.CD_CON_PAG(+)
+   AND RATCON_PAG.CD_ITEM_RES      = ITEM_RES.CD_ITEM_RES(+)
+   AND ITEM_RES.CD_GRU_RES         = GRU_RES.CD_GRU_RES(+)
+   AND CON_PAG.CD_CON_PAG          = ITCON_PAG.CD_CON_PAG
+   AND ITCON_PAG.CD_ITCON_PAG      = PAGCON_PAG.CD_ITCON_PAG
+   AND CON_PAG.CD_FORNECEDOR       =  FORNECEDOR.CD_FORNECEDOR(+)
+   AND PAGCON_PAG.CD_CHEQUE        = CHEQUE.CD_CHEQUE(+)
+   AND PAGCON_PAG.CD_PAGCON_PAG    = MOV_CONCOR.CD_PAGCON_PAG
+   AND  PAGCON_PAG.TP_PAGAMENTO    = '3'
+   AND NOT EXISTS (SELECT CD_CON_PAG_AGRUP
+                     FROM DBAMV.ITCON_PAG
+                    WHERE CD_CON_PAG_AGRUP = CON_PAG.CD_CON_PAG)
+   AND CON_PAG.CD_PREVISAO IS NULL
+   AND NOT (RATCON_PAG.VL_RATEIO = 0)
+AND ITCON_PAG.TP_QUITACAO LIKE :CAMPO_QUITACAO
+GROUP BY GRU_RES.CD_GRU_RES
+      ,GRU_RES.DS_GRU_RES
+      ,ITEM_RES.CD_ITEM_RES
+      ,ITEM_RES.DS_ITEM_RES
+      ,CON_PAG.CD_FORNECEDOR
+      ,CON_PAG.DS_FORNECEDOR
+      ,FORNECEDOR.NM_FANTASIA
+      ,PAGCON_PAG.VL_ACRESCIMO
+      ,PAGCON_PAG.VL_DESCONTO
+)
+GROUP BY CD_GRU_RES
+      ,DS_GRU_RES
+      ,CD_ITEM_RES
+      ,DS_ITEM_RES
+      ,NM_FANTASIA
+ORDER BY DS_GRU_RES,CD_GRU_RES,
+DS_ITEM_RES,CD_ITEM_RES,
+NM_FANTASIA,
+VL_BRUTO

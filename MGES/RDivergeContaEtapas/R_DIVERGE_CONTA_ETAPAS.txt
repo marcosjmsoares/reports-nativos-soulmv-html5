@@ -1,0 +1,187 @@
+/*----------------------------------------------------------------------------*/
+--R_DIVERGE_CONTA_ETAPAS
+Select CD_ESPECIE,
+       DS_ESPECIE,
+       CD_ESTOQUE,
+       DT_CONTAGEM,
+       DT_GERACAO,
+       HR_CONTAGEM,
+       SN_ABERTO,
+       DS_ESTOQUE,
+       CD_CONTAGEM,
+       CD_PRODUTO,
+       CD_SEQUENCIAL,
+       DS_PRODUTO,
+       DS_UNIDADE,
+       QTD_CONTAGEM,
+       VL_CUSTO_CONTAGEM
+  From (Select P.CD_ESPECIE,
+               ES.DS_ESPECIE,
+               C.CD_ESTOQUE,
+               C.DT_CONTAGEM,
+               C.DT_GERACAO,
+               C.HR_CONTAGEM,
+               C.SN_ABERTO,
+               E.DS_ESTOQUE,
+               C.CD_CONTAGEM,
+               ICA.CD_PRODUTO,
+               ICA.CD_SEQUENCIAL,
+               P.DS_PRODUTO,
+               DBAMV.Verif_Ds_Unid_Prod(P.CD_PRODUTO, 'G') As DS_UNIDADE,
+               Sum(Nvl(Nvl(Nvl(ITCOAB.QT_CONTAGEM3,
+                               ITCOAB.QT_CONTAGEM2),
+                           ITCOAB.QT_CONTAGEM1),
+                       0) * DBAMV.MGES.F_Checa_Uni_Pro(ITCOAB.CD_UNI_PRO, P.CD_PRODUTO)) / DBAMV.Verif_Vl_Fator_Prod(P.CD_PRODUTO, 'G') As QTD_CONTAGEM,
+               DBAMV.Verif_Vl_Custo_Medio(ICA.CD_PRODUTO, C.DT_CONTAGEM, 'H', Null, C.HR_CONTAGEM) * DBAMV.Verif_Vl_Fator_Prod(P.CD_PRODUTO, 'G') As VL_CUSTO_CONTAGEM
+          From DBAMV.CONTAGEM C
+    Inner Join DBAMV.ITCONTAGEM_DA_ABERTURA ICA On
+               ICA.CD_CONTAGEM = C.CD_CONTAGEM
+    Inner Join DBAMV.ITEM_CONTAGEM_ABERTA ITCOAB On
+               ITCOAB.CD_CONTAGEM = ICA.CD_CONTAGEM
+           And ITCOAB.CD_PRODUTO = ICA.CD_PRODUTO
+           And ITCOAB.NR_SEQUENCIAL = 0
+    Inner Join DBAMV.PRODUTO P On
+               P.CD_PRODUTO = ICA.CD_PRODUTO
+           And P.SN_MESTRE = 'N'
+    Inner Join DBAMV.ESTOQUE E On
+               E.CD_ESTOQUE = C.CD_ESTOQUE
+           And E.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    Inner Join DBAMV.ESPECIE ES On
+               ES.CD_ESPECIE = P.CD_ESPECIE
+         Where C.CD_CONTAGEM Between Nvl(Replace(:CAMPO_CD_CONTAGEM,
+                                                 '%',
+                                                 Null),
+                                         0)
+                                 And Nvl(Replace(:CAMPO_CD_CONTAGEM,
+                                                 '%',
+                                                 Null),
+                                         99999999)
+           And Nvl(C.SN_ABERTO,
+                   'S') = 'S'
+      Group By P.CD_ESPECIE,
+               ES.DS_ESPECIE,
+               C.CD_ESTOQUE,
+               C.DT_CONTAGEM,
+               C.DT_GERACAO,
+               C.HR_CONTAGEM,
+               C.SN_ABERTO,
+               E.DS_ESTOQUE,
+               C.CD_CONTAGEM,
+               ICA.CD_PRODUTO,
+               ICA.CD_SEQUENCIAL,
+               P.DS_PRODUTO,
+               P.CD_PRODUTO
+     Union All
+        Select P.CD_ESPECIE,
+               ES.DS_ESPECIE,
+               C.CD_ESTOQUE,
+               C.DT_CONTAGEM,
+               C.DT_GERACAO,
+               C.HR_CONTAGEM,
+               C.SN_ABERTO,
+               E.DS_ESTOQUE,
+               C.CD_CONTAGEM,
+               IC.CD_PRODUTO,
+               IC.CD_LINHA As CD_SEQUENCIAL,
+               P.DS_PRODUTO,
+               DBAMV.Verif_Ds_Unid_Prod(P.CD_PRODUTO, 'G') As DS_UNIDADE,
+               Sum((Nvl(IC.QT_KIT,
+                        0) + Nvl(IC.QT_ESTOQUE_DOADO,
+                                 0) + Nvl(IC.QT_ESTOQUE,
+                                          0)) * UP.VL_FATOR) / DBAMV.Verif_Vl_Fator_Prod(P.CD_PRODUTO, 'G') As QTD_CONTAGEM,
+               DBAMV.Verif_Vl_Custo_Medio(IC.CD_PRODUTO, Nvl(C.DT_GERACAO, C.DT_CONTAGEM), 'H', IC.VL_CUSTO_MEDIO / UP.VL_FATOR, Nvl(C.HR_GERACAO, C.HR_CONTAGEM)) * DBAMV.Verif_Vl_Fator_Prod(P.CD_PRODUTO, 'G') As VL_CUSTO_CONTAGEM
+          From DBAMV.CONTAGEM C
+    Inner Join DBAMV.ITCONTAGEM IC On
+               IC.CD_CONTAGEM = C.CD_CONTAGEM
+    Inner Join DBAMV.ESTOQUE E On
+               E.CD_ESTOQUE = C.CD_ESTOQUE
+           And E.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    Inner Join DBAMV.PRODUTO P On
+               P.CD_PRODUTO = IC.CD_PRODUTO
+           And P.SN_MESTRE = 'N'
+    Inner Join DBAMV.UNI_PRO UP On
+               UP.CD_UNI_PRO = IC.CD_UNI_PRO
+    Inner Join DBAMV.ESPECIE ES On
+               ES.CD_ESPECIE = P.CD_ESPECIE
+         Where C.CD_CONTAGEM Between Nvl(Replace(:CAMPO_CD_CONTAGEM,
+                                                 '%',
+                                                 Null),
+                                         0)
+                                 And Nvl(Replace(:CAMPO_CD_CONTAGEM,
+                                                 '%',
+                                                 Null),
+                                         99999999)
+           And Nvl(C.SN_ABERTO,
+                   'S') = 'N'
+           And Nvl(C.NR_SEQUENCIA,
+                   0) = 0
+      Group By P.CD_ESPECIE,
+               ES.DS_ESPECIE,
+               C.CD_ESTOQUE,
+               C.DT_CONTAGEM,
+               C.DT_GERACAO,
+               C.HR_CONTAGEM,
+               C.SN_ABERTO,
+               E.DS_ESTOQUE,
+               C.CD_CONTAGEM,
+               IC.CD_PRODUTO,
+               IC.CD_LINHA,
+               P.DS_PRODUTO,
+               P.CD_PRODUTO,
+               IC.VL_CUSTO_MEDIO,
+               UP.VL_FATOR,
+               C.HR_GERACAO
+     Union All
+        Select P.CD_ESPECIE,
+               ES.DS_ESPECIE,
+               C.CD_ESTOQUE,
+               C.DT_CONTAGEM,
+               C.DT_GERACAO,
+               C.HR_CONTAGEM,
+               C.SN_ABERTO,
+               E.DS_ESTOQUE,
+               C.CD_CONTAGEM,
+               ICA.CD_PRODUTO,
+               ICA.CD_SEQUENCIAL,
+               P.DS_PRODUTO,
+               DBAMV.Verif_Ds_Unid_Prod(P.CD_PRODUTO, 'G') As DS_UNIDADE,
+               0 As QTD_CONTAGEM,
+               DBAMV.Verif_Vl_Custo_Medio(ICA.CD_PRODUTO, C.DT_CONTAGEM, 'H', Null, C.HR_CONTAGEM) * DBAMV.Verif_Vl_Fator_Prod(P.CD_PRODUTO, 'G') As VL_CUSTO_CONTAGEM
+          From DBAMV.CONTAGEM C
+    Inner Join DBAMV.ITCONTAGEM_DA_ABERTURA ICA On
+               ICA.CD_CONTAGEM = C.CD_CONTAGEM
+    Inner Join DBAMV.ESTOQUE E On
+               E.CD_ESTOQUE = C.CD_ESTOQUE
+           And E.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    Inner Join DBAMV.PRODUTO P On
+               P.CD_PRODUTO = ICA.CD_PRODUTO
+           And P.SN_MESTRE = 'N'
+    Inner Join DBAMV.ESPECIE ES On
+               ES.CD_ESPECIE = P.CD_ESPECIE
+         Where C.CD_CONTAGEM Between Nvl(Replace(:CAMPO_CD_CONTAGEM,
+                                                 '%',
+                                                 Null),
+                                         0)
+                                 And Nvl(Replace(:CAMPO_CD_CONTAGEM,
+                                                 '%',
+                                                 Null),
+                                         99999999)
+           And Nvl(C.SN_ABERTO,
+                   'S') = 'S'
+           And Nvl(C.NR_SEQUENCIA,
+                   0) = 0
+           And Not Exists (Select 1
+                             From DBAMV.ITEM_CONTAGEM_ABERTA ITCOAB
+                            Where ITCOAB.CD_CONTAGEM = C.CD_CONTAGEM
+                              And ITCOAB.CD_PRODUTO = ICA.CD_PRODUTO
+                              And ITCOAB.NR_SEQUENCIAL = 0)
+           :CAMPO_CF_DIGITADO)
+Order By 9,
+       1,
+       Decode('',
+              'C',
+              10),
+       Decode('',
+              'D',
+              12),
+       11

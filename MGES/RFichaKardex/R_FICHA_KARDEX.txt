@@ -1,0 +1,297 @@
+/*----------------------------------------------------------------------------*/
+--R_FICHA_KARDEX
+WITH PRODUTO_CUSTO AS (
+							SELECT     
+								p.vl_custo_medio,
+								p.cd_produto_tem,
+								p.cd_especie,
+								p.cd_produto,
+								p.sn_padronizado,
+								p.cd_pro_fat,
+								DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_MOVIMENTACAO,P.SN_MOVIMENTACAO) sn_movimentacao,
+								DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_BLOQUEIO_DE_COMPRA,P.SN_BLOQUEIO_DE_COMPRA) sn_bloqueio_de_compra,
+								p.sn_consignado,
+								p.sn_admitido,
+								p.cd_classe,
+								p.cd_sub_cla,
+								p.ds_produto,
+								p.sn_mestre,
+								p.sn_kit
+							FROM dbamv.produto p
+								,dbamv.Empresa_Produto Empresa_Produto
+							WHERE Empresa_Produto.cd_produto = p.cd_produto
+							  AND Empresa_Produto.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+  SELECT * FROM (
+				SELECT ITCONTAGEM.CD_PRODUTO                                                                         CD_PRODUTO,
+				       PRODUTO_CUSTO.DS_PRODUTO                                                                            DS_PRODUTO,
+				       PRODUTO_CUSTO.Vl_Custo_Medio                                                                        VL_CUSTO_MEDIO,
+				       dbamv.verif_ds_unid_prod(ITCONTAGEM.CD_PRODUTO)                                               DS_UNIDADE,
+				       sum((NVL(ITCONTAGEM.QT_ESTOQUE, 0) + NVL(ITCONTAGEM.QT_ESTOQUE_DOADO, 0) + nvl( ITCONTAGEM.qt_kit,0 ) ) * UNI_PRO.VL_FATOR) / dbamv.verif_vl_fator_prod(ITCONTAGEM.CD_PRODUTO) QUANTIDADE,
+				       TRUNC(CONTAGEM.DT_GERACAO)                                                                    DT_GERACAO,
+				       to_char(CONTAGEM.HR_GERACAO, 'hh24')                                                    HORA,
+				       trunc(contagem.dt_geracao) + (contagem.hr_geracao - trunc(contagem.hr_geracao)) dh_movimento,
+				      CONTAGEM.CD_CONTAGEM                                                                          DOCUMENTO,
+				       'Contagem - ' || ESTOQUE.DS_ESTOQUE                                                           DS_DESTINO,
+				       'Contagem'                                                                                    OPERACAO,
+				       '0'                                                                                           ORDENACAO,
+				       0                                                                                             VALOR,
+				       ESTOQUE.CD_ESTOQUE                                                                            CD_ESTOQUE,
+				       ESTOQUE.DS_ESTOQUE                                                                            DS_ESTOQUE,
+				       dbamv.verif_vl_fator_prod(ITCONTAGEM.CD_PRODUTO)                                              VL_FATOR,
+				       PRODUTO_CUSTO.SN_CONSIGNADO                                                                         SN_CONSIGNADO,
+				       PRODUTO_CUSTO.SN_CONSIGNADO                                                                         PRODUTO_SN_CONSIG,
+				       CONTAGEM.CD_CONTAGEM                           PRECEDENCIA
+				  FROM dbamv.ITCONTAGEM ITCONTAGEM,
+				       dbamv.CONTAGEM   CONTAGEM,
+				       PRODUTO_CUSTO,
+				       dbamv.UNI_PRO    UNI_PRO,
+				       dbamv.ESTOQUE    ESTOQUE
+				 WHERE
+				        CONTAGEM.DT_GERACAO BETWEEN To_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' '||'00', 'dd/mm/yyyy hh24') AND  To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' '||'23', 'dd/mm/yyyy hh24')
+				       AND TRUNC(CONTAGEM.DT_GERACAO) + (CONTAGEM.HR_GERACAO - TRUNC(CONTAGEM.HR_GERACAO)) BETWEEN :CAMPO_DTINIC AND  
+				       AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+				        AND
+				       ITCONTAGEM.CD_PRODUTO = PRODUTO_CUSTO.CD_PRODUTO AND
+				       ITCONTAGEM.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM AND
+				       ITCONTAGEM.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO AND
+				       CONTAGEM.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE AND
+				       CONTAGEM.TP_CONTAGEM IN ( 'G', 'S' )
+				 GROUP BY ITCONTAGEM.CD_PRODUTO,
+				          PRODUTO_CUSTO.DS_PRODUTO,
+				          PRODUTO_CUSTO.VL_CUSTO_MEDIO,
+				          dbamv.verif_ds_unid_prod(ITCONTAGEM.CD_PRODUTO),
+				          CONTAGEM.DT_GERACAO,
+				          CONTAGEM.HR_GERACAO,
+				          CONTAGEM.CD_CONTAGEM,
+				          ESTOQUE.CD_ESTOQUE,
+				          ESTOQUE.DS_ESTOQUE,
+				          dbamv.verif_vl_fator_prod(ITCONTAGEM.CD_PRODUTO),
+				          PRODUTO_CUSTO.SN_CONSIGNADO
+				UNION ALL
+				  SELECT ITMVTO_ESTOQUE.CD_PRODUTO    CD_PRODUTO,
+				         PRODUTO_CUSTO.DS_PRODUTO           DS_PRODUTO,
+				         PRODUTO_CUSTO.Vl_Custo_Medio       VL_CUSTO_MEDIO,
+				         UNI_PRO.DS_UNIDADE           DS_UNIDADE,
+				         DECODE(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+				                'D',
+				                ITMVTO_ESTOQUE.QT_MOVIMENTACAO,
+				                'C',
+				                ITMVTO_ESTOQUE.QT_MOVIMENTACAO,
+				                ITMVTO_ESTOQUE.QT_MOVIMENTACAO * -1)                       QUANTIDADE,
+				         TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE)                        DT_GERACAO,
+				         TO_CHAR(MVTO_ESTOQUE.HR_MVTO_ESTOQUE, 'hh24')                      HORA,
+				         trunc(mvto_estoque.dt_mvto_estoque) + (mvto_estoque.hr_mvto_estoque - trunc(mvto_estoque.hr_mvto_estoque)) dh_movimento,
+				         MVTO_ESTOQUE.CD_MVTO_ESTOQUE DOCUMENTO,
+				         INITCAP(decode(PACIENTE.NM_PACIENTE,NULL,
+				                     DECODE(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+				                            'T',
+				                            ESTOQUE_DESTINO.DS_ESTOQUE,
+				                            'B',
+				                            'TOMBAMENTO PATRIMONIO',
+				                            'E',
+				                            FORNECEDOR.NM_FORNECEDOR,
+				                            SETOR.NM_SETOR),Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,'P',PACIENTE.NM_PACIENTE||'/'||SETOR.NM_SETOR,PACIENTE.NM_PACIENTE
+				                              )     )  )                      DS_DESTINO,
+				         INITCAP(DECODE(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+				                        'X',
+				                        'BAIXA DE PRODUTOS',
+				                        'B',
+				                        'TOMBAMENTO',
+				                        'S',
+				                        'SAIDA SETOR',
+				                        'P',
+				                        'SAIDA PACIENTE',
+				                        'D',
+				                        'DEVOL. DE SETOR',
+				                        'C',
+				                        'DEVOL. DE PACIENTE',
+				                        'T',
+				                        'TRANSF. DE ESTOQUE',
+				                        'M',
+				                        'MANIPUL. PRODUTOS',
+				                        'O',
+				                        'DOAÇÃO  PRODUTOS',
+				                        'E',
+				                        'SAIDA DE EMPRESTIMO',
+				                        'V',
+				                        'VENDA DE PRODUTOS',
+				                        'R',
+				                        'TRANSF. EMPRESAS',
+				                        'N',
+				                        'DEVOLUCAO DE VENDAS'))                      OPERACAO,
+				         '2'                          ORDENACAO,
+				         0                            VALOR,
+				         ESTOQUE.CD_ESTOQUE CD_ESTOQUE,
+				         ESTOQUE.DS_ESTOQUE DS_ESTOQUE,
+				         UNI_PRO.VL_FATOR,
+				         PRODUTO_CUSTO.SN_CONSIGNADO SN_CONSIGNADO,
+				         PRODUTO_CUSTO.SN_CONSIGNADO PRODUTO_SN_CONSIG,
+				         ITMVTO_ESTOQUE.CD_ITMVTO_ESTOQUE                              PRECEDENCIA
+				    FROM dbamv.MVTO_ESTOQUE   MVTO_ESTOQUE,
+				         dbamv.ITMVTO_ESTOQUE ITMVTO_ESTOQUE,
+				         PRODUTO_CUSTO,
+				         dbamv.UNI_PRO        UNI_PRO,
+				         dbamv.ATENDIME       ATENDIMENTO,
+				         dbamv.PACIENTE       PACIENTE,
+				         dbamv.SETOR          SETOR,
+				         dbamv.ESTOQUE        ESTOQUE,
+				         dbamv.ESTOQUE        ESTOQUE_DESTINO,
+				         dbamv.FORNECEDOR     FORNECEDOR
+				   WHERE
+				          MVTO_ESTOQUE.DT_MVTO_ESTOQUE BETWEEN To_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' '||'00', 'dd/mm/yyyy hh24') AND  To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' '||'23', 'dd/mm/yyyy hh24')
+				         AND TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) + (MVTO_ESTOQUE.HR_MVTO_ESTOQUE - TRUNC(MVTO_ESTOQUE.HR_MVTO_ESTOQUE)) BETWEEN :CAMPO_DTINIC AND  
+				         AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+				         AND ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO_CUSTO.CD_PRODUTO AND
+				         ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE AND
+				         ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO AND
+				         MVTO_ESTOQUE.CD_ATENDIMENTO = ATENDIMENTO.CD_ATENDIMENTO(+) AND
+				         ATENDIMENTO.CD_PACIENTE = PACIENTE.CD_PACIENTE(+) AND
+				         MVTO_ESTOQUE.CD_SETOR = SETOR.CD_SETOR(+) AND
+				         MVTO_ESTOQUE.CD_ESTOQUE_DESTINO = ESTOQUE_DESTINO.CD_ESTOQUE(+) AND
+				         ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO AND
+				         MVTO_ESTOQUE.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE AND
+				         FORNECEDOR.CD_FORNECEDOR(+) = MVTO_ESTOQUE.CD_FORNECEDOR
+				  UNION ALL
+				    SELECT ITENT_PRO.CD_PRODUTO    CD_PRODUTO,
+				           PRODUTO_CUSTO.DS_PRODUTO      DS_PRODUTO,
+				           PRODUTO_CUSTO.Vl_Custo_Medio  VL_CUSTO_MEDIO,
+				           UNI_PRO.DS_UNIDADE      DS_UNIDADE,
+				           ITENT_PRO.QT_ENTRADA    QUANTIDADE,
+				           TRUNC(ENT_PRO.DT_ENTRADA)                   DT_GERACAO,
+				           to_char(ENT_PRO.HR_ENTRADA, 'hh24')                 HORA,
+				          trunc(ent_pro.dt_entrada) + (ent_pro.hr_entrada - trunc(ent_pro.hr_entrada)) dh_movimento,
+				           ENT_PRO.CD_ENT_PRO      DOCUMENTO,
+				           INITCAP(FORNEC.NM_FORNECEDOR)                 DS_DESTINO,
+							INITCAP(Decode(ent_pro.tp_documento_entrada, 'T','CRED. TRANSF. EMPRESAS', TIP_DOC.DS_TIP_DOC)) OPERACAO,
+				           '1'                     ORDENACAO,
+				           itent_pro.vl_custo_real / uni_pro.vl_fator VALOR,
+				           ESTOQUE.CD_ESTOQUE CD_ESTOQUE,
+				           ESTOQUE.DS_ESTOQUE DS_ESTOQUE,
+				           UNI_PRO.VL_FATOR,
+				           ENT_PRO.SN_CONSIGNADO SN_CONSIGNADO,
+				           PRODUTO_CUSTO.SN_CONSIGNADO PRODUTO_SN_CONSIG,
+						   Decode(ent_pro.tp_documento_entrada, 'T', Nvl((SELECT i.cd_itmvto_estoque
+				                                                       FROM dbamv.mvto_estoque m
+				                                                          , dbamv.itmvto_estoque i
+				                                                      WHERE m.cd_mvto_estoque = i.cd_mvto_estoque
+				                                                        AND m.cd_ent_pro      = ent_pro.cd_ent_pro
+				                                                        AND ROWNUM = 1),'')
+				                                              , ITENT_PRO.CD_ITENT_PRO)                              PRECEDENCIA
+				      FROM dbamv.ITENT_PRO ITENT_PRO,
+				           dbamv.ENT_PRO ENT_PRO,
+				           PRODUTO_CUSTO,
+				           dbamv.TIP_DOC TIP_DOC,
+				           dbamv.UNI_PRO UNI_PRO,
+				           dbamv.FORNECEDOR FORNEC,
+				           dbamv.ESTOQUE
+				     WHERE
+				           ENT_PRO.DT_ENTRADA BETWEEN  To_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' '||'00', 'dd/mm/yyyy hh24') AND  To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' '||'23', 'dd/mm/yyyy hh24')
+				           AND TRUNC(ENT_PRO.DT_ENTRADA) + (ENT_PRO.HR_ENTRADA - TRUNC(ENT_PRO.HR_ENTRADA)) BETWEEN :CAMPO_DTINIC AND 
+				           AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+				           AND ITENT_PRO.CD_PRODUTO = PRODUTO_CUSTO.CD_PRODUTO AND
+				           ITENT_PRO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO AND
+				           ENT_PRO.CD_TIP_DOC = TIP_DOC.CD_TIP_DOC AND
+				           ITENT_PRO.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO AND
+				           ENT_PRO.CD_FORNECEDOR = FORNEC.CD_FORNECEDOR(+) AND
+				           ITENT_PRO.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO AND
+				           ENT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+							AND (EXISTS ( SELECT 'X'
+                                   FROM dbamv.ent_pro_conclusao epc
+                                  WHERE epc.dt_conclusao_entrada IS NOT NULL
+                                    AND epc.cd_ent_pro   = ENT_PRO.cd_ent_pro )
+							OR ent_pro.tp_documento_entrada = 'T')
+              AND ENT_PRO.TP_DOCUMENTO_ENTRADA NOT IN ('Z')
+				    UNION ALL
+				      SELECT ITMVTO_ESTOQUE.CD_PRODUTO CD_PRODUTO,
+				             PRODUTO_CUSTO.DS_PRODUTO DS_PRODUTO,
+				             PRODUTO_CUSTO.Vl_Custo_Medio VL_CUSTO_MEDIO,
+				             UNI_PRO.DS_UNIDADE DS_UNIDADE,
+				             ITMVTO_ESTOQUE.QT_MOVIMENTACAO QUANTIDADE,
+				             TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) DT_GERACAO,
+				             to_char(MVTO_ESTOQUE.HR_MVTO_ESTOQUE, 'hh24') HORA,
+				            trunc(mvto_estoque.dt_mvto_estoque) + (mvto_estoque.hr_mvto_estoque - trunc(mvto_estoque.hr_mvto_estoque)) dh_movimento,
+				             MVTO_ESTOQUE.CD_MVTO_ESTOQUE DOCUMENTO,
+				             INITCAP(NVL(PACIENTE.NM_PACIENTE,
+				                         DECODE(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+				                                'T',
+				                                ESTOQUE_DESTINO.DS_ESTOQUE,
+				                                SETOR.NM_SETOR))) DS_DESTINO,
+				             INITCAP(DECODE(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+				                            'T',
+				                            'CRED. TRANSF. EST.')) OPERACAO,
+				             '2' ORDENACAO,
+				             0 VALOR,
+				             ESTOQUE.CD_ESTOQUE CD_ESTOQUE,
+				             ESTOQUE.DS_ESTOQUE DS_ESTOQUE,
+				             UNI_PRO.VL_FATOR,
+				             PRODUTO_CUSTO.SN_CONSIGNADO SN_CONSIGNADO,
+				             PRODUTO_CUSTO.SN_CONSIGNADO PRODUTO_SN_CONSIG,
+				             ITMVTO_ESTOQUE.CD_ITMVTO_ESTOQUE                              PRECEDENCIA
+				        FROM dbamv.MVTO_ESTOQUE   MVTO_ESTOQUE,
+				             dbamv.ITMVTO_ESTOQUE ITMVTO_ESTOQUE,
+				             PRODUTO_CUSTO,
+				             dbamv.UNI_PRO        UNI_PRO,
+				             dbamv.ATENDIME       ATENDIMENTO,
+				             dbamv.PACIENTE       PACIENTE,
+				             dbamv.SETOR          SETOR,
+				             dbamv.ESTOQUE        ESTOQUE,
+				             dbamv.ESTOQUE        ESTOQUE_DESTINO
+				       WHERE
+				              MVTO_ESTOQUE.DT_MVTO_ESTOQUE BETWEEN To_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' '||'00', 'dd/mm/yyyy hh24') AND  To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' '||'23', 'dd/mm/yyyy hh24')
+				             AND TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) + (MVTO_ESTOQUE.HR_MVTO_ESTOQUE - TRUNC(MVTO_ESTOQUE.HR_MVTO_ESTOQUE)) BETWEEN :CAMPO_DTINIC AND 
+				             AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE = 'T' AND
+				             ESTOQUE_destino.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA AND
+							 ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO_CUSTO.CD_PRODUTO AND
+				             ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE AND
+				             ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO AND
+				             MVTO_ESTOQUE.CD_ATENDIMENTO = ATENDIMENTO.CD_ATENDIMENTO(+) AND
+				             ATENDIMENTO.CD_PACIENTE = PACIENTE.CD_PACIENTE(+) AND
+				             MVTO_ESTOQUE.CD_SETOR = SETOR.CD_SETOR(+) AND
+				             MVTO_ESTOQUE.CD_ESTOQUE = ESTOQUE_DESTINO.CD_ESTOQUE AND
+				             ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO AND
+				             ESTOQUE.CD_ESTOQUE = MVTO_ESTOQUE.CD_ESTOQUE_DESTINO AND
+							 ( nvl(PKT_CONFIGEST.RETORNA_CAMPO('SN_CONFIRMA_TRANSF_EST'),'N') = 'N' OR
+							   ( nvl(PKT_CONFIGEST.RETORNA_CAMPO('SN_CONFIRMA_TRANSF_EST'),'N') = 'S' and NVL(MVTO_ESTOQUE.TP_STATUS_CONFIRMACAO,'X') = 'C')
+							  )
+				      union all
+				        SELECT ITDEV_FOR.CD_PRODUTO,
+				               PRODUTO_CUSTO.DS_PRODUTO,
+				               PRODUTO_CUSTO.Vl_Custo_Medio VL_CUSTO_MEDIO,
+				               UNI_PRO.DS_UNIDADE,
+				               ITDEV_FOR.QT_DEVOLVIDA * -1 QUANTIDADE,
+				               TRUNC(DEV_FOR.DT_DEVOLUCAO) DT_GERACAO,
+				               TO_CHAR(DEV_FOR.HR_DEVOLUCAO, 'hh24') HORA,
+				                trunc(dev_for.dt_devolucao) + ( dev_for.hr_devolucao - (dev_for.hr_devolucao)) dh_movimento,
+				               DEV_FOR.CD_DEVOLUCAO DOCUMENTO,
+				               INITCAP(FORNECEDOR.NM_FORNECEDOR) DS_DESTINO,
+				               'Dev. P/ Fornecedor' OPERACAO,
+				               '2' ORDENACAO,
+				               (itent_pro.vl_custo_real / uni_pro.vl_fator) VALOR,
+				               ESTOQUE.CD_ESTOQUE CD_ESTOQUE,
+				               ESTOQUE.DS_ESTOQUE DS_ESTOQUE,
+				               UNI_PRO.VL_FATOR VL_FATOR,
+				               PRODUTO_CUSTO.SN_CONSIGNADO SN_CONSIGNADO,
+				               PRODUTO_CUSTO.SN_CONSIGNADO PRODUTO_SN_CONSIG,
+				              ITDEV_FOR.CD_ITDEV_FOR                              PRECEDENCIA
+				          FROM DBAMV.ESTOQUE,
+				               DBAMV.DEV_FOR,
+				               DBAMV.ITDEV_FOR,
+				               DBAMV.UNI_PRO,
+				               DBAMV.FORNECEDOR,
+				               PRODUTO_CUSTO,
+				               DBAMV.ENT_PRO,
+				               dbamv.itent_pro
+				         WHERE
+				         	DEV_FOR.DT_DEVOLUCAO BETWEEN To_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' '||'00', 'dd/mm/yyyy hh24') AND  To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' '||'23', 'dd/mm/yyyy hh24')
+				          AND  TRUNC(DEV_FOR.DT_DEVOLUCAO) + (DEV_FOR.HR_DEVOLUCAO - TRUNC(DEV_FOR.HR_DEVOLUCAO)) BETWEEN  :CAMPO_DTINIC AND 
+					AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+				        AND ITDEV_FOR.CD_DEVOLUCAO = DEV_FOR.CD_DEVOLUCAO
+					AND ITDEV_FOR.CD_PRODUTO = PRODUTO_CUSTO.CD_PRODUTO
+					AND ITDEV_FOR.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+					AND DEV_FOR.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO
+					AND ENT_PRO.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR
+					AND ENT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+					AND itdev_for.cd_itent_pro = itent_pro.cd_itent_pro
+                    AND ent_pro.tp_documento_entrada NOT IN ('Z')
+					ORDER BY DT_GERACAO, HORA, DS_PRODUTO, ORDENACAO, OPERACAO
+				)

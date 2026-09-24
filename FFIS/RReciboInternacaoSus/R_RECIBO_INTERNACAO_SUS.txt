@@ -1,0 +1,56 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_INTERNACAO_SUS
+SELECT
+   dbamv.pkg_sus_regra_paciente.F_NOME_PACIENTE(ATENDIME.CD_PACIENTE) NM_PACIENTE
+ , DECODE(paciente.NR_ENDERECO, NULL,paciente.DS_ENDERECO,paciente.DS_ENDERECO||',' ) DS_ENDERECO
+ , paciente.NR_ENDERECO
+ , paciente.DS_COMPLEMENTO
+ , cidade.NM_CIDADE
+ , to_number(paciente.NR_CEP) NR_CEP
+ , to_number(reg_fat.NR_GUIA) nr_guia
+ , lpad(paciente.CD_PACIENTE,7,0) cd_paciente
+ , paciente.DT_NASCIMENTO
+ , reg_fat.DT_INICIO
+ , reg_fat.DT_FINAL
+ , carater_internacao.DS_CARATER_INTERNACAO
+ ,carater_atendimento.ds_carater_atendimento  
+ , espec_sus.DS_ESPEC_SUS
+ , nvl(procedimento_sus.cd_procedimento,pro_fat.CD_SUS) cd_sus 
+ , nvl(procedimento_sus.ds_procedimento,pro_fat.ds_SUS) ds_sus  
+ , to_number(prestador.NR_CPF_CGC) nr_cpf_cgc
+ , mot_alt.DS_MOT_ALT
+ , multi_empresas.DS_MULTI_EMPRESA
+ , multi_empresas.VERSAO_ATUALIZACAO
+ , reg_fat.CD_REG_FAT
+FROM
+   DBAMV.ATENDIME atendime
+ , DBAMV.CARATER_INTERNACAO carater_internacao
+, DBAMV.CARATER_ATENDIMENTO
+ , DBAMV.CIDADE cidade
+ , DBAMV.ESPEC_SUS espec_sus
+ , DBAMV.MOT_ALT mot_alt
+ , DBAMV.PACIENTE paciente
+ , DBAMV.PRESTADOR prestador
+ , DBAMV.PRO_FAT pro_fat
+ , DBAMV.PROCEDIMENTO_SUS 
+ , DBAMV.REG_FAT reg_fat
+ , DBAMV.MULTI_EMPRESAS multi_empresas
+ , DBAMV.FATURA fatura
+ , DBAMV.REMESSA_FATURA remessa_fatura
+WHERE
+     (paciente.CD_CIDADE = cidade.CD_CIDADE)
+ AND (atendime.CD_PACIENTE = paciente.CD_PACIENTE)
+ AND (reg_fat.CD_ATENDIMENTO = atendime.CD_ATENDIMENTO)
+ AND (reg_fat.CD_CARATER_INTERNACAO = carater_internacao.CD_CARATER_INTERNACAO(+)) 
+ AND (reg_fat.cd_carater_atendimento = carater_atendimento.cd_carater_atendimento(+))
+ AND (reg_fat.CD_ESPEC_SUS = espec_sus.CD_ESPEC_SUS)
+ AND (reg_fat.CD_PRO_FAT_REALIZADO = pro_fat.CD_PRO_FAT)
+AND (reg_fat.CD_PROCEDIMENTO_REALIZADO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)) 
+ AND (reg_fat.CD_PRESTADOR_RESPONSAVEL = prestador.CD_PRESTADOR)
+ AND (reg_fat.CD_MOT_ALT = mot_alt.CD_MOT_ALT)
+and atendime.cd_multi_empresa = multi_empresas.cd_multi_empresa
+and fatura.cd_fatura = remessa_fatura.cd_fatura
+and remessa_fatura.cd_remessa = reg_fat.cd_remessa
+and dbamv.Pkt_CONFIG_FFIS.retorna_campo('CD_CONVENIO') = reg_fat.cd_convenio
+and multi_empresas.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND to_char(FATURA.DT_COMPETENCIA, 'MM/YYYY') = to_char(:CAMPO_COMPET, 'MM/YYYY')

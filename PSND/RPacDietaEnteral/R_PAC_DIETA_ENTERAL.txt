@@ -1,0 +1,155 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_DIETA_ENTERAL
+SELECT * FROM (
+SELECT  distinct atendime.cd_atendimento,
+       'UNIDADE DE INTERNACAO:'    ATENDIMENTO,
+       unid_int.cd_unid_int,
+       unid_int.ds_unid_int,
+       leito.ds_resumo ds_leito,
+       leito.ds_enfermaria,
+       paciente.cd_paciente || ' - ' ||dbamv.fnc_get_pac_nome(atendime.cd_atendimento)  nm_paciente,
+       RTRIM(dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,SysDate),' ')  nr_idade,
+       paciente.tp_sexo
+FROM   dbamv.atendime,
+       dbamv.leito,
+       dbamv.paciente,
+       dbamv.unid_int,
+       dbamv.itpre_med,
+       dbamv.pre_med,
+       dbamv.for_apl,
+       dbamv.tip_fre,
+       dbamv.tip_presc,
+       dbamv.uni_pro,
+       dbamv.uni_pro uni_pro_inf
+WHERE  atendime.tp_atendimento = 'I'
+AND    atendime.dt_alta IS NULL
+AND   atendime.Cd_Multi_Empresa = nvl(dbamv.pkg_mv2000.le_empresa, atendime.Cd_Multi_Empresa)
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_leito = leito.cd_leito
+AND    leito.cd_unid_int = unid_int.cd_unid_int
+AND    atendime.cd_atendimento = pre_med.cd_atendimento
+AND    pre_med.cd_pre_med = itpre_med.cd_pre_med
+AND    itpre_med.cd_tip_presc = tip_presc.cd_tip_presc
+AND    itpre_med.cd_tip_esq = tip_presc.cd_tip_esq
+AND    itpre_med.cd_for_apl = for_apl.cd_for_apl(+)
+AND    itpre_med.cd_tip_fre = tip_fre.cd_tip_fre(+)
+AND    itpre_med.cd_uni_pro = uni_pro.cd_uni_pro(+)
+AND    itpre_med.cd_uni_pro_inf = uni_pro_inf.cd_uni_pro(+)
+AND    Nvl(itpre_med.sn_cancelado, 'N') = 'N'
+UNION
+SELECT distinct atendime.cd_atendimento,
+       'AMBULATORIO / URGENCIA:'    ATENDIMENTO,
+       0,
+       ori_ate.ds_ori_ate,
+       '' ds_leito,
+       '' ds_leito,
+       paciente.cd_paciente || ' - ' || paciente.nm_paciente nm_paciente,
+       RTRIM(dbamv.pack_internamento.retorna_idade(paciente.dt_nascimento,SysDate),' ')  nr_idade,
+       paciente.tp_sexo
+FROM   dbamv.atendime,
+       dbamv.paciente,
+       dbamv.itpre_med,
+       dbamv.pre_med,
+       dbamv.for_apl,
+       dbamv.tip_fre,
+       dbamv.tip_presc,
+       dbamv.uni_pro,
+       dbamv.uni_pro uni_pro_inf,
+       dbamv.ori_ate
+WHERE  atendime.tp_atendimento <> 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND    atendime.cd_ori_ate = ori_ate.cd_ori_ate
+AND   atendime.Cd_Multi_Empresa = nvl(dbamv.pkg_mv2000.le_empresa, atendime.Cd_Multi_Empresa)
+AND    atendime.cd_atendimento = pre_med.cd_atendimento
+AND    pre_med.cd_pre_med = itpre_med.cd_pre_med
+AND    itpre_med.cd_tip_presc = tip_presc.cd_tip_presc
+AND    itpre_med.cd_tip_esq = tip_presc.cd_tip_esq
+AND    itpre_med.cd_for_apl = for_apl.cd_for_apl(+)
+AND    itpre_med.cd_tip_fre = tip_fre.cd_tip_fre(+)
+AND    itpre_med.cd_uni_pro = uni_pro.cd_uni_pro(+)
+AND    itpre_med.cd_uni_pro_inf = uni_pro_inf.cd_uni_pro(+)
+AND    Nvl(itpre_med.sn_cancelado, 'N') = 'N'
+order by 3,5
+)
+ORDER BY DS_UNID_INT,3,5
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PAC_DIETA_ENTERAL_R_1_Q_1
+SELECT * FROM (
+SELECT itpre_med.ds_itpre_med,
+       itpre_med.ds_itpre_med observacao,
+       '24 Horas' Validade,
+       for_apl.ds_for_apl,
+       itpre_med.qt_itpre_med || ' ' || uni_pro.cd_unidade || decode(itpre_med.tp_tempo,NULL,'','/' || itpre_med.tp_tempo) volume,
+       itpre_med.qt_infusao || ' ' || uni_pro_inf.cd_unidade infusao,
+       tip_fre.ds_tip_fre,
+       tip_presc.ds_tip_presc,
+      atendime.cd_atendimento
+FROM   dbamv.atendime,
+       dbamv.leito,
+       dbamv.paciente,
+       dbamv.unid_int,
+       dbamv.itpre_med,
+       dbamv.pre_med,
+       dbamv.for_apl,
+       dbamv.tip_fre,
+       dbamv.tip_presc,
+       dbamv.uni_pro,
+       dbamv.uni_pro uni_pro_inf
+WHERE  atendime.tp_atendimento = 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND   atendime.Cd_Multi_Empresa = nvl(dbamv.pkg_mv2000.le_empresa, atendime.Cd_Multi_Empresa)
+AND    atendime.cd_leito = leito.cd_leito
+AND    leito.cd_unid_int = unid_int.cd_unid_int
+AND    atendime.cd_atendimento = pre_med.cd_atendimento
+AND    pre_med.cd_pre_med = itpre_med.cd_pre_med
+AND    itpre_med.cd_tip_presc = tip_presc.cd_tip_presc
+AND    itpre_med.cd_tip_esq = tip_presc.cd_tip_esq
+AND    itpre_med.cd_for_apl = for_apl.cd_for_apl(+)
+AND    itpre_med.cd_tip_fre = tip_fre.cd_tip_fre(+)
+AND    itpre_med.cd_uni_pro = uni_pro.cd_uni_pro(+)
+AND    itpre_med.cd_uni_pro_inf = uni_pro_inf.cd_uni_pro(+)
+AND    Nvl(itpre_med.sn_cancelado, 'N') = 'N'
+UNION
+SELECT itpre_med.ds_itpre_med,
+       itpre_med.ds_itpre_med observacao,
+       '24 Horas' Validade,
+       for_apl.ds_for_apl,
+       itpre_med.qt_itpre_med || ' ' || uni_pro.cd_unidade || decode(itpre_med.tp_tempo,NULL,'','/' || itpre_med.tp_tempo) volume,
+       itpre_med.qt_infusao || ' ' || uni_pro_inf.cd_unidade infusao,
+       tip_fre.ds_tip_fre,
+       tip_presc.ds_tip_presc,
+      atendime.cd_atendimento
+FROM   dbamv.atendime,
+       dbamv.leito,
+       dbamv.paciente,
+       dbamv.unid_int,
+       dbamv.itpre_med,
+       dbamv.pre_med,
+       dbamv.for_apl,
+       dbamv.tip_fre,
+       dbamv.tip_presc,
+       dbamv.uni_pro,
+       dbamv.uni_pro uni_pro_inf
+WHERE  atendime.tp_atendimento <> 'I'
+AND    atendime.dt_alta IS NULL
+AND    atendime.cd_paciente = paciente.cd_paciente
+AND   atendime.Cd_Multi_Empresa = nvl(dbamv.pkg_mv2000.le_empresa, atendime.Cd_Multi_Empresa)
+AND    atendime.cd_leito = leito.cd_leito
+AND    leito.cd_unid_int = unid_int.cd_unid_int
+AND    atendime.cd_atendimento = pre_med.cd_atendimento
+AND    pre_med.cd_pre_med = itpre_med.cd_pre_med
+AND    itpre_med.cd_tip_presc = tip_presc.cd_tip_presc
+AND    itpre_med.cd_tip_esq = tip_presc.cd_tip_esq
+AND    itpre_med.cd_for_apl = for_apl.cd_for_apl(+)
+AND    itpre_med.cd_tip_fre = tip_fre.cd_tip_fre(+)
+AND    itpre_med.cd_uni_pro = uni_pro.cd_uni_pro(+)
+AND    itpre_med.cd_uni_pro_inf = uni_pro_inf.cd_uni_pro(+)
+AND    Nvl(itpre_med.sn_cancelado, 'N') = 'N'
+:CAMPO_CF_DATA_ATENDIME
+)
+WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO

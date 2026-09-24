@@ -1,0 +1,112 @@
+/*----------------------------------------------------------------------------*/
+--R_SOL_EXA_SANGUE
+SELECT * FROM (
+SELECT    ITPRE_MED.CD_ITPRE_MED                        CD_ITPRE_MED
+,PRE_MED.CD_PRE_MED             CD_PRE_MED
+      ,(SELECT CD_SOLIC_SANGUE FROM DBAMV.SOLIC_SANGUE WHERE CD_PRE_MED = PRE_MED.CD_PRE_MED ) CD_SOLIC_SANGUE
+      ,PRE_MED.DT_PRE_MED             DT_PRE_MED
+      ,NVL(ITPRE_MED.SN_CANCELADO,'N')   SN_CANCELADO
+      ,ATENDIME.CD_ATENDIMENTO_ORIGINAL    CD_ATENDIMENTO_ORIGINAL
+      ,PRE_MED.HR_PRE_MED             HR_PRE_MED
+      ,PRE_MED.NM_USUARIO              NM_USUARIO
+      ,PRE_MED.CD_ATENDIMENTO    CD_ATENDIMENTO
+      ,LEITO.DS_RESUMO                      DS_RESUMO
+      ,UNID_INT.CD_UNID_INT              CD_UNID_INT
+      ,UNID_INT.DS_UNID_INT              DS_UNID_INT
+      ,PACIENTE.CD_PACIENTE             CD_PACIENTE
+      ,DECODE(PACIENTE.SN_UTILIZA_NOME_SOCIAL,'S',PACIENTE.NM_SOCIAL_PACIENTE,PACIENTE.NM_PACIENTE) AS NM_PACIENTE
+      ,PACIENTE.DT_NASCIMENTO       DT_NASCIMENTO
+      ,PACIENTE.NM_MAE              NM_MAE
+      ,DECODE(PACIENTE.TP_SEXO, 'M', 'MASCULINO', 'FEMININO')    DS_SEXO
+      ,PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, TRUNC(SYSDATE))   DS_IDADE
+      ,CONVENIO.CD_CONVENIO                            CD_CONVENIO
+      ,CONVENIO.NM_CONVENIO                           NM_CONVENIO
+      ,PRESTADOR.CD_PRESTADOR                    CD_PRESTADOR
+,DECODE(NVL(DBAMV.PKG_MV2000.LE_CONFIGURACAO('PBSA','SN_IMPRIMIR_PRESTADOR'),'S'),'S',PRESTADOR.NM_PRESTADOR,'N','ASSINATURA')  NM_PRESTADOR  
+              ,DECODE(NVL(DBAMV.PKG_MV2000.LE_CONFIGURACAO('PBSA','SN_IMPRIMIR_PRESTADOR'),'S'),'S','CRM: '||PRESTADOR.DS_CODIGO_CONSELHO)  DS_CODIGO_CONSELHO  
+      ,CID.CD_CID                                                     CD_CID
+      ,CID.DS_CID                                                     DS_CID
+      ,CARTEIRA.NR_CARTEIRA                             NR_CARTEIRA
+      ,DERIV.CD_SANGUE_DERIVADOS                CD_PRO_FAT
+      ,DERIV.DS_SANGUE_DERIVADOS                DS_PRO_FAT
+      ,ITPRE_MED.QT_ITPRE_MED                        QT_ITPRE_MED
+      ,ITPRE_MED.DS_ITPRE_MED                        DS_ITPRE_MED
+      ,ITPRE_MED.DS_JUSTIFICATIVA                   DS_JUSTIFICATIVA
+      ,TIP_FRE.DS_TIP_FRE                                    DS_TIP_FRE
+      ,con_pla.cd_con_pla cd_con_pla
+      ,con_pla.ds_con_pla ds_con_pla
+      ,DECODE(PACIENTE.SN_UTIL_IDENTIDADE_GENERO,
+              'S',DECODE(
+                          (
+                          SELECT max(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE') ,
+                         1,IDENTIDADE_GENERO.DS_IDENTIDADE_GENERO,
+                         NULL),
+              NULL) AS IDENTIDADE_GENERO
+        ,DECODE(PACIENTE.SN_UTIL_ORIENTACAO_SEXUAL,
+              'S',DECODE(
+                          (
+                          SELECT Max(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_ORIENTACAO_SEXUAL'
+                          AND    CD_BLOCO = 'PACIENTE' ),
+                         1,ORIENTACAO_SEXUAL.DS_ORIENTACAO_SEXUAL,
+                         NULL),
+              NULL) AS ORIENTACAO_SEXUAL
+      ,(SELECT ds_unidade FROM dbamv.unidade WHERE cd_unidade = uni_presc.cd_unidade) ds_unidade
+      ,Nvl(uni_presc.ds_unidade_presc, (SELECT ds_itunidade FROM dbamv.itunidade WHERE cd_itunidade = uni_presc.cd_itunidade)) ds_unidade_presc
+		,Tip_Presc.Sn_Imprime_Horario         Sn_Imprime_Horario
+FROM  DBAMV.PRE_MED
+            ,DBAMV.PRESTADOR
+            ,DBAMV.ATENDIME
+            ,DBAMV.LEITO
+            ,DBAMV.UNID_INT
+            ,DBAMV.PACIENTE
+            ,DBAMV.CONVENIO
+            ,DBAMV.CID
+            ,DBAMV.CARTEIRA
+            ,DBAMV.ITPRE_MED
+            ,DBAMV.TIP_PRESC
+            ,DBAMV.SANGUE_DERIVADOS  DERIV
+            ,DBAMV.TIP_FRE
+            ,dbamv.con_pla
+            ,dbamv.uni_pro
+            ,dbamv.tip_esq
+            ,Dbamv.Uni_Pro    Uni_Pro_Inf
+            ,dbamv.uni_presc
+            ,dbamv.orientacao_sexual
+            ,dbamv.identidade_genero
+Where 	  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+And 	  PRE_MED.CD_PRE_MED = :CAMPO_PCD_PRE_MED
+AND       PRE_MED.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND       PRE_MED.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND       ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+AND       LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+AND       ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_CID = CID.CD_CID(+)
+AND       ATENDIME.CD_CONVENIO = CARTEIRA.CD_CONVENIO(+)
+AND       ATENDIME.CD_CON_PLA = CARTEIRA.CD_CON_PLA(+)
+AND       ATENDIME.CD_PACIENTE = CARTEIRA.CD_PACIENTE(+)
+AND 	  ATENDIME.NR_CARTEIRA = CARTEIRA.NR_CARTEIRA(+)
+AND       PRE_MED.CD_PRE_MED = ITPRE_MED.CD_PRE_MED
+AND       ITPRE_MED.CD_TIP_PRESC = TIP_PRESC.CD_TIP_PRESC
+AND       TIP_PRESC.CD_SANGUE_DERIVADOS = DERIV.CD_SANGUE_DERIVADOS
+AND       ITPRE_MED.CD_TIP_FRE = TIP_FRE.CD_TIP_FRE(+)
+AND       con_pla.cd_convenio = convenio.cd_convenio
+AND       con_pla.cd_con_pla  = atendime.cd_con_pla
+  and       uni_pro.cd_uni_pro(+) = itpre_med.cd_uni_pro
+  And       Itpre_med.Cd_Tip_Esq = Tip_Esq.Cd_Tip_Esq(+)
+  AND       UNI_PRO_INF.CD_UNI_PRO(+)= ITPRE_MED.CD_UNI_PRO_INF
+AND       itpre_med.cd_uni_presc = uni_presc.cd_uni_presc(+)
+AND PACIENTE.CD_IDENTIDADE_GENERO = IDENTIDADE_GENERO.CD_IDENTIDADE_GENERO(+)
+   AND PACIENTE.CD_ORIENTACAO_SEXUAL = ORIENTACAO_SEXUAL.CD_ORIENTACAO_SEXUAL(+)
+:CAMPO_COND_TIPO
+)
+ORDER BY CD_PRE_MED,DT_PRE_MED,HR_PRE_MED,NM_USUARIO,CD_ATENDIMENTO,CD_UNID_INT,DS_UNID_INT,DS_RESUMO,CD_PACIENTE,NM_PACIENTE,DT_NASCIMENTO,DS_IDADE,DS_SEXO,CD_CONVENIO,NM_CONVENIO,CD_PRESTADOR,NM_PRESTADOR,DS_CODIGO_CONSELHO,CD_CID,DS_CID,NR_CARTEIRA,CD_CON_PLA,DS_CON_PLA,  SN_CANCELADO

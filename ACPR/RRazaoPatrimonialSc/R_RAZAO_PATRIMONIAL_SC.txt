@@ -1,0 +1,844 @@
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_PATRIMONIAL_SC
+SELECT DISTINCT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  DECODE(Lc.Tp_Lancamento,'B', be.vl_compra,'O', be.vl_compra, Lc.Vl_Lancamento) Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me,
+  dbamv.Alteracao_Sub_Iob_Bem Al
+WHERE Lc.Cd_Bem          = Be.Cd_Bem
+AND Al.cd_bem            = Be.Cd_Bem
+AND Al.Cd_Capitulo_atual = Ib.Cd_Capitulo
+AND Al.Cd_Sub_Cap_atual  = Ib.Cd_Sub_Cap
+AND Lc.Tp_Lancamento    IN ('T','B','M','O','A','X')
+AND Lc.Tp_Lancamento     = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa                                                                     = me.cd_multi_empresa
+AND DECODE(Be.sn_desp_operacional,'S', Ib.cd_reduzido_desp_operacional, Ib.Cd_Reduzido_Bem) = Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO                                                                   <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                                                                      IS NULL
+OR CD_PLANO_REMOCAO                                                                         > :CAMPO_CD_PLANO))
+AND Be.sn_desp_operacional                                                                 IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem)                                                     >= TRUNC(dt_lancamento)
+AND me.cd_multi_empresa                                                                     = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)    
+UNION ALL
+SELECT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  DECODE(Lc.Tp_Lancamento,'B', be.vl_compra,'O', be.vl_compra, Lc.Vl_Lancamento) Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me
+WHERE Lc.Cd_Bem       = Be.Cd_Bem
+AND Be.Cd_Capitulo    = Ib.Cd_Capitulo
+AND Be.Cd_Sub_Cap     = Ib.Cd_Sub_Cap
+AND Lc.Tp_Lancamento IN ('T','B','M','O','A','X')
+AND Lc.Tp_Lancamento  = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa                                                                     = me.cd_multi_empresa
+AND DECODE(Be.sn_desp_operacional,'S', Ib.cd_reduzido_desp_operacional, Ib.Cd_Reduzido_Bem) = Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO                                                                   <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                                                                      IS NULL
+OR CD_PLANO_REMOCAO                                                                         > :CAMPO_CD_PLANO))
+AND Be.sn_desp_operacional                                                                 IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND me.cd_multi_empresa                                                                     = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)
+AND NOT EXISTS
+  (SELECT 'X'
+  FROM Dbamv.Alteracao_Sub_Iob_Bem Al
+  WHERE Al.cd_bem                         = be.cd_bem
+  AND Al.Cd_Capitulo_nova                 = be.Cd_Capitulo
+  AND Al.Cd_Sub_Cap_nova                  = be.Cd_Sub_Cap
+  AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem) >= TRUNC(dt_lancamento)
+  )    
+UNION ALL
+SELECT DISTINCT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  Lc.Vl_Lancamento Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me,
+  dbamv.Alteracao_Sub_Iob_Bem Al
+WHERE Lc.Cd_Bem          = Be.Cd_Bem
+AND Al.cd_bem            = Be.Cd_Bem
+AND Al.Cd_Capitulo_atual = Ib.Cd_Capitulo
+AND Al.Cd_Sub_Cap_atual  = Ib.Cd_Sub_Cap
+AND Lc.Tp_Lancamento     = 'R'
+AND Lc.Tp_Lancamento     = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa                 = me.cd_multi_empresa
+AND Ib.cd_reduzido_ativo_reavaliacao    = Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                  IS NULL
+OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+AND Be.sn_desp_operacional             IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem) >= TRUNC(dt_lancamento)
+AND me.cd_multi_empresa                 = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)    
+UNION ALL
+SELECT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  Lc.Vl_Lancamento Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me
+WHERE Lc.Cd_Bem      = Be.Cd_Bem
+AND Be.Cd_Capitulo   = Ib.Cd_Capitulo
+AND Be.Cd_Sub_Cap    = Ib.Cd_Sub_Cap
+AND Lc.Tp_Lancamento = 'R'
+AND Lc.Tp_Lancamento = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa              = me.cd_multi_empresa
+AND Ib.cd_reduzido_ativo_reavaliacao = Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO            <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO               IS NULL
+OR CD_PLANO_REMOCAO                  > :CAMPO_CD_PLANO))
+AND Be.sn_desp_operacional          IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND me.cd_multi_empresa              = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)
+AND NOT EXISTS
+  (SELECT 'X'
+  FROM Dbamv.Alteracao_Sub_Iob_Bem Al
+  WHERE Al.cd_bem                         = be.cd_bem
+  AND Al.Cd_Capitulo_nova                 = be.Cd_Capitulo
+  AND Al.Cd_Sub_Cap_nova                  = be.Cd_Sub_Cap
+  AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem) >= TRUNC(dt_lancamento)
+  )    
+UNION ALL
+SELECT DISTINCT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  Lc.Vl_Lancamento Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me,
+  dbamv.itdeprecia It,
+  dbamv.Alteracao_Sub_Iob_Bem Al
+WHERE Lc.Cd_Bem             = Be.Cd_Bem
+AND Al.cd_bem               = Be.Cd_Bem
+AND Al.Cd_Capitulo_atual    = Ib.Cd_Capitulo
+AND Al.Cd_Sub_Cap_atual     = Ib.Cd_Sub_Cap
+AND Be.sn_desp_operacional IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND Lc.Tp_Lancamento        = 'D'
+AND Lc.Tp_Lancamento        = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa                 = me.cd_multi_empresa
+AND Ib.Cd_Red_Bensdeprecacum            = Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                  IS NULL
+OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+AND Lc.cd_itdeprecia                    = It.cd_itdeprecia
+AND It.cd_bens_reavaliacao             IS NULL
+AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem) >= TRUNC(dt_lancamento)
+AND me.cd_multi_empresa                 = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)    
+UNION ALL
+SELECT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  Lc.Vl_Lancamento Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me,
+  dbamv.itdeprecia It
+WHERE Lc.Cd_Bem             = Be.Cd_Bem
+AND Be.Cd_Capitulo          = Ib.Cd_Capitulo
+AND Be.Cd_Sub_Cap           = Ib.Cd_Sub_Cap
+AND Be.sn_desp_operacional IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND Lc.Tp_Lancamento        = 'D'
+AND Lc.Tp_Lancamento        = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa     = me.cd_multi_empresa
+AND Ib.Cd_Red_Bensdeprecacum= Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO   <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO      IS NULL
+OR CD_PLANO_REMOCAO         > :CAMPO_CD_PLANO))
+AND Lc.cd_itdeprecia        = It.cd_itdeprecia
+AND It.cd_bens_reavaliacao IS NULL
+AND me.cd_multi_empresa     = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)
+AND NOT EXISTS
+  (SELECT 'X'
+  FROM Dbamv.Alteracao_Sub_Iob_Bem Al
+  WHERE Al.cd_bem                         = be.cd_bem
+  AND Al.Cd_Capitulo_nova                 = be.Cd_Capitulo
+  AND Al.Cd_Sub_Cap_nova                  = be.Cd_Sub_Cap
+  AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem) >= TRUNC(dt_lancamento)
+  )    
+UNION ALL
+SELECT DISTINCT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  Lc.Vl_Lancamento Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me,
+  dbamv.itdeprecia It,
+  dbamv.Alteracao_Sub_Iob_Bem Al
+WHERE Lc.Cd_Bem             = Be.Cd_Bem
+AND Al.cd_bem               = Be.Cd_Bem
+AND Al.Cd_Capitulo_atual    = Ib.Cd_Capitulo
+AND Al.Cd_Sub_Cap_atual     = Ib.Cd_Sub_Cap
+AND Be.sn_desp_operacional IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND Lc.Tp_Lancamento        = 'D'
+AND Lc.Tp_Lancamento        = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa                 = me.cd_multi_empresa
+AND Ib.cd_reduzido_depacum_reava        = Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                  IS NULL
+OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+AND Lc.cd_itdeprecia                    = It.cd_itdeprecia
+AND It.cd_bens_reavaliacao             IS NOT NULL
+AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem) >= TRUNC(dt_lancamento)
+AND me.cd_multi_empresa                 = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)    
+UNION ALL
+SELECT 'Empresa '
+  || me.cd_multi_empresa
+  || ' - '
+  || me.ds_multi_empresa Empresa,
+  Pl.Cd_Reduzido,
+  Pl.Ds_Conta,
+  Pl.Cd_Contabil,
+  TRUNC(Lc.Dt_Lancamento) Dt_Lancamento,
+  Be.Ds_Plaqueta,
+  Be.Ds_Bem,
+  Lc.Tp_Lancamento,
+  Lc.Tp_Entrada_Saida Entrada_Saida,
+  Lc.Vl_Lancamento Vl_Lancamento,
+  Lc.Ds_Lancamento
+FROM Dbamv.V_PLANO_CONTAS_DE_PARA Pl,
+  Dbamv.Sub_Iob_empresa Ib,
+  Dbamv.Bens Be,
+  Dbamv.Lancamento_Patrimonio Lc,
+  dbamv.multi_empresas Me,
+  dbamv.itdeprecia It
+WHERE Lc.Cd_Bem             = Be.Cd_Bem
+AND Be.Cd_Capitulo          = Ib.Cd_Capitulo
+AND Be.Cd_Sub_Cap           = Ib.Cd_Sub_Cap
+AND Be.sn_desp_operacional IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND Lc.Tp_Lancamento        = 'D'
+AND Lc.Tp_Lancamento        = NVL(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+AND TRUNC(Lc.Dt_Lancamento) BETWEEN NVL(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) AND NVL(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+AND Ib.cd_multi_empresa          = me.cd_multi_empresa
+AND Ib.cd_reduzido_depacum_reava = Pl.Cd_Reduzido_De
+AND (PL.CD_PLANO_CRIACAO        <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO           IS NULL
+OR CD_PLANO_REMOCAO              > :CAMPO_CD_PLANO))
+AND Lc.cd_itdeprecia             = It.cd_itdeprecia
+AND It.cd_bens_reavaliacao      IS NOT NULL
+AND me.cd_multi_empresa          = NVL(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)
+AND NOT EXISTS
+  (SELECT 'X'
+  FROM Dbamv.Alteracao_Sub_Iob_Bem Al
+  WHERE Al.cd_bem                         = be.cd_bem
+  AND Al.Cd_Capitulo_nova                 = be.Cd_Capitulo
+  AND Al.Cd_Sub_Cap_nova                  = be.Cd_Sub_Cap
+  AND TRUNC(Al.Dt_Alteracao_Sub_Iob_Bem) >= TRUNC(dt_lancamento)
+  )    
+Union All
+select 'Empresa ' || lc.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa
+, lc.cd_reduzido, pl.ds_conta, pl.cd_contabil, lc.dt_lancamento
+, B.ds_plaqueta, B.ds_bem, lc.tp_lancamento, lc.tp_entrada_saida entrada_saida
+, lc.vl_lancamento, lc.ds_lancamento
+from (
+        select l.cd_bem, l.cd_multi_empresa_destino cd_multi_empresa
+        , l.cd_exp_contabilidade, l.sn_contabiliza
+        , trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, l.tp_entrada_saida
+        , (l.vl_lancamento * -1) vl_lancamento, l.ds_lancamento
+        , l.CD_REDUZIDO_CREDITO cd_reduzido
+        from dbamv.lancamento_patrimonio l
+        where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+        and l.CD_REDUZIDO_CREDITO is not null
+        and l.TP_LANCAMENTO = 'M'
+        union all
+        select l.cd_bem, l.cd_multi_empresa_origem cd_multi_empresa
+        , l.cd_exp_contabilidade, l.sn_contabiliza
+        , trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, l.tp_entrada_saida
+        , l.vl_lancamento, l.ds_lancamento
+        , l.CD_REDUZIDO_DEBITO cd_reduzido
+        from dbamv.lancamento_patrimonio l
+		where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+        and l.CD_REDUZIDO_DEBITO is not null
+        and l.TP_LANCAMENTO = 'M'
+) lc
+, Dbamv.V_PLANO_CONTAS_DE_PARA Pl
+, MULTI_EMPRESAS me
+, dbamv.CONFIGURACAO c
+, dbamv.bens b
+where lc.cd_bem = b.cd_bem
+and lc.cd_reduzido = pl.cd_reduzido_de
+and lc.cd_multi_empresa = me.cd_multi_empresa
+And b.sn_desp_operacional in (:CAMPO_SN_DESP_OPERACIONAL,'N')
+And lc.Tp_Lancamento = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,lc.Tp_Lancamento)
+and me.cd_multi_empresa = c.CD_MULTI_EMPRESA(+)
+and c.CD_SISTEMA = 'FCCT'
+and c.CHAVE = 'SN_CONTROLA_USU_PL_CONTAS'
+AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                  IS NULL
+OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+AND ( nvl(c.VALOR,'N') = 'N'
+                      OR nvl(c.VALOR,'N') = 'S'
+                         AND EXISTS (SELECT cd_reduzido
+                                     FROM   dbamv.plano_usuario_multi_empresa PU
+                                     WHERE  PU.cd_reduzido = Pl.cd_reduzido
+                                            AND PU.cd_multi_empresa = me.cd_multi_empresa
+                                            AND PU.cd_id_usuario = USER) )
+AND ( lc.cd_multi_empresa IN (SELECT CD_MULTI_EMPRESA_CONSOL
+   FROM DBAMV.MULTI_EMPRESAS
+  WHERE CD_MULTI_EMPRESA_CONSOL = lc.CD_MULTI_EMPRESA
+    AND SN_PL_CONTAS_EMP_CONSOL = 'S') OR lc.CD_MULTI_EMPRESA = lc.CD_MULTI_EMPRESA)
+ AND lc.cd_multi_empresa = me.cd_multi_empresa
+UNION ALL
+select 'Empresa ' || lc.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa
+, lc.cd_reduzido, pl.ds_conta, pl.cd_contabil, lc.dt_lancamento
+, B.ds_plaqueta, B.ds_bem, lc.tp_lancamento, lc.tp_entrada_saida entrada_saida
+, lc.vl_lancamento, lc.ds_lancamento
+from (
+select l.cd_bem, l.cd_multi_empresa_origem cd_multi_empresa
+, l.cd_exp_contabilidade, l.sn_contabiliza
+, trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, 'S' tp_entrada_saida
+, (l.vl_lancamento * -1) vl_lancamento, l.ds_lancamento
+, l.CD_REDUZIDO_CREDITO cd_reduzido
+from dbamv.lancamento_patrimonio l
+where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+and l.CD_REDUZIDO_DEBITO is not null
+and l.TP_LANCAMENTO = 'S'
+UNION ALL
+select l.cd_bem, l.cd_multi_empresa_origem cd_multi_empresa
+, l.cd_exp_contabilidade, l.sn_contabiliza
+, trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, 'E' tp_entrada_saida
+, l.vl_lancamento, l.ds_lancamento
+, l.CD_REDUZIDO_DEBITO cd_reduzido
+from dbamv.lancamento_patrimonio l
+where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+and l.CD_REDUZIDO_DEBITO is not null
+and l.TP_LANCAMENTO = 'S'
+) lc
+, Dbamv.V_PLANO_CONTAS_DE_PARA Pl
+, MULTI_EMPRESAS me
+, dbamv.CONFIGURACAO c
+, dbamv.bens b
+where lc.cd_bem = b.cd_bem
+and lc.cd_reduzido = pl.cd_reduzido_de
+and lc.cd_multi_empresa = me.cd_multi_empresa
+And b.sn_desp_operacional in (:CAMPO_SN_DESP_OPERACIONAL,'N')
+And lc.Tp_Lancamento = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,lc.Tp_Lancamento)
+and me.cd_multi_empresa = c.CD_MULTI_EMPRESA(+)
+and c.CD_SISTEMA = 'FCCT'
+and c.CHAVE = 'SN_CONTROLA_USU_PL_CONTAS'
+AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                  IS NULL
+OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+AND ( nvl(c.VALOR,'N') = 'N'
+                      OR nvl(c.VALOR,'N') = 'S'
+                         AND EXISTS (SELECT cd_reduzido
+                                     FROM   dbamv.plano_usuario_multi_empresa PU
+                                     WHERE  PU.cd_reduzido = Pl.cd_reduzido
+                                            AND PU.cd_multi_empresa = me.cd_multi_empresa
+                                            AND PU.cd_id_usuario = USER) )
+AND ( lc.cd_multi_empresa IN (SELECT CD_MULTI_EMPRESA_CONSOL
+   FROM DBAMV.MULTI_EMPRESAS
+  WHERE CD_MULTI_EMPRESA_CONSOL = lc.CD_MULTI_EMPRESA
+    AND SN_PL_CONTAS_EMP_CONSOL = 'S') OR lc.CD_MULTI_EMPRESA = lc.CD_MULTI_EMPRESA)
+ AND lc.cd_multi_empresa = me.cd_multi_empresa
+ORDER BY 1, cd_reduzido,
+  Dt_Lancamento,
+  Ds_Bem
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_PATRIMONIAL_SC_R_4_Q_2
+select Trunc(dt_lancamento) Dt_LancamentoRes, tp_lancamento Tp_LancamentoRes, Sum(vl_lancamento) Vl_LancamentoRes
+FROM (
+Select distinct 'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+       Pl.Cd_Reduzido,
+       Pl.Ds_Conta,
+       Pl.Cd_Contabil,
+       trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+       Be.Ds_Plaqueta,
+       Be.Ds_Bem,
+       Lc.Tp_Lancamento,
+       Lc.Tp_Entrada_Saida   Entrada_Saida,
+       decode(Lc.Tp_Lancamento,'B', be.vl_compra,'O', be.vl_compra, Lc.Vl_Lancamento) Vl_Lancamento,
+       Lc.Ds_Lancamento
+From Dbamv.V_PLANO_CONTAS_DE_PARA        Pl,
+        Dbamv.Sub_Iob_empresa    Ib,
+        Dbamv.Bens                    Be,
+        Dbamv.Lancamento_Patrimonio    Lc,
+        dbamv.multi_empresas                    Me,
+        dbamv.Alteracao_Sub_Iob_Bem     Al
+Where    Lc.Cd_Bem      = Be.Cd_Bem
+  and   Al.cd_bem                      = Be.Cd_Bem
+  And   Al.Cd_Capitulo_atual      = Ib.Cd_Capitulo
+  And   Al.Cd_Sub_Cap_atual    = Ib.Cd_Sub_Cap
+  And   Lc.Tp_Lancamento        In ('T','B','M','O','A','X')
+  And   Lc.Tp_Lancamento        =  Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  And   Trunc(Lc.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  And   Ib.cd_multi_empresa      = me.cd_multi_empresa
+  And   decode(Be.sn_desp_operacional,'S', Ib.cd_reduzido_desp_operacional, Ib.Cd_Reduzido_Bem)  = Pl.Cd_Reduzido_De
+  And   Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+  And  Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+  And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+union all
+Select    'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+        Pl.Cd_Reduzido,
+        Pl.Ds_Conta,
+        Pl.Cd_Contabil,
+        trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+        Be.Ds_Plaqueta,
+        Be.Ds_Bem,
+        Lc.Tp_Lancamento,
+        Lc.Tp_Entrada_Saida   Entrada_Saida,
+        decode(Lc.Tp_Lancamento,'B', be.vl_compra,'O', be.vl_compra, Lc.Vl_Lancamento) Vl_Lancamento,
+        Lc.Ds_Lancamento
+From Dbamv.V_PLANO_CONTAS_DE_PARA     Pl,
+        Dbamv.Sub_Iob_empresa Ib,
+        Dbamv.Bens         Be,
+        Dbamv.Lancamento_Patrimonio Lc,
+        dbamv.multi_empresas        Me
+Where    Lc.Cd_Bem                =    Be.Cd_Bem
+  And    Be.Cd_Capitulo            =    Ib.Cd_Capitulo
+  And    Be.Cd_Sub_Cap            =    Ib.Cd_Sub_Cap
+  And    Lc.Tp_Lancamento        In ('T','B','M','O','A','X')
+  And    Lc.Tp_Lancamento        =    Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  And    Trunc(Lc.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  And   Ib.cd_multi_empresa     = me.cd_multi_empresa
+  And   decode(Be.sn_desp_operacional,'S', Ib.cd_reduzido_desp_operacional, Ib.Cd_Reduzido_Bem)      = Pl.Cd_Reduzido_De
+  And   Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+  And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+  AND  NOT  EXISTS
+  (  Select 'X'
+     From   Dbamv.Alteracao_Sub_Iob_Bem  Al
+     Where Al.cd_bem = be.cd_bem
+     AND  Al.Cd_Capitulo_nova =  be.Cd_Capitulo
+     AND  Al.Cd_Sub_Cap_nova  =  be.Cd_Sub_Cap
+     And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+    )
+union all
+Select distinct  'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+        Pl.Cd_Reduzido,
+        Pl.Ds_Conta,
+        Pl.Cd_Contabil,
+        trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+        Be.Ds_Plaqueta,
+        Be.Ds_Bem,
+        Lc.Tp_Lancamento,
+        Lc.Tp_Entrada_Saida   Entrada_Saida,
+        Lc.Vl_Lancamento Vl_Lancamento,
+         Lc.Ds_Lancamento
+From Dbamv.V_PLANO_CONTAS_DE_PARA                    Pl,
+         Dbamv.Sub_Iob_empresa    Ib,
+         Dbamv.Bens                    Be,
+         Dbamv.Lancamento_Patrimonio    Lc,
+         dbamv.multi_empresas                   Me,
+         dbamv.Alteracao_Sub_Iob_Bem    Al
+Where Lc.Cd_Bem                                 = Be.Cd_Bem
+  and    Al.cd_bem                                = Be.Cd_Bem
+  And    Al.Cd_Capitulo_atual                = Ib.Cd_Capitulo
+  And    Al.Cd_Sub_Cap_atual              = Ib.Cd_Sub_Cap
+  And    Lc.Tp_Lancamento                  = 'R'
+  And    Lc.Tp_Lancamento                  = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  And    Trunc(Lc.Dt_Lancamento)       Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  And    Ib.cd_multi_empresa                 = me.cd_multi_empresa
+  And    Ib.cd_reduzido_ativo_reavaliacao = Pl.Cd_Reduzido_De
+  And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+  And   Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+  And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+union all
+Select    'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+        Pl.Cd_Reduzido,
+        Pl.Ds_Conta,
+        Pl.Cd_Contabil,
+        trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+        Be.Ds_Plaqueta,
+        Be.Ds_Bem,
+        Lc.Tp_Lancamento,
+        Lc.Tp_Entrada_Saida   Entrada_Saida,
+        Lc.Vl_Lancamento Vl_Lancamento,
+         Lc.Ds_Lancamento
+From Dbamv.V_PLANO_CONTAS_DE_PARA                    Pl,
+        Dbamv.Sub_Iob_empresa    Ib,
+        Dbamv.Bens                    Be,
+        Dbamv.Lancamento_Patrimonio    Lc,
+        dbamv.multi_empresas        Me
+Where    Lc.Cd_Bem                         = Be.Cd_Bem
+  And    Be.Cd_Capitulo                     = Ib.Cd_Capitulo
+  And    Be.Cd_Sub_Cap                     = Ib.Cd_Sub_Cap
+  And    Lc.Tp_Lancamento                 = 'R'
+  And    Lc.Tp_Lancamento                 =    Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  And    Trunc(Lc.Dt_Lancamento)          Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  And   Ib.cd_multi_empresa              = me.cd_multi_empresa
+  And   Ib.cd_reduzido_ativo_reavaliacao = Pl.Cd_Reduzido_De
+  And   Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+    And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  AND  NOT  EXISTS
+  (  Select 'X'
+      From   Dbamv.Alteracao_Sub_Iob_Bem  Al
+     Where Al.cd_bem = be.cd_bem
+      AND  Al.Cd_Capitulo_nova =  be.Cd_Capitulo
+      AND  Al.Cd_Sub_Cap_nova  =  be.Cd_Sub_Cap
+      And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+    )
+union all
+Select distinct  'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+        Pl.Cd_Reduzido,
+        Pl.Ds_Conta,
+        Pl.Cd_Contabil,
+        trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+        Be.Ds_Plaqueta,
+        Be.Ds_Bem,
+        Lc.Tp_Lancamento,
+        Lc.Tp_Entrada_Saida   Entrada_Saida,
+        Lc.Vl_Lancamento Vl_Lancamento,
+        Lc.Ds_Lancamento
+From
+        Dbamv.V_PLANO_CONTAS_DE_PARA  Pl,
+        Dbamv.Sub_Iob_empresa Ib,
+        Dbamv.Bens  Be,
+        Dbamv.Lancamento_Patrimonio Lc,
+        dbamv.multi_empresas Me,
+        dbamv.itdeprecia  It,
+        dbamv.Alteracao_Sub_Iob_Bem   Al
+Where  Lc.Cd_Bem                =    Be.Cd_Bem
+  and    Al.cd_bem                                = Be.Cd_Bem
+  And    Al.Cd_Capitulo_atual                = Ib.Cd_Capitulo
+  And    Al.Cd_Sub_Cap_atual              = Ib.Cd_Sub_Cap
+  And   Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+  And   Lc.Tp_Lancamento        = 'D'
+  And   Lc.Tp_Lancamento        = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  And  Trunc(Lc.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  And   Ib.cd_multi_empresa     = me.cd_multi_empresa
+  And   Ib.Cd_Red_Bensdeprecacum= Pl.Cd_Reduzido_De
+  And   Lc.cd_itdeprecia        = It.cd_itdeprecia
+  And   It.cd_bens_reavaliacao  is null
+ And   Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+  And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+union all
+Select 'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+        Pl.Cd_Reduzido,
+        Pl.Ds_Conta,
+        Pl.Cd_Contabil,
+        trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+        Be.Ds_Plaqueta,
+        Be.Ds_Bem,
+        Lc.Tp_Lancamento,
+        Lc.Tp_Entrada_Saida   Entrada_Saida,
+        Lc.Vl_Lancamento Vl_Lancamento,
+        Lc.Ds_Lancamento
+From Dbamv.V_PLANO_CONTAS_DE_PARA    Pl,
+        Dbamv.Sub_Iob_empresa Ib,
+        Dbamv.Bens          Be,
+        Dbamv.Lancamento_Patrimonio Lc,
+        dbamv.multi_empresas    Me,
+        dbamv.itdeprecia            It
+Where Lc.Cd_Bem              =    Be.Cd_Bem
+  And   Be.Cd_Capitulo       =    Ib.Cd_Capitulo
+  And   Be.Cd_Sub_Cap     =    Ib.Cd_Sub_Cap
+  And   Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+  And   Lc.Tp_Lancamento  = 'D'
+  And  Lc.Tp_Lancamento   = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  And  Trunc(Lc.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  And   Ib.cd_multi_empresa    = me.cd_multi_empresa
+  And   Ib.Cd_Red_Bensdeprecacum= Pl.Cd_Reduzido_De
+  And   Lc.cd_itdeprecia        = It.cd_itdeprecia
+  And   It.cd_bens_reavaliacao  is null
+  And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  AND  NOT  EXISTS
+  (  Select 'X'
+      From   Dbamv.Alteracao_Sub_Iob_Bem  Al
+     Where Al.cd_bem = be.cd_bem
+      AND  Al.Cd_Capitulo_nova =  be.Cd_Capitulo
+      AND  Al.Cd_Sub_Cap_nova  =  be.Cd_Sub_Cap
+      And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+    )
+union all
+Select distinct 'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+        Pl.Cd_Reduzido,
+        Pl.Ds_Conta,
+        Pl.Cd_Contabil,
+        trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+        Be.Ds_Plaqueta,
+        Be.Ds_Bem,
+        Lc.Tp_Lancamento,
+        Lc.Tp_Entrada_Saida   Entrada_Saida,
+        Lc.Vl_Lancamento Vl_Lancamento,
+         Lc.Ds_Lancamento
+From Dbamv.V_PLANO_CONTAS_DE_PARA                    Pl,
+         Dbamv.Sub_Iob_empresa    Ib,
+         Dbamv.Bens                    Be,
+         Dbamv.Lancamento_Patrimonio    Lc,
+         dbamv.multi_empresas                   Me,
+         dbamv.itdeprecia                            It,
+         dbamv.Alteracao_Sub_Iob_Bem    Al
+Where  Lc.Cd_Bem                     =    Be.Cd_Bem
+  and     Al.cd_bem                                = Be.Cd_Bem
+  And    Al.Cd_Capitulo_atual                = Ib.Cd_Capitulo
+  And    Al.Cd_Sub_Cap_atual              = Ib.Cd_Sub_Cap
+  And    Be.sn_desp_operacional       in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+  And    Lc.Tp_Lancamento             = 'D'
+  And    Lc.Tp_Lancamento             = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  And   Trunc(Lc.Dt_Lancamento)      Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  And    Ib.cd_multi_empresa          = me.cd_multi_empresa
+  And    Ib.cd_reduzido_depacum_reava = Pl.Cd_Reduzido_De
+  And    Lc.cd_itdeprecia             = It.cd_itdeprecia
+  And    It.cd_bens_reavaliacao  is not null
+  And   Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+    And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+union all
+Select    'Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+        Pl.Cd_Reduzido,
+        Pl.Ds_Conta,
+        Pl.Cd_Contabil,
+        trunc(Lc.Dt_Lancamento) Dt_Lancamento,
+        Be.Ds_Plaqueta,
+        Be.Ds_Bem,
+        Lc.Tp_Lancamento,
+        Lc.Tp_Entrada_Saida   Entrada_Saida,
+        Lc.Vl_Lancamento Vl_Lancamento,
+        Lc.Ds_Lancamento
+From Dbamv.V_PLANO_CONTAS_DE_PARA        Pl,
+        Dbamv.Sub_Iob_empresa    Ib,
+        Dbamv.Bens                    Be,
+        Dbamv.Lancamento_Patrimonio    Lc,
+        dbamv.multi_empresas        Me,
+        dbamv.itdeprecia            It
+Where    Lc.Cd_Bem                     =    Be.Cd_Bem
+  And    Be.Cd_Capitulo                 =    Ib.Cd_Capitulo
+  And    Be.Cd_Sub_Cap                 =    Ib.Cd_Sub_Cap
+  And   Be.sn_desp_operacional       in ('N',:CAMPO_SN_DESP_OPERACIONAL)  
+  And    Lc.Tp_Lancamento             = 'D'
+  And    Lc.Tp_Lancamento             = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,Lc.Tp_Lancamento)
+  And    Trunc(Lc.Dt_Lancamento)      Between Nvl(:CAMPO_PDTINICIO,Lc.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,Lc.Dt_Lancamento)
+  And   Ib.cd_multi_empresa          = me.cd_multi_empresa
+  And   Ib.cd_reduzido_depacum_reava = Pl.Cd_Reduzido_De
+  And   Lc.cd_itdeprecia             = It.cd_itdeprecia
+  And   It.cd_bens_reavaliacao  is not null
+  And  me.cd_multi_empresa = nvl(lc.cd_multi_empresa_destino,lc.cd_multi_empresa)   
+  AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+  AND (CD_PLANO_REMOCAO                  IS NULL
+   OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+  AND  NOT  EXISTS
+  (  Select 'X'
+      From   Dbamv.Alteracao_Sub_Iob_Bem  Al
+     Where Al.cd_bem = be.cd_bem
+      AND  Al.Cd_Capitulo_nova =  be.Cd_Capitulo
+      AND  Al.Cd_Sub_Cap_nova  =  be.Cd_Sub_Cap
+      And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >=   trunc(dt_lancamento)
+    )
+Union All
+select 'Empresa ' || lc.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa
+, lc.cd_reduzido, pl.ds_conta, pl.cd_contabil, lc.dt_lancamento
+, B.ds_plaqueta, B.ds_bem, lc.tp_lancamento, lc.tp_entrada_saida entrada_saida
+, lc.vl_lancamento, lc.ds_lancamento
+from (
+        select l.cd_bem, l.cd_multi_empresa_destino cd_multi_empresa
+        , l.cd_exp_contabilidade, l.sn_contabiliza
+        , trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, l.tp_entrada_saida
+        , (l.vl_lancamento * -1) vl_lancamento, l.ds_lancamento
+        , l.CD_REDUZIDO_CREDITO cd_reduzido
+        from dbamv.lancamento_patrimonio l
+        where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+        and l.CD_REDUZIDO_CREDITO is not null
+        and l.TP_LANCAMENTO = 'M'
+        union all
+        select l.cd_bem, l.cd_multi_empresa_origem cd_multi_empresa
+        , l.cd_exp_contabilidade, l.sn_contabiliza
+        , trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, l.tp_entrada_saida
+        , l.vl_lancamento, l.ds_lancamento
+        , l.CD_REDUZIDO_DEBITO cd_reduzido
+        from dbamv.lancamento_patrimonio l
+		where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+        and l.CD_REDUZIDO_DEBITO is not null
+        and l.TP_LANCAMENTO = 'M'
+) lc
+, Dbamv.V_PLANO_CONTAS_DE_PARA Pl
+, MULTI_EMPRESAS me
+, dbamv.CONFIGURACAO c
+, dbamv.bens b
+where lc.cd_bem = b.cd_bem
+and lc.cd_reduzido = pl.cd_reduzido_de
+and lc.cd_multi_empresa = me.cd_multi_empresa
+And b.sn_desp_operacional in (:CAMPO_SN_DESP_OPERACIONAL,'N')
+And lc.Tp_Lancamento = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,lc.Tp_Lancamento)
+and me.cd_multi_empresa = c.CD_MULTI_EMPRESA(+)
+and c.CD_SISTEMA = 'FCCT'
+and c.CHAVE = 'SN_CONTROLA_USU_PL_CONTAS'
+AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                  IS NULL
+OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+AND ( nvl(c.VALOR,'N') = 'N'
+                      OR nvl(c.VALOR,'N') = 'S'
+                         AND EXISTS (SELECT cd_reduzido
+                                     FROM   dbamv.plano_usuario_multi_empresa PU
+                                     WHERE  PU.cd_reduzido = Pl.cd_reduzido
+                                            AND PU.cd_multi_empresa = me.cd_multi_empresa
+                                            AND PU.cd_id_usuario = USER) )
+AND ( lc.cd_multi_empresa IN (SELECT CD_MULTI_EMPRESA_CONSOL
+   FROM DBAMV.MULTI_EMPRESAS
+  WHERE CD_MULTI_EMPRESA_CONSOL = lc.CD_MULTI_EMPRESA
+    AND SN_PL_CONTAS_EMP_CONSOL = 'S') OR lc.CD_MULTI_EMPRESA = lc.CD_MULTI_EMPRESA)
+ AND lc.cd_multi_empresa = me.cd_multi_empresa
+UNION ALL
+select 'Empresa ' || lc.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa
+, lc.cd_reduzido, pl.ds_conta, pl.cd_contabil, lc.dt_lancamento
+, B.ds_plaqueta, B.ds_bem, lc.tp_lancamento, lc.tp_entrada_saida entrada_saida
+, lc.vl_lancamento, lc.ds_lancamento
+from (
+select l.cd_bem, l.cd_multi_empresa_origem cd_multi_empresa
+, l.cd_exp_contabilidade, l.sn_contabiliza
+, trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, 'S' tp_entrada_saida
+, (l.vl_lancamento * -1) vl_lancamento, l.ds_lancamento
+, l.CD_REDUZIDO_CREDITO cd_reduzido
+from dbamv.lancamento_patrimonio l
+where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+and l.CD_REDUZIDO_DEBITO is not null
+and l.TP_LANCAMENTO = 'S'
+UNION ALL
+select l.cd_bem, l.cd_multi_empresa_origem cd_multi_empresa
+, l.cd_exp_contabilidade, l.sn_contabiliza
+, trunc(l.dt_lancamento) dt_lancamento, l.tp_lancamento, 'E' tp_entrada_saida
+, l.vl_lancamento, l.ds_lancamento
+, l.CD_REDUZIDO_DEBITO cd_reduzido
+from dbamv.lancamento_patrimonio l
+where Trunc(L.Dt_Lancamento) Between Nvl(:CAMPO_PDTINICIO,L.Dt_Lancamento) And Nvl(:CAMPO_PDTFIM,L.Dt_Lancamento)
+and l.CD_REDUZIDO_DEBITO is not null
+and l.TP_LANCAMENTO = 'S'
+) lc
+, Dbamv.V_PLANO_CONTAS_DE_PARA Pl
+, MULTI_EMPRESAS me
+, dbamv.CONFIGURACAO c
+, dbamv.bens b
+where lc.cd_bem = b.cd_bem
+and lc.cd_reduzido = pl.cd_reduzido_de
+and lc.cd_multi_empresa = me.cd_multi_empresa
+And b.sn_desp_operacional in (:CAMPO_SN_DESP_OPERACIONAL,'N')
+And lc.Tp_Lancamento = Nvl(:CAMPO_CF_PAR_TPLANCAMENTO,lc.Tp_Lancamento)
+and me.cd_multi_empresa = c.CD_MULTI_EMPRESA(+)
+and c.CD_SISTEMA = 'FCCT'
+and c.CHAVE = 'SN_CONTROLA_USU_PL_CONTAS'
+AND (PL.CD_PLANO_CRIACAO               <= :CAMPO_CD_PLANO
+AND (CD_PLANO_REMOCAO                  IS NULL
+OR CD_PLANO_REMOCAO                     > :CAMPO_CD_PLANO))
+AND ( nvl(c.VALOR,'N') = 'N'
+                      OR nvl(c.VALOR,'N') = 'S'
+                         AND EXISTS (SELECT cd_reduzido
+                                     FROM   dbamv.plano_usuario_multi_empresa PU
+                                     WHERE  PU.cd_reduzido = Pl.cd_reduzido
+                                            AND PU.cd_multi_empresa = me.cd_multi_empresa
+                                            AND PU.cd_id_usuario = USER) )
+AND ( lc.cd_multi_empresa IN (SELECT CD_MULTI_EMPRESA_CONSOL
+   FROM DBAMV.MULTI_EMPRESAS
+  WHERE CD_MULTI_EMPRESA_CONSOL = lc.CD_MULTI_EMPRESA
+    AND SN_PL_CONTAS_EMP_CONSOL = 'S') OR lc.CD_MULTI_EMPRESA = lc.CD_MULTI_EMPRESA)
+ AND lc.cd_multi_empresa = me.cd_multi_empresa
+Order By cd_reduzido, Dt_Lancamento,
+Ds_Bem
+)
+GROUP by Trunc(dt_lancamento), tp_lancamento
+order by 1

@@ -1,0 +1,86 @@
+/*----------------------------------------------------------------------------*/
+--R_RES_SIT_ALTAS
+SELECT * FROM (
+SELECT CD_CONVENIO
+                                     ,NM_CONVENIO
+                                     ,DT_INICIO
+                                      ,DT_FINAL
+                                      ,CD_ATENDIMENTO
+                                      ,NM_PACIENTE
+                                      ,DS_ORI_ATE
+                                     ,CONTA
+                                     ,TIPO
+                                     ,Decode(TIPO,'I','Internação','Ambulatorial') TIPO_2
+                                     ,SUM(QT_N_FATURADO) QT_N_FATURADO
+    FROM (
+           SELECT  CONVENIO.CD_CONVENIO CD_CONVENIO
+	          ,CONVENIO.NM_CONVENIO NM_CONVENIO
+                          ,REG_FAT.DT_INICIO DT_INICIO
+                          ,REG_FAT.DT_FINAL DT_FINAL
+                          ,REG_FAT.CD_ATENDIMENTO CD_ATENDIMENTO
+                          ,PACIENTE.NM_PACIENTE NM_PACIENTE
+                          ,ORI_ATE.DS_ORI_ATE
+                          ,REG_FAT.CD_REG_FAT CONTA
+                          ,'I' TIPO
+  	          ,NVL(REG_FAT.VL_TOTAL_CONTA, 0) QT_N_FATURADO
+             FROM   DBAMV.REG_FAT
+	         ,DBAMV.ATENDIME
+                         ,DBAMV.REMESSA_FATURA
+	         ,DBAMV.CONVENIO
+                         ,DBAMV.PACIENTE
+                         ,DBAMV.ORI_ATE
+           WHERE PACIENTE.CD_PACIENTE = ATENDIME.CD_PACIENTE
+                          AND ORI_ATE.CD_ORI_ATE = ATENDIME.CD_ORI_ATE
+	          AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+	          AND REG_FAT.CD_MULTI_EMPRESA =  :CAMPO_CD_MULTI_EMPRESA 
+	          AND REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                          AND   NVL(REG_FAT.sn_diagno, 'N') = 'N'
+	          AND REMESSA_FATURA.CD_REMESSA(+) = REG_FAT.CD_REMESSA
+	          AND CONVENIO.TP_CONVENIO not in ('H','A')
+                          and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+      UNION ALL
+           SELECT CONVENIO.CD_CONVENIO             CD_CONVENIO
+                         ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+                         ,ATENDIME.DT_ATENDIMENTO      DT_INICIO
+                         ,ATENDIME.DT_ATENDIMENTO      DT_FINAL
+                         ,ITREG_AMB.CD_ATENDIMENTO   CD_ATENDIMENTO
+                         ,PACIENTE.NM_PACIENTE              NM_PACIENTE
+                          ,ORI_ATE.DS_ORI_ATE
+                         ,ITREG_AMB.CD_REG_AMB             CONTA
+                         ,'A' TIPO
+                         ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)   QT_N_FATURADO
+             FROM   DBAMV.REG_AMB
+                         ,DBAMV.ITREG_AMB
+                         ,DBAMV.ATENDIME
+                         ,DBAMV.REMESSA_FATURA
+                         ,DBAMV.CONVENIO
+                         ,DBAMV.PACIENTE
+                         ,DBAMV.ORI_ATE
+           WHERE REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                          AND PACIENTE.CD_PACIENTE = ATENDIME.CD_PACIENTE
+                          AND ORI_ATE.CD_ORI_ATE = ATENDIME.CD_ORI_ATE
+                          AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                          AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+                          AND nvl(ITREG_AMB.SN_PERTENCE_PACOTE, 'N') = 'N'
+                          AND NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+	          AND CONVENIO.TP_CONVENIO not in ('H','A')
+                          AND   NVL(REG_AMB.sn_diagno, 'N') = 'N'
+                          AND ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+	          AND REMESSA_FATURA.CD_REMESSA(+) = REG_AMB.CD_REMESSA
+                          and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+                          :CAMPO_CF_TIPO_ALTA_AMBU
+               )
+where nvl(qt_n_faturado,0) >= 0
+GROUP BY CD_CONVENIO
+                                     ,NM_CONVENIO
+                                     ,DT_INICIO
+                                     ,DT_FINAL
+                                     ,CD_ATENDIMENTO
+                                     ,NM_PACIENTE
+                                     ,DS_ORI_ATE
+                                     ,CONTA
+                                     ,TIPO
+ORDER BY TIPO, CONTA
+)
+ORDER BY NM_CONVENIO,CD_CONVENIO,
+TIPO

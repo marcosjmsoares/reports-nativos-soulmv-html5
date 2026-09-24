@@ -1,0 +1,91 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_EXA_REAL_ORI_REC
+SELECT * FROM (
+SELECT          CD_ORI_ATE,
+                DS_ORI_ATE,
+                CD_RECURSO,
+                NM_RECURSO,
+                CD_EXA_RX,
+                DS_EXA_RX,
+                SUM(QTDE_AGENDADOS) QTDE_AGENDADOS,
+                SUM(QTDE_REALIZADOS) QTDE_REALIZADOS
+FROM (
+SELECT DECODE(ORI_ATE.CD_ORI_ATE, NULL, '0', ORI_ATE.CD_ORI_ATE) CD_ORI_ATE,
+               DECODE(ORI_ATE.DS_ORI_ATE, NULL, 'NÃO INFORMADA', ORI_ATE.DS_ORI_ATE) DS_ORI_ATE,
+               DECODE(RECURSO.CD_RECURSO, NULL, '0', RECURSO.CD_RECURSO) CD_RECURSO,
+               DECODE(RECURSO.NM_RECURSO, NULL, 'NÃO INFORMADO', RECURSO.NM_RECURSO) NM_RECURSO,
+               DECODE(EXA_RX.CD_EXA_RX, NULL, '0', EXA_RX.CD_EXA_RX) CD_EXA_RX,
+               DECODE(EXA_RX.DS_EXA_RX, NULL, 'NÃO INFORMADO', EXA_RX.DS_EXA_RX) DS_EXA_RX,
+               COUNT(*) QTDE_AGENDADOS,
+               0 QTDE_REALIZADOS
+  FROM dbamv.escala_dia            escala_dia
+      ,dbamv.it_escala_dia         it_escala_dia
+      ,dbamv.exa_rx_it_escala_dia  exa_rx_it_escala_dia
+      ,dbamv.exa_rx                exa_rx
+      ,dbamv.atendime              atendime
+      ,dbamv.ori_ate               ori_ate
+      ,dbamv.recurso               recurso
+      ,dbamv.ped_rx                ped_rx
+      ,dbamv.itped_rx              itped_rx
+ WHERE escala_dia.cd_escala_dia        = it_escala_dia.cd_escala_dia
+   AND it_escala_dia.cd_escala_dia     = exa_rx_it_escala_dia.cd_escala_dia
+   AND it_escala_dia.hr_agenda         = exa_rx_it_escala_dia.hr_agenda
+   AND escala_dia.cd_recurso           = recurso.cd_recurso(+)
+   AND exa_rx_it_escala_dia.cd_exa_rx  = itped_rx.cd_exa_rx
+   AND itped_rx.cd_exa_rx              = exa_rx.cd_exa_rx(+)
+   AND itped_rx.cd_ped_rx              = ped_rx.cd_ped_rx
+   AND it_escala_dia.cd_atendimento    = ped_rx.cd_atendimento
+   AND ped_rx.cd_atendimento           = atendime.cd_atendimento
+   AND atendime.cd_ori_ate             = ori_ate.cd_ori_ate(+)
+   AND TRUNC(ESCALA_DIA.DT_ESCALA_DIA)  BETWEEN  :CAMPO_DT_INIC  GROUP BY DECODE(ORI_ATE.CD_ORI_ATE, NULL, '0', ORI_ATE.CD_ORI_ATE),
+               DECODE(ORI_ATE.DS_ORI_ATE, NULL, 'NÃO INFORMADA', ORI_ATE.DS_ORI_ATE),
+               DECODE(RECURSO.CD_RECURSO, NULL, '0', RECURSO.CD_RECURSO),
+               DECODE(RECURSO.NM_RECURSO, NULL, 'NÃO INFORMADO', RECURSO.NM_RECURSO),
+               DECODE(EXA_RX.CD_EXA_RX, NULL, '0', EXA_RX.CD_EXA_RX),
+               DECODE(EXA_RX.DS_EXA_RX, NULL, 'NÃO INFORMADO', EXA_RX.DS_EXA_RX)
+UNION ALL
+SELECT DECODE(ORI_ATE.CD_ORI_ATE, NULL, '0', ORI_ATE.CD_ORI_ATE) CD_ORI_ATE,
+               DECODE(ORI_ATE.DS_ORI_ATE, NULL, 'NÃO INFORMADA', ORI_ATE.DS_ORI_ATE) DS_ORI_ATE,
+               DECODE(RECURSO.CD_RECURSO, NULL, '0', RECURSO.CD_RECURSO) CD_RECURSO,
+               DECODE(RECURSO.NM_RECURSO, NULL, 'NÃO INFORMADO', RECURSO.NM_RECURSO) NM_RECURSO,
+               DECODE(EXA_RX.CD_EXA_RX, NULL, '0', EXA_RX.CD_EXA_RX) CD_EXA_RX,
+               DECODE(EXA_RX.DS_EXA_RX, NULL, 'NÃO INFORMADO', EXA_RX.DS_EXA_RX) DS_EXA_RX,
+               0 QTDE_AGENDADOS,
+               COUNT(*) QTDE_REALIZADOS
+  FROM dbamv.escala_dia            escala_dia
+      ,dbamv.it_escala_dia         it_escala_dia
+      ,dbamv.exa_rx_it_escala_dia  exa_rx_it_escala_dia
+      ,dbamv.exa_rx                exa_rx
+      ,dbamv.atendime              atendime
+      ,dbamv.ori_ate               ori_ate
+      ,dbamv.recurso               recurso
+      ,dbamv.ped_rx                ped_rx
+      ,dbamv.itped_rx              itped_rx
+ WHERE escala_dia.cd_escala_dia        = it_escala_dia.cd_escala_dia
+   AND it_escala_dia.cd_escala_dia     = exa_rx_it_escala_dia.cd_escala_dia
+   AND it_escala_dia.hr_agenda         = exa_rx_it_escala_dia.hr_agenda
+   AND escala_dia.cd_recurso           = recurso.cd_recurso(+)
+   AND exa_rx_it_escala_dia.cd_exa_rx  = itped_rx.cd_exa_rx
+   AND itped_rx.cd_exa_rx              = exa_rx.cd_exa_rx(+)
+   AND itped_rx.cd_ped_rx              = ped_rx.cd_ped_rx
+   AND Nvl(itped_rx.sn_realizado,'N')  = 'S'
+   AND itped_rx.dt_realizado           IS NOT null
+   AND it_escala_dia.cd_atendimento    = ped_rx.cd_atendimento
+   AND ped_rx.cd_atendimento           = atendime.cd_atendimento
+   AND atendime.cd_ori_ate             = ori_ate.cd_ori_ate(+)
+   AND TRUNC(ITPED_RX.DT_REALIZADO) BETWEEN :CAMPO_DT_INIC  GROUP BY DECODE(ORI_ATE.CD_ORI_ATE, NULL, '0', ORI_ATE.CD_ORI_ATE),
+               DECODE(ORI_ATE.DS_ORI_ATE, NULL, 'NÃO INFORMADA', ORI_ATE.DS_ORI_ATE),
+               DECODE(RECURSO.CD_RECURSO, NULL, '0', RECURSO.CD_RECURSO),
+               DECODE(RECURSO.NM_RECURSO, NULL, 'NÃO INFORMADO', RECURSO.NM_RECURSO),
+               DECODE(EXA_RX.CD_EXA_RX, NULL, '0', EXA_RX.CD_EXA_RX),
+               DECODE(EXA_RX.DS_EXA_RX, NULL, 'NÃO INFORMADO', EXA_RX.DS_EXA_RX)
+)
+GROUP BY CD_ORI_ATE,
+         DS_ORI_ATE,
+         CD_RECURSO,
+         NM_RECURSO,
+         CD_EXA_RX,
+         DS_EXA_RX
+)
+ORDER BY DS_ORI_ATE,CD_ORI_ATE,
+NM_RECURSO,CD_RECURSO,CD_EXA_RX,DS_EXA_RX

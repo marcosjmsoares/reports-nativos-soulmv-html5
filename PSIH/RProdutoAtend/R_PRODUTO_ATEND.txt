@@ -1,0 +1,58 @@
+/*----------------------------------------------------------------------------*/
+--R_PRODUTO_ATEND
+SELECT * FROM (
+SELECT X.DT_ATENDIMENTO
+       ,X.DT_ALTA
+       ,X.CD_PACIENTE
+       ,X.CD_LEITO
+       ,X.CD_CONVENIO
+       ,X.CD_ATENDIMENTO
+       ,X.CD_PRESTADOR
+       ,X.CD_PRODUTO
+       ,X.DS_PRODUTO
+       ,X.DS_UNID_PROD
+       ,SUM(X.QT_SAIDA )
+       ,SUM(X.QT_FATURADA )
+       ,SUM(X.QT_DEVOLVIDA)
+       ,SUM(X.QT_CONSUMIDA)
+FROM (SELECT  ATENDIME.DT_ATENDIMENTO
+               ,ATENDIME.DT_ALTA
+               ,ATENDIME.CD_PACIENTE
+               ,ATENDIME.CD_LEITO
+               ,ATENDIME.CD_CONVENIO
+               ,ATENDIME.CD_ATENDIMENTO
+               ,ATENDIME.CD_PRESTADOR
+               ,PROD_ATEND.QT_SAIDA
+               ,PROD_ATEND.QT_FATURADA
+               ,PROD_ATEND.QT_DEVOLVIDA
+               ,(PROD_ATEND.QT_SAIDA - PROD_ATEND.QT_DEVOLVIDA)   QT_CONSUMIDA
+               ,PROD_ATEND.CD_UNID_INT
+               ,PROD_ATEND.CD_PRODUTO
+               ,PRODUTO.DS_PRODUTO
+               ,VERIF_DS_UNID_PROD(PROD_ATEND.CD_PRODUTO)  DS_UNID_PROD
+FROM      DBAMV.ATENDIME,
+                DBAMV.PROD_ATEND,
+                DBAMV.PRODUTO
+WHERE  PROD_ATEND.CD_ATENDIMENTO             =  ATENDIME.CD_ATENDIMENTO
+      AND  PRODUTO.CD_PRODUTO                = PROD_ATEND.CD_PRODUTO
+      AND  ATENDIME.DT_ATENDIMENTO   BETWEEN  TO_DATE(:CAMPO_DT_INICIAL, 'DD/MM/YYYY')
+                                         AND  TO_DATE(:CAMPO_DT_FIM, 'DD/MM/YYYY')
+      And Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+ORDER BY   ATENDIME.CD_ATENDIMENTO
+          ,PROD_ATEND.CD_PRODUTO
+) X
+ GROUP BY X.DT_ATENDIMENTO
+         ,X.DT_ALTA
+         ,X.CD_PACIENTE
+         ,X.CD_LEITO
+         ,X.CD_CONVENIO
+         ,X.CD_ATENDIMENTO
+         ,X.CD_PRESTADOR
+         ,X.CD_PRODUTO
+         ,X.DS_PRODUTO
+         ,X.DS_UNID_PROD
+)
+ORDER BY CD_ATENDIMENTO,CD_PACIENTE,DT_ATENDIMENTO,CD_PRESTADOR,CD_LEITO,CD_CONVENIO,DT_ALTA

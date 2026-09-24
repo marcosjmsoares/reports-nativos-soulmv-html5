@@ -1,0 +1,129 @@
+/*----------------------------------------------------------------------------*/
+--R_SOLSAI_PRO_COMP
+select solsai_pro.cd_solsai_pro
+      ,solsai_pro.cd_atendimento
+      ,solsai_pro.cd_aviso_cirurgia
+      ,nvl(paciente.nm_paciente, aviso_cirurgia.nm_paciente)
+      ,atendime.cd_convenio
+      ,convenio.nm_convenio
+      ,solsai_pro.dt_solsai_pro
+      ,solsai_pro.hr_solsai_pro
+      ,solsai_pro.cd_estoque
+      ,estoque.ds_estoque
+      ,solsai_pro.cd_estoque_solicitante
+      ,estoque_solic.ds_estoque ds_estoque_solicitante
+      ,solsai_pro.cd_prestador
+      ,prestador.nm_prestador
+      ,solsai_pro.cd_setor
+      ,setor.nm_setor
+      ,solsai_pro.cd_unid_int
+      ,unid_int.ds_unid_int
+      ,solsai_pro.tp_situacao
+      ,solsai_pro.tp_solsai_pro
+      ,solsai_pro.cd_usuario
+      ,solsai_pro.ds_obs
+      ,solsai_pro.dt_impressao
+      ,solsai_pro.cd_agrupamento
+      ,solsai_pro.cd_pre_med
+      ,prestador.ds_codigo_conselho
+      ,decode(solsai_pro.sn_urgente,'S','U R G E N T E','N O R M A L') SN_URGENTE
+      ,dbamv.FN_IDADE(paciente.dt_nascimento, NULL , SYSDATE) idade
+      ,mot_dev.cd_mot_dev || ' - ' || mot_dev.ds_mot_dev  ds_mot_dev
+      ,empresa_solic.ds_multi_empresa ds_empresa_solic
+      ,empresa.ds_multi_empresa   ds_empresa
+  from dbamv.solsai_pro
+      ,dbamv.atendime
+      ,dbamv.paciente
+      ,dbamv.unid_int
+      ,dbamv.setor
+      ,dbamv.estoque
+      ,dbamv.estoque estoque_solic
+      ,dbamv.prestador prestador
+      ,dbamv.leito
+      ,dbamv.convenio
+      ,dbamv.aviso_cirurgia
+      ,dbamv.mot_dev
+      ,dbamv.multi_empresas empresa_solic
+      ,dbamv.multi_empresas empresa
+ where  solsai_pro.cd_atendimento = atendime.cd_atendimento (+)
+   and atendime.cd_paciente = paciente.cd_paciente (+)
+   and atendime.cd_leito = leito.cd_leito(+)
+   and solsai_pro.cd_aviso_cirurgia = aviso_cirurgia.cd_aviso_cirurgia (+)
+   and solsai_pro.cd_unid_int = unid_int.cd_unid_int (+)
+   and solsai_pro.cd_setor = setor.cd_setor (+)
+   and solsai_pro.cd_estoque = estoque.cd_estoque (+)
+   and solsai_pro.cd_estoque_solicitante = estoque_solic.cd_estoque (+)
+   and solsai_pro.cd_prestador = prestador.cd_prestador (+)
+   and atendime.cd_convenio = convenio.cd_convenio (+)
+   AND  ATENDIME.CD_MULTI_EMPRESA(+) = Dbamv.Pkg_mv2000.le_empresa
+   AND (ESTOQUE.CD_MULTI_EMPRESA = Dbamv.Pkg_mv2000.le_empresa OR (SolSai_Pro.tp_solsai_pro = 'T' AND solsai_pro.cd_empresa_destino = Dbamv.Pkg_mv2000.le_empresa ))
+   and solsai_pro.cd_mot_dev = mot_dev.cd_mot_dev (+)
+   AND empresa_solic.cd_multi_empresa (+) = solsai_pro.cd_empresa_destino
+   AND empresa.cd_multi_empresa = ESTOQUE.CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SOLSAI_PRO_COMP_R_PSCOTROPICO_Q_ITSOLSAI_PRO
+select itsol.cd_solsai_pro
+         ,itsol.cd_itsolsai_pro
+         ,itsol.cd_produto
+         ,Decode( ItSol.Cd_Produto, Null
+                   ,'N.P.' || ItSol.Ds_NPadronizado
+                   ,Produto.Ds_Produto ) Ds_Produto
+         ,ITSOL.CD_PRODUTO_KIT             CD_PRODUTO_KIT
+         ,PRODUTO_KIT.DS_PRODUTO     DS_PRODUTO_KIT
+         ,especie.cd_especie
+         ,decode(especie.ds_especie, null, 'nao_tem_descricao_especie', especie.ds_especie)   ds_especie
+         ,itsol.cd_unidade
+         ,itsol.cd_uni_pro
+         ,itsol.qt_solicitado
+         ,itsol.qt_atendida
+         ,tip_presc.ds_tip_presc
+        ,tip_fre.ds_tip_fre
+        ,for_apl.ds_for_apl
+        ,nvl(ItPre_Med.Nr_Dia,0) || ' / ' || nvl(ItPre_Med.Qt_Dias,0) Dias_Aplic
+        ,produto2.ds_produto_resumido               ds_produto_mestre
+        ,nvl(itsol.cd_kit_estoque,'S')     cd_kit_estoque
+        ,itsol.cd_kit_estoque  kit2
+        ,kit_estoque.ds_kit_estoque
+        ,itsol.cd_tip_presc_kit
+        ,tip_presc1.ds_tip_presc          ds_tip_presc_kit
+        ,itsol.DS_OBS_ITPRE_MED
+        ,Decode(NVL(Produto.Nr_Ordem_Impressao,0),0,' N O R M A L ',' Q U E B R A  N U M E R O ')  Descricao_Impressao
+        ,NVL(Produto.Nr_Ordem_Impressao,0) Pscotropico
+        ,itsol.cd_itpre_med
+        , Decode(loc.ds_localizacao, null, Decode(Est_Pro.Ds_Localizacao_Prateleira, Null, Null, 'Localização:         '||Est_Pro.Ds_Localizacao_Prateleira),'Localização: '||loc.Ds_Localizacao)                             Ds_Localizacao_Prateleira
+      , Decode(Est_Pro.Ds_Localizacao_Prateleira, Null, Null, 'Localização: '||Est_Pro.Ds_Localizacao_Prateleira) Ds_Localizacao_Prateleira1
+	,uni_pro.ds_unidade
+	,round((Nvl(Est_Pro.QT_ESTOQUE_ATUAL,0)/ uni_pro.vl_fator),4) qt_estoque
+  from (select itsolsai_pro.*,solsai_pro.cd_estoque from dbamv.itsolsai_pro, dbamv.solsai_pro where itsolsai_pro.cd_solsai_pro = solsai_pro.cd_solsai_pro) itsol
+         ,dbamv.produto produto
+         ,dbamv.tip_presc tip_presc
+         ,dbamv.tip_presc tip_presc1
+         ,dbamv.tip_fre tip_fre
+         ,dbamv.produto produto2
+         ,dbamv.produto produto_kit
+         ,dbamv.kit_estoque
+         ,dbamv.especie
+         ,dbamv.localizacao loc
+         ,dbamv.itPre_Med
+         ,dbamv.for_apl
+         , Dbamv.Est_Pro
+	       , dbamv.uni_pro
+where itsol.cd_produto = produto.cd_produto (+)
+and     itsol.cd_tip_presc = tip_presc.cd_tip_presc (+)
+and     itsol.cd_tip_presc_kit = tip_presc1.cd_tip_presc (+)
+and     itsol.cd_tip_fre = tip_fre.cd_tip_fre (+)
+AND     itsol.cd_itpre_med = itPre_Med.cd_itpre_med (+)
+AND     itPre_Med.Cd_For_Apl = for_apl.Cd_For_Apl(+)
+and     produto.cd_produto_tem = produto2.cd_produto (+)
+and     itsol.cd_kit_estoque = kit_estoque.cd_kit_estoque (+)
+and     itsol.cd_produto_kit = produto_kit.cd_produto(+)
+and     produto.cd_especie  =  especie.cd_especie(+)
+And Est_Pro.Cd_Produto (+) = ItSol.Cd_Produto
+And Est_Pro.Cd_Estoque (+) = ItSol.Cd_Estoque
+and     loc.cd_estoque (+) = est_pro.cd_estoque
+and     loc.cd_localizacao (+) = est_pro.cd_localizacao
+and	uni_pro.cd_uni_pro (+) = itsol.cd_uni_pro
+and itsol.CD_SOLSAI_PRO = :CAMPO_CD_SOLSAI_PRO2

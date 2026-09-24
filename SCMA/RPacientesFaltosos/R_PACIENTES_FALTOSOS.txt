@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_PACIENTES_FALTOSOS
+SELECT S.nm_setor,
+       C.nm_convenio,
+       IA.cd_paciente
+       || ' - '
+       || IA.nm_paciente PACIENTE,
+       (SELECT PA.NM_SOCIAL_PACIENTE
+        FROM DBAMV.PACIENTE PA
+        WHERE PA.CD_PACIENTE = IA.CD_PACIENTE
+          AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE,
+       I.ds_item_agendamento,
+       To_char(A.dt_agenda,'dd/mm/yyyy') DT_AGENDA,
+       To_char(IA.hr_agenda,'HH24') HR_AGENDA
+FROM   agenda_central A,
+       it_agenda_central IA,
+       setor S,
+       item_agendamento I,
+       convenio C
+WHERE  A.cd_agenda_central = IA.cd_agenda_central
+       AND A.cd_setor = S.cd_setor
+       AND nvl(IA.cd_item_agendamento, (select cd_item_agendamento
+                                          from dbamv.ITEM_AGENDMTO_ITEM_AGEN_CTRAL
+                                         where cd_it_agenda_central = ia.cd_it_agenda_central) ) = I.cd_item_agendamento
+       AND IA.cd_convenio = C.cd_convenio
+       AND IA.cd_it_agenda_pai IS NULL
+       AND cd_atendimento IS NULL
+       AND IA.tp_presenca_falta = 'F'
+ORDER  BY nm_setor,
+          nm_convenio,
+          nm_paciente,
+          ds_item_agendamento,
+          dt_agenda,
+          hr_agenda

@@ -1,0 +1,206 @@
+/*----------------------------------------------------------------------------*/
+--R_DANFE_NFE
+SELECT emp_origem.DS_RAZAO_SOCIAL danfe_emitente_nome
+      , emp_origem.DS_ENDERECO || ', ' || emp_origem.NR_ENDERECO || ' - ' ||emp_origem.NM_BAIRRO ||chr(10)
+      || '\nTelefone ' || emp_origem.nr_telefone_empresa
+      || '          E-mail ' ||emp_origem.DS_EMAIL_CONTATO
+      || '\nINSCR. C.N.P.J. ' || regexp_replace(LPAD(emp_origem.CD_CGC, 15, '0'), '([0-9]{3})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})','\1.\2.\3/\4-\5')
+      || '          INSCR. C.C.M. '|| emp_origem.CD_IMUN  danfe_emitente_endereco,
+       emp_origem.DS_ENDERECO || ', ' || emp_origem.NR_ENDERECO || ' - ' ||emp_origem.NM_BAIRRO as logradouro,
+      'Telefone: ' || emp_origem.nr_telefone_empresa || ' E-mail: ' || emp_origem.DS_EMAIL_CONTATO telefoneEmail,
+      'INSCR. C.N.P.J. ' || regexp_replace(LPAD(emp_origem.CD_CGC, 15, '0'), '([0-9]{3})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})','\1.\2.\3/\4-\5') iestadual,
+      'INSCR. C.C.M. '|| emp_origem.CD_IMUN  imunicipal
+      , mvto.CHAVE_NFE chaveAcesso
+      , mvto.CHAVE_NFE chaveAcessoParaCodigoBarras
+      , mvto.CD_NUMERO_FORMULARIO_NFE idenNF
+      , mvto.NR_SERIE ideserie
+      , param.DS_NATUREZA_OPERACAO idenatOp
+      , mvto.PROTOCOLO_NFE protocoloAutorizacao
+      , emp_origem.CD_IEST emitIE
+      ,  regexp_replace(LPAD(emp_origem.CD_CGC, 15, '0'),'([0-9]{3})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})','\1.\2.\3/\4-\5') emitCNPJ
+      , emp_destino.DS_RAZAO_SOCIAL destxNome
+      , DECODE  (Length (emp_destino.CD_CGC),13,
+            regexp_replace(LPAD(emp_destino.CD_CGC, 15, '0'),'([0-9]{3})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})','\1.\2.\3/\4-\5'),
+           14, regexp_replace(LPAD(emp_destino.CD_CGC, 15, '0'),'([0-9]{3})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})','\1.\2.\3/\4-\5'),
+            11,regexp_replace(LPAD(emp_destino.CD_CGC, 11, '0'), '([0-9]{3})([0-9]{3})([0-9]{3})([0-9]{2})','\1.\2.\3-\4') )   destCNPJ
+      , To_Char(mvto.DT_AUTORIZACAO_NFE, 'dd/mm/yyyy') idedtEmi
+      , emp_destino.DS_ENDERECO destEnderxLgr
+      , emp_destino.NR_ENDERECO destEndernro
+      , emp_destino.NM_BAIRRO destEnderxBairro
+      , emp_destino.NR_CEP destEnderCEP
+      , To_Char(mvto.DT_AUTORIZACAO_NFE,'dd/mm/yyyy')  idedtSaiEnt
+      , emp_destino.NM_CIDADE destEnderxMun
+      , emp_destino.nr_telefone_empresa destEnderfone
+      , emp_destino.ds_uf destEnderUF
+      , emp_destino.CD_IEST destIE
+      , To_Char(mvto.DT_AUTORIZACAO_NFE,'hh24miss')  idehrSaiEnt
+      , null faturaDescricao
+      , '0,00' totalVBC
+      , '0,00' totalVICMS
+      , '0,00' totalVBCST
+      , '0,00' totalVST
+      , '0,00' totalVProd
+      , '0,00' totalVFrete
+      , '0,00' totalVSeg
+      , '0,00' totalVDesc
+      , '0,00' totalVOutro
+      , '0,00' totalVIPI
+      , To_Char(mvto.vl_total,'FM999G999G990D90') totalVNF
+      , null transportadoraXNome
+      , '9 - SEM FRETE' tipoDeFrete
+      , null veiculoRNTC
+      , null veiculoPlaca
+      , null veiculoUF
+      , null transportadoraCNPJ
+      , null transportadoraXEnder
+      , null transportadoraXMun
+      , null transportadoraUF
+      , null transportadoraIE
+      , null volumeQVol
+      , null volumeEsp
+      , null volumeMarca
+      , null volumeNVol
+      , null volumePesoB
+      , null volumePesoL
+      , emp_origem.CD_IMUN emitIMun
+      , null vlTotalServicos
+      , null baseCISSQN
+      , null vlBCISSQN
+      , mvto.DS_OBS_EMPRESTIMO || Chr(10) || param.DS_INFORMACAO_COMPLEMENTAR infCpl
+     FROM dbamv.mvto_estoque_nfe mvto,
+       dbamv.estoque est,
+       dbamv.parametros_nf_simples_remessa param,
+       dbamv.formulario_nf_simples_remessa formulario,
+       (SELECT u.cd_multi_empresa,
+               u.DS_RAZAO_SOCIAL,
+               u.DS_ENDERECO,
+               u.NR_ENDERECO,
+               u.NM_BAIRRO,
+               c.nm_cidade,
+               uf.cd_uf AS ds_uf,
+               u.NR_CEP,
+               u.nr_telefone_empresa,
+               u.CD_IEST,
+               u.CD_CGC,
+               u.CD_IMUN,
+               u.DS_EMAIL_CONTATO
+          FROM dbamv.multi_empresas u,
+               DBAMV.CIDADE         c,
+               dbamv.pais           p,
+               dbamv.uf             uf
+         WHERE u.cd_cidade = c.cd_cidade
+           AND c.cd_pais = p.cd_pais
+           AND c.cd_uf = uf.cd_uf) emp_origem,
+       (SELECT u.cd_multi_empresa,
+               u.DS_RAZAO_SOCIAL,
+               u.DS_ENDERECO,
+               u.NR_ENDERECO,
+               u.NM_BAIRRO,
+               c.nm_cidade,
+               uf.cd_uf AS ds_uf,
+               u.NR_CEP,
+               u.nr_telefone_empresa,
+               u.CD_IEST,
+               u.CD_CGC,
+               u.DS_EMAIL_CONTATO
+          FROM dbamv.multi_empresas u,
+               DBAMV.CIDADE         c,
+               dbamv.pais           p,
+               dbamv.uf             uf
+         WHERE u.cd_cidade = c.cd_cidade
+           AND c.cd_pais = p.cd_pais
+           AND c.cd_uf = uf.cd_uf) emp_destino
+ WHERE mvto.cd_estoque = est.cd_estoque
+       AND mvto.cd_formulario_nfe = formulario.cd_formulario(+)
+       AND param.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+       AND mvto.cd_mvto_estoque = :CAMPO_CD_NOTA_FISCAL
+       AND  (
+                    (  'S' = (  SELECT SN_EMITE_NFE
+  		  FROM DBAMV.PARAMETROS_NF_SIMPLES_REMESSA
+ 		  WHERE CD_MULTI_EMPRESA = ( SELECT CD_MULTI_EMPRESA
+		 	                                          FROM dbamv.estoque
+		 	                                          WHERE cd_estoque = ( Select Cd_Estoque From dbamv.mvto_estoque_nfe Where cd_mvto_Estoque = :CAMPO_CD_NOTA_FISCAL )
+		                                                          )
+                               )
+                      AND est.cd_multi_empresa = emp_origem.cd_multi_empresa
+                      AND mvto.cd_multi_empresa = emp_destino.cd_multi_empresa
+                    )
+                  OR
+                    (  'S' = (  SELECT Nvl(SN_EMITE_NFE,'N') SN_EMITE_NFE
+		  FROM DBAMV.PARAMETROS_NF_SIMPLES_REMESSA
+		 WHERE CD_MULTI_EMPRESA = ( SELECT CD_MULTI_EMPRESA
+				 	            FROM dbamv.mvto_estoque_nfe
+				 	           WHERE cd_mvto_Estoque = :CAMPO_CD_NOTA_FISCAL
+					          )
+                              )
+                      AND mvto.cd_multi_empresa = emp_origem.cd_multi_empresa
+                      AND est.cd_multi_empresa = emp_destino.cd_multi_empresa
+                    )
+                 )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DANFE_NFE_DETALHES
+SELECT mvto.cd_mvto_estoque ,
+       itmvto.cd_produto,
+       p.ds_produto DESCRICAO,
+       dbamv.pkg_mges_ncm_vigente.Fnc_Cd_Ncm(itmvto.cd_produto) AS CD_NCM ,
+       (SELECT ds_unidade FROM dbamv.uni_pro WHERE cd_uni_pro = dbamv.pkg_mges_ncm_vigente.Fnc_Ncm_Unipro(itmvto.cd_produto)) AS DS_UNIDADE,
+       To_char(Round((ITmvto.qt_movimentacao *
+                               uni1.vl_fator /
+                               (SELECT vl_fator FROM dbamv.uni_pro WHERE cd_uni_pro = dbamv.pkg_mges_ncm_vigente.Fnc_Ncm_Unipro(itmvto.cd_produto))
+                      ), 2),'FM999G999G990D90') QUANT,
+       To_Char(Round((ITmvto.vl_unitario *
+                           uni1.vl_fator /
+                           (SELECT vl_fator FROM dbamv.uni_pro WHERE cd_uni_pro = dbamv.pkg_mges_ncm_vigente.Fnc_Ncm_Unipro(itmvto.cd_produto))
+                      ),2),'FM999G999G990D90') VL_UNITARIO,
+       To_Char(Round((ITmvto.qt_movimentacao *
+                               uni1.vl_fator /
+                               (SELECT vl_fator FROM dbamv.uni_pro WHERE cd_uni_pro = dbamv.pkg_mges_ncm_vigente.Fnc_Ncm_Unipro(itmvto.cd_produto)) ) *
+                     Round(ITmvto.vl_unitario *
+                           uni1.vl_fator /
+                           (SELECT vl_fator FROM dbamv.uni_pro WHERE cd_uni_pro = dbamv.pkg_mges_ncm_vigente.Fnc_Ncm_Unipro(itmvto.cd_produto))
+                         ,2),2),'FM999G999G990D90' )VL_TOTAL,
+        Round((ITmvto.qt_movimentacao *
+                               uni1.vl_fator /
+                               (SELECT vl_fator FROM dbamv.uni_pro WHERE cd_uni_pro = dbamv.pkg_mges_ncm_vigente.Fnc_Ncm_Unipro(itmvto.cd_produto)) ) *
+                     Round(ITmvto.vl_unitario *
+                           uni1.vl_fator /
+                           (SELECT vl_fator FROM dbamv.uni_pro WHERE cd_uni_pro = dbamv.pkg_mges_ncm_vigente.Fnc_Ncm_Unipro(itmvto.cd_produto))
+                         ,2),2) VL_TOTAL_NUM,
+       0 BASE_CALCULO,
+       0 VL_ICMS,
+       0 VL_IPI,
+       0 ALIQ_ICMS,
+       0 ALIQ_IPI,
+       0 CFOP,
+       0 CST,
+       ITmvto.Cd_Lote as lote,
+   to_char(ITmvto.Dt_Validade, 'DD/MM/RRRR') as validade,
+   Nvl(Param.cd_situacao_tributaria, 0) AS CD_CST,
+       Nvl(Param.cd_cfop, 0) AS CD_CFOP ,
+       Cfop_Cab.Cd_Cfop AS Cd_Cfop_Cab
+  FROM dbamv.mvto_estoque_nfe              mvto,
+       dbamv.ITmvto_estoque_nfe            ITmvto,
+       dbamv.produto                       p,
+       dbamv.uni_pro                       uni1,
+       dbamv.parametros_nf_simples_remessa param ,
+       (
+              SELECT Param.cd_cfop CD_CFOP
+                FROM dbamv.parametros_nf_simples_remessa param
+              WHERE CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                  AND 'S' = (  SELECT Nvl(SN_EMITE_NFE,'N') SN_EMITE_NFE
+  		                        FROM DBAMV.PARAMETROS_NF_SIMPLES_REMESSA
+ 		                          WHERE CD_MULTI_EMPRESA = ( SELECT CD_MULTI_EMPRESA
+		 	                                                    FROM dbamv.estoque
+		 	                                                    WHERE cd_estoque = ( Select Cd_Estoque From dbamv.mvto_estoque_nfe Where cd_mvto_Estoque = :CAMPO_CD_NOTA_FISCAL )
+		                                                    )
+                            )
+        ) Cfop_Cab
+ WHERE mvto.cd_mvto_estoque = itmvto.cd_mvto_estoque
+   AND ITmvto.cd_produto = p.cd_produto
+   AND Param.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND ITmvto.cd_uni_pro = uni1.cd_uni_pro
+   AND mvto.cd_mvto_estoque = :CAMPO_CD_NOTA_FISCAL
+ORDER BY ITmvto.cd_produto ASC

@@ -1,0 +1,61 @@
+/*----------------------------------------------------------------------------*/
+--R_ANA_RESULT_ATEND_MARG
+select a.analise
+      ,sum(a.receita)            receita
+      ,sum(a.diaria)              diaria
+      ,sum(a.qtd_diaria)       qtd_diaria
+      ,sum(a.honorario)        honorario
+      ,sum(a.procedimento) procedimento
+      ,sum(a.matmed)          matmed
+      ,sum(a.terceiro)           terceiro
+      ,max(a.tx_adm)           tx_adm
+      ,max(a.tx_imposto)      tx_imposto
+      ,'x'                               quebra
+      ,count(a.qtd_atendimento) qtd_atendimento
+from(
+select decode(:CAMPO_ANALISE,'1',nvl(ate.cd_pro_int,ate.cd_ssm_sia),'2',ate.cd_cid,'3',ate.cd_convenio,'4',ate.cd_servico,'5',ate.cd_especialid,'6',ate.cd_prestador,'7',ate.tp_atendimento,'8',ate.cd_tipo_internacao,'0', ate.cd_paciente,'10',sgru_cid.cd_gru_cid,'11',cid.cd_sgru_cid) analise,
+       dbamv.pack_ffch.receita(ate.cd_atendimento)       receita,
+       dbamv.pack_ffch.diaria(ate.cd_atendimento,'R')         diaria,
+       dbamv.pack_ffch.qtd_diaria(ate.cd_atendimento)  qtd_diaria,
+       dbamv.pack_ffch.honorario(ate.cd_atendimento)   honorario,
+       dbamv.pack_ffch.procedimento(ate.cd_atendimento,'R', :CAMPO_CD_MULTI_EMPRESA)  procedimento,
+       dbamv.pack_ffch.matmed(ate.cd_atendimento,ate.dt_atendimento,:CAMPO_CD_MULTI_EMPRESA)  matmed,
+       dbamv.pack_ffch.terceiro(ate.cd_atendimento,'R')      terceiro,
+       dbamv.pack_ffch.tx_adm( to_char(ate.dt_atendimento,'mm/yyyy'), :CAMPO_CD_MULTI_EMPRESA)       tx_adm,
+       DECODE(:CAMPO_SN_CALCULO_DEDUCAO_RECEITA, 'N', DBAMV.PACK_FFCH.TX_IMPOSTO(TO_CHAR(ATE.DT_ATENDIMENTO, 'MM/YYYY'), :CAMPO_CD_MULTI_EMPRESA), 'S', DBAMV.PACK_FFCH.FNC_CUSTO_DEDUCAO_CONTAB_ATEND(ATE.CD_ATENDIMENTO, 'N', 'S', 'N', 'N')) tx_imposto,
+       'X'              dummy,
+       rownum      qtd_atendimento
+from dbamv.atendime ate,
+     dbamv.paciente pc,
+     dbamv.pro_fat pf,
+     dbamv.tab_siasus sia,
+     dbamv.convenio cv,
+     dbamv.prestador pr,
+     dbamv.cid,
+     dbamv.tipo_internacao tp_int,
+     dbamv.gru_cid,
+     dbamv.sgru_cid
+where ate.dt_atendimento between :CAMPO_DATA_INI and  and
+      to_char(ate.dt_atendimento,'yyyy/mm/dd') >= :CAMPO_DT_ATENDIMENTO and
+      ate.cd_paciente = pc.cd_paciente and
+      ate.cd_pro_int = pf.cd_pro_fat(+) and
+      ate.cd_ssm_sia = sia.cd_ssm(+) and
+      cid.cd_cid(+) = ate.cd_cid and
+      cid.cd_sgru_cid = sgru_cid.cd_sgru_cid  and
+      sgru_cid.cd_gru_cid = gru_cid.cd_gru_cid and
+      ate.cd_convenio = cv.cd_convenio and
+      ate.cd_prestador = pr.cd_prestador(+) and
+      ate.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA AND
+      to_char(ate.dt_atendimento,'yyyy/mm/dd') >=  :CAMPO_DT_ATENDIMENTO and
+      ate.cd_tipo_internacao = tp_int.cd_tipo_internacao(+)
+and (:CAMPO_SN_MULT_PROC = 'S' OR 'N' = dbamv.pack_ffch.f_multi_procedimento(ate.cd_atendimento))
+and (:CAMPO_SN_UTI = 'S' OR 'N' In (SELECT DECODE( COUNT( * ), 1, 'S', 'N' )
+        FROM dbamv.mov_int
+            ,dbamv.tip_acom
+       WHERE mov_int.cd_atendimento = ate.cd_atendimento
+             AND mov_int.cd_tip_acom = tip_acom.cd_tip_acom
+             AND tip_acom.tp_acomodacao = 'U'
+             AND ROWNUM = 1))
+      :CAMPO_CF_CIRURGIA
+) a
+group by a.analise

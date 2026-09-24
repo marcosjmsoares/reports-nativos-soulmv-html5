@@ -1,0 +1,61 @@
+/*----------------------------------------------------------------------------*/
+--R_FNCP_ACEITESETOR
+SELECT * FROM (
+SELECT * FROM (
+SELECT atd.cd_atendimento,
+       pac.nm_paciente,
+       Decode(itf.cd_reg_fat, NULL, 'AMBULATORIAL', 'HOSPITALAR') tipo,
+       Nvl(itf.cd_reg_fat, itf.cd_reg_amb) conta,
+       itf.cd_remessa,
+       trunc(fat.dt_competencia) dt_competencia,
+       trunc(mov.dt_movimentacao) dt_aceite,
+       cov.cd_convenio,
+       cov.nm_convenio,
+       str.cd_setor cd_setor_aceite,
+       str.nm_setor,
+       mov.cd_multi_empresa cd_empresa,
+       mov.ds_mov_glosa,
+       mov.cd_usuario,
+       Sum(itm.vl_glosa) vl_aceite
+  FROM dbamv.mov_glosas        mov,
+       dbamv.setor             str,
+       dbamv.itmov_glosas      itm,
+       dbamv.itfat_nota_fiscal itf,
+       dbamv.nota_fiscal       ntf,
+       dbamv.convenio          cov,
+       dbamv.atendime          atd,
+       dbamv.paciente          pac,
+       dbamv.remessa_fatura    ret,
+       dbamv.fatura            fat
+ WHERE str.cd_setor       = itf.cd_setor
+   AND itm.cd_mov_glosas  = mov.cd_mov_glosas
+   AND itf.cd_itfat_nf    = itm.cd_itfat_nf
+   AND itf.cd_nota_fiscal = ntf.cd_nota_fiscal
+   AND ntf.cd_convenio    = cov.cd_convenio
+   AND itf.cd_atendimento = atd.cd_atendimento
+   AND atd.cd_paciente    = pac.cd_paciente
+   AND ret.cd_remessa     = itf.cd_remessa
+   AND ret.cd_remessa     = itf.cd_remessa
+   AND ret.cd_fatura      = fat.cd_fatura
+   AND str.cd_setor       = itf.cd_setor
+   AND mov.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY atd.cd_atendimento,
+         pac.nm_paciente,
+         Decode(itf.cd_reg_fat, NULL, 'AMBULATORIAL', 'HOSPITALAR'),
+         Nvl(itf.cd_reg_fat, itf.cd_reg_amb),
+         itf.cd_remessa,
+         trunc(mov.dt_movimentacao),
+         trunc(fat.dt_competencia),
+         cov.cd_convenio,
+         cov.nm_convenio,
+         str.cd_setor,
+         str.nm_setor,
+         mov.cd_multi_empresa,
+         mov.ds_mov_glosa,
+         mov.cd_usuario
+ORDER BY str.cd_setor )
+WHERE 1 = 1
+ :CAMPO_CF_FILTRO_COMPETENCIA
+)
+ORDER BY CD_SETOR_ACEITE,NM_SETOR,
+CD_CONVENIO,NM_CONVENIO

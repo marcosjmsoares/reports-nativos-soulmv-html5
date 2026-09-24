@@ -1,0 +1,67 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_GRU_FAT_DT_LANC
+SELECT  CD_GRU_FAT
+               ,DS_GRU_FAT
+               ,SUM(NVL(VL_TOTAL_CONTA,0))  VALOR
+FROM   (  SELECT ITREG_FAT.CD_GRU_FAT
+                              ,GRU_FAT.DS_GRU_FAT
+                              ,PRO_FAT.CD_GRU_PRO
+                              ,GRU_PRO.DS_GRU_PRO
+                              ,NVL(ITLAN_MED.VL_LIQUIDO,ITREG_FAT.VL_TOTAL_CONTA) VL_TOTAL_CONTA
+                              ,REG_FAT.CD_CONVENIO
+                 FROM    DBAMV.REG_FAT
+                              ,DBAMV.ITREG_FAT
+                              ,DBAMV.GRU_FAT
+                              ,DBAMV.PRO_FAT
+                              ,DBAMV.GRU_PRO
+                              ,DBAMV.CONVENIO
+                              ,DBAMV.ATENDIME
+                              ,dbamv.itlan_med
+			      ,Dbamv.Empresa_Convenio           
+              Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+                 And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                 And REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                 AND       ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+                 AND       ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                 AND       PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                 and          nvl( nvl( itlan_med.tp_pagamento, itreg_fat.tp_pagamento ) ,'X') <> 'C'
+                 and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+                 and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+                 AND       REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                 AND       REG_FAT.SN_FECHADA  = decode(:CAMPO_CONTA,'T', reg_fat.sn_fechada,:CAMPO_CONTA)
+                 AND   ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+                 AND        CONVENIO.TP_CONVENIO not in ('A','H')
+                 and       atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                 UNION ALL
+                 SELECT ITREG_AMB.CD_GRU_FAT
+                               ,GRU_FAT.DS_GRU_FAT
+                               ,PRO_FAT.CD_GRU_PRO
+                               ,GRU_PRO.DS_GRU_PRO
+                               ,ITREG_AMB.VL_TOTAL_CONTA              VL_TOTAL_CONTA
+                               ,ITREG_AMB.CD_CONVENIO
+                  FROM   DBAMV.REG_AMB
+                              ,DBAMV.ITREG_AMB
+                              ,DBAMV.ATENDIME
+                              ,DBAMV.GRU_FAT
+                              ,DBAMV.PRO_FAT
+                              ,DBAMV.GRU_PRO
+                              ,DBAMV.CONVENIO
+			      ,Dbamv.Empresa_Convenio
+                Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+                  And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                  And REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                  AND       ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                  AND       ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+                  AND       ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                  AND       PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                  AND       NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                  AND       REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                  AND       ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                  AND       ITREG_AMB.SN_FECHADA  = decode(:CAMPO_CONTA,'T', itreg_amb.sn_fechada,:CAMPO_CONTA)
+                  AND        CONVENIO.TP_CONVENIO not in ('A','H')
+                  and       atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                  :CAMPO_CF_COND_PACOTE_A
+          ) CONVENIO
+GROUP BY CD_GRU_FAT
+                   ,DS_GRU_FAT
+ORDER BY VALOR DESC

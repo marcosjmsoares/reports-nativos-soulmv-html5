@@ -1,0 +1,41 @@
+/*----------------------------------------------------------------------------*/
+--R_DOCFORA_PORTADOR
+SELECT * FROM (
+      select distinct protocolos.cd_portador_destino                         CD_PORTADOR
+                     ,portadores.ds_portador                                 DS_PORTADOR
+                    ,TO_CHAR(PROTOCOLOS.DT_SAIDA, 'DD/MM/YYYY')              DT_SAIDA
+                    ,TO_CHAR(PROTOCOLOS.DT_PREV_RETORNO,'DD/MM/YYYY')        DT_PREV_RETORNO
+                    ,It_Same_Protocolos.cd_atendimento                       CD_ATENDIMENTO
+                     ,ultimo_mov.nr_matricula_same                            NR_MATRICULA_SAME
+                     ,ultimo_mov.nr_volume                                    NR_VOLUME
+                     ,armario_same.ds_armario_same                            DS_ARMARIO_SAME
+                     ,same.ds_linha                                           DS_LINHA
+                     ,same.ds_coluna                                          DS_COLUNA
+                     ,paciente.nm_paciente                                    NM_PACIENTE
+            from (SELECT max(It_Same_Protocolos.Cd_Protocolo) cd_protocolo
+                        ,It_Same_Protocolos.nr_matricula_same
+                        ,It_Same_Protocolos.nr_volume
+                    FROM Dbamv.It_Same_Protocolos
+                    GROUP BY It_Same_Protocolos.nr_matricula_same,It_Same_Protocolos.nr_volume) ultimo_mov
+                ,dbamv.Protocolos
+                ,dbamv.portadores
+                ,dbamv.It_Same_Protocolos
+                ,dbamv.same
+                ,dbamv.paciente
+                ,dbamv.armario_same
+           where protocolos.cd_protocolo = ultimo_mov.cd_protocolo
+              and portadores.cd_portador = protocolos.cd_portador_destino
+              and ultimo_mov.Cd_Protocolo = It_Same_Protocolos.Cd_Protocolo
+              and It_Same_Protocolos.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+              and It_Same_Protocolos.Nr_volume = ultimo_mov.nr_volume
+              and Same.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+              and Same.Nr_volume = ultimo_mov.nr_volume
+              and Same.Cd_Paciente = Paciente.Cd_Paciente
+              and same.cd_armario_same = armario_same.cd_armario_same(+)
+              and It_Same_Protocolos.dt_recebimento is not NULL
+              :CAMPO_COND_DEVOLUCAO
+)
+ORDER BY CD_PORTADOR,DS_PORTADOR
+       ,CD_ATENDIMENTO
+       ,DT_SAIDA
+       ,DT_PREV_RETORNO

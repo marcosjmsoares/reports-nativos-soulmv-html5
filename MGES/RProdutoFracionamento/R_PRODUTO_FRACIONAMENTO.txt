@@ -1,0 +1,66 @@
+/*----------------------------------------------------------------------------*/
+--R_PRODUTO_FRACIONAMENTO
+Select *
+  From (Select PF.CD_PRODUTO_FRACIONAMENTO,
+               PF.CD_ESTOQUE,
+               E.DS_ESTOQUE,
+               To_Char(PF.DT_FRACIONAMENTO,
+                       'DD/MM/YYYY') As DT_FRACIONAMENTO,
+               Decode(Nvl((Select C.SN_VALIDADE_LOTE_EM_HORAS
+                             From DBAMV.CONFIGEST C
+                            Where C.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa()),
+                          'N'),
+                      'S',
+                      To_Char(PF.DT_VALIDADE,
+                              'DD/MM/YYYY HH24'),
+                      To_Char(PF.DT_VALIDADE,
+                              'DD/MM/YYYY')) As DT_VALIDADE,
+               Decode(Nvl((Select C.SN_VALIDADE_LOTE_EM_HORAS
+                             From DBAMV.CONFIGEST C
+                            Where C.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa()),
+                          'N'),
+                      'S',
+                      To_Char(PF.DT_VALIDADE_FRACIONADO,
+                              'DD/MM/YYYY HH24'),
+                      To_Char(PF.DT_VALIDADE_FRACIONADO,
+                              'DD/MM/YYYY')) As DT_VALIDADE_FRACIONADO,
+               P.DS_PRODUTO,
+               PF.CD_PRODUTO,
+               UP.CD_UNIDADE,
+               UP.DS_UNIDADE,
+               PF.CD_UNI_PRO,
+               UP.VL_FATOR,
+               PF.DS_OBS_APROVADOR,
+               PF.QT_PRODUTO,
+               PF.QT_PROD_FRACIONADO,
+               PF.QT_DESCARTE_PROD_FRACIONADO,
+               PF.TP_SITUACAO,
+               (Select U.NM_USUARIO
+                  From DBASGU.USUARIOS U
+                 Where U.CD_USUARIO = PF.CD_USUARIO) As CD_USUARIO,
+               (Select U.NM_USUARIO
+                  From DBASGU.USUARIOS U
+                 Where U.CD_USUARIO = PF.CD_USUARIO_AUTORIZADOR) As CD_USUARIO_AUTORIZADOR,
+               PF.CD_LOTE,
+               PF.CD_LOTE_FRACIONADO,
+               (Select MB.CD_MOT_BAI || ' - ' || MB.DS_MOT_BAI
+                  From DBAMV.MOT_BAI MB
+                 Where MB.CD_MOT_BAI = PF.CD_MOT_BAI) As DS_MOT_BAI,
+               (Select U.CD_UNIDADE || ' - ' || U.DS_UNIDADE || ' - ' || U.VL_FATOR
+                  From DBAMV.UNI_PRO U
+                 Where U.CD_UNI_PRO = PF.CD_UNI_PRO_FRACIONADO) As DS_UNI_PRO_FRACIONADO
+          From DBAMV.PRODUTO_FRACIONAMENTO PF
+    Inner Join DBAMV.ESTOQUE E On
+               E.CD_ESTOQUE = PF.CD_ESTOQUE
+    Inner Join DBAMV.PRODUTO P On
+               P.CD_PRODUTO = PF.CD_PRODUTO
+    Inner Join DBAMV.UNI_PRO UP On
+               UP.CD_UNI_PRO = PF.CD_UNI_PRO
+         Where PF.CD_PRODUTO_FRACIONAMENTO = :CAMPO_CD_PRODUTO_FRACIONAMENTO)
+Order By CD_PRODUTO_FRACIONAMENTO,
+       DS_ESTOQUE,
+       DT_FRACIONAMENTO,
+       DS_PRODUTO,
+       DS_UNIDADE,
+       QT_PROD_FRACIONADO,
+       TP_SITUACAO

@@ -1,0 +1,82 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_PONT_PED_S
+SELECT
+   Cd_Estoque
+	,Ds_Estoque
+	,Cd_Especie
+	,Ds_Especie
+  ,Sum(Vl_Custo_Medio * Qt_Estoque_Atual) Total
+ FROM (
+SELECT Resumo.Cd_Estoque
+	,Resumo.Ds_Estoque
+	,Resumo.Cd_Especie
+	,Resumo.Ds_Especie
+                ,Resumo.cd_ultimo_fornecedor
+	,Resumo.Cd_Classe
+	,Resumo.Ds_Classe
+	,Resumo.Cd_Sub_Cla
+	,Resumo.Ds_Sub_Cla
+	,Produto.Cd_Produto
+	,Produto.Ds_Produto
+	,Resumo.Dt_Ultima_Entrada
+	,Produto.Vl_Custo_Medio * verif_vl_fator_prod( Produto.Cd_Produto )		Vl_Custo_Medio
+	,Verif_Ds_Unid_Prod( Produto.Cd_Produto )				Ds_Unidade
+	,Resumo.Qt_Estoque_Maximo / Verif_Vl_Fator_Prod( Produto.Cd_Produto )	Qt_Estoque_Maximo
+	,Resumo.Qt_Estoque_Minimo / Verif_Vl_Fator_Prod( Produto.Cd_Produto )	Qt_Estoque_Minimo
+	,Resumo.Qt_Ponto_de_Pedido / Verif_Vl_Fator_Prod( Produto.Cd_Produto )        Qt_Ponto_de_Pedido
+	,Resumo.Qt_Estoque_Atual / Verif_Vl_Fator_Prod( Produto.Cd_Produto )	Qt_Estoque_Atual
+	,verif_vl_fator_prod( Produto.Cd_Produto )	Vl_Fator
+  FROM DBAMV.PRODUTO,
+	( SELECT estoque.cd_estoque,
+	       estoque.ds_estoque,
+	       especie.cd_especie,
+	       especie.ds_especie,
+                       produto.cd_ultimo_fornecedor,
+	       classe.cd_classe,
+	       classe.ds_classe,
+	       sub_clas.cd_sub_cla,
+	       sub_clas.ds_sub_cla,
+	       Decode( '', 'S', Nvl(Produto.Cd_Produto_Tem, Produto.Cd_Produto), produto.cd_produto ) Cd_Produto,
+	       sum( est_pro.qt_estoque_maximo )	Qt_Estoque_Maximo,
+	       sum( est_pro.qt_estoque_minimo )	Qt_Estoque_Minimo,
+	       sum( est_pro.qt_ponto_de_pedido )	Qt_Ponto_de_Pedido,
+	       sum( est_pro.qt_estoque_atual )	Qt_Estoque_Atual,
+	       max( produto.Dt_Ultima_Entrada )	Dt_Ultima_Entrada
+	FROM   dbamv.estoque,
+	       dbamv.est_pro,
+	       dbamv.produto,
+	       dbamv.sub_clas,
+	       dbamv.classe,
+	       dbamv.especie,
+		   dbamv.empresa_produto
+	WHERE  est_pro.cd_estoque  = estoque.cd_estoque
+	AND    est_pro.cd_produto  = produto.cd_produto
+	AND    produto.cd_sub_cla  = sub_clas.cd_sub_cla
+	AND    produto.cd_classe   = sub_clas.cd_classe
+	AND    produto.cd_especie  = sub_clas.cd_especie
+	AND    sub_clas.cd_classe  = classe.cd_classe
+	AND    sub_clas.cd_especie = classe.cd_especie
+	AND    classe.cd_especie   = especie.cd_especie
+	AND    ESTOQUE.CD_MULTI_EMPRESA =:CAMPO_CD_MULTI_EMPRESA
+	AND    empresa_produto.cd_produto = produto.cd_produto
+	AND    empresa_produto.cd_multi_empresa = estoque.cd_multi_empresa
+	Group By estoque.cd_estoque,
+	       estoque.ds_estoque,
+	       especie.cd_especie,
+	       especie.ds_especie,
+                       produto.cd_ultimo_fornecedor,
+	       classe.cd_classe,
+	       classe.ds_classe,
+	       sub_clas.cd_sub_cla,
+	       sub_clas.ds_sub_cla,
+	       Decode( '', 'S', Nvl(Produto.Cd_Produto_Tem, Produto.Cd_Produto), produto.cd_produto ) ) RESUMO
+ WHERE produto.cd_produto		= resumo.cd_produto
+       AND NVL( RESUMO.QT_ESTOQUE_ATUAL,0) <= NVL( RESUMO.QT_PONTO_DE_PEDIDO, 0 )
+order by produto.ds_produto
+)
+GROUP BY    Cd_Estoque
+	,Ds_Estoque
+	,Cd_Especie
+	,Ds_Especie
+ORDER BY CD_ESTOQUE,DS_ESTOQUE,
+CD_ESPECIE,DS_ESPECIE

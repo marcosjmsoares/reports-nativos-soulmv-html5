@@ -1,0 +1,57 @@
+/*----------------------------------------------------------------------------*/
+--R_DET_APAGAR
+SELECT * FROM (
+select    tp_det.cd_detalhamento                                         cd_detalhamento
+         ,tp_det.ds_detalhamento                                         ds_detalhe
+         ,it.dt_vencimento                                               dt_venc
+         ,con_pag.dt_emissao                                             dt_emissao
+         ,con_pag.ds_con_pag                                             ds_con_pag
+         ,detcon_pag.cd_con_pag_filho                                    cd_con_pag
+         ,dbamv.fnc_imposto_det (detcon_pag.cd_con_pag_pai)                    cd_con_pag_imp
+         ,con_pag.nr_documento  nr_doc
+         ,dbamv.qtd_itens_con_pag(1, detcon_pag.cd_con_pag_filho )       qtd_itens_con_pag
+         ,port.ds_portador                                               ds_portador
+         ,dbamv.fnc_moeda_depara(it.cd_moeda,'',(it.vl_duplicata - nvl(it.vl_soma_baixada,0)), it.vl_moeda) vl_devido
+         ,dbamv.fnc_moeda_depara(it.cd_moeda,'',it.vl_duplicata, it.vl_moeda) vl_duplicata
+         ,detcon_pag.cd_itcon_pag                                        cd_itcon_pag_parc
+         ,itpai.nr_parcela                                               nr_parcela
+         ,dbamv.fnc_moeda_depara(it.cd_moeda,'',it.vl_soma_baixada,it.vl_moeda) VL_PAGO
+         ,(select Max(dt_pagamento) from dbamv.pagcon_pag pag
+          where pag.cd_itcon_pag =  it.cd_itcon_pag )                    dt_pgto
+          , con_pag.cd_multi_empresa
+          ,me.ds_multi_empresa
+          , (SELECT nr_documento FROM dbamv.con_pag c WHERE c.cd_con_pag =  detcon_pag.cd_con_pag_pai)  doc_origem
+          , (SELECT ds_fornecedor FROM dbamv.con_pag c WHERE c.cd_con_pag =  detcon_pag.cd_con_pag_pai) fornecedor
+from      dbamv.tip_detalhe            tp_det
+         ,dbamv.tip_detcon_pag         detcon_pag
+         ,dbamv.con_pag                con_pag
+         ,dbamv.itcon_pag              it
+         ,dbamv.portador               port
+         ,dbamv.tip_doc
+         ,dbamv.itcon_pag              itpai
+          ,dbamv.multi_empresas         me
+          ,dbamv.USUARIO_MULTI_EMPRESA UME
+where     tp_det.cd_detalhamento          =   detcon_pag.cd_detalhamento
+and       detcon_pag.cd_con_pag_filho     =   con_pag.cd_con_pag
+and       con_pag.cd_con_pag              =   it.cd_con_pag
+and       con_pag.cd_portador             =   port.cd_portador(+)
+and       detcon_pag.cd_itcon_pag         =   itpai.cd_itcon_pag(+)
+AND      me.cd_multi_empresa         =    con_pag.cd_multi_empresa
+and       it.cd_con_pag_agrup is null
+and       not exists (select 'X'
+                        from dbamv.con_pag cp
+                       where cp.cd_previsao is not null
+                         and cp.cd_con_pag = detcon_pag.cd_con_pag_pai  )
+and       con_pag.cd_tip_doc              =   tip_doc.cd_tip_doc
+AND con_pag.cd_multi_empresa = UME.cd_multi_empresa
+AND ume.cd_id_usuario = user
+and
+((:CAMPO_TP_PERIODO = 'Q' and exists (select * from dbamv.pagcon_pag pag
+                                    where pag.cd_itcon_pag =  it.cd_itcon_pag
+                                      and pag.dt_pagamento between :CAMPO_DATA_INICIAL and :CAMPO_DATA_FINAL))
+or
+(:CAMPO_TP_PERIODO <> 'Q' and  it.tp_quitacao   <>  'Q'
+:CAMPO_CF_DATA))
+:CAMPO_CF_MOEDA
+)
+order by  ds_detalhe, dt_venc, dt_emissao

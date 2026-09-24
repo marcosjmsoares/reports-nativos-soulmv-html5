@@ -1,0 +1,199 @@
+/*----------------------------------------------------------------------------*/
+--R_AUDIT_PATRIMONIO
+select
+      m.cd_multi_empresa,
+      m.cd_multi_empresa||'-'||e.ds_multi_empresa empresa,
+      e.ds_multi_empresa,
+      be.cd_capitulo,
+      be.cd_capitulo||'-'||i.ds_capitulo classif_bem,
+      be.ds_bem,
+      be.ds_plaqueta,
+      be.nr_serie,
+      be.dt_tombamento,
+      be.dt_compra,
+      DECODE(dbamv.pkg_patrimonio.fnc_retorna_vl_recuperavel( be.cd_bem, :CAMPO_PDTREFERENCIA),0,be.vl_compra + Nvl((SELECT Sum(vl_lancamento) FROM dbamv.lancamento_patrimonio WHERE cd_bem = be.cd_bem AND dt_lancamento < :CAMPO_PDTREFERENCIA AND tp_lancamento = 'R'),0),dbamv.pkg_patrimonio.fnc_retorna_vl_recuperavel( be.cd_bem, :CAMPO_PDTREFERENCIA)) vl_compra,
+      dbamv.f_retorna_deprec_periodo(be.cd_bem,:CAMPO_PDTREFERENCIA,last_day(:CAMPO_PDTREFERENCIA)) dep_mes,
+      dbamv.pkg_patrimonio.fnc_calc_vl_residual_bem( be.cd_bem, 'E', last_day(:CAMPO_PDTREFERENCIA)) Liquido,
+      dbamv.f_retorna_taxa_dep(be.cd_bem) Taxa_Anual,
+      (:CAMPO_PDTREFERENCIA-be.dt_tombamento) Dias,
+      (dbamv.f_retorna_taxa_dep(be.cd_bem)/365) Taxa_dia,
+      dbamv.f_retorna_deprec_acum(be.cd_bem,add_months(last_day(:CAMPO_PDTREFERENCIA),-12)) dep_acum_ano_ant,
+      dbamv.pkg_patrimonio.fnc_calc_vl_residual_bem( be.cd_bem, 'E', add_months(last_day(:CAMPO_PDTREFERENCIA),-12)) resid_ano_ant,
+      dbamv.f_retorna_deprec_periodo(be.cd_bem,add_months(:CAMPO_PDTREFERENCIA,-12),add_months(last_day(:CAMPO_PDTREFERENCIA),-12)) dep_ano_ant,
+      dbamv.f_retorna_deprec_acum(be.cd_bem,last_day(:CAMPO_PDTREFERENCIA), 'N') dep_acum_ano,
+      dbamv.pkg_patrimonio.fnc_calc_vl_residual_bem( be.cd_bem, 'E', last_day(:CAMPO_PDTREFERENCIA)) resid_ano
+FROM
+  dbamv.multi_empresas e,
+  dbamv.iob i,
+  (SELECT
+      b.cd_multi_empresa,
+      b.cd_capitulo,
+      b.cd_bem,
+      b.ds_bem,
+      b.ds_plaqueta,
+      b.nr_serie,
+      b.dt_tombamento,
+      b.dt_compra,
+      b.vl_compra
+  from
+      dbamv.bens b
+  where
+      b.dt_tombamento <= last_day(:CAMPO_PDTREFERENCIA)+0.99999
+  and b.sn_desp_operacional in ('N', NVL(:CAMPO_SN_DESP_OPERACIONAL, 'N'))
+    and (
+        (
+            1=1
+            AND b.cd_bem NOT IN (SELECT cd_bem FROM dbamv.mov_bens WHERE cd_bem = b.cd_bem AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+        )
+        OR EXISTS (
+            SELECT m.CD_MULTI_EMPRESA_ORIGEM
+            FROM dbamv.MOV_BENS M
+            WHERE m.CD_MOV_BEM = (SELECT Min(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+            AND m.CD_BEM = b.cd_bem
+            AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+            :CAMPO_CF_EMPRESA_ORIGEM
+        )
+        OR EXISTS (
+            SELECT m.CD_MULTI_EMPRESA_destino
+            FROM dbamv.MOV_BENS M
+            WHERE m.CD_MOV_BEM = (SELECT max(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+            AND m.CD_BEM = b.cd_bem
+            AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+            :CAMPO_CF_EMPRESA_DESTINO
+        )
+    )
+  AND (( b.dt_baixa IS NOT NULL AND b.Dt_Baixa  > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)  
+       OR
+       ( b.dt_baixa IS NULL) 
+       OR
+       ( b.dt_cancelamento_baixa IS NOT NULL AND (b.dt_cancelamento_baixa <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999 and
+        (b.dt_baixa is null or (b.dt_baixa <= b.dt_cancelamento_baixa and b.dt_baixa <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)))
+        AND b.dt_cancelamento_baixa >=  b.dt_baixa
+       ))
+  AND b.vl_compra > 0
+  AND b.cd_bem NOT IN
+   (SELECT cd_bem FROM dbamv.alteracao_sub_iob_bem WHERE dt_alteracao_sub_iob_bem <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)
+  UNION
+ Select b.cd_multi_empresa,
+      al.cd_capitulo_atual,
+      b.cd_bem,
+      b.ds_bem,
+      b.ds_plaqueta,
+      b.nr_serie,
+      b.dt_tombamento,
+      b.dt_compra,
+      b.vl_compra
+  From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+        Dbamv.Bens  B
+  Where Al.cd_bem = B.cd_bem
+    And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+    And Trunc(B.Dt_Tombamento)       <= Trunc(Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)
+    and b.sn_desp_operacional in ('N', NVL(:CAMPO_SN_DESP_OPERACIONAL, 'N'))
+    and (
+        (
+            1=1
+            AND b.cd_bem NOT IN (SELECT cd_bem FROM dbamv.mov_bens WHERE cd_bem = b.cd_bem AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+        )
+        OR EXISTS (
+            SELECT m.CD_MULTI_EMPRESA_ORIGEM
+            FROM dbamv.MOV_BENS M
+            WHERE m.CD_MOV_BEM = (SELECT Min(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+            AND m.CD_BEM = b.cd_bem
+            AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+            :CAMPO_CF_EMPRESA_ORIGEM
+        )
+        OR EXISTS (
+            SELECT m.CD_MULTI_EMPRESA_destino
+            FROM dbamv.MOV_BENS M
+            WHERE m.CD_MOV_BEM = (SELECT max(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+            AND m.CD_BEM = b.cd_bem
+            AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+            :CAMPO_CF_EMPRESA_DESTINO
+        )
+    )
+    AND (( b.dt_baixa IS NOT NULL AND b.Dt_Baixa  > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)  
+       OR
+       ( b.dt_baixa IS NULL) 
+       OR
+       ( b.dt_cancelamento_baixa IS NOT NULL AND (b.dt_cancelamento_baixa <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999 and
+        (b.dt_baixa is null or (b.dt_baixa <= b.dt_cancelamento_baixa and b.dt_baixa <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)))
+        AND b.dt_cancelamento_baixa >=  b.dt_baixa
+       ))
+  UNION
+  SELECT
+      b.cd_multi_empresa,
+      a.cd_capitulo_nova,
+      b.cd_bem,
+      b.ds_bem,
+      b.ds_plaqueta,
+      b.nr_serie,
+      b.dt_tombamento,
+      b.dt_compra,
+      b.vl_compra
+  from
+      dbamv.bens b,
+      dbamv.alteracao_sub_iob_bem a
+  where
+      b.cd_bem = a.cd_bem
+  and b.sn_desp_operacional in ('N', NVL(:CAMPO_SN_DESP_OPERACIONAL, 'N'))
+  AND Nvl( NVL(:CAMPO_PSNCLASSIF, 'N') ,'N') = 'S'
+    and (
+        (
+            1=1
+            AND b.cd_bem NOT IN (SELECT cd_bem FROM dbamv.mov_bens WHERE cd_bem = b.cd_bem AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+        )
+        OR EXISTS (
+            SELECT m.CD_MULTI_EMPRESA_ORIGEM
+            FROM dbamv.MOV_BENS M
+            WHERE m.CD_MOV_BEM = (SELECT Min(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+            AND m.CD_BEM = b.cd_bem
+            AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+            :CAMPO_CF_EMPRESA_ORIGEM
+        )
+        OR EXISTS (
+            SELECT m.CD_MULTI_EMPRESA_destino
+            FROM dbamv.MOV_BENS M
+            WHERE m.CD_MOV_BEM = (SELECT max(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+            AND m.CD_BEM = b.cd_bem
+            AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+            :CAMPO_CF_EMPRESA_DESTINO
+        )
+    )
+  AND (( b.dt_baixa IS NOT NULL AND b.Dt_Baixa  > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)  
+       OR
+       ( b.dt_baixa IS NULL) 
+       OR
+       ( b.dt_cancelamento_baixa IS NOT NULL AND (b.dt_cancelamento_baixa <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999 and
+        (b.dt_baixa is null or (b.dt_baixa <= b.dt_cancelamento_baixa and b.dt_baixa <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)))
+          AND b.dt_cancelamento_baixa >=  b.dt_baixa
+       ))
+  AND b.vl_compra > 0
+  AND a.CD_ALTERACAO_SUB_IOB_BEM = (SELECT Max(CD_ALTERACAO_SUB_IOB_BEM) FROM dbamv.alteracao_sub_iob_bem WHERE cd_bem = b.cd_bem AND dt_alteracao_sub_iob_bem <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999)
+) be
+, (
+    SELECT b2.cd_bem, b2.cd_multi_empresa
+    FROM dbamv.bens b2
+    WHERE b2.cd_bem NOT IN (SELECT cd_bem FROM dbamv.mov_bens WHERE cd_bem = b2.cd_bem AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+    UNION
+    SELECT m.cd_bem, m.cd_multi_empresa_origem
+    FROM dbamv.mov_bens m
+    WHERE m.CD_MOV_BEM = (SELECT Min(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM > Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+    AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+    UNION
+    SELECT m.cd_bem, m.cd_multi_empresa_destino
+    FROM dbamv.mov_bens m
+    WHERE m.CD_MOV_BEM = (SELECT max(CD_MOV_BEM) FROM dbamv.mov_bens WHERE cd_bem = m.CD_BEM AND DT_MOV_BEM <= Last_Day(:CAMPO_PDTREFERENCIA)+0.99999
+                                  AND cd_multi_empresa_origem <> cd_multi_empresa_destino)
+    AND m.cd_multi_empresa_origem <> m.cd_multi_empresa_destino
+) m
+WHERE
+  e.cd_multi_empresa = m.cd_multi_empresa
+  AND be.cd_bem = m.cd_bem
+  AND i.cd_capitulo = be.cd_capitulo

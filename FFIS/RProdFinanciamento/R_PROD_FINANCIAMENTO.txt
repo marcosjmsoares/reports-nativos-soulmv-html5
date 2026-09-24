@@ -1,0 +1,95 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_FINANCIAMENTO
+select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_FINANCIAMENTO_RF_ANALITICO1_Q_SINTETICO
+SELECT * FROM (
+Select Decode(Tp_Complexidade,'MC','Média Complexidade',
+                 Decode( Tp_Complexidade, 'AC', 'Alta Complexidade',
+                             Decode( Tp_Complexidade,'NA',
+                                        Decode( Tp_Complexidade_Fatura, 'AC', 'Alta Complexidade', 'Média Complexidade' )))) Tp_Complexidade
+     , Tp_Financiamento
+     , decode(ds_sub_tp_financiamento, null, decode(substr(nr_guia,1, 2),'99', 'CNRAC', Tp_Financiamento), ds_sub_tp_financiamento) ds_sub_tp_financiamento
+     , Sum(VL_Linha) Vl_Total
+From ( Select reg_fat.nr_guia                                            Nr_Guia             
+            , Decode( Procedimento_SUS.Tp_Financiamento, 'M', decode(substr(reg_fat.nr_guia,1, 2),'99', 'FAEC','MAC'), 'FAEC' ) Tp_Financiamento
+            , Procedimento_SUS_Complexidade.Tp_Complexidade_Procedimento Tp_Complexidade
+            , rubrica_sus.ds_rubrica                                     ds_sub_tp_financiamento
+            , Remessa_Fatura.tp_complexidade_procedimento                Tp_Complexidade_Fatura
+            , Sum(V_FFIS_Valor_Conta_AIH.VL_Linha)                       VL_Linha
+               From Dbamv.Fatura
+                  , Dbamv.Remessa_Fatura
+                  , Dbamv.Reg_Fat
+                  , Dbamv.Procedimento_SUS
+                  , Dbamv.Procedimento_SUS_Complexidade
+                  , Dbamv.rubrica_sus
+                  , Dbamv.V_FFIS_Valor_Conta_AIH
+              Where Procedimento_SUS.Cd_Procedimento  = Procedimento_SUS_Complexidade.Cd_Procedimento
+                And Reg_Fat.Cd_Procedimento_Realizado = Procedimento_SUS.Cd_Procedimento
+                AND reg_fat.cd_reg_fat                = V_FFIS_Valor_Conta_AIH.cd_reg_fat 
+                And Remessa_Fatura.Cd_Remessa         = Reg_Fat.Cd_Remessa
+                And Remessa_Fatura.Cd_Fatura          = Fatura.Cd_Fatura
+                And Procedimento_Sus.cd_rubrica       = rubrica_sus.cd_rubrica      (+)     
+                And Reg_Fat.cd_multi_empresa          =  :CAMPO_CD_MULTI_EMPRESA
+                And To_Char(Fatura.Dt_Competencia,'MM/YYYY') = To_Char(:CAMPO_COMPET,'MM/YYYY')
+    			GROUP BY reg_fat.nr_guia                                                      
+                      , Decode( Procedimento_SUS.Tp_Financiamento, 'M', decode(substr(reg_fat.nr_guia,1, 2),'99', 'FAEC','MAC'), 'FAEC' ) 
+                      , Procedimento_SUS_Complexidade.Tp_Complexidade_Procedimento
+                      , rubrica_sus.ds_rubrica           
+                      , Remessa_Fatura.tp_complexidade_procedimento
+           ) 
+group by Decode(Tp_Complexidade,'MC','Média Complexidade',
+                 Decode( Tp_Complexidade, 'AC', 'Alta Complexidade',
+                             Decode( Tp_Complexidade,'NA',
+                                        Decode( Tp_Complexidade_Fatura, 'AC', 'Alta Complexidade', 'Média Complexidade' ))))
+     , Tp_Financiamento
+     , decode(ds_sub_tp_financiamento, null, decode(substr(nr_guia,1, 2),'99', 'CNRAC', Tp_Financiamento), ds_sub_tp_financiamento)
+order by 1, 2, 3
+)
+ORDER BY TP_COMPLEXIDADE,
+TP_FINANCIAMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_FINANCIAMENTO_RF_ANALITICO_Q_ANALITICO
+Select Reg_Fat.Cd_Remessa
+     , Reg_Fat.Nr_Guia
+     , Vw.Vl_Linha Vl_Total_Conta
+     , Reg_Fat.Cd_Procedimento_Realizado || ' '|| Procedimento_SUS.Ds_Procedimento Ds_Procedimento
+     , Reg_Fat.Dt_Inicio
+     , Reg_Fat.Dt_Final
+     , Reg_Fat.Cd_Reg_Fat
+     , Atendime.Cd_Atendimento
+     , Paciente.Cd_Paciente
+     , Paciente.Nm_Paciente
+     , Decode(Procedimento_SUS_Complexidade.Tp_Complexidade_Procedimento,'MC','Média Complexidade',
+                 Decode( Procedimento_SUS_Complexidade.Tp_Complexidade_Procedimento, 'AC', 'Alta Complexidade',
+                             Decode( Procedimento_SUS_Complexidade.Tp_Complexidade_Procedimento,'NA',
+                                        Decode( Remessa_Fatura.tp_complexidade_procedimento, 'AC', 'Alta Complexidade', 'Média Complexidade' )))) Tp_Complexidade
+     , Decode(Procedimento_SUS.Tp_Financiamento,'M','MAC','FAEC') Tp_Financiamento
+  From Dbamv.Procedimento_SUS
+     , Dbamv.Procedimento_SUS_Complexidade
+     , Dbamv.Procedimento_SUS_Detalhe
+     , Dbamv.Fatura
+     , Dbamv.Remessa_Fatura
+     , Dbamv.Reg_Fat
+     , Dbamv.Atendime
+     , Dbamv.Paciente
+     , (Select Cd_Reg_Fat, Sum(VL_Linha) VL_Linha
+          From Dbamv.V_FFIS_Valor_Conta_AIH
+         Where To_Char(Dt_Competencia,'MM/YYYY') = To_Char(:CAMPO_COMPET,'MM/YYYY')
+         Group By Cd_Reg_Fat) Vw
+ Where Procedimento_SUS.Cd_Procedimento  = Procedimento_SUS_Detalhe.Cd_Procedimento
+   And Procedimento_SUS.Cd_Procedimento  = Procedimento_SUS_Complexidade.Cd_Procedimento
+   And Reg_Fat.Cd_Procedimento_Realizado = Procedimento_SUS.Cd_Procedimento
+   And Remessa_Fatura.Cd_Remessa         = Reg_Fat.Cd_Remessa
+   And Remessa_Fatura.Cd_Fatura          = Fatura.Cd_Fatura
+   And Vw.Cd_Reg_Fat                     = Reg_Fat.Cd_Reg_Fat
+   And Reg_Fat.cd_multi_empresa           =  :CAMPO_CD_MULTI_EMPRESA
+   And To_Char(Fatura.Dt_Competencia,'MM/YYYY') = To_Char(:CAMPO_COMPET,'MM/YYYY')
+   And Atendime.Cd_Atendimento = Reg_Fat.Cd_Atendimento
+   And Paciente.Cd_Paciente    = Atendime.Cd_Paciente

@@ -1,0 +1,35 @@
+/*----------------------------------------------------------------------------*/
+--R_CIR_CEN_CUS
+SELECT * FROM (
+select setor.cd_setor
+      ,setor.nm_setor
+      ,gru_pro.cd_gru_pro
+      ,NVL(gru_pro.ds_gru_pro,'NÃO INFORMADO') ds_gru_pro
+      ,sum(decode(cirurgia.tp_cirurgia,'P',1,'M',0,'G',0,'E',0)) quant_p
+      ,sum(decode(cirurgia.tp_cirurgia,'M',1,'P',0,'G',0,'E',0)) quant_m
+      ,sum(decode(cirurgia.tp_cirurgia,'G',1,'P',0,'M',0,'E',0)) quant_g
+      ,sum(decode(cirurgia.tp_cirurgia,'E',1,'P',0,'M',0,'G',0)) quant_e
+      ,count(cirurgia.tp_cirurgia) quant_t
+from  dbamv.gru_pro             gru_pro
+     ,dbamv.pro_fat                pro_fat
+     ,dbamv.cirurgia                cirurgia
+     ,dbamv.aviso_cirurgia     avi_cir
+     ,dbamv.cirurgia_aviso     cir_avi
+     ,dbamv.sal_cir                 sal_cir
+     ,dbamv.setor                   setor
+where avi_cir.tp_situacao          = 'R'
+and   avi_cir.cd_aviso_cirurgia  = cir_avi.cd_aviso_cirurgia
+and   avi_cir.cd_sal_cir              = sal_cir.cd_sal_cir
+and   sal_cir.cd_setor                = setor.cd_setor
+AND   setor.cd_multi_empresa          = DBAMV.PKG_MV2000.LE_EMPRESA
+and   cir_avi.cd_cirurgia            = cirurgia.cd_cirurgia
+and   cirurgia.cd_pro_fat           = pro_fat.cd_pro_fat(+)
+and   pro_fat.cd_gru_pro           = gru_pro.cd_gru_pro(+)
+and   avi_cir.dt_realizacao BETWEEN To_Date(Concat(To_Char(:CAMPO_DATA_INI,'dd/mm/yyyy'),'00'),'dd/mm/yyyy hh24') and  To_Date(Concat(To_Char(:CAMPO_DATA_FIM,'dd/mm/yyyy'),'23'),'dd/mm/yyyy hh24')
+group by setor.cd_setor
+      ,gru_pro.cd_gru_pro
+      ,gru_pro.ds_gru_pro
+      ,setor.nm_setor
+order by nm_setor, ds_gru_pro
+)
+ORDER BY NM_SETOR,ds_gru_pro

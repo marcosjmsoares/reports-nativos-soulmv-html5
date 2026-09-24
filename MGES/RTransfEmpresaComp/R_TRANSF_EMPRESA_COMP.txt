@@ -1,0 +1,48 @@
+/*----------------------------------------------------------------------------*/
+--R_TRANSF_EMPRESA_COMP
+SELECT * FROM (
+select mvto_estoque.cd_mvto_estoque
+      ,mvto_estoque.dt_mvto_estoque
+      ,nvl(mvto_estoque.nr_documento,0) nr_documento
+      ,mvto_estoque.nr_serie
+      ,tip_doc.cd_tip_doc
+      ,tip_doc.ds_tip_doc
+      ,fornecedor.cd_fornecedor
+      ,fornecedor.nm_fornecedor
+      ,produto.cd_produto
+      ,produto.ds_produto
+      ,itmvto_estoque.qt_movimentacao
+      ,uni_pro.ds_unidade
+      ,itmvto_estoque.cd_lote
+      ,itmvto_estoque.dt_validade
+      ,dbamv.verif_vl_custo_medio(produto.cd_produto,mvto_estoque.dt_mvto_estoque,'H',null,mvto_estoque.hr_mvto_estoque,:CAMPO_CD_MULTI_EMPRESA) * uni_pro.vl_fator vl_unitario
+      ,(dbamv.verif_vl_custo_medio(produto.cd_produto,mvto_estoque.dt_mvto_estoque,'H',null,mvto_estoque.hr_mvto_estoque,:CAMPO_CD_MULTI_EMPRESA)* itmvto_estoque.qt_movimentacao*uni_pro.vl_fator) vl_total
+      ,(NVL(ITSOLSAI_PRO.QT_SOLICITADO,0) * dbamv.mges.f_checa_uni_pro(ITSOLSAI_PRO.CD_UNI_PRO,ITSOLSAI_PRO.CD_PRODUTO))/UNI_PRO.VL_FATOR QT_SOLICITADO
+      ,(NVL(ITSOLSAI_PRO.QT_ATENDIDA  ,0) * dbamv.mges.f_checa_uni_pro(ITSOLSAI_PRO.CD_UNI_PRO,ITSOLSAI_PRO.CD_PRODUTO))/UNI_PRO.VL_FATOR QT_ATENDIDA
+      ,DECODE(ITSOLSAI_PRO.SN_CONF_DETERM_USU,'S','Sim','Não')      SN_CONF_DETERM_USU
+      , ITSOLSAI_PRO.cd_solsai_pro
+      , MOTIVO_DIVERG_ATEND.DS_MOTIVO_DIVERG_ATEND
+  from dbamv.mvto_estoque
+      ,dbamv.itmvto_estoque
+      ,dbamv.produto
+      ,dbamv.multi_empresas
+      ,dbamv.fornecedor
+      ,dbamv.tip_doc
+      ,dbamv.uni_pro
+      ,dbamv.estoque
+      ,DBAMV.ITSOLSAI_PRO,
+       DBAMV.MOTIVO_DIVERG_ATEND
+ where mvto_estoque.cd_mvto_estoque  = itmvto_estoque.cd_mvto_estoque
+   and mvto_estoque.tp_mvto_estoque  = 'R'
+   and itmvto_estoque.cd_produto     = produto.cd_produto
+   and mvto_estoque.cd_multi_empresa = multi_empresas.cd_multi_empresa
+   and multi_empresas.cd_fornecedor  = fornecedor.cd_fornecedor
+   and mvto_estoque.dt_mvto_estoque between :CAMPO_DTINIC and 
+   and mvto_estoque.cd_tip_doc       = tip_doc.cd_tip_doc
+   and itmvto_estoque.cd_uni_pro     = uni_pro.cd_uni_pro
+   AND MVTO_ESTOQUE.cd_estoque        = ESTOQUE.cd_estoque
+   AND ESTOQUE.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND ITMVTO_ESTOQUE.CD_ITSOLSAI_PRO  =  ITSOLSAI_PRO.CD_ITSOLSAI_PRO(+)
+   AND ITSOLSAI_PRO.CD_MOTIVO_DIVERG_ATEND = MOTIVO_DIVERG_ATEND.CD_MOTIVO_DIVERG_ATEND(+)
+order by mvto_estoque.dt_mvto_estoque,produto.cd_produto
+)

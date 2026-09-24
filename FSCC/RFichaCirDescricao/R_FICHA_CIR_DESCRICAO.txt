@@ -1,0 +1,129 @@
+/*----------------------------------------------------------------------------*/
+--R_FICHA_CIR_DESCRICAO
+SELECT * FROM (
+ SELECT
+        AVISO_CIRURGIA.CD_AVISO_CIRURGIA CD_AVISO_CIRURGIA,
+      	AVISO_CIRURGIA.CD_ATENDIMENTO CD_ATENDIMENTO,
+      	AVISO_CIRURGIA.CD_PACIENTE CD_PACIENTE,
+      	PACIENTE.NM_PACIENTE NM_PACIENTE,
+      	PACIENTE.NM_SOCIAL_PACIENTE NM_SOCIAL_PACIENTE,               
+      	Decode(paciente.dt_nascimento,
+          	   NULL, Aviso_Cirurgia.Ds_Idade || ' ' || Decode( Aviso_cirurgia.tp_idade,
+                                                        'A','Anos',
+                                                      	'M', 'Meses',
+                                                      	'D', 'Dias',
+                                                    		'Anos'
+      		                                             ),
+fn_idade(paciente.dt_nascimento,'#a A m M d D h H', sysdate)
+      	       ) Ds_Idade,
+      	AVISO_CIRURGIA.DT_REALIZACAO DT_REALIZACAO,
+      	DESCRICAO_AVISO_CIRURGIA.DS_CIRURGIA DS_DESC_CIRURGICA,
+      	DESCRICAO_AVISO_CIRURGIA.DS_ACIDENTES_DURANTE_A_OPERACA DS_ACIDENTES,
+      	DESCRICAO_AVISO_CIRURGIA.DS_RISCO_CIRURGICO DS_RISCO_CIRURGICO,
+      	DESCRICAO_AVISO_CIRURGIA.DS_ATO_ANESTESICO DS_ATO_ANESTESICO,
+      	DESCRICAO_AVISO_CIRURGIA.DS_ORTESE_PROTESE DS_ORTESE_PROTESE,
+      	DECODE(CONVENIO.TP_CONVENIO ,
+            	'A', PROCEDIMENTO_SUS_SIA.Cd_Procedimento ,
+            	'H', PROCEDIMENTO_SUS_SIH.Cd_Procedimento ,
+            	'C', CIRURGIA.CD_PRO_FAT ,
+            	'P', CIRURGIA.CD_PRO_FAT,
+            	CIRURGIA.CD_PRO_FAT
+            	) CD_CIRURGIA,
+      	CIRURGIA_AVISO.CD_CIRURGIA_AVISO CD_CIRURGIA_AVISO,
+      	CIRURGIA_AVISO.CD_CIRURGIA CD_COD_CIR,
+      	CIRURGIA_AVISO.CD_CONVENIO CD_CONVENIO_CIR,
+      	CONVENIO_CIR.NM_CONVENIO NM_CONVENIO_CIR ,
+        DECODE(CONVENIO.TP_CONVENIO, 'H', CIRURGIA.CD_procedimento_SIH, 'C', CIRURGIA.CD_PRO_FAT, 'P', CIRURGIA.CD_PRO_FAT, 'A', CIRURGIA.CD_procedimento_sia) PROCEDIMENTO,
+      	DECODE( CONVENIO.TP_CONVENIO ,
+              'C', decode(PRO_FAT.DS_PRO_FAT , NULL,'Procedimento não Informado', PRO_FAT.DS_PRO_FAT	) ,
+              'P', decode(PRO_FAT.DS_PRO_FAT , NULL,'Procedimento não Informado',	PRO_FAT.DS_PRO_FAT	) ,
+              'A', decode(PROCEDIMENTO_SUS_SIA.Ds_Procedimento, NULL,'Procedimento não Informado', PROCEDIMENTO_SUS_SIA.Ds_Procedimento ) ,
+              'H', DECODE(PROCEDIMENTO_SUS_SIH.Ds_Procedimento, NULL,'Procedimento não Informado', PROCEDIMENTO_SUS_SIH.Ds_Procedimento ) ,
+              CIRURGIA.DS_CIRURGIA
+              ) DS_CIRURGIA,
+      	SAL_CIR.CD_SAL_CIR CD_SAL_CIR,
+      	SAL_CIR.DS_SAL_CIR DS_SAL_CIR,
+        SAL_CIR.CD_SETOR   CD_SETOR,
+        DECODE(AVISO_CIRURGIA.TP_SITUACAO,
+            	 'R', TO_CHAR ( AVISO_CIRURGIA.DT_REALIZACAO, 'HH24'),
+      	       TO_CHAR(AVISO_CIRURGIA.DT_INICIO_CIRURGIA,'HH24')
+      	       ) HORA_PREV_INI,
+      	DECODE(	TO_CHAR( AVISO_CIRURGIA.DT_FIM_CIRURGIA,'HH24') ,
+      	       NULL, TO_CHAR(	AVISO_CIRURGIA.VL_TEMPO_DURACAO, 'HH24' ),
+      		     TO_CHAR(	AVISO_CIRURGIA.DT_FIM_CIRURGIA,'HH24')
+              ) HORA_PREV_FIM,
+      	DECODE(AVISO_CIRURGIA.DT_REALIZACAO,
+      	       NULL, SOMA_SUB_DATA( AVISO_CIRURGIA.DT_INICIO_CIRURGIA, AVISO_CIRURGIA.VL_TEMPO_DURACAO,	'+'	) ,
+               SOMA_SUB_DATA(	AVISO_CIRURGIA.DT_REALIZACAO, AVISO_CIRURGIA.VL_TEMPO_DURACAO,'+'	)
+            	) DIF_TEMPO,
+               TO_CHAR( AVISO_CIRURGIA.DT_INICIO_CIRURGIA,'DD/MM/ YYYY HH24' )  DT_INICIO_CIRURGIA,
+               TO_CHAR( AVISO_CIRURGIA.DT_FIM_CIRURGIA, 'DD/MM/YYYY HH24') DT_FIM_CIRURGIA,
+      	ATENDIME.CD_CONVENIO CD_CONVENIO,
+      	ATENDIME.CD_LEITO CD_LEITO,
+      	CONVENIO.NM_CONVENIO NM_CONVENIO,
+      	LEITO.DS_LEITO DS_LEITO,
+      	PACIENTE.NR_CNS CD_CNS,
+	ATENDIME.NR_CARTEIRA NR_CARTEIRA,
+      	rownum Contador ,
+      	AVISO_CIRURGIA.CD_Cid_Final CD_Cid_Pos ,
+        AVISO_CIRURGIA.CD_Cid CD_Cid_Pre,
+      	CID_PRE.DS_CID DS_CID_PRE,
+        CID_POS.DS_CID DS_CID_POS,
+        DESCRICAO_AVISO_CIRURGIA.CD_DESCRICAO_AVISO_CIRURGIA,
+        DESCRICAO_AVISO_CIRURGIA.CD_USUARIO_ASSINA,
+	PRESTADOR.CD_PRESTADOR,
+	PRESTADOR.NM_PRESTADOR,
+        PRESTADOR.DS_CODIGO_CONSELHO,
+        CIRURGIA_AVISO.CD_CON_PLA,
+        CIRURGIA_AVISO.DS_CON_PLA,
+	    Decode( CONVENIO.TP_CONVENIO, 'H', CIRURGIA.CD_procedimento_SIH
+                                    , 'A', CIRURGIA.CD_procedimento_sia
+                                    , 'P', CIRURGIA.CD_PRO_FAT
+                                    , nvl(dbamv.fnc_retorna_fnc_ffcv_gera_tiss  (ATENDIME.CD_CONVENIO,ATENDIME.TP_ATENDIMENTO,'C',CIRURGIA.CD_PRO_FAT), CIRURGIA.CD_PRO_FAT)
+                                    ) codigo,
+        Decode( CONVENIO.TP_CONVENIO , 'H', PROCEDIMENTO_SUS_SIH.DS_PROCEDIMENTO
+                                    , 'A', PROCEDIMENTO_SUS_SIA.DS_PROCEDIMENTO
+                                    , 'P', PRO_FAT.DS_PRO_FAT
+                                    , nvl(dbamv.fnc_retorna_fnc_ffcv_gera_tiss  (ATENDIME.CD_CONVENIO,ATENDIME.TP_ATENDIMENTO,'D',CIRURGIA.CD_PRO_FAT), PRO_FAT.DS_PRO_FAT)
+                                    ) descricao
+      FROM
+      	DBAMV.AVISO_CIRURGIA AVISO_CIRURGIA,
+      	DBAMV.CIRURGIA_AVISO CIRURGIA_AVISO,
+      	DBAMV.CIRURGIA CIRURGIA,
+      	DBAMV.SAL_CIR SAL_CIR,
+      	DBAMV.AGE_CIR AGE_CIR,
+      	DBAMV.ATENDIME ATENDIME,
+      	DBAMV.CONVENIO CONVENIO,
+      	DBAMV.CONVENIO CONVENIO_CIR,
+      	DBAMV.LEITO LEITO,
+      	DBAMV.PACIENTE PACIENTE,
+      	DBAMV.PRO_FAT PRO_FAT,
+      	Dbamv.Empresa_Convenio ,
+      	Dbamv.PROCEDIMENTO_SUS PROCEDIMENTO_SUS_SIA,
+      	Dbamv.PROCEDIMENTO_SUS PROCEDIMENTO_SUS_SIH,
+      	Dbamv.Cid CID_PRE,
+        Dbamv.Cid CID_POS,
+        DBAMV.DESCRICAO_AVISO_CIRURGIA,
+        DBASGU.USUARIOS,
+        DBAMV.PRESTADOR
+      WHERE	Empresa_Convenio.Cd_Convenio( + ) = Convenio.Cd_Convenio
+      	AND Empresa_Convenio.Cd_Multi_Empresa( + ) = :CAMPO_CD_MULTI_EMPRESA
+      	AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA = CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+      	AND AVISO_CIRURGIA.CD_SAL_CIR = SAL_CIR.CD_SAL_CIR( + )
+      	AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA = AGE_CIR.CD_AVISO_CIRURGIA( + )
+      	AND AVISO_CIRURGIA.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO( + )
+      	AND AVISO_CIRURGIA.CD_PACIENTE = PACIENTE.CD_PACIENTE( + )
+      	AND CONVENIO.CD_CONVENIO(	+	) = ATENDIME.CD_CONVENIO
+      	AND LEITO.CD_LEITO(	+	) = ATENDIME.CD_LEITO
+      	AND CIRURGIA.CD_CIRURGIA = CIRURGIA_AVISO.CD_CIRURGIA
+      	AND CIRURGIA.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT(	+	)
+      	AND CONVENIO_CIR.CD_CONVENIO(+) = CIRURGIA_AVISO.CD_CONVENIO
+      	AND Aviso_Cirurgia.Cd_Cid_Final = CID_POS.Cd_Cid (+)
+        AND Aviso_Cirurgia.Cd_Cid       = CID_PRE.Cd_Cid (+)
+        And Cirurgia.Cd_Procedimento_SIA = PROCEDIMENTO_SUS_SIA.Cd_Procedimento(+)
+        And Cirurgia.Cd_Procedimento_SIH = PROCEDIMENTO_SUS_SIH.Cd_Procedimento(+)
+        AND CIRURGIA_AVISO.CD_DESCRICAO_AVISO_CIRURGIA = DESCRICAO_AVISO_CIRURGIA.CD_DESCRICAO_AVISO_CIRURGIA(+)
+        AND DESCRICAO_AVISO_CIRURGIA.CD_USUARIO_ASSINA = USUARIOS.CD_USUARIO (+)
+        AND USUARIOS.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR (+)
+        ORDER BY AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+)

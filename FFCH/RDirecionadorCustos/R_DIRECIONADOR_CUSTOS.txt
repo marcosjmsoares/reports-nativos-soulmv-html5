@@ -1,0 +1,167 @@
+/*----------------------------------------------------------------------------*/
+--R_DIRECIONADOR_CUSTOS
+SELECT *
+ FROM (
+     SELECT  grupo_de_custo.ds_grupo_de_custo,
+            'X' nm_setor,
+            unidade_setor.cd_unidade_mensuracao cd_unidade_mensuracao,
+            0 vl_fator
+        FROM dbamv.unidade_setor unidade_setor
+            ,dbamv.setor s
+            ,dbamv.grupo_de_custo grupo_de_custo
+       WHERE unidade_setor.cd_setor = s.cd_setor
+         AND s.cd_grupo_de_custo = grupo_de_custo.cd_grupo_de_custo(+)
+    UNION
+    SELECT  grupo_de_custo.ds_grupo_de_custo,
+            'X' nm_setor,
+            item_prod_mensal.cd_item_producao cd_unidade_mensuracao,
+            0 vl_fator
+        FROM dbamv.item_prod_mensal item_prod_mensal
+            ,dbamv.setor s
+            ,dbamv.grupo_de_custo grupo_de_custo
+            ,dbamv.producao_mensal pm
+            ,dbamv.item_producao ip
+       WHERE item_prod_mensal.cd_setor_destino = s.cd_setor
+         AND s.cd_grupo_de_custo = grupo_de_custo.cd_grupo_de_custo
+         AND item_prod_mensal.cd_item_producao = ip.cd_item_producao
+         AND ip.tp_direcionador <> 3
+         AND item_prod_mensal.cd_producao_mensal = pm.cd_producao_mensal
+    :CAMPO_CF_ITEM_PRODUCAO
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIRECIONADOR_CUSTOS_R_G_NM_SETOR1_Q_NAO_QUEBRA_GRUPO
+SELECT * FROM (
+SELECT   setor.nm_setor
+        ,unidade_setor.cd_unidade_mensuracao
+        ,SUM (NVL (unidade_setor.vl_fator, 0) ) vl_fator
+    FROM dbamv.unidade_setor
+        ,dbamv.setor
+   WHERE unidade_setor.cd_setor = setor.cd_setor
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND setor.SN_ACEITA_LANCAMENTO = 'S'
+     AND (dt_vigencia, unidade_setor.cd_unidade_mensuracao, unidade_setor.cd_setor) 
+     IN (SELECT   MAX (dt_vigencia)
+                 ,cd_unidade_mensuracao
+                 ,cd_setor
+           FROM dbamv.unidade_setor
+           where to_char( unidade_setor.dt_vigencia,'yyyy/mm') <= to_char( to_date(  :CAMPO_COMP,'mm/yyyy'), 'yyyy/mm')
+           GROUP BY cd_setor
+                    ,cd_unidade_mensuracao)
+GROUP BY setor.nm_setor
+        ,unidade_setor.cd_unidade_mensuracao
+        ,unidade_setor.vl_fator
+UNION
+SELECT   setor.nm_setor
+        ,item_prod_mensal.cd_item_producao cd_unidade_mensuracao
+        ,SUM (NVL (item_prod_mensal.vl_producao_mensal, 0) ) vl_fator
+    FROM dbamv.item_prod_mensal
+        ,dbamv.setor
+        ,dbamv.producao_mensal
+        ,dbamv.item_producao
+   WHERE TO_CHAR (producao_mensal.dt_competencia, 'mm/yyyy') =  :CAMPO_COMP
+     AND item_prod_mensal.cd_setor_destino = setor.cd_setor
+     AND setor.SN_ACEITA_LANCAMENTO = 'S'
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND item_prod_mensal.cd_item_producao = item_producao.cd_item_producao
+     and item_producao.tp_direcionador <> 3
+     AND item_prod_mensal.cd_producao_mensal = producao_mensal.cd_producao_mensal
+GROUP BY nm_setor
+        ,item_prod_mensal.cd_item_producao
+)
+ORDER BY NM_SETOR,
+CD_UNIDADE_MENSURACAO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIRECIONADOR_CUSTOS_X_G_SUMVL_FATORPERNM_SETOR1
+SELECT   setor.nm_setor
+        ,unidade_setor.cd_unidade_mensuracao
+        ,SUM (NVL (unidade_setor.vl_fator, 0) ) vl_fator
+    FROM dbamv.unidade_setor
+        ,dbamv.setor
+   WHERE unidade_setor.cd_setor = setor.cd_setor
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND setor.SN_ACEITA_LANCAMENTO = 'S'
+     AND (dt_vigencia, unidade_setor.cd_unidade_mensuracao, unidade_setor.cd_setor)
+     IN (SELECT   MAX (dt_vigencia)
+                 ,cd_unidade_mensuracao
+                 ,cd_setor
+           FROM dbamv.unidade_setor
+           where unidade_setor.dt_vigencia <= to_date(:CAMPO_COMP,'mm/yyyy')
+           GROUP BY cd_setor
+                    ,cd_unidade_mensuracao)
+GROUP BY setor.nm_setor
+        ,unidade_setor.cd_unidade_mensuracao
+        ,unidade_setor.vl_fator
+UNION
+SELECT   setor.nm_setor
+        ,item_prod_mensal.cd_item_producao cd_unidade_mensuracao
+        ,SUM (NVL (item_prod_mensal.vl_producao_mensal, 0) ) vl_fator
+    FROM dbamv.item_prod_mensal
+        ,dbamv.setor
+        ,dbamv.producao_mensal
+        ,dbamv.item_producao
+   WHERE producao_mensal.dt_competencia =  to_date(:CAMPO_COMP, 'mm/yyyy')
+     AND item_prod_mensal.cd_setor_destino = setor.cd_setor
+     AND setor.SN_ACEITA_LANCAMENTO = 'S'
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND item_prod_mensal.cd_item_producao = item_producao.cd_item_producao
+     and item_producao.tp_direcionador <> 3
+     AND item_prod_mensal.cd_producao_mensal = producao_mensal.cd_producao_mensal
+GROUP BY nm_setor
+        ,item_prod_mensal.cd_item_producao
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIRECIONADOR_CUSTOS_X_G_SUMVL_FATORPERNM_SETOR2
+SELECT   grupo_de_custo.ds_grupo_de_custo
+        ,setor.nm_setor
+        ,unidade_setor.cd_unidade_mensuracao
+        ,SUM (NVL (unidade_setor.vl_fator, 0) ) vl_fator
+    FROM dbamv.unidade_setor
+        ,dbamv.setor
+        ,dbamv.grupo_de_custo
+   WHERE unidade_setor.cd_setor = setor.cd_setor
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND setor.SN_ACEITA_LANCAMENTO = 'S'
+     AND setor.cd_grupo_de_custo = grupo_de_custo.cd_grupo_de_custo(+)
+     AND (dt_vigencia, unidade_setor.cd_unidade_mensuracao, unidade_setor.cd_setor)
+     IN (SELECT   MAX (dt_vigencia)
+                 ,cd_unidade_mensuracao
+                 ,cd_setor
+           FROM dbamv.unidade_setor
+           where unidade_setor.dt_vigencia <= to_date(:CAMPO_COMP,'mm/yyyy')
+           GROUP BY cd_setor
+                    ,cd_unidade_mensuracao)
+     AND grupo_de_custo.ds_grupo_de_custo = :CAMPO_DS_GRUPO_DE_CUSTO               
+GROUP BY grupo_de_custo.ds_grupo_de_custo
+        ,setor.nm_setor
+        ,unidade_setor.cd_unidade_mensuracao
+        ,unidade_setor.vl_fator
+UNION
+SELECT   grupo_de_custo.ds_grupo_de_custo
+        ,setor.nm_setor
+        ,item_prod_mensal.cd_item_producao cd_unidade_mensuracao
+        ,SUM (NVL (item_prod_mensal.vl_producao_mensal, 0) ) vl_fator
+    FROM dbamv.item_prod_mensal
+        ,dbamv.setor
+        ,dbamv.grupo_de_custo
+        ,dbamv.producao_mensal
+        ,dbamv.item_producao
+   WHERE producao_mensal.dt_competencia = to_date(:CAMPO_COMP, 'mm/yyyy')
+     AND item_prod_mensal.cd_setor_destino = setor.cd_setor
+     AND setor.cd_grupo_de_custo = grupo_de_custo.cd_grupo_de_custo
+     AND setor.SN_ACEITA_LANCAMENTO = 'S'
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND item_prod_mensal.cd_item_producao = item_producao.cd_item_producao
+     and item_producao.tp_direcionador <> 3
+     AND item_prod_mensal.cd_producao_mensal = producao_mensal.cd_producao_mensal
+     AND grupo_de_custo.ds_grupo_de_custo = :CAMPO_DS_GRUPO_DE_CUSTO
+GROUP BY ds_grupo_de_custo
+        ,nm_setor
+        ,item_prod_mensal.cd_item_producao

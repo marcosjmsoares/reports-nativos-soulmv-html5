@@ -1,0 +1,140 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_ANA
+SELECT * FROM (
+SELECT  ATENDIME.CD_ATENDIMENTO                                        CD_ATENDIMENTO_T
+              ,ATENDIME.DT_ATENDIMENTO                                        DT_ATENDIMENTO_T
+              ,MOT_ALT.TP_MOT_ALTA                                                 TP_MOT_ALTA_T
+              ,ATENDIME.DT_ALTA                                                         DT_ALTA_T
+              ,PACIENTE.NM_PACIENTE                                                 NM_PACIENTE_T
+              ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE_T
+              ,PACIENTE.CD_PACIENTE                                                 CD_PACIENTE_T
+              ,CIDADE.NM_CIDADE                                                         NM_CIDADE_T
+              ,ATENDIME.CD_LOC_TRANS                                            CD_LOC_TRANS_T
+              ,LOC_TRANS.DS_LOC_TRANS                                         DS_LOC_TRANS_T
+              ,CONVENIO.NM_CONVENIO                                             NM_CONVENIO_T
+              ,PRESTADOR.NM_MNEMONICO                                      NM_PRESTADOR_T
+             ,( LEITO.DS_LEITO || ' - ' || LEITO.DS_ENFERMARIA )       DS_LEITO_T
+             ,UNID_INT.DS_UNID_INT                                                 DS_UNID_INT_T
+             ,PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, SYSDATE)      IDADE_T
+FROM    dbamv.MOV_INT
+             ,dbamv.ATENDIME
+             ,dbamv.PACIENTE
+             ,dbamv.LOC_TRANS
+             ,dbamv.CONVENIO
+             ,dbamv.PRESTADOR
+             ,dbamv.LEITO
+             ,dbamv.UNID_INT
+             ,dbamv.CIDADE
+             ,dbamv.MOT_ALT
+WHERE  MOV_INT.TP_MOV  =  'I'
+AND        TRUNC(MOV_INT.DT_MOV_INT)  BETWEEN :CAMPO_DT_INICIAL  AND  
+AND        TRUNC(NVL(MOV_INT.DT_LIB_MOV,SYSDATE))  >=  TRUNC(MOV_INT.DT_MOV_INT)
+AND        ATENDIME.TP_ATENDIMENTO =  'I'
+AND        MOV_INT.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_LOC_TRANS  =  LOC_TRANS.CD_LOC_TRANS(+)
+AND        ATENDIME.CD_PRESTADOR  =  PRESTADOR.CD_PRESTADOR(+)
+AND        ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_MOT_ALT  =  MOT_ALT.CD_MOT_ALT(+)
+AND        ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND        PACIENTE.CD_CIDADE         =  CIDADE.CD_CIDADE(+)
+AND        MOV_INT.CD_LEITO  =  LEITO.CD_LEITO
+AND        LEITO.CD_UNID_INT  =   UNID_INT.CD_UNID_INT
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY  ATENDIME.DT_ATENDIMENTO
+                   , PACIENTE.NM_PACIENTE
+)
+ORDER BY DT_ATENDIMENTO_T
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOV_ANA_R_ALTAS_Q_ALTAS
+SELECT * FROM (
+SELECT  ATENDIME.CD_ATENDIMENTO                                        CD_ATENDIMENTO_A
+               ,ATENDIME.DT_ATENDIMENTO                                       DT_ATENDIMENTO_A
+               ,MOT_ALT.TP_MOT_ALTA                                                TP_MOT_ALTA_A
+               ,ATENDIME.DT_ALTA                                                        DT_ALTA_A
+               ,PACIENTE.NM_PACIENTE                                                NM_PACIENTE_A
+               ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE_A
+               ,PACIENTE.CD_PACIENTE                                                CD_PACIENTE_A
+               ,CIDADE.NM_CIDADE                                                        NM_CIDADE_A
+               ,MOT_ALT.DS_MOT_ALT                                                  DS_MOT_ALT_A
+               ,ATENDIME.CD_LOC_TRANS                                           CD_LOC_TRANS_A
+               ,LOC_TRANS.DS_LOC_TRANS                                        DS_LOC_TRANS_A
+               ,CONVENIO.NM_CONVENIO                                             NM_CONVENIO_A
+               ,PRESTADOR.NM_MNEMONICO                                      NM_PRESTADOR_A
+               ,( LEITO.DS_LEITO || ' - ' || LEITO.DS_ENFERMARIA )      DS_LEITO_A
+               ,UNID_INT.DS_UNID_INT                                                 DS_UNID_INT_A
+FROM    dbamv.ATENDIME
+             ,dbamv.PACIENTE
+             ,dbamv.LOC_TRANS
+             ,dbamv.CONVENIO
+             ,dbamv.PRESTADOR
+             ,dbamv.LEITO
+             ,dbamv.UNID_INT
+             ,dbamv.CIDADE
+             ,dbamv.MOT_ALT
+WHERE ATENDIME.TP_ATENDIMENTO      IN ('I', 'H')
+AND       ATENDIME.DT_ALTA  BETWEEN  TO_DATE(CONCAT(TO_CHAR(:CAMPO_DT_INICIAL,
+ 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')  AND  TO_DATE(CONCAT(TO_CHAR(:CAMPO_DT_FINAL,
+  'DD/MM/YYYY'),'23'), 'DD/MM/YYYY HH24')
+AND       ATENDIME.CD_MOT_ALT  =  MOT_ALT.CD_MOT_ALT(+)
+AND       MOT_ALT.TP_MOT_ALTA  IN  ('T', 'A', 'D')
+AND       ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND       PACIENTE.CD_CIDADE  =  CIDADE.CD_CIDADE(+)
+AND       ATENDIME.CD_PRESTADOR  =  PRESTADOR.CD_PRESTADOR
+AND       ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_LOC_TRANS  =  LOC_TRANS.CD_LOC_TRANS(+)
+AND       ATENDIME.CD_LEITO  =  LEITO.CD_LEITO
+AND       LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY  ATENDIME.DT_ALTA
+                   ,PACIENTE.NM_PACIENTE
+)
+ORDER BY DT_ALTA_A
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOV_ANA_R_OBITO_Q_OBITOS
+SELECT * FROM (
+SELECT  ATENDIME.CD_ATENDIMENTO                                         CD_ATENDIMENTO_O
+               ,ATENDIME.DT_ATENDIMENTO                                        DT_ATENDIMENTO_O
+               ,MOT_ALT.TP_MOT_ALTA                                                 TP_MOT_ALTA_O
+               ,ATENDIME.DT_ALTA                                                         DT_ALTA_O
+               ,PACIENTE.NM_PACIENTE                                                NM_PACIENTE_O
+               ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE_O
+               ,PACIENTE.CD_PACIENTE                                                CD_PACIENTE_O
+               ,MOT_ALT.DS_MOT_ALT                                                  DS_MOT_ALT_O
+               ,CIDADE.NM_CIDADE                                                        NM_CIDADE_O
+               ,ATENDIME.CD_LOC_TRANS                                           CD_LOC_TRANS_O
+               ,LOC_TRANS.DS_LOC_TRANS                                        DS_LOC_TRANS_O
+               ,CONVENIO.NM_CONVENIO                                            NM_CONVENIO_O
+               ,PRESTADOR.NM_MNEMONICO                                     NM_PRESTADOR_O
+               ,( LEITO.DS_LEITO || ' - ' || LEITO.DS_ENFERMARIA )     DS_LEITO_O
+               ,UNID_INT.DS_UNID_INT                                                DS_UNID_INT_O
+FROM  dbamv.ATENDIME
+           ,dbamv.PACIENTE
+           ,dbamv.LOC_TRANS
+           ,dbamv.CONVENIO
+           ,dbamv.PRESTADOR
+           ,dbamv.LEITO
+           ,dbamv.UNID_INT
+           ,dbamv.CIDADE
+           ,dbamv.MOT_ALT
+WHERE ATENDIME.TP_ATENDIMENTO    IN ('I', 'H')
+AND       TRUNC(ATENDIME.DT_ALTA)  BETWEEN  :CAMPO_DT_INICIAL  AND  
+AND       ATENDIME.CD_MOT_ALT  =  MOT_ALT.CD_MOT_ALT
+AND       MOT_ALT.TP_MOT_ALTA        =  'O'
+AND       ATENDIME.CD_LOC_TRANS  =  LOC_TRANS.CD_LOC_TRANS(+)
+AND       ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND       PACIENTE.CD_CIDADE  =  CIDADE.CD_CIDADE
+AND       ATENDIME.CD_PRESTADOR  =  PRESTADOR.CD_PRESTADOR
+AND       ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_LEITO  =  LEITO.CD_LEITO
+AND       LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY  ATENDIME.DT_ALTA
+                   ,PACIENTE.NM_PACIENTE
+)
+ORDER BY DT_ALTA_O

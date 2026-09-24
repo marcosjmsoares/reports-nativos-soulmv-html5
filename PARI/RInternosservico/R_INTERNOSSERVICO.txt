@@ -1,0 +1,39 @@
+/*----------------------------------------------------------------------------*/
+--R_INTERNOSSERVICO
+SELECT * FROM
+			  (SELECT serv.CD_SERVICO CD_SERVICO,
+			          serv.DS_SERVICO DS_SERVICO,
+			          aten.CD_ATENDIMENTO CD_ATENDIMENTO,
+			          paci.NM_PACIENTE CD_PACIENTE,
+			      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACI.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+			          aten.DT_ATENDIMENTO DT_ATENDIMENTO,
+			          aten.DT_ALTA DT_ALTA,
+			          conv.NM_CONVENIO NM_CONVENIO,
+			          pres.NM_PRESTADOR NM_PRESTADOR,
+			          paci.NR_IDENTIDADE NR_IDENTIDADE,
+			          pack_internamento.retorna_idade(paci.DT_NASCIMENTO, SYSDATE) NR_IDADE,
+			     (SELECT NM_PRESTADOR
+			      FROM DBAMV.PRESTADOR
+			      WHERE PRESTADOR.CD_PRESTADOR = aten.CD_PRESTADOR_INDICACAO) NM_PRESTADOR_INDICACAO
+			   FROM DBAMV.ATENDIME aten,
+			        DBAMV.PACIENTE paci,
+			        DBAMV.PRESTADOR pres,
+			        DBAMV.CONVENIO conv,
+			        DBAMV.SERVICO serv,
+			        DBAMV.LEITO,
+			        DBAMV.UNID_INT
+			   WHERE aten.TP_ATENDIMENTO IN ('I',
+			                                 'H')
+			     AND aten.DT_ATENDIMENTO BETWEEN To_Date(Concat(To_Char(:CAMPO_DATINI,'dd/mm/yyyy'), ' 00'), 'dd/mm/yyyy hh24') AND To_Date(Concat(To_Char(:CAMPO_DATFIM,'dd/mm/yyyy'), ' 23'), 'dd/mm/yyyy hh24')
+			     AND aten.CD_PACIENTE = paci.CD_PACIENTE
+			     AND aten.CD_PRESTADOR = pres.CD_PRESTADOR
+			     AND aten.CD_CONVENIO = conv.CD_CONVENIO(+)
+			     AND aten.CD_SERVICO = serv.CD_SERVICO
+			     AND aten.CD_LEITO = LEITO.CD_LEITO(+)
+			     AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+			     AND aten.CD_ATENDIMENTO_PAI IS NULL
+			     AND ATEN.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA      
+			   ORDER BY serv.DS_SERVICO,
+			            paci.NM_PACIENTE)
+			ORDER BY DS_SERVICO,
+			         CD_SERVICO

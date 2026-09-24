@@ -1,0 +1,206 @@
+/*----------------------------------------------------------------------------*/
+--R_DIVERGE_ENT_ESTOQUE
+SELECT * FROM (
+select Tipo
+     , cd_con_pag
+     , data_financeiro
+     , valor_financeiro
+     , cd_reduzido
+     , nr_documento
+     , ds_financ
+     , cd_especie
+     , ds_especie
+     , data_estoque
+     , valor_estoque   valor_estoque
+     , valor_documento valor_documento
+from (
+select Tip_Doc.Ds_Tip_Doc      Tipo
+     , con_pag.cd_con_pag      cd_con_pag
+     , con_pag.dt_lancamento   data_financeiro
+     , nvl(ratcon_pag.vl_rateio,0) valor_financeiro
+     , plano_contas.cd_reduzido cd_reduzido
+     , Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, Ent_Pro.Nr_Documento) nr_documento
+     , plano_contas.ds_financ  ds_financ
+     , especie.cd_especie      cd_especie
+     , especie.ds_especie      ds_especie
+     , ent_pro.dt_entrada      data_estoque
+     , sum( Itent_Pro.Vl_Total_Custo_Real  ) valor_estoque
+     , sum( Itent_Pro.Vl_Total_Custo_Real  ) valor_documento
+  from dbamv.ent_pro
+     , dbamv.con_pag
+     , dbamv.itent_pro
+     , dbamv.produto
+     , dbamv.especie
+     , dbamv.plano_contas
+     , dbamv.estoque_pl_contas
+     , Dbamv.Tip_Doc
+     , Dbamv.Item_Res
+     ,DBAMV.CONFIGEST
+     , ( Select ratcon_pag.cd_con_pag,
+              sum( ratcon_pag.vl_rateio ) vl_rateio,
+              ratcon_pag.cd_item_res,
+              ratcon_pag.cd_reduzido,
+              ratcon_pag.cd_multi_empresa
+       From dbamv.ratcon_pag
+      Group by ratcon_pag.cd_con_pag,
+               ratcon_pag.cd_item_res,
+               ratcon_pag.cd_reduzido,
+               ratcon_pag.cd_multi_empresa ) ratcon_pag
+where (trunc(con_pag.dt_lancamento) between :CAMPO_DATA_INI and last_day(:CAMPO_DATA_FIM)
+       or trunc(ent_pro.dt_entrada) between :CAMPO_DATA_INI and last_day(:CAMPO_DATA_FIM))
+   and ent_pro.nr_documento        = con_pag.nr_documento
+   and ent_pro.nr_serie            = con_pag.nr_serie
+   and ent_pro.cd_fornecedor       = con_pag.cd_fornecedor
+   and ent_pro.cd_ent_pro          = itent_pro.cd_ent_pro
+   and itent_pro.cd_produto        = produto.cd_produto
+   and produto.cd_especie          = especie.cd_especie
+   and Ent_Pro.Cd_Tip_Doc          = Tip_Doc.Cd_Tip_Doc
+   and Especie.Cd_Item_Res         = Item_Res.Cd_Item_Res
+   and ratcon_pag.cd_con_pag       = con_pag.cd_con_pag
+   and especie.cd_item_res         = item_res.cd_item_res
+   and ratcon_pag.cd_reduzido      = plano_contas.cd_reduzido
+   and ratcon_pag.cd_item_res      = item_res.cd_item_res
+   and ratcon_pag.cd_reduzido      = estoque_pl_contas.cd_reduzido
+   and estoque_pl_contas.cd_estoque = ent_pro.cd_estoque
+   and estoque_pl_contas.cd_especie = produto.cd_especie
+   and CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+   and Plano_Contas.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and Plano_Contas.Cd_Reduzido = Estoque_Pl_contas.Cd_Reduzido
+Group By Tip_Doc.Ds_Tip_Doc
+     , con_pag.cd_con_pag
+     , con_pag.dt_lancamento
+     , nvl(ratcon_pag.vl_rateio,0)
+     , plano_contas.cd_reduzido
+     , Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, Ent_Pro.Nr_Documento)
+     , plano_contas.ds_financ
+     , especie.cd_especie
+     , especie.ds_especie
+     , ent_pro.dt_entrada
+union all
+Select Decode(Ent_Pro.Tp_Documento_Entrada, 'D', 'Nota de Doação', 'V', 'Nota Provisória', 'B', 'Bonificação'  ) Tipo
+     , To_Number( Null )         Cd_Con_Pag
+     , Decode(Ent_Pro.Tp_Documento_Entrada,'D',Ent_Pro.Dt_Entrada,'B',Ent_Pro.Dt_Entrada,NULL)  Data_Financeiro
+     , Sum( ItEnt_Pro.Vl_Custo_Real * ItEnt_Pro.Qt_Entrada ) valor_financeiro
+     , plano_contas.cd_reduzido  cd_reduzido
+     , Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, Nvl( Ent_Pro.Nr_Documento, 'COD: ' || To_Char( Ent_Pro.Cd_Ent_Pro ))) nr_documento
+     , plano_contas.ds_financ    ds_financ
+     , especie.cd_especie        cd_especie
+     , especie.ds_especie        ds_especie
+     , Ent_Pro.Dt_Entrada        Data_Estoque
+, Decode (Ent_Pro.Nr_Documento, null,Sum( ItEnt_Pro.Vl_Custo_Real * ItEnt_Pro.Qt_Entrada )
+                                                 ,Ent_Pro.Vl_Total)     Valor_Estoque
+, Decode (Ent_Pro.Nr_Documento, null,Sum( ItEnt_Pro.Vl_Custo_Real * ItEnt_Pro.Qt_Entrada )
+                                                 ,Ent_Pro.Vl_Total)     Valor_Documento
+From Dbamv.Ent_Pro
+    ,Dbamv.ItEnt_Pro
+    ,Dbamv.Item_res
+    ,Dbamv.Plano_Contas
+    ,Dbamv.estoque_pl_contas
+    ,dbamv.Especie
+    ,dbamv.tip_doc
+    ,dbamv.produto
+    ,DBAMV.CONFIGEST
+Where Trunc(Ent_Pro.Dt_Entrada) between :CAMPO_DATA_INI and last_day(:CAMPO_DATA_FIM)
+  and ( Ent_Pro.Tp_Documento_Entrada in ('D','B' ) Or
+        Ent_Pro.Tp_Documento_Entrada = 'V' And Tip_Doc.tp_entrada = 'V' and tip_doc.tp_documento    = 'A' )
+  and especie.cd_item_res          = item_res.cd_item_res
+  and ent_Pro.cd_ent_pro           = itent_pro.cd_ent_pro
+  and tip_doc.cd_tip_doc           = ent_pro.cd_tip_doc
+  and produto.cd_especie           = especie.cd_especie
+  and itent_pro.cd_produto         = produto.cd_produto
+  and estoque_pl_contas.cd_estoque = ent_pro.cd_estoque
+  and estoque_pl_contas.cd_especie = produto.cd_especie
+  and estoque_pl_contas.cd_reduzido = Plano_contas.cd_reduzido
+  and CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+  and Plano_Contas.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+Group by Ent_Pro.Tp_Documento_Entrada
+     , Ent_Pro.Dt_Entrada
+     , Ent_Pro.Vl_Total
+     , plano_contas.cd_reduzido
+     , Nvl( Ent_Pro.Nr_Documento, 'COD: ' || To_Char( Ent_Pro.Cd_Ent_Pro ) )
+     , plano_contas.ds_financ
+     , especie.cd_especie
+     , especie.ds_especie
+     , Ent_Pro.Dt_Entrada
+     , Ent_Pro.Nr_Documento
+     , Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, Nvl( Ent_Pro.Nr_Documento, 'COD: ' || To_Char( Ent_Pro.Cd_Ent_Pro )))
+Union all
+Select 'Dev Paciente' TIPO
+     , to_number(null)               cd_con_pag
+     , last_day( to_date( lpad( to_char( c_conest.cd_mes ), 2, '0' ) || to_char( c_conest.cd_ano ), 'MMYYYY' ) ) data_financeiro
+     , 0                             valor_financeiro
+     , plano_contas.cd_reduzido      cd_reduzido
+     , Null                          nr_documento
+     , plano_contas.ds_financ        ds_financ
+     , especie.cd_especie            cd_especie
+     , especie.ds_especie            ds_especie
+     , last_day( to_date( lpad( to_char( c_conest.cd_mes ), 2, '0' ) || to_char( c_conest.cd_ano ), 'MMYYYY' ) )  data_estoque
+     , sum( c_conest.vl_devolucao_paciente ) Valor_Estoque
+     , sum( c_conest.vl_devolucao_paciente )  Valor_documento
+  from dbamv.produto
+     , dbamv.especie
+     , dbamv.plano_contas
+     , dbamv.estoque_pl_contas
+     , dbamv.c_conest
+     , Dbamv.Item_Res
+  Where c_conest.cd_produto    = produto.cd_produto
+    and produto.cd_especie     = especie.cd_especie
+    and especie.cd_item_res    = item_res.cd_item_res
+    and estoque_pl_contas.cd_reduzido = plano_contas.cd_reduzido
+    and estoque_pl_contas.cd_estoque  = c_conest.cd_estoque
+    and estoque_pl_contas.cd_especie  = produto.cd_especie
+    and Plano_Contas.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and c_conest.vl_devolucao_paciente > 0
+    and to_date( lpad( to_char( c_conest.cd_mes ), 2, '0' ) || to_char( c_conest.cd_ano ), 'MMYYYY' )
+       between :CAMPO_DATA_INI and last_day(:CAMPO_DATA_FIM)
+group by c_conest.cd_mes
+     , c_conest.cd_ano
+     , plano_contas.cd_reduzido
+     , plano_contas.ds_financ
+     , especie.cd_especie
+     , especie.ds_especie
+Union All
+Select 'Dev Setor' TIPO
+     , to_number(null)               cd_con_pag
+     , last_day( to_date( lpad( to_char( c_conest.cd_mes ), 2, '0' ) || to_char( c_conest.cd_ano ), 'MMYYYY' ) ) data_financeiro
+     , 0                             valor_financeiro
+     , plano_contas.cd_reduzido      cd_reduzido
+     , Null                          nr_documento
+     , plano_contas.ds_financ        ds_financ
+     , especie.cd_especie            cd_especie
+     , especie.ds_especie            ds_especie
+     , last_day( to_date( lpad( to_char( c_conest.cd_mes ), 2, '0' ) || to_char( c_conest.cd_ano ), 'MMYYYY' ) )  data_estoque
+     , sum( c_conest.vl_devolucao_setor ) Valor_Estoque
+     , sum( c_conest.vl_devolucao_setor )  Valor_documento
+  from dbamv.produto
+     , dbamv.especie
+     , dbamv.plano_contas
+     , dbamv.estoque_pl_contas
+     , dbamv.c_conest
+     , Dbamv.Item_Res
+  Where c_conest.cd_produto    = produto.cd_produto
+    and produto.cd_especie     = especie.cd_especie
+    and especie.cd_item_res    = item_res.cd_item_res
+    and estoque_pl_contas.cd_reduzido = plano_contas.cd_reduzido
+    and estoque_pl_contas.cd_estoque  = c_conest.cd_estoque
+    and estoque_pl_contas.cd_especie  = produto.cd_especie
+    and Plano_Contas.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and c_conest.vl_devolucao_setor > 0
+    and to_date( lpad( to_char( c_conest.cd_mes ), 2, '0' ) || to_char( c_conest.cd_ano ), 'MMYYYY' )
+       between :CAMPO_DATA_INI and last_day(:CAMPO_DATA_FIM)
+group by c_conest.cd_mes
+     , c_conest.cd_ano
+     , plano_contas.cd_reduzido
+     , plano_contas.ds_financ
+     , especie.cd_especie
+     , especie.ds_especie
+)
+order by cd_reduzido, cd_especie, data_financeiro, data_estoque ,nr_documento
+)
+ORDER BY CD_REDUZIDO,DS_FINANC,
+CD_ESPECIE,DS_ESPECIE,
+DATA_FINANCEIRO,VALOR_FINANCEIRO,CD_CON_PAG,
+DATA_ESTOQUE,TIPO,
+NR_DOCUMENTO,
+VALOR_ESTOQUE,
+VALOR_DOCUMENTO

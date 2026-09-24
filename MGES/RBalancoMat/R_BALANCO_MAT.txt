@@ -1,0 +1,150 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCO_MAT
+SELECT * FROM (
+SELECT  ITMVTO_ESTOQUE.CD_PRODUTO                                                CD_PRODUTO,
+               PRODUTO.DS_PRODUTO                                                                DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE                                                                    DS_UNIDADE,
+               DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                                'D', ITMVTO_ESTOQUE.QT_MOVIMENTACAO,
+                                'C' , ITMVTO_ESTOQUE.QT_MOVIMENTACAO,
+                                'N' , ITMVTO_ESTOQUE.QT_MOVIMENTACAO,
+                                       ITMVTO_ESTOQUE.QT_MOVIMENTACAO * -1 )      QUANTIDADE,
+                MVTO_ESTOQUE.DT_MVTO_ESTOQUE                                        DATA,
+                DECODE(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,'S','Saida p/ Setor','P','Saida para Paciente','D','Devolucao do setor','C','Devolucao do Paciente','T','Transferencia','M','Manipulação','O','Doacao','E','Saída de Empréstimo','V','Vendas','N','Devolução de Vendas', 'X','Baixa',null)  TIPO,
+                INITCAP( NVL( PACIENTE.NM_PACIENTE,
+                DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'T', ESTOQUE.DS_ESTOQUE,'E',fornecedor.nm_fornecedor, SETOR.NM_SETOR ) ) ) ||' - '||mvto_Estoque.cd_mvto_estoque     DS_DESTINO,
+                Verif_Vl_Custo_Medio( ItMvto_Estoque.Cd_Produto, Mvto_Estoque.Dt_Mvto_Estoque, :CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque) *  UNI_PRO.VL_FATOR              VALOR,
+                UNI_PRO.VL_FATOR
+FROM    dbamv.MVTO_ESTOQUE                         MVTO_ESTOQUE,
+              dbamv.ITMVTO_ESTOQUE                      ITMVTO_ESTOQUE,
+              dbamv.PRODUTO                                     PRODUTO,
+              dbamv.UNI_PRO                                       UNI_PRO,
+              dbamv.ATENDIME                                    ATENDIMENTO,
+              dbamv.PACIENTE                                     PACIENTE,
+              dbamv.SETOR                                          SETOR,
+              dbamv.ESTOQUE                                     ESTOQUE,
+              dbamv.FORNECEDOR                             FORNECEDOR
+WHERE   ITMVTO_ESTOQUE.CD_PRODUTO  =   PRODUTO.CD_PRODUTO
+                AND   MVTO_ESTOQUE.CD_MVTO_ESTOQUE  =   ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                AND   UNI_PRO.CD_UNI_PRO  =   ITMVTO_ESTOQUE.CD_UNI_PRO
+                AND   MVTO_ESTOQUE.CD_ATENDIMENTO  =   ATENDIMENTO.CD_ATENDIMENTO (+)
+                AND   ATENDIMENTO.CD_PACIENTE  =   PACIENTE.CD_PACIENTE (+)
+                AND   MVTO_ESTOQUE.CD_SETOR  =   SETOR.CD_SETOR
+                AND  ESTOQUE.CD_ESTOQUE   = MVTO_ESTOQUE.CD_ESTOQUE
+                AND  MVTO_ESTOQUE.DT_MVTO_ESTOQUE   BETWEEN :CAMPO_DTINIC AND 
+                AND  ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND  MVTO_ESTOQUE.CD_FORNECEDOR  =   FORNECEDOR.CD_FORNECEDOR(+)
+               AND ATENDIMENTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+UNION ALL
+SELECT  ITCONTAGEM.CD_PRODUTO                                       CD_PRODUTO,
+                PRODUTO.DS_PRODUTO                                            DS_PRODUTO,
+                UNI_PRO.DS_UNIDADE                                                DS_UNIDADE,
+                ITCONTAGEM.QT_ESTOQUE                                       QUANTIDADE,
+                CONTAGEM.DT_GERACAO                                          DATA,
+                'Contagem - '  TIPO,
+                INITCAP(ESTOQUE.DS_ESTOQUE)     DS_DESTINO,
+	Verif_Vl_Custo_Medio( ItContagem.Cd_Produto, Contagem.Dt_Geracao, :CAMPO_TP_CUSTO, Produto.VL_CUSTO_MEDIO, Contagem.Hr_Contagem) * UNI_PRO.VL_FATOR                      VALOR,
+                UNI_PRO.VL_FATOR
+FROM      dbamv.ITCONTAGEM                   ITCONTAGEM,
+                dbamv.CONTAGEM                      CONTAGEM,
+                dbamv.PRODUTO                         PRODUTO,
+                dbamv.UNI_PRO                          UNI_PRO,
+                dbamv.ESTOQUE                         ESTOQUE
+WHERE   ITCONTAGEM.CD_PRODUTO  =   PRODUTO.CD_PRODUTO
+AND         CONTAGEM.CD_CONTAGEM  =   ITCONTAGEM.CD_CONTAGEM
+AND         UNI_PRO.CD_UNI_PRO  =   ITCONTAGEM.CD_UNI_PRO
+AND         ESTOQUE.CD_ESTOQUE  =  CONTAGEM.CD_ESTOQUE
+AND         CONTAGEM.DT_GERACAO BETWEEN :CAMPO_DTINIC AND 
+AND         ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT  ITENT_PRO.CD_PRODUTO                        CD_PRODUTO,
+                PRODUTO.DS_PRODUTO                          DS_PRODUTO,
+                UNI_PRO.DS_UNIDADE                             DS_UNIDADE,
+                ITENT_PRO.QT_ENTRADA                        QUANTIDADE,
+                ENT_PRO.DT_ENTRADA                           DATA,
+                TIP_DOC.DS_TIP_DOC                               TIPO,
+                INITCAP( FORNEC.NM_FORNECEDOR )   DS_DESTINO,
+                ITENT_PRO.VL_UNITARIO VALOR,
+                UNI_PRO.VL_FATOR
+FROM    dbamv.ITENT_PRO                         ITENT_PRO,
+              dbamv.ENT_PRO                             ENT_PRO,
+              dbamv.PRODUTO                            PRODUTO,
+              dbamv.TIP_DOC                              TIP_DOC,
+              dbamv.UNI_PRO                              UNI_PRO,
+              dbamv.FORNECEDOR                     FORNEC,
+              dbamv.ESTOQUE
+WHERE  ITENT_PRO.CD_PRODUTO  =   PRODUTO.CD_PRODUTO
+AND	ENT_PRO.CD_ENT_PRO  =   ITENT_PRO.CD_ENT_PRO
+AND	ENT_PRO.CD_TIP_DOC  =   TIP_DOC.CD_TIP_DOC
+AND        UNI_PRO.CD_UNI_PRO  =   ITENT_PRO.CD_UNI_PRO
+AND        ENT_PRO.CD_FORNECEDOR  =   FORNEC.CD_FORNECEDOR
+AND	FORNEC.TP_CLIENTE_FORN	IN ( 'F', 'A' )
+AND        ITENT_PRO.CD_UNI_PRO  =   UNI_PRO.CD_UNI_PRO
+AND        ENT_PRO.CD_ESTOQUE =  ESTOQUE.CD_ESTOQUE
+AND        ENT_PRO.DT_ENTRADA   BETWEEN :CAMPO_DTINIC AND 
+AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT         ITMVTO_ESTOQUE.CD_PRODUTO                     CD_PRODUTO,
+               PRODUTO.DS_PRODUTO                            DS_PRODUTO,
+               UNI_PRO.DS_UNIDADE                            DS_UNIDADE,
+               ITMVTO_ESTOQUE.QT_MOVIMENTACAO                QUANTIDADE,
+               TRUNC( MVTO_ESTOQUE.DT_MVTO_ESTOQUE)          DATA,
+               'CRED. TRANSF. EST.'                          TIPO,
+               INITCAP( NVL( PACIENTE.NM_PACIENTE,
+               DECODE( MVTO_ESTOQUE.TP_MVTO_ESTOQUE, 'T', ESTOQUE_DESTINO.DS_ESTOQUE, SETOR.NM_SETOR ) ) ) DS_DESTINO,
+               verif_vl_custo_medio(itmvto_estoque.cd_produto,mvto_estoque.dt_mvto_estoque, :CAMPO_TP_CUSTO, Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ) * UNI_PRO.VL_FATOR  VALOR,
+               UNI_PRO.VL_FATOR
+FROM    dbamv.MVTO_ESTOQUE                                  MVTO_ESTOQUE,
+              dbamv.ITMVTO_ESTOQUE                               ITMVTO_ESTOQUE,
+              dbamv.PRODUTO                                              PRODUTO,
+              dbamv.UNI_PRO                                                UNI_PRO,
+              dbamv.ATENDIME                                              ATENDIMENTO,
+              dbamv.PACIENTE                                               PACIENTE,
+              dbamv.SETOR                                                    SETOR,
+              dbamv.ESTOQUE                                               ESTOQUE,
+              dbamv.ESTOQUE                                               ESTOQUE_DESTINO
+        WHERE   ITMVTO_ESTOQUE.CD_PRODUTO             =   PRODUTO.CD_PRODUTO
+            AND   MVTO_ESTOQUE.CD_MVTO_ESTOQUE        =   ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+            AND   UNI_PRO.CD_UNI_PRO                  =   ITMVTO_ESTOQUE.CD_UNI_PRO
+            AND   MVTO_ESTOQUE.CD_ATENDIMENTO         =   ATENDIMENTO.CD_ATENDIMENTO (+)
+            AND   ATENDIMENTO.CD_PACIENTE             =   PACIENTE.CD_PACIENTE (+)
+            AND   MVTO_ESTOQUE.CD_SETOR               =   SETOR.CD_SETOR(+)
+            AND   MVTO_ESTOQUE.CD_ESTOQUE          =   ESTOQUE_DESTINO.CD_ESTOQUE
+            AND   ITMVTO_ESTOQUE.CD_UNI_PRO          =   UNI_PRO.CD_UNI_PRO
+            AND ESTOQUE.CD_ESTOQUE                   = MVTO_ESTOQUE.CD_ESTOQUE_DESTINO
+            AND MVTO_ESTOQUE.DT_MVTO_ESTOQUE     BETWEEN :CAMPO_DTINIC AND 
+            AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE        = 'T'
+            AND ESTOQUE_destino.CD_MULTI_EMPRESA       = :CAMPO_CD_MULTI_EMPRESA
+            AND ATENDIMENTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+Union ALL
+SELECT ITDEV_FOR.CD_PRODUTO
+             ,PRODUTO.DS_PRODUTO
+             ,UNI_PRO.DS_UNIDADE
+             ,ITDEV_FOR.QT_DEVOLVIDA * -1                 QUANTIDADE
+             ,TRUNC(DEV_FOR.DT_DEVOLUCAO)          DATA
+             ,'Dev. P/  Fornecedor'                                     TIPO
+             ,FORNECEDOR.NM_FANTASIA                    DS_DESTINO
+            ,verif_vl_custo_medio(PRODUTO.CD_PRODUTO
+                           ,DEV_FOR.DT_DEVOLUCAO
+                           ,:CAMPO_TP_CUSTO
+                           ,Produto.Vl_Custo_Medio
+                           ,DEV_FOR.HR_DEVOLUCAO )  * UNI_PRO.VL_FATOR           VALOR
+            ,UNI_PRO.VL_FATOR
+ FROM   DBAMV.ESTOQUE
+       ,DBAMV.DEV_FOR
+       ,DBAMV.ITDEV_FOR
+       ,DBAMV.UNI_PRO
+       ,DBAMV.FORNECEDOR
+       ,DBAMV.PRODUTO
+       ,DBAMV.ENT_PRO
+WHERE  DEV_FOR.CD_DEVOLUCAO  = ITDEV_FOR.CD_DEVOLUCAO
+  AND  PRODUTO.CD_PRODUTO    = ITDEV_FOR.CD_PRODUTO
+  AND  UNI_PRO.CD_UNI_PRO    = ITDEV_FOR.CD_UNI_PRO
+  AND  DEV_FOR.CD_ENT_PRO    = ENT_PRO.CD_ENT_PRO
+  AND  ENT_PRO.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR
+  AND  ENT_PRO.CD_ESTOQUE    = ESTOQUE.CD_ESTOQUE
+  AND         DEV_FOR.DT_DEVOLUCAO     BETWEEN :CAMPO_DTINIC AND 
+  AND         ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_P_DETALHES
+)
+ORDER BY DATA, DS_PRODUTO, valor

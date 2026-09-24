@@ -1,0 +1,937 @@
+/*----------------------------------------------------------------------------*/
+--R_FLUXO_CAIXA_DIA_SINT
+SELECT ITENS.*, Nvl(SALDO.vlTotal,0)/qtd_reg_relatorio VLTOTAL
+FROM (
+select  tp_grupo,
+        cd_gru_res,
+        ds_gru_res,
+        cd_item_res,
+        ds_item_res,
+        decode( '', 'D', trunc( data_pagto ), 'S', trunc( data_pagto, 'd' ), 'M', trunc( data_pagto, 'mm' ),
+                'A', trunc( data_pagto, 'yyyy' )) dt_pagto,
+        data_pagto,
+        nvl( sum( decode( tp_situacao, 'P', vl_total, 'P/R',vl_total, 0 )), 0 ) vl_previsto,
+        nvl( sum( decode( tp_situacao, 'R', vl_total, 'P/R',vl_total, 0 )), 0 ) vl_realizado,
+		nvl( sum(impostos_rec) , 0 ) impostos_recebimento
+, COUNT (*) OVER (PARTITION BY tp_grupo, cd_gru_res, cd_item_res) qtd_reg_relatorio
+  from (
+        select  'DESPESA' tp_grupo,
+                'R' tp_situacao,
+                nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                :CAMPO_CF_RET_DT_PGTO data_pagto,
+                dbamv.calcula_valor_rateio( con_pag.cd_con_pag, ratcon_pag.rowid,
+                                            (nvl(pagcon_pag.vl_pago,0) - nvl(pagcon_pag.vl_acrescimo,0)), ratcon_pag.vl_Rateio, 2 ) VL_total
+											, 0 impostos_rec
+       from  dbamv.pagcon_pag    pagcon_pag,
+             dbamv.itcon_pag     itcon_pag,
+             dbamv.con_pag       con_pag,
+             dbamv.ratcon_pag    ratcon_pag,
+             dbamv.item_res      item_res,
+             dbamv.gru_res       gru_res
+             ,dbamv.processo p
+         where trunc( pagcon_pag.dt_pagamento) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+           and  con_pag.cd_con_pag = ratcon_pag.cd_con_pag
+           and  ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+           and  item_res.cd_gru_res = gru_res.cd_gru_res(+)
+           and  cd_con_pag_dev is NULL
+           and  con_pag.cd_con_pag = itcon_pag.cd_con_pag
+           and  itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+           and  pagcon_pag.tp_pagamento NOT IN ('3', '6','B','7')
+           AND p.cd_processo = con_pag.cd_processo
+           AND p.cd_estrutural <> '1.2.1.1.5'
+           AND ((itcon_pag.tp_quitacao IN ('Q', 'P') and  nvl(pagcon_pag.sn_estorno,'N') = 'N')
+                   or  (exists (select 'X'
+                          from dbamv.pagcon_pag pc
+                         where nvl(sn_estorno,'N') = 'S'
+                           and pc.cd_pagcon_pag = pagcon_pag.cd_pagcon_pag
+                           and pc.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy'))))
+           and  ratcon_pag.vl_rateio <> 0
+        union all
+        select  'DESPESA' tp_grupo,
+                'R' tp_situacao,
+                nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                :CAMPO_CF_RET_DT_PGTO data_pagto,
+                ratpag_desc_acres.vl_ratpag_desc_acres VL_total
+				, 0 impostos_rec
+       from  dbamv.pagcon_pag        pagcon_pag,
+             dbamv.itcon_pag         itcon_pag,
+             dbamv.con_pag           con_pag,
+             dbamv.item_res          item_res,
+             dbamv.gru_res           gru_res,
+             dbamv.pag_desc_acres    pag_desc_acres,
+             dbamv.ratpag_desc_acres ratpag_desc_acres
+             , dbamv.processo p
+         where   trunc( pagcon_pag.dt_pagamento) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+           AND  item_res.cd_item_res(+) = ratpag_desc_acres.cd_item_res
+           AND  pagcon_pag.cd_pagcon_pag = pag_desc_acres.cd_pagcon_pag
+           AND  ratpag_desc_acres.cd_pag_desc_acres = pag_desc_acres.cd_pag_desc_acres
+           AND  nvl(ratpag_desc_acres.vl_ratpag_desc_acres,0) <> 0
+           and  item_res.cd_gru_res = gru_res.cd_gru_res(+)
+           and  cd_con_pag_dev is null
+           and  con_pag.cd_con_pag = itcon_pag.cd_con_pag
+           and  itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+           and  pagcon_pag.tp_pagamento NOT IN ('3','6', 'B','7')
+           AND pag_desc_acres.tp_desc_acres = 'A'
+           AND con_pag.cd_processo = p.cd_processo
+           AND p.cd_estrutural <> '1.2.1.1.5'
+           AND ((itcon_pag.tp_quitacao IN ('Q', 'P') and  nvl(pagcon_pag.sn_estorno,'N') = 'N')
+                   or  (exists (select 'X'
+                          from dbamv.pagcon_pag pc
+                         where nvl(sn_estorno,'N') = 'S'
+                           and pc.cd_pagcon_pag = pagcon_pag.cd_pagcon_pag
+                           and pc.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy'))))
+        union all
+        select  'DESPESA' tp_grupo,
+                'R' tp_situacao,
+                nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                :CAMPO_CF_RET_DATA_PAG_MOV data_pagto,
+                dbamv.calcula_valor_rateio( con_pag.cd_con_pag, ratcon_pag.rowid,
+                                            (nvl(pagcon_pag.vl_pago,0) - nvl(pagcon_pag.vl_acrescimo,0)), ratcon_pag.vl_Rateio, 2) VL_total
+											, 0 impostos_rec
+          from  dbamv.con_pag con_pag,
+                dbamv.itcon_pag itcon_pag,
+                dbamv.pagcon_pag pagcon_pag,
+                dbamv.cheque chq,
+                dbamv.mov_concor mov,
+                dbamv.ratcon_pag ratcon_pag,
+                dbamv.item_res item_res,
+                dbamv.gru_res gru_res
+                , dbamv.processo p
+         where con_pag.cd_con_pag = itcon_pag.cd_con_pag
+           AND con_pag.cd_processo = p.cd_processo
+           AND p.cd_estrutural <> '1.2.1.1.5'
+           AND ((itcon_pag.tp_quitacao IN ('Q', 'P') and  nvl(pagcon_pag.sn_estorno,'N') = 'N') or
+                  (exists (select 'X'
+                           from dbamv.pagcon_pag pc
+                           where nvl(sn_estorno,'N') = 'S'
+                             and pc.cd_pagcon_pag = pagcon_pag.cd_pagcon_pag
+                             and pc.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy'))))
+           AND nvl(mov.sn_estorno,'N') = 'N'
+           and itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+           and pagcon_pag.tp_pagamento = '3' 
+           and pagcon_pag.cd_cheque = chq.cd_cheque
+           and chq.cd_cheque = mov.cd_cheque
+           and pagcon_pag.cd_con_cor = mov.cd_con_cor
+           and pagcon_pag.cd_cheque = mov.cd_cheque
+           and cd_con_pag_dev is null
+           and con_pag.cd_con_pag = ratcon_pag.cd_con_pag
+           and ratcon_pag.vl_rateio <> 0
+           and ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+           and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+           and nvl(pagcon_pag.cd_pagcon_pag_agrup,pagcon_pag.cd_pagcon_pag) = mov.cd_pagcon_pag
+          union all
+          select  'DESPESA' tp_grupo,
+                'R' tp_situacao,
+                nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                :CAMPO_CF_RET_DATA_PAG_MOV data_pagto,
+                ratpag_desc_acres.vl_ratpag_desc_acres VL_total
+				, 0 impostos_rec
+          from  dbamv.con_pag con_pag,
+                dbamv.itcon_pag itcon_pag,
+                dbamv.pagcon_pag pagcon_pag,
+                dbamv.cheque chq,
+                dbamv.mov_concor mov,
+                dbamv.item_res item_res,
+                dbamv.gru_res gru_res,
+                dbamv.pag_desc_acres    pag_desc_acres,
+                dbamv.ratpag_desc_acres ratpag_desc_acres,
+                dbamv.multi_empresas
+                , dbamv.processo p
+         where  con_pag.cd_con_pag = itcon_pag.cd_con_pag
+           AND con_pag.cd_processo = p.cd_processo
+           AND p.cd_estrutural <> '1.2.1.1.5'
+           AND ((itcon_pag.tp_quitacao IN ('Q', 'P') and  nvl(pagcon_pag.sn_estorno,'N') = 'N') or
+                  (exists (select 'X'
+                           from dbamv.pagcon_pag pc
+                           where nvl(sn_estorno,'N') = 'S'
+                             and pc.cd_pagcon_pag = pagcon_pag.cd_pagcon_pag
+                             and pc.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy'))))
+           AND multi_empresas.cd_multi_empresa = con_pag.cd_multi_empresa
+           AND nvl(mov.sn_estorno,'N') = 'N'
+           and itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+           and pagcon_pag.tp_pagamento = '3' 
+           AND pag_desc_acres.tp_desc_acres = 'A'
+           and pagcon_pag.cd_cheque = chq.cd_cheque
+           and chq.cd_cheque = mov.cd_cheque
+           and pagcon_pag.cd_con_cor = mov.cd_con_cor
+           and pagcon_pag.cd_cheque = mov.cd_cheque
+           and cd_con_pag_dev is null
+           AND item_res.cd_item_res(+) = ratpag_desc_acres.cd_item_res
+           AND pagcon_pag.cd_pagcon_pag = pag_desc_acres.cd_pagcon_pag
+           AND ratpag_desc_acres.cd_pag_desc_acres = pag_desc_acres.cd_pag_desc_acres
+           AND nvl(ratpag_desc_acres.vl_ratpag_desc_acres,0) <> 0
+           and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+           and nvl(pagcon_pag.cd_pagcon_pag_agrup,pagcon_pag.cd_pagcon_pag) = mov.cd_pagcon_pag
+          union all
+          select 'DESPESA' tp_grupo,
+                 'P' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DT_VCTO data_pagto,
+                 decode( nvl( con_pag.vl_bruto_conta, 0 ), 0, 0,round((   nvl( ratcon_pag.vl_rateio, 0 )
+                         / ((con_pag.vl_bruto_conta + nvl(con_pag.vl_desconto, 0) )- nvl(con_pag.vl_acrescimo, 0)) )
+                         * ( itcon_pag.vl_duplicata +
+                             Nvl(dbamv.pack_calc_detalhamento.Fnc_fncp_calc_imposto_parcela ( itcon_pag.cd_itcon_pag, to_date( :CAMPO_DATA_INICIAL , 'dd/mm/yyyy' )-1),0) )
+                                                                               , 2 )) vl_total
+																			   , 0 impostos_rec
+            from dbamv.itcon_pag itcon_pag,
+                 dbamv.con_pag con_pag,
+                 dbamv.ratcon_pag ratcon_pag,
+                 dbamv.item_res item_res,
+                 dbamv.gru_res gru_res,
+                 dbamv.processo pr
+           where  trunc( itcon_pag.dt_vencimento) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and con_pag.cd_con_pag = ratcon_pag.cd_con_pag
+             and cd_con_pag_dev is null
+             and ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+             and con_pag.cd_con_pag = itcon_pag.cd_con_pag
+             AND pr.cd_estrutural <> '1.2.1.1.5'
+             and ratcon_pag.vl_rateio <> 0
+             and con_pag.cd_processo = pr.cd_processo
+          union all
+          select 'DESPESA' tp_grupo,
+                 'P' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DT_VCTO data_pagto,
+                 ( (decode( nvl( con_pag.vl_bruto_conta, 0 ), 0, 0,
+                         round(   (   nvl( ratcon_pag.vl_rateio, 0 ) / (con_pag.vl_bruto_conta + nvl(con_pag.vl_desconto, 0) - nvl(con_pag.vl_acrescimo, 0)) )
+                                * ( itcon_pag.vl_duplicata + Nvl(dbamv.pack_calc_detalhamento.Fnc_fncp_calc_imposto_parcela ( itcon_pag.cd_itcon_pag, to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' )-1 ) ,0) ), 2 ))) -
+                 (decode( nvl( con_pag.vl_bruto_conta, 0 ), 0, 0,
+                         round(   (   nvl( ratcon_pag.vl_rateio, 0 ) / (con_pag.vl_bruto_conta + nvl(con_pag.vl_desconto, 0) - nvl(con_pag.vl_acrescimo, 0)) )
+                                * ( pres.vl_prestacao ), 2 ))) )  vl_total
+								, 0 impostos_rec
+            from dbamv.itcon_pag itcon_pag,
+                 dbamv.con_pag con_pag,
+                 dbamv.ratcon_pag ratcon_pag,
+                 dbamv.item_res item_res,
+                 dbamv.gru_res gru_res,
+                 dbamv.processo pr,
+                 (select    cd_con_pag,
+                            sum(vl_prestacao) vl_prestacao
+                    from    dbamv.prestacao_de_contas
+                   where    cd_itcon_pag is not null
+                  group by  cd_con_pag) pres
+           where  trunc( itcon_pag.dt_vencimento) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and con_pag.cd_con_pag = ratcon_pag.cd_con_pag
+             and cd_con_pag_dev is null
+             and ratcon_pag.cd_item_res = item_res.cd_item_res(+)
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+             and con_pag.cd_con_pag = itcon_pag.cd_con_pag
+             and ratcon_pag.vl_rateio <> 0
+             and con_pag.cd_con_pag = pres.cd_con_pag (+)
+             and con_pag.cd_processo = pr.cd_processo
+             and pr.cd_estrutural = '1.2.1.1.2'
+             and itcon_pag.vl_duplicata <> pres.vl_prestacao
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DT_REC data_pagto,
+                 dbamv.calcula_valor_rateio( con_rec.cd_con_rec, rat_conrec.rowid,
+                                             (nvl(reccon_rec.vl_recebido,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0)),
+                                             rat_conrec.vl_Rateio ) VL_total
+				,  dbamv.calcula_valor_rateio( con_rec.cd_con_rec, rat_conrec.rowid,
+                  (nvl(reccon_rec.vl_imposto_retido,0)), rat_conrec.vl_Rateio ) impostos_rec
+            from dbamv.con_rec con_rec,
+                 dbamv.itcon_rec itcon_rec,
+                 dbamv.rat_conrec rat_conrec,
+                 dbamv.item_res item_res,
+                 dbamv.reccon_rec reccon_rec,
+                 dbamv.gru_res gru_res
+                 , dbamv.processo p
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and (reccon_rec.tp_recebimento not in ('1', '2', '4', 'B')
+                 or (   reccon_rec.tp_recebimento = '4' and
+                    exists (select  'X'
+                              from  dbamv.rec_mov_con   rmov,
+                                    dbamv.mov_concor    movc
+                             where  rmov.cd_reccon_rec = reccon_rec.cd_reccon_rec
+                               and  rmov.cd_mov_concor = movc.cd_mov_concor
+                               and  movc.cd_fornecedor is null
+                               and  movc.cd_lan_concor not in (select Nvl(conf.cd_lanca_credito_convenio,0)
+                                                                from dbamv.config_financ conf
+                                                               where conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA))))
+             AND (itcon_rec.tp_quitacao IN ( 'Q', 'P', 'G', 'L' ) or reccon_rec.dt_estorno IS NOT NULL )
+             and item_res.cd_item_res(+) = rat_conrec.cd_item_res
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+             and rat_conrec.cd_con_rec(+) = con_rec.cd_con_rec
+             AND (
+                reccon_rec.dt_estorno IS NULL
+                  or reccon_rec.dt_estorno between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+              )
+             and rat_conrec.vl_rateio <> 0
+             and reccon_rec.cd_caixa IS NULL
+             and reccon_rec.dt_recebimento between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             AND p.cd_processo = con_rec.cd_processo
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DT_REC data_pagto,
+                 ratrec_desc_acres.vl_ratrec_desc_acres VL_total
+				 , 0 impostos_rec
+            from dbamv.con_rec con_rec,
+                 dbamv.itcon_rec itcon_rec,
+                 dbamv.item_res item_res,
+                 dbamv.reccon_rec reccon_rec,
+                 dbamv.gru_res gru_res,
+                 dbamv.rec_desc_acres rec_desc_acres,
+                 dbamv.ratrec_desc_acres ratrec_desc_acres
+                 , dbamv.processo p
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and (reccon_rec.tp_recebimento not in ('1', '2', '4', 'B')
+                 or (   reccon_rec.tp_recebimento = '4' and
+                    exists (select  'X'
+                              from  dbamv.rec_mov_con   rmov,
+                                    dbamv.mov_concor    movc
+                             where  rmov.cd_reccon_rec = reccon_rec.cd_reccon_rec
+                               and  rmov.cd_mov_concor = movc.cd_mov_concor
+                               and  movc.cd_fornecedor is null
+                               and  movc.cd_lan_concor not in (select Nvl(conf.cd_lanca_credito_convenio,0)
+                                                                from dbamv.config_financ conf
+                                                               where conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA))))
+             AND (itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' ) or  reccon_rec.dt_estorno IS NOT NULL)
+             AND rec_desc_acres.tp_desc_acres = 'A'
+             and reccon_rec.cd_caixa IS NULL
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+             AND item_res.cd_item_res(+) = ratrec_desc_acres.cd_item_res
+             AND reccon_rec.cd_reccon_rec = rec_desc_acres.cd_reccon_rec
+             AND ratrec_desc_acres.cd_rec_desc_acres = rec_desc_acres.cd_rec_desc_acres
+             AND nvl(ratrec_desc_acres.vl_ratrec_desc_acres,0) <> 0
+             AND (reccon_rec.dt_estorno IS NULL or reccon_rec.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ))
+             and reccon_rec.dt_recebimento between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             AND p.cd_processo = con_rec.cd_processo
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DT_MOV data_pagto,
+                 dbamv.calcula_valor_rateio( con_rec.cd_con_rec, ratcon_rec.rowid,
+                                             (nvl(reccon_rec.vl_recebido,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0)),
+                                             ratcon_rec.vl_Rateio ) VL_total
+				, dbamv.calcula_valor_rateio( con_rec.cd_con_rec, ratcon_rec.rowid,
+                    (nvl(reccon_rec.vl_imposto_retido,0)), ratcon_rec.vl_Rateio ) impostos_rec
+            from dbamv.con_rec      con_rec,
+                 dbamv.itcon_rec    itcon_rec,
+                 dbamv.rat_conrec   ratcon_rec,
+                 dbamv.reccon_rec   reccon_rec,
+                 dbamv.rec_mov_con  rec_mov_con,
+                 dbamv.mov_concor   mov_concor,
+                 dbamv.lan_concor   lan_concor,
+                 dbamv.item_res     item_res,
+                 dbamv.gru_res      gru_res,
+                 dbamv.config_financ conf
+                 , dbamv.processo p
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and con_rec.cd_con_rec = ratcon_rec.cd_con_rec
+             and reccon_rec.cd_reccon_rec = rec_mov_con.cd_reccon_rec
+             and rec_mov_con.cd_mov_concor = mov_concor.cd_mov_concor
+             and mov_concor.cd_lan_concor = lan_concor.cd_lan_concor
+             and conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and Reccon_rec.tp_recebimento = '4' 
+             AND (itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' ) or  reccon_rec.dt_estorno IS NOT NULL)
+             and mov_concor.cd_lan_concor = conf.cd_lanca_credito_convenio
+             and mov_concor.cd_fornecedor = con_rec.cd_fornecedor
+             and ratcon_rec.cd_item_res = item_res.cd_item_res(+)
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+             AND (reccon_rec.dt_estorno IS NULL OR reccon_rec.dt_estorno > to_date(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) )
+             and ratcon_rec.vl_rateio <> 0
+             and reccon_rec.cd_caixa IS NULL
+             and mov_concor.dt_movimentacao BETWEEN to_date(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) AND to_date(:CAMPO_DATA_FINAL, 'dd/mm/yyyy' )+0.99999
+             AND p.cd_processo = con_rec.cd_processo
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DT_MOV data_pagto,
+                 ratrec_desc_acres.vl_ratrec_desc_acres VL_total
+				 , 0 impostos_rec
+            from dbamv.con_rec      con_rec,
+                 dbamv.itcon_rec    itcon_rec,
+                 dbamv.reccon_rec   reccon_rec,
+                 dbamv.rec_mov_con  rec_mov_con,
+                 dbamv.mov_concor   mov_concor,
+                 dbamv.lan_concor   lan_concor,
+                 dbamv.item_res     item_res,
+                 dbamv.gru_res      gru_res,
+                 dbamv.config_financ conf,
+                 dbamv.rec_desc_acres rec_desc_acres,
+                 dbamv.ratrec_desc_acres ratrec_desc_acres
+                 , dbamv.processo p
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and reccon_rec.cd_reccon_rec = rec_mov_con.cd_reccon_rec
+             and rec_mov_con.cd_mov_concor = mov_concor.cd_mov_concor
+             and mov_concor.cd_lan_concor = lan_concor.cd_lan_concor
+             and conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             and Reccon_rec.tp_recebimento = '4' 
+             AND rec_desc_acres.tp_desc_acres = 'A'
+             AND (itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' ) or  reccon_rec.dt_estorno IS NOT  NULL)
+             and mov_concor.cd_lan_concor = conf.cd_lanca_credito_convenio
+             and mov_concor.cd_fornecedor = con_rec.cd_fornecedor
+             and ratrec_desc_acres.cd_item_res = item_res.cd_item_res(+)
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+             AND (reccon_rec.dt_estorno IS NULL or reccon_rec.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy'))
+             AND reccon_rec.cd_reccon_rec = rec_desc_acres.cd_reccon_rec
+             AND ratrec_desc_acres.cd_rec_desc_acres = rec_desc_acres.cd_rec_desc_acres
+             AND nvl(ratrec_desc_acres.vl_ratrec_desc_acres,0) <> 0
+             and reccon_rec.cd_caixa IS NULL
+             and mov_concor.dt_movimentacao BETWEEN to_date(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) AND to_date(:CAMPO_DATA_FINAL, 'dd/mm/yyyy' )+0.99999
+             AND p.cd_processo = con_rec.cd_processo
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DATA_REC_MOV_CC_CX data_pagto,
+                 dbamv.calcula_valor_rateio( con_rec.cd_con_rec, rat_conrec.rowid,
+                                             (nvl(reccon_rec.vl_recebido,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0)),
+                                             rat_conrec.vl_Rateio ) VL_total
+				 , dbamv.calcula_valor_rateio( con_rec.cd_con_rec, rat_conrec.rowid,
+                    (nvl(reccon_rec.vl_imposto_retido,0)), rat_conrec.vl_Rateio ) impostos_rec
+            from dbamv.con_rec    con_rec,
+                 dbamv.itcon_rec  itcon_rec,
+                 dbamv.reccon_rec reccon_rec,
+                 dbamv.doc_caixa  doc,
+                 dbamv.mov_concor ,
+                 dbamv.mov_caixa,
+                 dbamv.rat_conrec rat_conrec,
+                 dbamv.item_res   item_res,
+                 dbamv.gru_res    gru_res
+                 , dbamv.processo p
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             AND ((itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' )) OR  reccon_rec.dt_estorno IS NOT NULL)
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and reccon_rec.tp_recebimento IN ('1', '2', '3')
+             and reccon_rec.cd_caixa IS NOT NULL
+             AND mov_caixa.tp_origem_mov NOT IN ('CA')
+             and reccon_rec.cd_doc_caixa = doc.cd_doc_caixa(+)
+             and item_res.cd_item_res(+) = rat_conrec.cd_item_res
+             and gru_res.cd_gru_res(+) = item_res.cd_gru_res
+             and rat_conrec.cd_con_rec(+) = con_rec.cd_con_rec
+             and rat_conrec.vl_rateio <> 0
+             AND (reccon_rec.dt_estorno IS NULL
+              or reccon_rec.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) )
+             AND p.cd_processo = con_rec.cd_processo
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DATA_REC_MOV_CC_CX data_pagto,
+                 ratrec_desc_acres.vl_ratrec_desc_acres VL_total
+				 , 0 impostos_rec
+            from dbamv.con_rec           con_rec,
+                 dbamv.itcon_rec         itcon_rec,
+                 dbamv.reccon_rec        reccon_rec,
+                 dbamv.doc_caixa         doc,
+                 dbamv.mov_concor        ,
+                 dbamv.mov_caixa         mov_caixa,
+                 dbamv.item_res          item_res,
+                 dbamv.gru_res           gru_res,
+                 dbamv.rec_desc_acres    rec_desc_acres,
+                 dbamv.ratrec_desc_acres ratrec_desc_acres
+                 , dbamv.processo p
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             AND ((itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' )) OR  reccon_rec.dt_estorno IS NOT NULL)
+             AND rec_desc_acres.tp_desc_acres = 'A'
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and reccon_rec.tp_recebimento IN ('1', '2', '3')
+             and reccon_rec.cd_caixa is not null
+             and reccon_rec.cd_doc_caixa = doc.cd_doc_caixa(+)
+             and gru_res.cd_gru_res(+) = item_res.cd_gru_res
+             and item_res.cd_item_res(+) = ratrec_desc_acres.cd_item_res
+             AND reccon_rec.cd_reccon_rec = rec_desc_acres.cd_reccon_rec
+             AND ratrec_desc_acres.cd_rec_desc_acres = rec_desc_acres.cd_rec_desc_acres
+             AND nvl(ratrec_desc_acres.vl_ratrec_desc_acres,0) <> 0
+             AND (reccon_rec.dt_estorno IS NULL
+              or reccon_rec.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ))
+             AND P.CD_PROCESSO = CON_REC.CD_PROCESSO
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DATA_REC_MOV data_pagto,
+                 dbamv.calcula_valor_rateio( con_rec.cd_con_rec, rat_conrec.rowid,
+                                             (nvl(reccon_rec.vl_recebido,0) - nvl(reccon_rec.vl_acrescimo,0) + nvl(reccon_rec.vl_imposto_retido,0)),
+                                             rat_conrec.vl_Rateio ) VL_total
+											 , nvl(reccon_rec.vl_imposto_retido,0) impostos_rec
+            from dbamv.con_rec     con_rec,
+                 dbamv.itcon_rec   itcon_rec,
+                 dbamv.reccon_rec  reccon_rec,
+                 dbamv.rec_mov_con rec_mc,
+                 dbamv.mov_concor,
+                 dbamv.rat_conrec  rat_conrec,
+                 dbamv.item_res    item_res,
+                 dbamv.gru_res     gru_res
+                 , DBAMV.PROCESSO P
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             AND ((itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' )) OR  reccon_rec.dt_estorno IS NOT NULL)
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and reccon_rec.tp_recebimento IN ('1', '2')
+             and reccon_rec.cd_caixa is null
+             and reccon_rec.cd_reccon_rec = rec_mc.cd_reccon_rec
+             and rec_mc.cd_mov_concor  = mov_concor.cd_mov_concor
+             and mov_concor.dt_estorno is null
+             and item_res.cd_item_res(+) = rat_conrec.cd_item_res
+             and gru_res.cd_gru_res(+) = item_res.cd_gru_res
+             and rat_conrec.cd_con_rec(+) = con_rec.cd_con_rec
+             and rat_conrec.vl_rateio <> 0
+             AND (reccon_rec.dt_estorno IS NULL
+              or reccon_rec.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) )
+             AND P.CD_PROCESSO = CON_REC.CD_PROCESSO
+          union all
+          select 'RECEITA' tp_grupo,
+                 'R' tp_situacao,
+                 nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                 nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                 nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                 nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                 :CAMPO_CF_RET_DATA_REC_MOV data_pagto,
+                 ratrec_desc_acres.vl_ratrec_desc_acres VL_total
+				 , 0 impostos_rec
+            from dbamv.con_rec     con_rec,
+                 dbamv.itcon_rec   itcon_rec,
+                 dbamv.reccon_rec  reccon_rec,
+                 dbamv.rec_mov_con rec_mc,
+                 dbamv.mov_concor  ,
+                 dbamv.item_res    item_res,
+                 dbamv.gru_res     gru_res,
+                 dbamv.rec_desc_acres    rec_desc_acres,
+                 dbamv.ratrec_desc_acres ratrec_desc_acres
+                 , DBAMV.PROCESSO P
+           where con_rec.cd_con_rec = itcon_rec.cd_con_rec
+             AND ((itcon_rec.tp_quitacao in( 'Q', 'P', 'G', 'L' )) OR  reccon_rec.dt_estorno IS NOT NULL)
+             AND rec_desc_acres.tp_desc_acres = 'A'
+             and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and reccon_rec.tp_recebimento IN ('1', '2')
+             and reccon_rec.cd_caixa is null
+             and mov_concor.dt_estorno is null
+             and reccon_rec.cd_reccon_rec = rec_mc.cd_reccon_rec
+             and rec_mc.cd_mov_concor  = mov_concor.cd_mov_concor
+             and item_res.cd_item_res(+) = ratrec_desc_acres.cd_item_res
+             AND reccon_rec.cd_reccon_rec = rec_desc_acres.cd_reccon_rec
+             AND ratrec_desc_acres.cd_rec_desc_acres = rec_desc_acres.cd_rec_desc_acres
+             AND nvl(ratrec_desc_acres.vl_ratrec_desc_acres,0) <> 0
+             and gru_res.cd_gru_res(+) = item_res.cd_gru_res
+             AND (reccon_rec.dt_estorno IS NULL
+              or reccon_rec.dt_estorno > to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) )
+             AND P.CD_PROCESSO = CON_REC.CD_PROCESSO
+          union all 
+          SELECT decode(lan_concor.tp_operacao_saldo_aplicacao, '-', 'DESPESA - APLICACAO', 'RECEITA - APLICACAO') tp_grupo,
+                  'P/R' tp_situacao,
+                  nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                  nvl( gru_res.ds_gru_res, 'GRUPO NÃO INFORMADO' ) ds_gru_res,
+                  nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                  nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV data_pagto,
+                  nvl(mov_concor.vl_movimentacao, 0)  vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_concor,
+                 dbamv.con_cor,
+                 dbamv.lan_concor,
+                 dbamv.empresa_lan_concor,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where trunc( mov_concor.dt_movimentacao) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and mov_concor.cd_con_cor = con_cor.cd_con_cor
+             and lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+             and lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+) 
+             and empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+             and mov_concor.cd_aplicacao is not null
+             and mov_concor.cd_bordero is null
+             and mov_concor.cd_con_cor_transferencia is null
+             and mov_concor.cd_mov_concor_transferencia is null
+             and mov_concor.cd_mov_caixa is null
+             and mov_concor.cd_pagcon_pag is null
+             and mov_concor.cd_cheque is NULL
+             and Nvl(mov_concor.vl_movimentacao,0)  > 0
+          union ALL 
+          SELECT decode(lan_concor.tp_operacao_saldo_aplicacao, '-', 'RECEITA - BANCARIA', 'DESPESA - BANCARIA') tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  decode(lan_concor.tp_operacao_saldo_aplicacao, '-', 'RECEITA - BANCARIA', 'DESPESA - BANCARIA') ds_gru_res,
+                  0 cd_item_res,
+                  decode(lan_concor.tp_operacao_saldo_aplicacao, '-', 'RESGATE', 'APLICACAO') ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV data_pagto,
+                  nvl(mov_concor.vl_movimentacao, 0)  vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_concor,
+                 dbamv.con_cor,
+                 dbamv.lan_concor,
+                 dbamv.empresa_lan_concor,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where trunc( mov_concor.dt_movimentacao) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and mov_concor.cd_con_cor = con_cor.cd_con_cor
+             and lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+             and lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             AND lan_concor.tp_operacao_saldo_conta <> '0'
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+) 
+             and empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+             and mov_concor.cd_aplicacao is not null
+             and mov_concor.cd_bordero is null
+             and mov_concor.cd_con_cor_transferencia is null
+             and mov_concor.cd_mov_concor_transferencia is null
+             and mov_concor.cd_mov_caixa is null
+             and mov_concor.cd_pagcon_pag is null
+             and mov_concor.cd_cheque is NULL
+             and Nvl(mov_concor.vl_movimentacao,0)  > 0
+          union all 
+          SELECT decode(mov_caixa.tp_movimentacao, 'S', 'DESPESA - CAIXA', 'RECEITA - CAIXA') tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  decode(mov_caixa.tp_movimentacao, 'S', 'DESPESA - CAIXA', 'RECEITA - CAIXA') ds_gru_res,
+                  0 cd_item_res,
+                  decode(mov_caixa.tp_movimentacao, 'S', 'DESPESA DIRETA', 'RECEITA - DIRETA') ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV_CX data_pagto,
+                  nvl(mov_caixa.vl_movimentacao, 0)  vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_caixa,
+                 dbamv.lan_concor,
+                 dbamv.lote_caixa,
+                 dbamv.caixa,
+                 dbamv.empresa_lan_concor,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where trunc( mov_caixa.dt_movimentacao) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and caixa.cd_caixa                       = lote_caixa.cd_caixa
+             and mov_caixa.cd_lote_caixa              = lote_caixa.cd_lote_caixa
+             and lan_concor.cd_lan_concor             = mov_caixa.cd_lan_concor
+             and lan_concor.cd_lan_concor             = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             and item_res.cd_gru_res                  = gru_res.cd_gru_res(+) 
+             and empresa_lan_concor.cd_item_res       = item_res.cd_item_res(+)
+             and mov_caixa.tp_origem_mov IN ('RD','DD')
+             and mov_caixa.dt_cancelamento IS NULL
+             and Nvl(mov_caixa.vl_movimentacao,0)  > 0
+          union all 
+           SELECT decode(mov_caixa.tp_movimentacao, 'S', 'DESPESA - CAIXA', 'RECEITA - CAIXA') tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  decode(mov_caixa.tp_movimentacao, 'S', 'DESPESA - CAIXA', 'RECEITA - CAIXA') ds_gru_res,
+                  0 cd_item_res,
+                  'ESTORNO CAIXA' ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV_CX data_pagto,
+                  nvl(mov_caixa.vl_movimentacao, 0)  vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_caixa,
+                 dbamv.lan_concor,
+                 dbamv.lote_caixa,
+                 dbamv.caixa,
+                 dbamv.empresa_lan_concor,
+                 dbamv.config_financ cf,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where trunc( mov_caixa.dt_movimentacao) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and caixa.cd_multi_empresa               = cf.cd_multi_empresa
+             and caixa.cd_caixa                       = lote_caixa.cd_caixa
+             and mov_caixa.cd_lote_caixa              = lote_caixa.cd_lote_caixa
+             and lan_concor.cd_lan_concor             = cf.cd_lanc_caixa_ajuste
+             and lan_concor.cd_lan_concor             = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             and item_res.cd_gru_res                  = gru_res.cd_gru_res(+) 
+             and empresa_lan_concor.cd_item_res       = item_res.cd_item_res(+)
+             and mov_caixa.tp_origem_mov IN ('ER')
+             and mov_caixa.dt_cancelamento IS NULL
+             AND (( mov_caixa.tp_movimentacao = 'S'
+                        AND EXISTS (SELECT 'X'
+                                      FROM dbamv.reccon_rec rr
+                                     WHERE rr.dt_estorno IS NOT NULL
+                                       AND rr.cd_reccon_rec = mov_caixa.cd_reccon_rec)) or
+                  (mov_caixa.tp_movimentacao = 'E'
+                   AND EXISTS (SELECT 'X'
+                                 FROM dbamv.pagcon_pag pg
+                                WHERE pg.dt_estorno IS NOT NULL
+                                  AND pg.cd_pagcon_pag = mov_caixa.cd_pagcon_pag)))
+             and Nvl(mov_caixa.vl_movimentacao,0)  > 0
+          union all 
+           SELECT decode(mov_caixa.tp_movimentacao, 'S', 'DESPESA - CAIXA', 'RECEITA - CAIXA') tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  decode(mov_caixa.tp_movimentacao, 'S', 'DESPESA - CAIXA', 'RECEITA - CAIXA') ds_gru_res,
+                  0 cd_item_res,
+                  decode(mov_caixa.tp_origem_mov, 'DE', 'DEPOSITO CAIXA','RF','REFORCO DE CAIXA','DV','DEVOLUCAO','RN','RENEGOCIACAO'
+				         ,'CA','CAUÇÃO','TR','TRANSFERÊNCIA','OUTRAS') ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV_CX data_pagto,
+                  nvl(mov_caixa.vl_movimentacao, 0)  vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_caixa,
+                 dbamv.lan_concor,
+                 dbamv.lote_caixa,
+                 dbamv.caixa,
+                 dbamv.empresa_lan_concor,
+                 dbamv.config_financ cf,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where trunc( mov_caixa.dt_movimentacao) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and caixa.cd_multi_empresa               = cf.cd_multi_empresa
+             and caixa.cd_caixa                       = lote_caixa.cd_caixa
+             and mov_caixa.cd_lote_caixa              = lote_caixa.cd_lote_caixa
+             and lan_concor.cd_lan_concor             = cf.cd_lanc_caixa_ajuste
+             and lan_concor.cd_lan_concor             = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             and item_res.cd_gru_res                  = gru_res.cd_gru_res(+)
+             and empresa_lan_concor.cd_item_res       = item_res.cd_item_res(+)
+             and mov_caixa.tp_origem_mov IN ('RF','DE','RN','DV','CA','TR')
+             and mov_caixa.dt_cancelamento IS NULL
+             and Nvl(mov_caixa.vl_movimentacao,0)  > 0
+          union ALL
+           SELECT decode(lan_concor.tp_operacao_saldo_conta, '-', 'DESPESA - BANCARIA', 'RECEITA - BANCARIA')  tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  decode(lan_concor.tp_operacao_saldo_conta, '-', 'DESPESA - BANCARIA', 'RECEITA - BANCARIA') ds_gru_res,
+                  0 cd_item_res,
+                  decode(mov_caixa.tp_origem_mov, 'DE', Decode(lan_concor.tp_operacao_saldo_conta, '+','DEPOSITO CAIXA',Decode(mov_concor.dt_estorno,NULL,'TAXA CARTAO','ESTORNO')), 'DEVOLUCAO') ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV data_pagto,
+                  nvl(mov_concor.vl_movimentacao, 0)  vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_caixa,
+                 dbamv.lan_concor,
+                 dbamv.mov_concor,
+                 dbamv.con_cor,
+                 dbamv.empresa_lan_concor,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where trunc( mov_concor.dt_movimentacao) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             AND con_cor.cd_con_cor                   = mov_concor.cd_con_cor
+             AND mov_concor.cd_mov_caixa              = mov_caixa.cd_mov_caixa
+             and lan_concor.cd_lan_concor             = mov_concor.cd_lan_concor
+             and lan_concor.cd_lan_concor             = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             and item_res.cd_gru_res                  = gru_res.cd_gru_res(+) 
+             and empresa_lan_concor.cd_item_res       = item_res.cd_item_res(+)
+             and mov_caixa.tp_origem_mov IN ('DE','DV')
+             and mov_caixa.dt_cancelamento IS NULL
+             and Nvl(mov_caixa.vl_movimentacao,0)  > 0
+          union ALL
+           SELECT 'DESPESA - BANCARIA'  tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  'DESPESA - BANCARIA' ds_gru_res,
+                  0 cd_item_res,
+                  'REFORCO DE CAIXA' ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV_RF data_pagto,
+                  nvl(mov_concor.vl_movimentacao, 0)  vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_caixa,
+                 dbamv.lan_concor,
+                 dbamv.mov_concor,
+                 dbamv.con_cor,
+                 dbamv.empresa_lan_concor,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where con_cor.cd_con_cor                   = mov_concor.cd_con_cor
+             AND mov_concor.cd_mov_caixa              = mov_caixa.cd_mov_caixa
+             and lan_concor.cd_lan_concor             = mov_concor.cd_lan_concor
+             and lan_concor.cd_lan_concor             = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             and item_res.cd_gru_res                  = gru_res.cd_gru_res(+)
+             and empresa_lan_concor.cd_item_res       = item_res.cd_item_res(+)
+             and mov_caixa.tp_origem_mov = 'RF'
+             and mov_caixa.dt_cancelamento IS NULL
+             and Nvl(mov_caixa.vl_movimentacao,0)  > 0
+          union all
+           SELECT 'DESPESA - BANCARIA' tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  'DESPESA - BANCARIA' ds_gru_res,
+                  0 cd_item_res,
+                  'ESTORNO DE RECEBIMENTO' ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV data_pagto,
+                  mov_concor.vl_movimentacao VL_total
+				  , 0 impostos_rec
+             from dbamv.reccon_rec   reccon_rec,
+                  dbamv.rec_mov_con  rec_mov_con,
+                  dbamv.mov_concor   mov_concor,
+                  dbamv.lan_concor   lan_concor,
+                  dbamv.item_res     item_res,
+                  dbamv.gru_res      gru_res
+            where reccon_rec.cd_reccon_rec = rec_mov_con.cd_reccon_rec
+              and rec_mov_con.cd_mov_concor = mov_concor.cd_mov_concor
+              and mov_concor.cd_lan_concor = lan_concor.cd_lan_concor
+              and reccon_rec.tp_recebimento IN ('1','2')
+              and reccon_rec.cd_caixa is null
+              and mov_concor.dt_estorno is not null
+              and lan_concor.cd_item_res = item_res.cd_item_res(+)
+              and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+              and mov_concor.dt_movimentacao BETWEEN to_date(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) AND to_date(:CAMPO_DATA_FINAL, 'dd/mm/yyyy' )+0.99999
+          union all
+           SELECT 'RECEITA - BANCARIA' tp_grupo,
+                  'P/R' tp_situacao,
+                  0 cd_gru_res,
+                  'RECEITA - BANCARIA' ds_gru_res,
+                  0 cd_item_res,
+                  'ESTORNO DE PAGAMENTO' ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV data_pagto,
+                  mov_concor.vl_movimentacao VL_total
+				  , 0 impostos_rec
+             from dbamv.pagcon_pag   pagcon_pag,
+                  dbamv.mov_concor   mov_concor,
+                  dbamv.lan_concor   lan_concor,
+                  dbamv.item_res     item_res,
+                  dbamv.gru_res      gru_res
+            where pagcon_pag.cd_pagcon_pag = mov_concor.cd_pagcon_pag
+              and mov_concor.cd_lan_concor = lan_concor.cd_lan_concor
+              and pagcon_pag.tp_pagamento IN ('1','2','3','5')
+              and pagcon_pag.cd_caixa is null
+              and mov_concor.dt_estorno is not null
+              and lan_concor.cd_item_res = item_res.cd_item_res(+)
+              and item_res.cd_gru_res = gru_res.cd_gru_res(+)
+              and mov_concor.dt_movimentacao BETWEEN to_date(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) AND to_date(:CAMPO_DATA_FINAL, 'dd/mm/yyyy' )+0.99999
+          union all
+          select  decode( lan_concor.tp_operacao_saldo_conta, '0', decode(lan_concor.tp_operacao_saldo_aplicacao, '-', 'DESPESA - BANCARIA', 'RECEITA - BANCARIA'),'-', 'DESPESA - BANCARIA', 'RECEITA - BANCARIA' ) tp_grupo,
+                  'P/R' tp_situacao,
+                  nvl( gru_res.cd_gru_res, 0 ) cd_gru_res,
+                  'LANC. EXTRATO' ds_gru_res,
+                  nvl( item_res.cd_item_res, 0 ) cd_item_res,
+                  nvl( item_res.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO' ) ds_item_res,
+                  :CAMPO_CF_RET_DT_MOV data_pagto,
+                  (   nvl(mov_concor.vl_movimentacao, 0) - nvl( mov_concor.vl_conciliado, 0 )) vl_total
+				  , 0 impostos_rec
+            from dbamv.mov_concor,
+                 dbamv.con_cor,
+                 dbamv.lan_concor,
+                 dbamv.empresa_lan_concor,
+                 dbamv.item_res,
+                 dbamv.gru_res
+           where trunc( mov_concor.dt_movimentacao) between to_date( :CAMPO_DATA_INICIAL, 'dd/mm/yyyy' ) and to_date( :CAMPO_DATA_FINAL, 'dd/mm/yyyy' )
+             and mov_concor.cd_con_cor = con_cor.cd_con_cor
+             and lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+             and lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+             and empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+             and item_res.cd_gru_res = gru_res.cd_gru_res(+) 
+             and empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+             AND mov_concor.cd_aplicacao is null
+             and mov_concor.cd_bordero is null
+             and mov_concor.cd_con_cor_transferencia is null
+             and mov_concor.cd_mov_concor_transferencia is null 
+             and mov_concor.cd_mov_caixa is null 
+             and mov_concor.cd_pagcon_pag is null 
+             and mov_concor.cd_cheque is NULL
+             and mov_concor.vl_movimentacao  - nvl( mov_concor.vl_conciliado, 0 ) > 0
+             and (not exists( select cd_mov_concor
+                               from dbamv.rec_mov_con r
+                              where r.cd_mov_concor = mov_concor.cd_mov_concor )
+                  or exists( select cd_mov_concor
+                               from dbamv.rec_mov_con r
+                              where r.cd_mov_concor = mov_concor.cd_mov_concor
+                                and mov_concor.cd_fornecedor is not null
+                                and mov_concor.cd_lan_concor  in ( select Nvl(conf.cd_lanca_credito_convenio,0)
+                                                                     from dbamv.config_financ conf
+                                                                    where conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA))) )
+group by tp_grupo,
+         cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         data_pagto
+) itens
+, (
+SELECT 'RECEITA' tp_grupo, cd_gru_res, cd_item_res, Sum(vl_item/vl_total*vlduplicata) vlTotal
+FROM (
+    SELECT con_rec.cd_con_rec ConRec, itcon_rec.vl_duplicata VlDuplicata, i.cd_gru_res, rat_conrec.cd_item_res
+    , Sum(rat_conrec.vl_rateio) vl_item
+    ,(
+        SELECT decode(sum(rat_conrec.vl_rateio), 0, 1, sum(rat_conrec.vl_rateio))
+        FROM DBAMV.rat_conrec
+        WHERE rat_conrec.cd_con_rec = CON_REC.CD_CON_REC
+    ) vl_total
+    FROM dbamv.con_rec
+    , dbamv.itcon_rec
+    , (
+        SELECT n.cd_nota_fiscal
+          FROM   dbamv.nota_fiscal n
+                , dbamv.empresa_convenio ec
+                , (SELECT pkg_mv2000.le_configuracao('FCCT','COD_FORMULARIO_NF_VIRTUAL') valor FROM dual) FORM
+          WHERE  n.cd_formulario_nf  = ec.cd_formulario_nf
+            AND  n.cd_convenio       = ec.cd_convenio
+            AND  n.cd_multi_empresa  = ec.cd_multi_empresa
+            AND ec.cd_formulario_nf = FORM.valor
+            ) confirm_nota
+    , dbamv.rat_conrec
+    , dbamv.item_res i
+    WHERE con_rec.cd_con_rec = itcon_rec.cd_con_rec
+    AND con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND itcon_rec.dt_vencimento < to_date(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy')
+    AND (itcon_rec.tp_quitacao) NOT IN ('Q', 'P', 'G')
+    AND confirm_nota.cd_nota_fiscal(+) = con_rec.cd_nota_fiscal
+    AND confirm_nota.cd_nota_fiscal IS NULL
+    AND rat_conrec.cd_item_res = i.cd_item_res
+    AND rat_conrec.cd_con_rec = con_rec.cd_con_rec
+    GROUP BY con_rec.cd_con_rec , itcon_rec.vl_duplicata, i.cd_gru_res, rat_conrec.cd_item_res
+)
+WHERE vl_total <> 0
+GROUP BY cd_gru_res, cd_item_res
+UNION ALL
+SELECT 'DESPESA' tp_grupo, cd_gru_res, cd_item_res, Sum(vl_item/vl_total*vlduplicata) vlTotal
+FROM (
+    SELECT con_pag.cd_con_pag ConPag, itcon_pag.vl_duplicata VlDuplicata, i.cd_gru_res, ratcon_pag.cd_item_res
+    , Sum(ratcon_pag.vl_rateio) vl_item
+    ,(
+        SELECT decode(sum(ratcon_pag.vl_rateio), 0, 1, sum(ratcon_pag.vl_rateio))
+        FROM DBAMV.ratcon_pag
+        WHERE ratcon_pag.cd_con_pag = con_pag.CD_CON_PAG
+    ) vl_total
+    FROM dbamv.con_pag
+    , dbamv.itcon_pag
+    , dbamv.ratcon_pag
+    , dbamv.item_res i
+    WHERE con_pag.cd_con_pag = itcon_pag.cd_con_pag
+    AND con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND dt_vencimento < trunc(TO_DATE(:CAMPO_DATA_INICIAL, 'dd/mm/yyyy'))
+    AND (itcon_pag.tp_quitacao) NOT IN ('Q', 'P')
+    AND ratcon_pag.cd_item_res = i.cd_item_res
+    AND ratcon_pag.cd_con_pag = con_pag.cd_con_pag
+    GROUP BY con_pag.cd_con_pag , itcon_pag.vl_duplicata, i.cd_gru_res, ratcon_pag.cd_item_res
+)
+WHERE vl_total <> 0
+GROUP BY cd_gru_res, cd_item_res
+) saldo
+WHERE
+itens.cd_gru_res = saldo.cd_gru_res(+)
+AND itens.cd_item_res = saldo.cd_item_res(+)
+AND itens.tp_grupo like saldo.tp_grupo(+)||'%'

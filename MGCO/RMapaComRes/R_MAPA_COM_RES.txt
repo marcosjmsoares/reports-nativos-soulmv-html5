@@ -1,0 +1,166 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COM_RES
+Select Cd_Sol_Com
+      ,Tp_Sol_Com
+  From Dbamv.Sol_Com,
+       Dbamv.Estoque
+ Where Sol_Com.Cd_Sol_Com = :CAMPO_CD_SOLIC
+      And Estoque.Cd_Estoque = Sol_Com.Cd_Estoque
+      And Estoque.Cd_Multi_Empresa = Dbamv.Pkg_mv2000.le_empresa
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COM_RES_R_1_Q_MAPA_COMP
+SELECT * FROM (
+SELECT
+       PRODUTO.DS_PRODUTO,
+       PRODUTO.CD_PRODUTO,
+       FORNECEDOR.NM_FANTASIA,
+       FORNECEDOR.CD_FORNECEDOR,
+       UNI_PRO.DS_UNIDADE DS_UNIDADE,
+       ITCOL_PRO.QT_COTADA,
+       ITCOL_PRO.VL_REAL,
+       ' ' DS_CONDICAO_PAGAMENTO,
+       COLETA.CD_CONDICAO_PAGAMENTO,
+       COLETA.NR_DIAS_ENTREGA,
+       COLETA.DT_VALIDADE,
+       ITCOL_PRO.DS_MARCA,
+       COLETA.TP_FRETE,
+       COLETA.VL_FRETE
+      ,Sol_Com.Dt_Sol_Com
+      ,Sol_Com.Nm_Solicitante
+      ,Sol_Com.Dt_Maxima
+      ,Mot_Ped.Ds_mot_ped
+      ,Setor.Nm_setor
+FROM   DBAMV.PRODUTO,
+       DBAMV.ITSOL_COM,
+       DBAMV.COLETA,
+       DBAMV.FORNECEDOR,
+       DBAMV.FORNECEDOR ULTIMO_FORNECEDOR,
+       DBAMV.ITCOL_PRO,
+       DBAMV.CONDICOES_PAGAMENTO,
+       DBAMV.uni_pro,
+       Dbamv.Estoque,
+       Dbamv.Setor,
+       Dbamv.mot_ped,
+       Dbamv.Sol_Com
+WHERE Sol_Com.cd_sol_com = ItSol_Com.cd_Sol_Com
+And  :CAMPO_TP_SOL_COM                      = 'P'
+AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = Dbamv.Pkg_mv2000.le_empresa  AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+AND    PRODUTO.CD_PRODUTO = ITSOL_COM.CD_PRODUTO
+AND    ITSOL_COM.CD_SOL_COM    = COLETA.CD_SOL_COM(+)
+AND    COLETA.CD_FORNECEDOR  = FORNECEDOR.CD_FORNECEDOR(+)
+AND    COLETA.CD_COLETA             = ITCOL_PRO.CD_COLETA(+)
+AND    ITCOL_PRO.CD_PRODUTO   = PRODUTO.CD_PRODUTO
+AND    COLETA.CD_CONDICAO_PAGAMENTO = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+AND    ITSOL_COM.CD_SOL_COM    = :CAMPO_CD_SOL_COM
+AND    Produto.cd_ultimo_fornecedor = ultimo_fornecedor.CD_fornecedor(+)
+AND    UNI_PRO.CD_PRODUTO      = ITSOL_COM.CD_PRODUTO
+AND    UNI_PRO.CD_UNI_PRO        = ITSOL_COM.CD_UNI_PRO
+AND    ITCOL_PRO.VL_REAL            > 0
+And Estoque.Cd_Estoque = Sol_Com.Cd_Estoque
+And Estoque.Cd_Multi_Empresa = Dbamv.Pkg_mv2000.le_empresa
+And Sol_Com.cd_setor = Setor.cd_setor
+And Sol_Com.Cd_Mot_Ped = Mot_Ped.Cd_Mot_Ped
+)
+ORDER BY DS_CONDICAO_PAGAMENTO,CD_CONDICAO_PAGAMENTO,DT_SOL_COM,DT_MAXIMA,NM_SOLICITANTE,DS_MOT_PED,NM_SETOR,
+DS_PRODUTO,CD_PRODUTO,DS_UNIDADE,QT_COTADA,
+NM_FANTASIA,CD_FORNECEDOR,NR_DIAS_ENTREGA,DT_VALIDADE,TP_FRETE,VL_FRETE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COM_RES_X_2
+SELECT * FROM (
+Select manu_serv.nm_servico           Ds_Servico
+          ,ItSol_Ser.Cd_Ser_Sol         Cd_Servico
+          ,ItColeta.Cd_Fornecedor       Cd_Fornec_Ser
+          ,Fornecedor.Nm_Fantasia    Nm_Fornec_Ser
+         ,ItColeta.Vl_Total               Vl_Servico
+         ,ItColeta.Dt_Validade            Dt_Validade_Ser
+         ,Condicoes_Pagamento.Ds_Condicao_Pagamento  Ds_Pagam_Ser
+  From Dbamv.Condicoes_Pagamento
+          ,Dbamv.manu_serv
+          ,Dbamv.Fornecedor
+          ,( Select Coleta.Cd_Sol_Com
+                     ,ItCol_Ser.Cd_Ser_Sol
+                     ,Coleta.Cd_Fornecedor
+                     ,ItCol_Ser.Vl_Total
+                     ,Coleta.Dt_Validade
+                     ,Coleta.Cd_Condicao_Pagamento
+              From Dbamv.Coleta
+                ,Dbamv.ItCol_Ser
+             Where ItCol_Ser.Cd_Coleta = Coleta.Cd_Coleta
+          ) ItColeta
+          ,Dbamv.ItSol_Ser
+ Where :CAMPO_TP_SOL_COM                      = 'S'  
+     and ItSol_Ser.Cd_Sol_Com        = :CAMPO_CD_SOL_COM
+     and ItColeta.Cd_Sol_Com            (+)= ItSol_Ser.Cd_Sol_Com
+     and ItColeta.Cd_Ser_Sol            (+)= ItSol_Ser.Cd_Ser_Sol
+     and Fornecedor.Cd_Fornecedor (+)= ItColeta.Cd_Fornecedor
+     and manu_serv.cd_servico            = ItSol_Ser.Cd_Ser_Sol
+     and Condicoes_Pagamento.Cd_Condicao_Pagamento       (+)=ItColeta.Cd_Condicao_Pagamento
+)
+ORDER BY CD_SERVICO,DS_SERVICO,
+CD_FORNEC_SER,NM_FORNEC_SER,DS_PAGAM_SER,DT_VALIDADE_SER
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COM_RES_X_3
+SELECT * FROM (
+SELECT
+       PRODUTO.DS_PRODUTO,
+       PRODUTO.CD_PRODUTO,
+       FORNECEDOR.NM_FANTASIA,
+       FORNECEDOR.CD_FORNECEDOR,
+       UNI_PRO.DS_UNIDADE DS_UNIDADE,
+       ITCOL_PRO.QT_COTADA,
+       ITCOL_PRO.VL_REAL,
+       ' ' DS_CONDICAO_PAGAMENTO,
+       COLETA.CD_CONDICAO_PAGAMENTO,
+       COLETA.NR_DIAS_ENTREGA,
+       COLETA.DT_VALIDADE,
+       ITCOL_PRO.DS_MARCA,
+       COLETA.TP_FRETE,
+       COLETA.VL_FRETE
+      ,Sol_Com.Dt_Sol_Com
+      ,Sol_Com.Nm_Solicitante
+      ,Sol_Com.Dt_Maxima
+      ,Mot_Ped.Ds_mot_ped
+      ,Setor.Nm_setor
+FROM   DBAMV.PRODUTO,
+       DBAMV.ITSOL_COM,
+       DBAMV.COLETA,
+       DBAMV.FORNECEDOR,
+       DBAMV.FORNECEDOR ULTIMO_FORNECEDOR,
+       DBAMV.ITCOL_PRO,
+       DBAMV.CONDICOES_PAGAMENTO,
+       DBAMV.uni_pro,
+       Dbamv.Estoque,
+       Dbamv.Setor,
+       Dbamv.mot_ped,
+       Dbamv.Sol_Com
+WHERE Sol_Com.cd_sol_com = ItSol_Com.cd_Sol_Com
+And  :CAMPO_TP_SOL_COM                      = 'P'
+AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = Dbamv.Pkg_mv2000.le_empresa  AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+AND    PRODUTO.CD_PRODUTO = ITSOL_COM.CD_PRODUTO
+AND    ITSOL_COM.CD_SOL_COM    = COLETA.CD_SOL_COM(+)
+AND    COLETA.CD_FORNECEDOR  = FORNECEDOR.CD_FORNECEDOR(+)
+AND    COLETA.CD_COLETA             = ITCOL_PRO.CD_COLETA(+)
+AND    ITCOL_PRO.CD_PRODUTO   = PRODUTO.CD_PRODUTO
+AND    COLETA.CD_CONDICAO_PAGAMENTO = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+AND    ITSOL_COM.CD_SOL_COM    = :CAMPO_CD_SOL_COM
+AND    Produto.cd_ultimo_fornecedor = ultimo_fornecedor.CD_fornecedor(+)
+AND    UNI_PRO.CD_PRODUTO      = ITSOL_COM.CD_PRODUTO
+AND    UNI_PRO.CD_UNI_PRO        = ITSOL_COM.CD_UNI_PRO
+AND    ITCOL_PRO.VL_REAL            > 0
+And Estoque.Cd_Estoque = Sol_Com.Cd_Estoque
+And Estoque.Cd_Multi_Empresa = Dbamv.Pkg_mv2000.le_empresa
+And Sol_Com.cd_setor = Setor.cd_setor
+And Sol_Com.Cd_Mot_Ped = Mot_Ped.Cd_Mot_Ped
+)
+ORDER BY DS_CONDICAO_PAGAMENTO,CD_CONDICAO_PAGAMENTO,DT_SOL_COM,DT_MAXIMA,NM_SOLICITANTE,DS_MOT_PED,NM_SETOR,
+CD_PRODUTO,DS_PRODUTO,DS_UNIDADE,QT_COTADA,
+NM_FANTASIA,CD_FORNECEDOR,NR_DIAS_ENTREGA,DT_VALIDADE,TP_FRETE,VL_FRETE

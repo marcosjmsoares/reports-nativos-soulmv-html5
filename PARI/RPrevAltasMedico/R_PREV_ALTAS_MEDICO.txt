@@ -1,0 +1,32 @@
+/*----------------------------------------------------------------------------*/
+--R_PREV_ALTAS_MEDICO
+SELECT * FROM (
+ SELECT atendime.cd_prestador cd_prestador
+       ,prestador.nm_prestador nm_prestador
+       ,atendime.cd_atendimento cd_atendimento
+       ,atendime.cd_paciente cd_paciente
+       ,paciente.nm_paciente nm_paciente
+       ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  CD_PACIENTE) NM_SOCIAL_PACIENTE
+       ,atendime.cd_leito cd_leito
+       ,leito.ds_resumo ds_resumo
+       ,atendime.dt_atendimento dt_atendimento
+       ,atendime.hr_atendimento hr_atendimento
+       ,atendime.dt_prevista_alta dt_prevista_alta
+       ,atendime.dt_alta dt_alta
+       ,atendime.hr_alta hr_alta
+       ,(nvl(atendime.dt_alta,trunc(sysdate)) - atendime.dt_atendimento) nr_dias
+   FROM dbamv.atendime
+       ,dbamv.prestador
+       ,dbamv.paciente
+       ,dbamv.leito
+  WHERE atendime.cd_prestador = prestador.cd_prestador
+    AND atendime.cd_paciente = paciente.cd_paciente
+    AND atendime.cd_leito = leito.cd_leito
+    AND atendime.tp_atendimento = 'I'
+    AND atendime.cd_atendimento_pai IS NULL
+    AND atendime.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+    AND (Trunc(atendime.dt_prevista_alta) BETWEEN :CAMPO_DT_INICIAL AND 
+       OR  (atendime.dt_prevista_alta IS null  AND Trunc(atendime.dt_atendimento) BETWEEN :CAMPO_DT_INICIAL AND :CAMPO_DT_FINAL))
+order by prestador.nm_prestador, paciente.nm_paciente
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR

@@ -1,0 +1,90 @@
+/*----------------------------------------------------------------------------*/
+--R_ESOL
+Select Prestador.NM_PRESTADOR L_NM_PRESTADOR, Conselho.DS_CONSELHO,
+Prestador.DS_CODIGO_CONSELHO
+        From Dbamv.Setor, Dbamv.Prestador, Dbamv.Conselho
+       Where Setor.Cd_Prestador_Responsavel = Prestador.Cd_Prestador
+         And Conselho.Cd_Conselho           = Prestador.Cd_Conselho
+         And Setor.Cd_Setor                 = :CAMPO_S_SETOR
+
+
+
+/*----------------------------------------------------------------------------*/
+--E_ESOL_EXA_PRINCIPAL_ITENS
+Select ItPed_Rx.Cd_Ped_Rx       Cd_Pedido
+       , Trunc(Ped_Rx.Dt_Coleta)       Dt_Coleta
+       , Ped_Rx.Hr_Coleta       Hr_Coleta
+       , To_Number('')          Cd_Material
+       , ItPed_Rx.Cd_ItPed_Rx   Cd_Item_Pedido
+       , ItPed_Rx.Cd_ItPre_Med  Cd_ItPre_Med
+    from dbamv.ped_rx
+        ,dbamv.itped_rx
+        ,dbamv.Exa_Rx
+   where ped_rx.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+     and ped_rx.cd_pre_med     = :CAMPO_CD_PRE_MED
+     and itped_rx.cd_ped_rx    = ped_rx.cd_ped_rx
+     and Exa_Rx.Cd_Exa_Rx      = ItPed_Rx.Cd_Exa_Rx
+     and :CAMPO_TIPO_ITEM   in ('I','C')
+     and itped_rx.cd_exa_rx    = :CAMPO_CD_EXA_RX
+  Union all
+  Select ItPed_Lab.Cd_Ped_Lab
+       , Trunc(Ped_Lab.Dt_Coleta)   
+       , Ped_Lab.Hr_Coleta
+       , ItPed_Lab.Cd_Material
+       , ItPed_Lab.Cd_ItPed_Lab
+       , ItPed_Lab.Cd_ItPre_Med
+    from dbamv.ped_lab
+        ,dbamv.itped_lab
+        ,dbamv.Exa_Lab
+   where ped_lab.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+     and ped_lab.cd_pre_med     = :CAMPO_CD_PRE_MED
+     and itped_lab.cd_ped_lab   = ped_lab.cd_ped_lab
+     and Exa_lab.Cd_Exa_lab     = ItPed_lab.Cd_Exa_lab
+     and :CAMPO_TIPO_ITEM   in ('I','C')
+     and itped_lab.cd_exa_lab   = :CAMPO_CD_EXA_LAB
+Order by Cd_Item_Pedido asc
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ESOL_EXAMES_SECUNDARIOS
+Select Exa_Rx.Ds_Exa_Rx    Desc_Exame_Sec
+       , ItPed_Rx.Cd_Ped_Rx     Cd_Pedido_Sec
+       , Ped_Rx.Dt_Coleta       Dt_Coleta_Sec
+       , Ped_Rx.Hr_Coleta       Hr_Coleta_Sec
+       , To_Number('')          Cd_Material_Sec
+       , ItPed_Rx.Cd_ItPed_Rx   Cd_Item_Pedido_Sec
+       , ItPed_Rx.Cd_ItPre_Med  Cd_ItPre_Med_Sec
+    from dbamv.ped_rx
+        ,dbamv.itped_rx
+        ,dbamv.Exa_Rx
+       ,dbamv.exa_rx_secundario
+   where ped_rx.cd_atendimento = :CAMPO_CD_ATENDIMENTO 
+     and ped_rx.cd_pre_med        = :CAMPO_CD_PRE_MED 
+     and itped_rx.cd_ped_rx       = ped_rx.cd_ped_rx
+     and itped_rx.Cd_Exa_Rx      != :CAMPO_CD_EXA_RX
+     and  exa_rx_secundario.cd_exa_rx        in (:CAMPO_CD_EXA_RX) 
+     and exa_rx_secundario.cd_exa_rx_secundario     = itped_rx.cd_exa_rx   
+     and Exa_Rx.Cd_Exa_Rx      = ItPed_Rx.Cd_Exa_Rx
+     and :CAMPO_TIPO_ITEM  = 'I'
+  Union all
+  Select Exa_Lab.Nm_Exa_Lab  Desc_Exame_Sec
+       , ItPed_Lab.Cd_Ped_Lab  Cd_Pedido_Sec
+       , Ped_Lab.Dt_Coleta  Dt_Coleta_Sec  
+       , Ped_Lab.Hr_Coleta     Hr_Coleta_Sec
+       , ItPed_Lab.Cd_Material Cd_Material_Sec
+       , ItPed_Lab.Cd_ItPed_Lab Cd_Item_Pedido_Sec
+       , ItPed_Lab.Cd_ItPre_Med Cd_ItPre_Med_Sec
+    from dbamv.ped_lab
+        ,dbamv.itped_lab
+        ,dbamv.Exa_Lab
+        ,dbamv.exa_lab_secundario
+  where ped_lab.cd_atendimento     = :CAMPO_CD_ATENDIMENTO 
+     and ped_lab.cd_pre_med            = :CAMPO_CD_PRE_MED 
+     and itped_lab.cd_ped_lab           = ped_lab.cd_ped_lab
+     and ItPed_lab.Cd_Exa_lab         != :CAMPO_CD_EXA_LAB
+     and  exa_lab_secundario.cd_exa_lab  in (:CAMPO_CD_EXA_LAB) 
+     and exa_lab_secundario.cd_exa_lab_secundario         = itped_lab.cd_exa_lab   
+     and Exa_lab.Cd_Exa_lab            = ItPed_lab.Cd_Exa_lab
+     and :CAMPO_TIPO_ITEM = 'I'
+Order by Cd_Item_Pedido_Sec asc

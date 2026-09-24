@@ -1,0 +1,119 @@
+/*----------------------------------------------------------------------------*/
+--R_NOTA_ISS
+select  nota.cd_nota_fiscal          cd_nota_fiscal
+   ,nota.cd_status                    cd_status
+       ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie     id_nota_fiscal
+       ,nota.nr_id_nota_fiscal        nr_id_nota_fiscal
+       ,nota.cd_serie                                                     cd_serie
+       ,faixa_det.vl_percentual   aliquota
+       ,ntb.vl_tributo                                                    vl_imposto_devido
+       ,trunc(nota.dt_emissao)       dt_emissao
+       ,nota.vl_total_nota              vl_total_nota
+       ,nota.tp_nota_fiscal          tp_nota_fiscal
+       ,NOTA.CD_FORMULARIO_NF FORMULARIO
+  from dbamv.nota_fiscal     nota
+      ,dbamv.con_rec         c
+      ,dbamv.processo p
+      ,dbamv.nota_fiscal_tributo ntb
+      ,dbamv.tip_detalhe tip_det
+      ,dbamv.faixa_detalhe faixa_det
+where  to_char(nota.dt_emissao,'yyyymm') >= to_char(:CAMPO_DATA_INI,'yyyymm')
+  and    to_char(nota.dt_emissao,'yyyymm') <= to_char(:CAMPO_DATA_FIM,'yyyymm')
+  and  nota.cd_multi_empresa = :CAMPO_MULTI_EMPRESA
+  and :CAMPO_TIPO <>  'C'
+  and ntb.cd_detalhamento = tip_det.cd_detalhamento
+  and c.dt_cancelamento is null
+  and c.cd_processo = p.cd_processo
+   and nota.cd_nota_fiscal = c.cd_nota_fiscal
+  and ntb.cd_nota_fiscal =  nota.cd_nota_fiscal
+  and tip_det.cd_detalhamento = faixa_det.cd_detalhamento
+  and c.cd_previsao is null
+  and tip_det.tp_detalhamento = 'I'
+  and p.cd_estrutural <> '1.1.1.2.5'
+  and not exists (select 'x'
+                    from dbamv.itcon_rec i,
+                         dbamv.reccon_rec r,
+                         dbamv.doc_caixa d
+                   where c.cd_con_rec = i.cd_con_rec
+                     and i.cd_itcon_rec = r.cd_itcon_rec
+                     and r.cd_doc_caixa = d.cd_doc_caixa
+                     and d.tp_status_doc = 'N')
+GROUP BY nota.cd_nota_fiscal
+        ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie
+        ,nota.nr_id_nota_fiscal
+        ,nota.cd_serie
+        ,faixa_det.vl_percentual
+        ,ntb.vl_tributo
+        ,decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente)
+        ,trunc(nota.dt_emissao)
+        ,trunc(nota.dt_saida)
+        ,nota.vl_total_nota
+        ,nota.vl_acrescimo_nota
+        ,nota.vl_desconto_nota
+        ,nota.cd_atendimento
+        ,nota.cd_reg_fat
+        ,nota.cd_reg_amb
+        ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)
+        ,nota.cd_status
+        ,nota.cd_remessa
+        ,nota.dt_cancelamento
+        ,nota.tp_nota_fiscal
+        ,NOTA.CD_FORMULARIO_NF
+union
+select  nota.cd_nota_fiscal          cd_nota_fiscal
+   ,nota.cd_status                    cd_status
+       ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie     id_nota_fiscal
+       ,nota.nr_id_nota_fiscal        nr_id_nota_fiscal
+       ,nota.cd_serie                                                     cd_serie
+       ,2   aliquota
+       ,0                                                    vl_imposto_devido
+       ,trunc(nota.dt_emissao)       dt_emissao
+       ,decode(nvl(cd_status,'E'),'E',nota.vl_total_nota,0)             vl_total_nota
+       ,nota.tp_nota_fiscal          tp_nota_fiscal
+       ,NOTA.CD_FORMULARIO_NF FORMULARIO
+  from dbamv.nota_fiscal     nota
+      ,dbamv.con_rec         c
+      ,dbamv.processo p
+      ,dbamv.tip_detalhe tip_det
+      ,dbamv.faixa_detalhe faixa_det
+where  to_char(nota.dt_emissao,'yyyymm') >= to_char(:CAMPO_DATA_INI,'yyyymm')
+  and    to_char(nota.dt_emissao,'yyyymm') <= to_char(:CAMPO_DATA_FIM,'yyyymm')
+  and  nota.cd_multi_empresa = :CAMPO_MULTI_EMPRESA
+  and :CAMPO_TIPO in ('C','%')
+  and  nvl(nota.cd_status,'E' ) = 'C'
+  and c.dt_cancelamento is null
+  and c.cd_processo = p.cd_processo
+  and tip_det.cd_detalhamento = faixa_det.cd_detalhamento
+  and c.cd_previsao is null
+  and tip_det.tp_detalhamento = 'I'
+  and p.cd_estrutural <> '1.1.1.2.5'
+  and not exists (select 'x'
+                    from dbamv.itcon_rec i,
+                         dbamv.reccon_rec r,
+                         dbamv.doc_caixa d
+                   where c.cd_con_rec = i.cd_con_rec
+                     and i.cd_itcon_rec = r.cd_itcon_rec
+                     and r.cd_doc_caixa = d.cd_doc_caixa
+                     and d.tp_status_doc = 'N')
+GROUP BY nota.cd_nota_fiscal
+        ,nota.nr_id_nota_fiscal||'/'||nota.cd_serie
+        ,nota.nr_id_nota_fiscal
+        ,nota.cd_serie
+        , 0
+       , 0
+        ,decode(nvl(nota.cd_convenio,0),0,nota.nm_cliente,nota.nm_cliente)
+        ,trunc(nota.dt_emissao)
+        ,trunc(nota.dt_saida)
+        ,decode(nvl(cd_status,'E'),'E',nota.vl_total_nota,0)
+        ,nota.vl_acrescimo_nota
+        ,nota.vl_desconto_nota
+        ,nota.cd_atendimento
+        ,nota.cd_reg_fat
+        ,nota.cd_reg_amb
+        ,decode(nvl(nota.cd_convenio,0),0,9999,nota.cd_convenio)
+        ,nota.cd_status
+        ,nota.cd_remessa
+        ,nota.dt_cancelamento
+        ,nota.tp_nota_fiscal
+        ,NOTA.CD_FORMULARIO_NF
+order by dt_emissao, nr_id_nota_fiscal, aliquota

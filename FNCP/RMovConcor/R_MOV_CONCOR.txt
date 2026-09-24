@@ -1,0 +1,68 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_CONCOR
+SELECT mvcc.cd_con_cor                            CCorrente,
+       ccor.ds_con_cor                            Descricao,
+       mvcc.dt_movimentacao                       Dt_Movimento,
+       CASE WHEN mvcc.dt_estorno                  IS NOT NULL THEN  'EST'
+            WHEN mvcc.cd_aplicacao                IS NOT NULL THEN  'APL'
+            WHEN mvcc.cd_mov_concor_transferencia IS NOT NULL THEN  'TRA'
+            WHEN mvcc.cd_mov_caixa                IS NOT NULL THEN  'CAI'
+            ELSE                                                    'COR'
+       END Agrupamento,
+       mvcc.ds_movimentacao Movimento,
+       lncc.cd_lan_concor||' '||lncc.ds_lan_concor Lancamento,
+       lncc.tp_operacao_saldo_conta Insidencia,
+       dbamv.fnc_moeda_depara(mvcc.cd_moeda,dbamv.moeda_padrao(dbamv.pkg_mv2000.le_empresa),mvcc.vl_movimentacao,mvcc.vl_moeda) vl_Movimento,
+       dbamv.fnc_moeda_depara(mvcc.cd_moeda,dbamv.moeda_padrao(dbamv.pkg_mv2000.le_empresa), Nvl(mvcc.vl_conciliado,0), Nvl(mvcc.vl_conciliado,0)) Vl_Conciliado,
+       mvcc.dt_estorno                            Dt_Estorno,
+       mvcc.cd_motivo_canc                        Motivo,
+       mvcc.cd_moeda
+FROM   dbamv.mov_concor mvcc
+      ,dbamv.con_cor ccor
+      ,dbamv.lan_concor lncc
+      ,dbamv.processo proc
+      , dbamv.Usuario_Multi_Empresa UME
+WHERE  mvcc.cd_con_cor = ccor.cd_con_cor
+  AND  mvcc.cd_lan_concor = lncc.cd_lan_concor
+  AND  mvcc.cd_processo = proc.cd_processo(+)
+  AND ccor.cd_multi_empresa = UME.cd_multi_empresa
+  AND UME.Cd_Id_Usuario = USER
+ORDER BY mvcc.cd_con_cor,mvcc.dt_movimentacao
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOV_CONCOR_TOTAL_TIPO
+SELECT agrupamento,
+       Sum(Decode(insidencia,'Entrada',vlmovimento,0)) vl_entrada,
+       Sum(Decode(insidencia,'Saída',vlmovimento,0))   vl_saida
+FROM  (
+SELECT mvcc.cd_con_cor                            CCorrente,
+       ccor.ds_con_cor                            Descricao,
+       mvcc.dt_movimentacao                       DtMovimento,
+       CASE WHEN mvcc.dt_estorno                  IS NOT NULL THEN  'EST'
+            WHEN mvcc.cd_aplicacao                IS NOT NULL THEN  'APL'
+            WHEN mvcc.cd_mov_concor_transferencia IS NOT NULL THEN  'TRA'
+            WHEN mvcc.cd_mov_caixa                IS NOT NULL THEN  'CAI'
+            ELSE                                                    'COR'
+       END Agrupamento,
+       mvcc.ds_movimentacao Movimento,
+       lncc.cd_lan_concor||' '||lncc.ds_lan_concor||'('||lncc.tp_operacao_saldo_conta||')' Lancamento,
+       Decode(lncc.tp_operacao_saldo_conta,'+','Entrada','-','Saída','0','Neutra')    Insidencia,
+       dbamv.fnc_moeda_depara(mvcc.cd_moeda,dbamv.moeda_padrao(dbamv.pkg_mv2000.le_empresa),mvcc.vl_movimentacao,mvcc.vl_moeda) VlMovimento,
+       dbamv.fnc_moeda_depara(mvcc.cd_moeda,dbamv.moeda_padrao(dbamv.pkg_mv2000.le_empresa), Nvl(mvcc.vl_conciliado,0), Nvl(mvcc.vl_conciliado,0)) Vl_Conciliado,
+       mvcc.dt_estorno                            DtEstorno,
+       mvcc.cd_motivo_canc                        Motivo
+FROM   dbamv.mov_concor mvcc
+      ,dbamv.con_cor ccor
+      ,dbamv.lan_concor lncc
+      ,dbamv.processo proc
+      ,dbamv.Usuario_Multi_Empresa UME
+WHERE  mvcc.cd_con_cor = ccor.cd_con_cor
+  AND  mvcc.cd_lan_concor = lncc.cd_lan_concor
+  AND  mvcc.cd_processo = proc.cd_processo(+)
+  AND ccor.cd_multi_empresa = UME.cd_multi_empresa
+  AND UME.Cd_Id_Usuario = USER
+ORDER BY mvcc.cd_con_cor,mvcc.dt_movimentacao
+)
+GROUP BY agrupamento

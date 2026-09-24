@@ -1,0 +1,87 @@
+/*----------------------------------------------------------------------------*/
+--R_Tempo_Entrega_Laudo_Cda
+SELECT CD_EXA_LAB,
+         NM_MNEMONICO,
+         NM_EXA_LAB,
+         CD_PACIENTE,
+         CD_PED_LAB,
+         TO_CHAR(HORA_SOLICITACAO, 'HH24') HORA_SOLICITACAO,
+         TEMPO_CONFIRMACAO_SETOR,
+         TEMPO_ENTREGA_LABORATORIO,
+        (TEMPO_CONFIRMACAO_LABORATORIO - TEMPO_ENTREGA_LABORATORIO) TEMPO_CONFIRMACAO_LABORATORIO,
+         TEMPO_ASSINADO,
+         Nvl(TEMPO_CONFIRMACAO_SETOR,0) + Nvl(TEMPO_ENTREGA_LABORATORIO,0) + Nvl(TEMPO_CONFIRMACAO_LABORATORIO-TEMPO_ENTREGA_LABORATORIO,0) + Nvl(TEMPO_ASSINADO,0)   TOTAL, TEMPO_CDA
+      FROM (SELECT EXA_LAB.CD_EXA_LAB
+       , EXA_LAB.NM_MNEMONICO
+       , EXA_LAB.NM_EXA_LAB
+       , ATENDIME.CD_PACIENTE
+       , PED_LAB.CD_PED_LAB
+       , Trunc(PED_LAB.DT_PEDIDO) + (HR_PED_LAB - TRUNC(HR_PED_LAB))  HORA_SOLICITACAO
+       , CASE
+           WHEN  AMOSTRA.DT_COLETA_SETOR IS NOT NULL  then  round (
+                  (
+                    (
+                      (Trunc(AMOSTRA.DT_COLETA_SETOR) + (HR_COLETA_SETOR - TRUNC(HR_COLETA_SETOR)))
+                      -   (Trunc(PED_LAB.DT_PEDIDO) + (HR_PED_LAB - TRUNC(HR_PED_LAB)))
+                     ) * 1440
+                  )
+                ) ELSE To_number(NULL) end  TEMPO_CONFIRMACAO_SETOR
+       , CASE TP_STATUS_CDA
+                WHEN 'R' THEN round (
+                  (
+                    (
+                      AMOSTRA.DH_RECEPCAO_CDA
+                      -  CASE WHEN AMOSTRA.DT_COLETA_SETOR IS NOT NULL THEN  Trunc(AMOSTRA.DT_COLETA_SETOR) + (HR_COLETA_SETOR - TRUNC(HR_COLETA_SETOR)) END
+                     ) * 1440
+                  ))
+             ELSE
+                0
+         END TEMPO_CDA
+      , CASE TP_STATUS_CDA
+                WHEN 'R' THEN CASE WHEN AMOSTRA.HR_ENTREGA_AMOSTRA IS NOT NULL then round (
+                  (
+                    (
+                      (Trunc(AMOSTRA.DT_ENTREGA_AMOSTRA) + (HR_ENTREGA_AMOSTRA - TRUNC(HR_ENTREGA_AMOSTRA)))
+                      -  AMOSTRA.DH_RECEPCAO_CDA
+                     ) * 1440
+                  ))
+         ELSE
+            To_number(NULL)
+         END
+         ELSE 0 END TEMPO_ENTREGA_LABORATORIO
+        ,
+        CASE TP_STATUS_CDA
+                WHEN 'R' then round (
+                  (
+                    (
+                      (Trunc(AMOSTRA.DT_CONFIRMA_LAB) + (HR_CONFIRMA_LAB - TRUNC(HR_CONFIRMA_LAB)))
+                      -  AMOSTRA.DH_RECEPCAO_CDA
+                     ) * 1440
+                  ))
+         ELSE 0 END TEMPO_CONFIRMACAO_LABORATORIO
+       , CASE TP_STATUS_CDA
+                WHEN 'R' THEN  round (
+                  (
+                    (
+                      ITPED_LAB.DT_ASSINADO
+                      -  (Trunc(AMOSTRA.DT_CONFIRMA_LAB) + (HR_CONFIRMA_LAB - TRUNC(HR_CONFIRMA_LAB)))
+                     ) * 1440
+                  ))
+         ELSE 0 END    TEMPO_ASSINADO
+    FROM DBAMV.PED_LAB,
+         DBAMV.ATENDIME,
+         DBAMV.ITPED_LAB,
+         DBAMV.EXA_LAB,
+         DBAMV.AMOSTRA,
+         DBAMV.AMOSTRA_EXA_LAB
+  WHERE PED_LAB.CD_PED_LAB  = ITPED_LAB.CD_PED_LAB
+    AND PED_LAB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+    AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+    AND AMOSTRA_EXA_LAB.CD_ITPED_LAB  = ITPED_LAB.CD_ITPED_LAB
+    AND AMOSTRA_EXA_LAB.CD_AMOSTRA = AMOSTRA.CD_AMOSTRA
+    AND EXA_LAB.CD_EXA_LAB  = ITPED_LAB.CD_EXA_LAB
+    AND SN_REALIZADO ='S'
+    AND SN_ASSINADO='S'
+    AND ITPED_LAB.DT_ASSINADO IS NOT NULL
+:CAMPO_COND_CD_SETOR
+) ORDER BY CD_EXA_LAB, CD_PACIENTE

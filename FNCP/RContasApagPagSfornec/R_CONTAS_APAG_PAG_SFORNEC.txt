@@ -1,0 +1,81 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_APAG_PAG_SFORNEC
+SELECT * FROM (
+SELECT CON_PAG.CD_MULTI_EMPRESA
+, CON_PAG.CD_FORNECEDOR CD_FORNECEDOR
+, CON_PAG.NR_DOCUMENTO NR_DOCUMENTO
+, CON_PAG.DT_EMISSAO DT_EMISSAO
+, DECODE (CON_PAG.CD_FORNECEDOR, NULL, CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA) NM_FORNECEDOR
+, NVL(HIST_PADRAO.DS_HISTORICO_PADRAO,CON_PAG.DS_CON_PAG)     DS_HISTORICO
+, ITCON_PAG.NR_PARCELA NR_PARCELA
+, ITCON_PAG.DT_VENCIMENTO DT_VENCIMENTO
+, ITCON_PAG.DT_PREVISTA_PAG DT_PREVISTA_PAG
+, PAGCON_PAG.VL_PAGO VL_PAGO
+, PAGCON_PAG.DT_PAGAMENTO DT_PAGAMENTO
+, PAGCON_PAG.DT_BAIXA DT_BAIXA
+, PAGCON_PAG.CD_BORDERO CD_BORDERO
+, DECODE(ITCON_PAG.TP_QUITACAO, 'V', 'Prev', 'Q', 'Quit', 'P', 'Parc', 'C', 'Comp'
+				,'T','DevT', 'L', 'DevP' ) TP_QUITACAO
+, DECODE(PAGCON_PAG.TP_PAGAMENTO, '1', 'Bol ', '2', 'DOC ', '3', 'Cheq', '4', 'Dinh', '5', 'Debt','6','Pres','7','Dev ') TIPO_PAGTO
+, ITCON_PAG.VL_DUPLICATA VL_DUPLICATA
+, (ITCON_PAG.VL_DUPLICATA - nvl(ITCON_PAG.VL_SOMA_BAIXADA,0)) VL_DEVIDO
+, CON_PAG.DT_LANCAMENTO DT_LANCAMENTO
+,CON_PAG.CD_CON_PAG CD_CON_PAG 
+,ITCON_PAG.CD_ITCON_PAG
+FROM DBAMV.PAGCON_PAG
+       ,DBAMV.ITCON_PAG
+       ,DBAMV.CON_PAG
+       ,DBAMV.FORNECEDOR
+       ,DBAMV.TIP_DOC
+       ,DBAMV.HISTORICO_PADRAO  HIST_PADRAO
+WHERE PAGCON_PAG.CD_ITCON_PAG(+)  =    ITCON_PAG.CD_ITCON_PAG
+AND        ITCON_PAG.CD_CON_PAG                    =    CON_PAG.CD_CON_PAG
+AND        CON_PAG.CD_FORNECEDOR               =    FORNECEDOR.CD_FORNECEDOR (+)
+AND        CON_PAG.CD_TIP_DOC                         =    TIP_DOC.CD_TIP_DOC
+AND        CON_PAG.CD_HISTORICO_PADRAO    =    HIST_PADRAO.CD_HISTORICO_PADRAO(+)
+and itcon_pag.cd_con_pag_agrup is null
+AND        CON_PAG.CD_PREVISAO IS NULL
+AND        CON_PAG.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        nvl(PAGCON_PAG.TP_PAGAMENTO, '0') <> '6'
+:CAMPO_CF_ORDER
+)
+ORDER BY CD_CON_PAG,DT_VENCIMENTO,CD_FORNECEDOR,NM_FORNECEDOR,NR_DOCUMENTO,NR_PARCELA,VL_DUPLICATA,TP_QUITACAO,DT_EMISSAO,VL_DEVIDO,DS_HISTORICO,DT_PREVISTA_PAG,CD_ITCON_PAG
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_APAG_PAG_SFORNEC_R_2_Q_LANC_EXTRATO
+SELECT sum( (mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado, 0 )) ) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA       
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND empresa_lan_concor.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)              
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL 
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL 
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor) 
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) )

@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCETE_EXERCICIO
+SELECT    A.CD_CONTABIL           CD_CONTABIL
+         ,A.DS_CONTA              DS_CONTA
+         ,A.CD_GRAU               CD_GRAU
+         ,A.TP_CONTA              TP_CONTA
+         ,SUM( A.VL_SALDO_ANT )   VL_SALDO_ANT
+         ,SUM( A.VL_DEBITO )      VL_DEBITO
+         ,SUM( A.VL_CREDITO )     VL_CREDITO
+         ,SUM( A.VL_SALDO_ATU )   VL_SALDO_ATU
+FROM (
+SELECT  PC.CD_CONTABIL             CD_CONTABIL
+       ,PC.DS_CONTA                DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA        CD_GRAU
+       ,PC.TP_CONTA                           TP_CONTA
+       ,DBAMV.FCCT_SALDO_CONTA(  :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, :CAMPO_DT_ANO_ANT, :CAMPO_DT_MES_ANT, PC.CD_CONTABIL )   VL_SALDO_ANT
+       ,nvl( SM.VL_DEBITO, 0 )     VL_DEBITO
+       ,nvl( SM.VL_CREDITO, 0 )    VL_CREDITO
+       ,DBAMV.FCCT_SALDO_CONTA(  :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, :CAMPO_DT_ANO, :CAMPO_DT_MES, PC.CD_CONTABIL )   VL_SALDO_ATU
+FROM    DBAMV.PLANO_CONTAS      PC
+       ,DBAMV.SALDO_MENSAL      SM
+WHERE   PC.CD_MULTI_EMPRESA                  =  :CAMPO_CD_MULTI_EMPRESA
+AND     PC.CD_GRAU_DA_CONTA                 <= :CAMPO_CD_GRAU_CONTA
+AND     PC.CD_REDUZIDO                       =  SM.CD_REDUZIDO
+UNION
+SELECT  PC.CD_CONTABIL        CD_CONTABIL
+       ,PC.DS_CONTA           DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA   CD_GRAU
+       ,PC.TP_CONTA                           TP_CONTA
+       ,0                     VL_SALDO_ANT
+       ,0                     VL_CREDITO
+       ,0                     VL_DEBITO
+       ,0                     VL_SALDO_ATU
+FROM    DBAMV.PLANO_CONTAS    PC
+WHERE   PC.CD_MULTI_EMPRESA  =  :CAMPO_CD_MULTI_EMPRESA
+AND     PC.CD_GRAU_DA_CONTA  <= :CAMPO_CD_GRAU_CONTA
+:CAMPO_COND_CONTA_CONTABIL
+) A
+GROUP BY  A.CD_CONTABIL
+         ,A.DS_CONTA
+         ,A.CD_GRAU
+         ,A.TP_CONTA
+ORDER BY  A.CD_CONTABIL

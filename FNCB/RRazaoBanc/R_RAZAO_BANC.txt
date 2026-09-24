@@ -1,0 +1,115 @@
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_BANC
+SELECT * FROM (
+SELECT   'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+       , V1.CD_CON_COR  CD_CON_COR1
+	,V1.DS_CON_COR
+	,V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA DS_AGENCIA
+	,V1.NR_CONTA
+	,V1.CD_BANCO || ' - ' || V1.DS_BANCO DS_BANCO
+	,V2.NR_DOCUMENTO_IDENTIFICACAO
+	,V2.CD_MOV_CONCOR
+	,V2.CD_LAN_CONCOR
+     , trunc(decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno)) DT_MOVIMENTACAO
+	,V2.DS_MOVIMENTACAO
+	,Decode( :CAMPO_MOV_CARTAO, 'A', V2.VL_MOVIMENTACAO, V2.VL_MOVIMENTACAO - Abs(Nvl(Tar.Vl_Movimentacao,0)) )      VL_MOVIMENTACAO
+	,V2.TP_OPERACAO_SALDO_CONTA TP_OPERACAO_SALDO_CONTA
+	,V2.SN_TRANSFERENCIA
+	,V2.SN_CONCILIADO
+                ,V2.Cd_Mov_Deposito_Agrup
+FROM       DBAMV.V_BCO_CONTA  V1
+               ,dbamv.multi_empresas e
+	,DBAMV.V_MOV_CONCOR V2
+                ,(select  count(*) total,
+                             count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+                             m.cd_mov_deposito_agrup
+                  from   dbamv.mov_concor M
+                  where  m.cd_mov_deposito_agrup Is Not Null
+                  group by M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+                  ( Select Cd_Mov_Pai,
+                               Nvl(Sum(Vl_Movimentacao),0) Vl_Movimentacao
+                      From Dbamv.V_Mov_Concor M
+                   Where :CAMPO_MOV_CARTAO  = 'L'
+                       And M.Cd_Estrutural = '1.6.1.1.10.3'
+                    Group By Cd_Mov_Pai ) Tar
+WHERE  V1.cd_multi_empresa = e.cd_multi_empresa
+   AND decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno)
+       >= TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+   AND decode(v2.dt_estorno,null,DECODE( V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+             decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno)
+       <= TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+And V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+AND    V1.CD_CON_COR       = V2.CD_CON_COR
+And (:CAMPO_AGRUPADO = 'N'
+Or
+( :CAMPO_AGRUPADO = 'S'
+   And ( V2.CD_MOV_DEPOSITO_AGRUP Is Null Or
+            ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null  And Tb_Conciliacao.Total <> Tb_Conciliacao.Sim  and Tb_Conciliacao.Sim <> 0  ) ) ))
+And V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+And ( ( :CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3' ) Or ( :CAMPO_MOV_CARTAO  =   'A')  )
+UNION
+SELECT     'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+       , V1.CD_CON_COR  CD_CON_COR1
+	,V1.DS_CON_COR
+	,V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA DS_AGENCIA
+	,V1.NR_CONTA
+	,V1.CD_BANCO || ' - ' || V1.DS_BANCO DS_BANCO
+                ,'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup) NR_DOCUMENTO_IDENTIFICACAO
+                ,0 CD_MOV_CONCOR
+	,V2.CD_LAN_CONCOR
+     , trunc(min(decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno))) DT_MOVIMENTACAO
+    ,DECODE(V2.TP_OPERACAO_SALDO_CONTA,'C','DEPÓSITO AGRUPADO DO CAIXA ','DEB. AGRUPADO C/C '||V1.DS_BANCO)  DS_MOVIMENTACAO
+	,Sum(Decode( :CAMPO_MOV_CARTAO, 'A', V2.VL_MOVIMENTACAO, V2.VL_MOVIMENTACAO - Abs(Nvl(Tar.Vl_Movimentacao,0)) )) VL_MOVIMENTACAO
+	,V2.TP_OPERACAO_SALDO_CONTA TP_OPERACAO_SALDO_CONTA
+	,null SN_TRANSFERENCIA
+              	, Decode(Tb_Conciliacao.Sim, 0, 'N', (Decode(Tb_Conciliacao.Total - Tb_Conciliacao.Sim,0,'S'))) SN_CONCILIADO
+                ,V2.Cd_Mov_Deposito_Agrup
+FROM       DBAMV.V_BCO_CONTA  V1
+               ,dbamv.multi_empresas e
+	,DBAMV.V_MOV_CONCOR V2
+                ,(select  count(*) total,
+                             count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+                             m.cd_mov_deposito_agrup
+                  from   dbamv.mov_concor M
+                  where  m.cd_mov_deposito_agrup Is Not Null
+                  group by M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+                  ( Select Cd_Mov_Pai,
+                               Nvl(Sum(Vl_Movimentacao),0) Vl_Movimentacao
+                      From Dbamv.V_Mov_Concor M
+                   Where :CAMPO_MOV_CARTAO   = 'L'
+                       And M.Cd_Estrutural = '1.6.1.1.10.3'
+                    Group By Cd_Mov_Pai ) Tar
+WHERE  :CAMPO_AGRUPADO = 'S'
+   AND decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno)
+       >= TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+   AND decode(v2.dt_estorno,null,DECODE( V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+             decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno)
+       <= TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+AND    V1.CD_CON_COR       = V2.CD_CON_COR
+and   V1.cd_multi_empresa = e.cd_multi_empresa
+And  ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null
+          And Tb_Conciliacao.Total = Tb_Conciliacao.Sim  or Tb_Conciliacao.Sim = 0  )
+And V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+And ( (:CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3') Or ( :CAMPO_MOV_CARTAO = 'A')  )
+Group by   'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+      ,e.cd_multi_empresa        ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+       , V2.Cd_Mov_Deposito_Agrup, Decode(Tb_Conciliacao.Sim, 0, 'N', (Decode(Tb_Conciliacao.Total - Tb_Conciliacao.Sim,0,'S'))) , V1.CD_CON_COR , V1.DS_CON_COR ,V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA ,V1.NR_CONTA, V1.CD_BANCO || ' - ' || V1.DS_BANCO ,'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup) ,V2.CD_LAN_CONCOR, DECODE(V2.TP_OPERACAO_SALDO_CONTA,'C','DEPÓSITO AGRUPADO DO CAIXA ','DEB. AGRUPADO C/C '||V1.DS_BANCO), V2.TP_OPERACAO_SALDO_CONTA
+ORDER BY  DT_MOVIMENTACAO, TP_OPERACAO_SALDO_CONTA, DS_MOVIMENTACAO
+)
+ORDER BY CD_MULTI_EMPRESA,EMPRESA,
+EMPRESA_O,DS_CON_COR,CD_CON_COR1,DS_AGENCIA,NR_CONTA,DS_BANCO,
+DT_MOVIMENTACAO

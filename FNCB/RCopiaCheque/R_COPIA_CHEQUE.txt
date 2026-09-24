@@ -1,0 +1,109 @@
+/*----------------------------------------------------------------------------*/
+--R_COPIA_CHEQUE
+SELECT * FROM (
+select rp.cd_reduzido   cd_reduzido,
+       pl.ds_conta      ds_conta,
+       st.cd_cen_cus    cd_cen_cus,
+       st.nm_setor      nm_cen_cus,
+       bc.cd_banco      cd_banco,
+       bc.nm_banco      nm_banco,
+       cc.cd_agencia    cd_agencia,
+       cc.ds_agencia    ds_agencia,
+       cc.nr_conta          nr_conta,
+       ch.nr_cheque         nr_cheque,
+       it.dt_vencimento     dt_vencimento,
+       pg.dt_pagamento      dt_pagamento,
+       (hp.ds_historico_padrao || ' ' || cp.ds_con_pag)  historico,
+       ch.nm_retirante      nm_retirante,
+       cp.nr_documento      nr_documento,
+       cp.dt_emissao        dt_emis_doc,
+       ch.dt_emissao        dt_emis_chq,
+       ch.vl_cheque         vl_cheque,
+       cd.nm_cidade         nm_cidade,
+       ch.ds_nome_impresso  nm_favorecido,
+       rp.vl_rat_pagcon_pag vl_rateio,
+       pg.vl_pago           vl_rateio_rat,
+       it.nr_parcela        nr_parcela,
+       cc.cd_moeda,
+       Decode(pg.dt_estorno, NULL, NULL, 'X') estorno
+from dbamv.pagcon_pag pg,
+     dbamv.rat_pagcon_pag rp,
+     dbamv.cheque ch,
+     dbamv.talao tl,
+     dbamv.con_cor cc,
+     dbamv.plano_contas pl,
+     dbamv.setor st,
+     dbamv.banco bc,
+     dbamv.multi_empresas me,
+     dbamv.cidade cd,
+     dbamv.itcon_pag it,
+     dbamv.con_pag cp,
+     dbamv.historico_padrao hp,
+     dbamv.USUARIO_MULTI_EMPRESA UME
+where pg.cd_pagcon_pag    = rp.cd_pagcon_pag
+  and pg.cd_cheque        = ch.cd_cheque
+  and pg.cd_itcon_pag     = it.cd_itcon_pag
+  and cp.cd_con_pag       = it.cd_con_pag
+  and ch.cd_talao         = tl.cd_talao
+  and tl.cd_con_cor       = cc.cd_con_cor
+  and pl.cd_reduzido(+)     = rp.cd_reduzido
+  and rp.cd_setor         = st.cd_setor(+)
+  and cc.cd_banco         = bc.cd_banco
+  and me.cd_cidade        = cd.cd_cidade
+  and me.cd_multi_empresa = cc.cd_multi_empresa
+  and hp.cd_historico_padrao(+) = cp.cd_historico_padrao
+  and tl.cd_talao = Nvl(:CAMPO_CD_TALAO, tl.cd_talao)
+  AND cp.tp_con_pag <> 'AG'
+  AND me.cd_multi_empresa = UME.cd_multi_empresa
+  AND ume.cd_id_usuario = user
+union all
+Select To_Number(Null)             cd_reduzido
+     ,  Null                       ds_conta
+     ,  Null                       cd_cen_cus
+     ,  Null                       nm_cen_cus
+     ,  To_Number(bc.cd_banco)  cd_banco
+     ,  bc.nm_banco             nm_banco
+     ,  cc.cd_agencia         cd_agencia
+     ,  cc.ds_agencia         ds_agencia
+     ,  cc.nr_conta           nr_conta
+     ,  ch.nr_cheque           nr_cheque
+     ,  ch.dt_emissao          dt_vencimento
+     ,  To_Date(Null)              dt_pagamento
+     ,  Nvl(mcc.ds_movimentacao, 'Reforço de Caixa')         historico
+     ,  ch.nm_retirante        nm_retirante
+     ,  Null                       nr_documento
+     ,  ch.dt_emissao          dt_emis_doc
+     ,  ch.dt_emissao          dt_emis_chq
+     ,  ch.vl_cheque           vl_cheque
+     ,  cd.nm_cidade           nm_cidade
+     ,  ch.ds_nome_impresso    nm_favorecido
+     ,  ch.vl_cheque           vl_rateio
+     ,  ch.vl_cheque           vl_rateio_rat
+     ,  To_Number(Null)        nr_parcela
+     ,  cc.cd_moeda
+     ,  To_Char(NULL)          estorno
+ From dbamv.cheque                 ch
+     ,  dbamv.talao                tl
+     ,  dbamv.con_cor              cc
+     , dbamv.mov_concor            mcc
+     ,  dbamv.banco                bc
+     ,  dbamv.cidade               cd
+     ,  dbamv.multi_empresas       me
+     ,dbamv.USUARIO_MULTI_EMPRESA UME
+Where   ch.cd_talao              = tl.cd_talao
+and     tl.cd_con_cor            = cc.cd_con_cor
+and     cc.cd_banco              = bc.cd_banco
+and     cd.cd_cidade             = me.cd_cidade
+and     tl.cd_talao              = Nvl(:CAMPO_CD_TALAO, tl.cd_talao)
+and     not exists (select cd_cheque from dbamv.pagcon_pag where cd_cheque = ch.cd_cheque)
+and     nvl(ch.sn_cancelado,'N') = 'N'
+and     cc.cd_multi_empresa = me.cd_multi_empresa
+AND me.cd_multi_empresa = UME.cd_multi_empresa
+AND ume.cd_id_usuario = user
+AND mcc.cd_con_cor = cc.cd_con_cor
+AND mcc.cd_cheque = ch.cd_cheque
+order by nr_cheque, nr_documento
+)
+ORDER BY NR_CHEQUE,VL_CHEQUE,NM_RETIRANTE,DT_EMIS_CHQ,CD_BANCO,NM_BANCO,DS_AGENCIA,NM_FAVORECIDO,CD_AGENCIA,NR_CONTA,NM_CIDADE,
+DT_VENCIMENTO,NR_DOCUMENTO,DT_EMIS_DOC,NR_PARCELA,
+HISTORICO

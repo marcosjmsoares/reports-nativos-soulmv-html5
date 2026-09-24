@@ -1,0 +1,263 @@
+/*----------------------------------------------------------------------------*/
+--R_BENS_DEPRECIACAO
+SELECT * FROM (
+Select      'Empresa: ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+                me.cd_multi_empresa,
+                Be.Dt_lancamento dt_deprecia,
+	Be.Cd_Bem,
+	Be.Ds_Plaqueta,
+	Be.Ds_Bem,
+	Be.Dt_Compra,
+	Abs( Be.Vl_Compra )   Vl_Compra,
+                Be.Dt_Competencia Mes_Competencia,
+	Abs( Pkg_Patrimonio.Fn_RetTotalDeprecBem( Be.Cd_Bem, Be.Dt_Competencia, Be.Cd_Bens_Reavaliacao, Be.Dt_Reavaliacao, Decode(Be.Cd_Bens_Reavaliacao, Null, 'C', 'R')  )  )	Total_Depreciacao,
+	Be.Tx_Depreciacao * 100 Tx_Depreciacao,
+	Abs( round(Nvl(Be.Vl_Deprecia_Antes,0) - Nvl(Be.Vl_Deprecia_Atual,0),2))	Valor_Depreciacao,
+                Be.Vl_Depreciacao_Historica  Vl_Depreciacao_Historica,
+  Abs(   Pkg_Patrimonio.Fn_RetTotalDeprecBem( Be.Cd_Bem, Be.Dt_Competencia, Be.Cd_Bens_Reavaliacao, Be.Dt_Reavaliacao, Decode(Be.Cd_Bens_Reavaliacao, Null, 'C', 'R')  ) + Decode(Be.Cd_Bens_Reavaliacao, Null,nvl(Be.Vl_Depreciacao_Historica,0),0)   ) Total_Depreciacao_Acumulada,	Be.Cd_Bens_Reavaliacao,
+	Be.Dt_Reavaliacao,
+	Be.Cd_Capitulo,
+	Be.Cd_Sub_Cap,
+                Be.Cd_itdeprecia Cd_itdeprecia
+From (select Lan.Cd_Lancamento_Patrimonio,
+       Lan.Dt_Lancamento,
+       Lan.Tp_Lancamento,
+       Lan.Vl_Lancamento,
+       Lan.Ds_Lancamento,
+       Lan.Tp_Entrada_Saida     Ent_Sai_Lancamento,
+       Lan.Sn_Contabiliza       Sn_Contabiliza_Lanc,
+       Lan.Cd_Reduzido_Credito  Cd_Reduzido_Cred_Lan,
+       Lan.Cd_Reduzido_Debito   Cd_Reduzido_Deb_Lan,
+       bens.cd_multi_empresa	Cd_Multi_Empresa_Bem,
+       Nvl(Lan.cd_multi_empresa_origem,Lan.cd_multi_empresa)  Cd_Multi_Empresa, 
+       bens.cd_bem,
+       bens.ds_plaqueta,
+       bens.ds_bem,
+       bens.ds_marca,
+       bens.ds_modelo,
+       bens.dt_tombamento,
+       bens.dt_compra,
+       bens.dt_vcto_garantia,
+       (NVL(bens.vl_compra,0) + NVL(RE.vl_maismenos_valia,0)) vl_compra,
+       bens.vl_historico,
+       bens.cd_setor,
+       bens.cd_localidade,
+       bens.cd_fornecedor,
+       bens.cd_capitulo,
+       bens.cd_sub_cap,
+       bens.cd_especie,
+       bens.cd_classe,
+       bens.cd_sub_cla,
+       bens.sn_desp_operacional,
+       bens.sn_natureza_permanente,
+       bens.sn_imob_and_bem,
+       bens.tp_depreciacao,
+       bens.dt_baixa,
+       bens.hr_baixa,
+       bens.cd_motivo,
+       bens.cd_ent_pro,
+       bens.nr_notafiscal,
+       bens.tx_depre,
+       Dp.Cd_Deprecia,
+       Dp.Cd_Itdeprecia,
+       Dp.Vl_Deprecia_Antes,
+       Dp.Vl_Deprecia_Atual,
+       bens.vl_depreciacao_historica,
+       Dp.Tx_Depreciacao,
+       Dp.Dt_Competencia,
+       Dp.Dt_Contabilidade,
+       Lan.Cd_Motivo_Baixa,
+       Dp.Cd_Bens_Reavaliacao,
+       Dp.Dt_Reavaliacao
+From   Dbamv.Bens_Reavaliacao       Re,
+       Dbamv.ItDeprecia             Dp,
+       Dbamv.Bens,
+       Dbamv.Lancamento_Patrimonio  Lan
+Where  Lan.Cd_Bem         = Bens.Cd_Bem
+And    Lan.Cd_Itdeprecia  = Dp.Cd_Itdeprecia(+)
+And    Lan.Cd_Bem         = Re.Cd_Bem(+)
+And    Lan.Dt_Lancamento  = Re.Dt_Reavaliacao(+)
+and    lAN.tp_lancamento = 'D'
+aND    Trunc(Lan.Dt_lancamento) Between :CAMPO_PDTINICIO And 
+And    Bens.Vl_Compra > 0
+) Be,
+dbamv.multi_empresas me
+Where  be.cd_multi_empresa_bem = me.cd_multi_empresa
+Order By Be.Dt_lancamento,
+	 Be.Ds_Bem,
+               Be.Dt_Competencia
+)
+ORDER BY EMPRESA,
+DT_DEPRECIA,
+DS_BEM,DS_PLAQUETA,CD_BEM,VL_DEPRECIACAO_HISTORICA,CD_MULTI_EMPRESA,DT_COMPRA,CD_ITDEPRECIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_BENS_DEPRECIACAO_R_10_Q_2
+select Cd_ReduzidoRes
+     , Cd_Contabil
+     , Ds_ReduzidoRes
+     , sum(Valor_DepreciacaoRes) Valor_DepreciacaoRes
+  From (
+Select	Pl.Cd_Reduzido		Cd_ReduzidoRes,
+                Pl.Cd_Contabil,
+	Pl.Ds_Conta		Ds_ReduzidoRes,
+  Sum(Decode (st.cd_itdeprecia,NULL,be.vl_lancamento,(st.vl_deprecia_antes_setor - st.vl_deprecia_atual_setor)))   Valor_DepreciacaoRes
+From	Dbamv.Plano_Contas	Pl,
+                Dbamv.v_lancamento_patrimonio Be,
+                dbamv.multi_empresas me,
+                Dbamv.Sub_Iob_empresa Sb,
+                Dbamv.itdeprecia_setor st
+Where Be.tp_lancamento = 'D'
+and be.cd_itdeprecia = st.cd_itdeprecia(+)
+And Trunc(Be.Dt_lancamento) Between :CAMPO_PDTINICIO And 
+And Be.Cd_Capitulo            = Sb.Cd_Capitulo
+And Be.Cd_Sub_Cap             = Sb.Cd_Sub_Cap
+And Sb.Cd_Red_Bensdeprecacum  = Pl.Cd_Reduzido
+And Be.Cd_Multi_Empresa_bem   = Sb.cd_multi_empresa
+And Be.Cd_Bens_Reavaliacao is null
+And Be.Vl_Compra > 0
+and be.cd_multi_empresa_bem = me.cd_multi_empresa
+Group By Pl.Cd_Reduzido,
+         Pl.Cd_Contabil,
+	     Pl.Ds_Conta
+union all
+Select	Pl.Cd_Reduzido		Cd_ReduzidoRes,
+                Pl.Cd_Contabil,
+	Pl.Ds_Conta		Ds_ReduzidoRes,
+Sum(Decode (st.cd_itdeprecia,NULL,be.vl_lancamento,(st.vl_deprecia_antes_setor - st.vl_deprecia_atual_setor)))   Valor_DepreciacaoRes
+From	Dbamv.Plano_Contas	Pl,
+                Dbamv.v_lancamento_patrimonio Be,
+                dbamv.multi_empresas me,
+                Dbamv.Sub_Iob_empresa Sb,
+                Dbamv.itdeprecia_setor st
+Where Be.tp_lancamento = 'D'
+and be.cd_itdeprecia = st.cd_itdeprecia(+)
+And Trunc(Be.Dt_lancamento) Between :CAMPO_PDTINICIO And 
+And Be.Cd_Capitulo                = Sb.Cd_Capitulo
+And Be.Cd_Sub_Cap                 = Sb.Cd_Sub_Cap
+And Sb.cd_reduzido_depacum_reava  = Pl.Cd_Reduzido
+And Be.Cd_Multi_Empresa_bem       = Sb.cd_multi_empresa
+And Be.Cd_Bens_Reavaliacao is not null
+And Be.Vl_Compra > 0
+and be.cd_multi_empresa_bem       = me.cd_multi_empresa
+Group By Pl.Cd_Reduzido,
+         Pl.Cd_Contabil,
+	     Pl.Ds_Conta
+ )
+ group by Cd_ReduzidoRes
+     , Cd_Contabil
+     , Ds_ReduzidoRes
+Order By 2
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_BENS_DEPRECIACAO_R_EMPRESA_Q_1
+Select      'Empresa: ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+                me.cd_multi_empresa,
+                Be.Dt_lancamento dt_deprecia,
+	Be.Cd_Bem,
+	Be.Ds_Plaqueta,
+	Be.Ds_Bem,
+	Be.Dt_Compra,
+	decode(Be.Cd_Bens_Reavaliacao,null,Abs( max(Be.Vl_Compra) ),max(be.vl_bem_reavaliacao))   Vl_Compra,
+  Be.Dt_Competencia Mes_Competencia,
+	max(Abs( Pkg_Patrimonio.Fn_RetTotalDeprecBem( Be.Cd_Bem, Be.Dt_Competencia, Be.Cd_Bens_Reavaliacao, Be.Dt_Reavaliacao, Decode(Be.Cd_Bens_Reavaliacao, Null, 'C', 'R')  )  ))	Total_Depreciacao,
+	Be.Tx_Depreciacao * 100 Tx_Depreciacao,
+  Sum(Decode (st.cd_itdeprecia,NULL,be.vl_lancamento,(st.vl_deprecia_antes_setor - st.vl_deprecia_atual_setor)))   Valor_Depreciacao,
+  decode(Be.Cd_Bens_Reavaliacao,null,Max(Be.Vl_Depreciacao_Historica),0) Vl_Depreciacao_Historica,
+  (Abs(Pkg_Patrimonio.Fn_RetTotalDeprecBem( Be.Cd_Bem, Be.Dt_Competencia, Be.Cd_Bens_Reavaliacao, Be.Dt_Reavaliacao, Decode(Be.Cd_Bens_Reavaliacao, Null, 'C', 'R')  ) +
+       Decode(Be.Cd_Bens_Reavaliacao, Null,nvl(Max(Be.Vl_Depreciacao_Historica),0),0)   ) )Total_Depreciacao_Acumulada,
+                Be.Cd_Bens_Reavaliacao,
+	Be.Dt_Reavaliacao,
+	Be.Cd_Capitulo,
+	Be.Cd_Sub_Cap,
+  Be.Cd_itdeprecia Cd_itdeprecia
+From (select Lan.Cd_Lancamento_Patrimonio,
+       Lan.Dt_Lancamento,
+       Lan.Tp_Lancamento,
+       Lan.Vl_Lancamento,
+       Lan.Ds_Lancamento,
+       Lan.Tp_Entrada_Saida     Ent_Sai_Lancamento,
+       Lan.Sn_Contabiliza       Sn_Contabiliza_Lanc,
+       Lan.Cd_Reduzido_Credito  Cd_Reduzido_Cred_Lan,
+       Lan.Cd_Reduzido_Debito   Cd_Reduzido_Deb_Lan,
+       bens.cd_multi_empresa	Cd_Multi_Empresa_Bem,
+       Nvl(Lan.cd_multi_empresa_origem,Lan.cd_multi_empresa)  Cd_Multi_Empresa, 
+       bens.cd_bem,
+       bens.ds_plaqueta,
+       bens.ds_bem,
+       bens.ds_marca,
+       bens.ds_modelo,
+       bens.dt_tombamento,
+       bens.dt_compra,
+       bens.dt_vcto_garantia,
+       (NVL(bens.vl_compra,0) + NVL(RE.vl_maismenos_valia,0)) vl_compra,
+       bens.vl_historico,
+       bens.cd_setor,
+       bens.cd_localidade,
+       bens.cd_fornecedor,
+       bens.cd_capitulo,
+       bens.cd_sub_cap,
+       bens.cd_especie,
+       bens.cd_classe,
+       bens.cd_sub_cla,
+       bens.sn_desp_operacional,
+       bens.sn_natureza_permanente,
+       bens.sn_imob_and_bem,
+       bens.tp_depreciacao,
+       bens.dt_baixa,
+       bens.hr_baixa,
+       bens.cd_motivo,
+       bens.cd_ent_pro,
+       bens.nr_notafiscal,
+       bens.tx_depre,
+       Dp.Cd_Deprecia,
+       Dp.Cd_Itdeprecia,
+       Dp.Vl_Deprecia_Antes,
+       Dp.Vl_Deprecia_Atual,
+       bens.vl_depreciacao_historica,
+       Dp.Tx_Depreciacao,
+       Dp.Dt_Competencia,
+       Dp.Dt_Contabilidade,
+	   Decode( Lan.Tp_Lancamento, 'R', Re.Vl_Reavaliacao, Null )      Vl_Bem_Reavaliacao,
+       Lan.Cd_Motivo_Baixa,
+       Dp.Cd_Bens_Reavaliacao,
+       Dp.Dt_Reavaliacao
+From   Dbamv.Bens_Reavaliacao       Re,
+       Dbamv.ItDeprecia             Dp,
+       Dbamv.Bens,
+       Dbamv.Lancamento_Patrimonio  Lan
+Where  Lan.Cd_Bem         = Bens.Cd_Bem
+And    Lan.Cd_Itdeprecia  = Dp.Cd_Itdeprecia(+)
+And    Lan.Cd_Bem         = Re.Cd_Bem(+)
+And    Lan.Dt_Lancamento  = Re.Dt_Reavaliacao(+)
+and    lAN.tp_lancamento = 'D'
+aND    Trunc(Lan.Dt_lancamento) Between :CAMPO_PDTINICIO And 
+And    Bens.Vl_Compra > 0
+) Be,
+         dbamv.multi_empresas me,
+         dbamv.itdeprecia_setor st
+Where be.cd_itdeprecia = st.cd_itdeprecia(+)
+and   be.cd_multi_empresa_bem = me.cd_multi_empresa
+GROUP BY
+'Empresa: ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa,
+                me.cd_multi_empresa,
+                Be.Dt_lancamento,
+	Be.Cd_Bem,
+	Be.Ds_Plaqueta,
+	Be.Ds_Bem,
+	Be.Dt_Compra,
+                Be.Dt_Competencia,
+	Be.Tx_Depreciacao,
+                Be.Cd_Bens_Reavaliacao,
+	Be.Dt_Reavaliacao,
+	Be.Cd_Capitulo,
+	Be.Cd_Sub_Cap,
+  Be.Cd_itdeprecia,
+  decode(Be.Cd_Bens_Reavaliacao,null,'C','R')
+Order By Be.Dt_lancamento,
+	 Be.Ds_Bem,
+               Be.Dt_Competencia

@@ -1,0 +1,112 @@
+/*----------------------------------------------------------------------------*/
+--R_POSICAO_CONTAS_AIH_SETOR
+Select DBAMV.PKG_FFAS_REGRA_ORIGEM_ATEND.f_setor_padrao(atendime.cd_ori_ate) CD_SETOR
+     , DBAMV.PKG_SUS_REGRA_SETOR.F_DESCRICAO(DBAMV.pkg_ffas_regra_origem_atend.F_SETOR_PADRAO(atendime.cd_ori_ate)) DS_SETOR
+     , atendime.cd_atendimento
+     , reg_fat.cd_reg_fat
+     , paciente.cd_paciente_externo
+     , paciente.cd_paciente
+     , paciente.nm_paciente
+     , reg_fat.cd_procedimento_realizado
+     , reg_fat.nr_guia
+     , atendime.dt_atendimento
+     , atendime.dt_alta
+     , atendime.cd_leito
+     , reg_fat.dt_inicio
+     , reg_fat.dt_final
+     , reg_fat.cd_remessa
+     , decode(nvl(reg_fat.sn_fechada, 'N'), 'N', 'Não', 'Sim') sn_fechada
+  from dbamv.config_ffis
+     , dbamv.fatura
+     , dbamv.remessa_fatura
+     , dbamv.atendime
+     , dbamv.reg_fat
+     , dbamv.paciente
+ where paciente.cd_paciente                         = atendime.cd_paciente
+   and atendime.cd_atendimento                      = reg_fat.cd_atendimento
+   and remessa_fatura.cd_fatura                     = fatura.cd_fatura (+)
+   and reg_fat.cd_remessa                           = remessa_fatura.cd_remessa (+)
+   and reg_fat.cd_multi_empresa                     = dbamv.pkg_mv2000.le_empresa
+   and config_ffis.cd_multi_empresa                 = reg_fat.cd_multi_empresa
+   and config_ffis.cd_convenio                      = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+   and nvl(fatura.cd_convenio,atendime.cd_convenio) = config_ffis.cd_convenio
+   and reg_fat.cd_reg_fat not in ( select reg.cd_reg_fat
+                            	     from dbamv.reg_fat	       reg
+                                        , dbamv.remessa_fatura remessa
+                                    where remessa.cd_remessa   = reg.cd_remessa
+                                      and remessa.sn_suspensas = 'S'
+                                      and reg.cd_reg_fat       = reg_fat.cd_reg_fat
+                                      and reg.cd_reg_fat_pai  is not null )
+   and :CAMPO_TP_DATA_REFERENCIA = 'P'
+group by  DBAMV.PKG_FFAS_REGRA_ORIGEM_ATEND.f_setor_padrao(atendime.cd_ori_ate)
+       , DBAMV.PKG_SUS_REGRA_SETOR.F_DESCRICAO(DBAMV.pkg_ffas_regra_origem_atend.F_SETOR_PADRAO(atendime.cd_ori_ate))
+       , atendime.cd_atendimento
+       , reg_fat.cd_reg_fat
+       , paciente.cd_paciente_externo
+       , paciente.cd_paciente
+       , paciente.nm_paciente
+       , reg_fat.cd_procedimento_realizado
+       , reg_fat.nr_guia
+       , atendime.dt_atendimento
+       , atendime.dt_alta
+       , atendime.cd_leito
+       , reg_fat.dt_inicio
+       , reg_fat.dt_final
+       , reg_fat.cd_remessa
+       , nvl(reg_fat.sn_fechada, 'N')
+union all
+Select DBAMV.PKG_FFAS_REGRA_ORIGEM_ATEND.f_setor_padrao(atendime.cd_ori_ate) CD_SETOR
+     , DBAMV.PKG_SUS_REGRA_SETOR.F_DESCRICAO(DBAMV.pkg_ffas_regra_origem_atend.F_SETOR_PADRAO(atendime.cd_ori_ate)) DS_SETOR
+     , atendime.cd_atendimento
+     , reg_fat.cd_reg_fat
+     , paciente.cd_paciente_externo
+     , paciente.cd_paciente
+     , paciente.nm_paciente
+     , reg_fat.cd_procedimento_realizado
+     , reg_fat.nr_guia
+     , atendime.dt_atendimento
+     , atendime.dt_alta
+     , atendime.cd_leito
+     , reg_fat.dt_inicio
+     , reg_fat.dt_final
+     , reg_fat.cd_remessa
+     , decode(nvl(reg_fat.sn_fechada, 'N'), 'N', 'Não', 'Sim') sn_fechada
+  from Dbamv.paciente
+     , dbamv.atendime
+     , dbamv.reg_fat
+     , dbamv.config_ffis
+     , dbamv.fatura
+     , dbamv.remessa_fatura
+ where paciente.cd_paciente             = atendime.cd_paciente
+   and atendime.cd_atendimento          = reg_fat.cd_atendimento
+   and reg_fat.cd_multi_empresa         = dbamv.pkg_mv2000.le_empresa
+   and config_ffis.cd_multi_empresa     = reg_fat.cd_multi_empresa
+   and config_ffis.cd_convenio          =  dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+   and fatura.cd_convenio               = config_ffis.cd_convenio
+   and reg_fat.cd_remessa               = remessa_fatura.cd_remessa
+   and remessa_fatura.cd_fatura         = fatura.cd_fatura
+   and reg_fat.cd_reg_fat not in ( select reg.cd_reg_fat
+                            	     from dbamv.reg_fat	       reg
+                                        , dbamv.remessa_fatura remessa
+                                    where remessa.cd_remessa   = reg.cd_remessa
+                                      and remessa.sn_suspensas = 'S'
+                                      and reg.cd_reg_fat       = reg_fat.cd_reg_fat
+                                      and reg.cd_reg_fat_pai  is not null )
+   and To_Char(fatura.dt_competencia,'MM/YYYY') = :CAMPO_COMPET
+   and :CAMPO_TP_DATA_REFERENCIA = 'C'
+group by DBAMV.PKG_FFAS_REGRA_ORIGEM_ATEND.f_setor_padrao(atendime.cd_ori_ate)
+       , DBAMV.PKG_SUS_REGRA_SETOR.F_DESCRICAO(DBAMV.pkg_ffas_regra_origem_atend.F_SETOR_PADRAO(atendime.cd_ori_ate))
+       , atendime.cd_atendimento
+       , reg_fat.cd_reg_fat
+       , paciente.cd_paciente_externo
+       , paciente.cd_paciente
+       , paciente.nm_paciente
+       , reg_fat.cd_procedimento_realizado
+       , reg_fat.nr_guia
+       , atendime.dt_atendimento
+       , atendime.dt_alta
+       , atendime.cd_leito
+       , reg_fat.dt_inicio
+       , reg_fat.dt_final
+       , reg_fat.cd_remessa
+       , nvl(reg_fat.sn_fechada, 'N')

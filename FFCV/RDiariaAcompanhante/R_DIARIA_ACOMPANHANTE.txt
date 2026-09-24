@@ -1,0 +1,31 @@
+/*----------------------------------------------------------------------------*/
+--R_DIARIA_ACOMPANHANTE
+SELECT * FROM (
+select mov_int.cd_atendimento cd_atendimento,
+       mov_int.cd_mov_int     cd_mov_int,
+       setor.cd_setor         cd_setor,
+       setor.nm_setor         nm_setor,
+       paciente.cd_paciente   cd_paciente,
+       dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(paciente.cd_paciente, 1)   nm_paciente,
+       leito.cd_leito         cd_leito,
+       leito.ds_leito         ds_leito,
+       setor.cd_setor || '   '||setor.nm_setor       quebra_setor
+  from
+       dbamv.leito,
+       dbamv.paciente,
+       dbamv.setor,
+       dbamv.mov_int,
+       dbamv.atendime,
+       dbamv.unid_int
+where mov_int.cd_atendimento = atendime.cd_atendimento
+ and atendime.cd_paciente = paciente.cd_paciente
+ and leito.cd_leito = mov_int.cd_leito
+ and leito.cd_unid_int = unid_int.cd_unid_int
+ and unid_int.cd_setor = setor.cd_setor
+ and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+ and mov_int.cd_mov_int in ( Select max(log_acomp.cd_mov_int)  cd_mov_int
+                               From dbamv.log_diaria_acompanhante log_acomp
+                               where tp_transacao= :CAMPO_SN_ACOMPANHANTE
+                                Group by log_acomp.cd_atendimento )
+)ORDER BY CD_SETOR,NM_SETOR,QUEBRA_SETOR,
+CD_ATENDIMENTO,CD_MOV_INT,CD_PACIENTE,NM_PACIENTE,CD_LEITO,DS_LEITO

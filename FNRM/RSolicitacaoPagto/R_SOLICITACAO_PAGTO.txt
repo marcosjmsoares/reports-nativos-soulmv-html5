@@ -1,0 +1,544 @@
+/*----------------------------------------------------------------------------*/
+--R_SOLICITACAO_PAGTO
+select f.cd_fornecedor,
+        f.nm_fornecedor,
+	    prestador.nm_prestador,
+        prestador.cd_prestador,
+        prestador.nr_cpf_cgc,
+        prestador.ds_endereco,
+        prestador.nr_cep,
+        prestador.nr_fone_contato, 
+        prestador.nr_fone_comercial,
+        f.cd_agencia nr_agencia,
+      	f.ds_agencia nm_agencia,
+      	f.nr_conta||'-'||f.dv_conta_corrente nr_conta,
+        prestador.tp_vinculo,
+        prestador.ds_complemento,
+        prestador.ds_bairro,
+        f.cd_banco,
+        prestador.nr_ccm
+   from dbamv.prestador ,
+        dbamv.empresa_prestador ep,
+        dbamv.fornecedor f
+  where prestador.cd_prestador = ep.cd_prestador
+    AND ep.cd_fornecedor = f.cd_fornecedor
+    AND ep.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+    AND prestador.cd_prestador = :CAMPO_CD_PRESTADOR
+    AND Nvl(dbamv.pkg_mv2000.le_configuracao('FNRM','SN_IMPRIME_DADOS_PRESTADOR'),'N') = 'N'
+    UNION
+    select f.cd_fornecedor,
+        f.nm_fornecedor,
+	    prestador.nm_prestador,
+        prestador.cd_prestador,
+        prestador.nr_cpf_cgc,
+        prestador.ds_endereco,
+        prestador.nr_cep,
+        prestador.nr_fone_contato,
+        prestador.nr_fone_comercial,
+        prestador.nr_agencia,
+      	prestador.nm_agencia,
+      	prestador.nr_conta,
+        prestador.tp_vinculo,
+        prestador.ds_complemento,
+        prestador.ds_bairro,
+        prestador.cd_banco,
+        prestador.nr_ccm
+   from dbamv.prestador ,
+        dbamv.empresa_prestador ep,
+        dbamv.fornecedor f
+  where prestador.cd_prestador = ep.cd_prestador
+    AND ep.cd_fornecedor = f.cd_fornecedor
+    AND ep.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+    AND prestador.cd_prestador = :CAMPO_CD_PRESTADOR
+    AND Nvl(dbamv.pkg_mv2000.le_configuracao('FNRM','SN_IMPRIME_DADOS_PRESTADOR'),'N') = 'S'
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SOLICITACAO_PAGTO_R_3_Q_CONVENIOS
+select (lpad(convenios.cd_convenio,4,' ') || ' - ' || convenios.nm_convenio) ds_convenio
+,convenios.cd_repasse
+,convenios.nm_convenio
+from (
+SELECT distinct convenio.cd_convenio
+      ,convenio.nm_convenio
+      ,repasse.cd_repasse
+  FROM dbamv.repasse
+      ,dbamv.repasse_prestador
+      ,dbamv.prestador mestre
+      ,dbamv.prestador filhos
+      ,dbamv.con_pag
+      ,dbamv.multi_empresas_pgto_rep
+      ,dbamv.it_repasse
+      ,dbamv.itreg_amb
+      ,dbamv.convenio
+ WHERE repasse.cd_repasse = :CAMPO_CD_REPASSE
+   AND repasse.cd_repasse = it_repasse.cd_repasse
+   AND it_repasse.cd_reg_amb = itreg_amb.cd_reg_amb
+   AND it_repasse.cd_lancamento_amb = itreg_amb.cd_lancamento
+   AND itreg_amb.cd_convenio = convenio.cd_convenio
+   AND repasse_prestador.cd_prestador = filhos.cd_prestador
+   AND repasse_prestador.cd_prestador_repasse = mestre.cd_prestador
+   AND repasse_prestador.cd_repasse = repasse.cd_repasse
+   AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag
+   AND repasse_prestador.cd_con_pag = :CAMPO_CD_CON_PAG
+   AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+   AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+   AND NOT EXISTS (SELECT 1
+                     FROM dbamv.reg_repasse_rateio
+                    WHERE reg_repasse_rateio.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+   AND NOT EXISTS (
+          SELECT 1
+            FROM dbamv.repasse_prestador_con_pag
+           WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse
+             AND repasse_prestador_con_pag.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse)
+UNION
+SELECT distinct convenio.cd_convenio
+      ,convenio.nm_convenio
+      ,repasse.cd_repasse
+  FROM dbamv.repasse
+      ,dbamv.repasse_prestador
+      ,dbamv.prestador mestre
+      ,dbamv.prestador filhos
+      ,dbamv.con_pag
+      ,dbamv.repasse_prestador_con_pag
+      ,dbamv.multi_empresas_pgto_rep
+      ,dbamv.it_repasse
+      ,dbamv.itreg_amb
+      ,dbamv.convenio
+ WHERE repasse.cd_repasse = :CAMPO_CD_REPASSE
+   AND repasse.cd_repasse = it_repasse.cd_repasse
+   AND it_repasse.cd_reg_amb = itreg_amb.cd_reg_amb
+   AND it_repasse.cd_lancamento_amb = itreg_amb.cd_lancamento
+   AND itreg_amb.cd_convenio = convenio.cd_convenio
+   AND repasse_prestador.cd_prestador = filhos.cd_prestador
+   AND repasse_prestador.cd_prestador_repasse = mestre.cd_prestador
+   AND repasse_prestador_con_pag.cd_repasse = repasse.cd_repasse
+   AND repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse
+   AND repasse_prestador_con_pag.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse
+   AND repasse_prestador_con_pag.cd_con_pag = con_pag.cd_con_pag
+   AND repasse_prestador_con_pag.cd_con_pag = :CAMPO_CD_CON_PAG
+   AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+   AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+   AND NOT EXISTS (SELECT 1
+                     FROM dbamv.reg_repasse_rateio
+                    WHERE reg_repasse_rateio.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+UNION
+SELECT distinct convenio.cd_convenio
+      ,convenio.nm_convenio
+      ,repasse.cd_repasse
+  FROM dbamv.con_pag con_pag_principal
+      ,dbamv.prestador grupo
+      ,dbamv.prestador prestador
+      ,dbamv.it_repasse
+      ,dbamv.itreg_amb
+      ,dbamv.convenio
+      , (SELECT   SUM (con_pag_impostos.vl_bruto_conta) vl_bruto_conta
+                 ,tip_detcon_pag.cd_con_pag_pai cd_con_pag
+             FROM dbamv.tip_detcon_pag
+                 ,dbamv.con_pag con_pag_impostos
+            WHERE tip_detcon_pag.cd_con_pag_filho = con_pag_impostos.cd_con_pag AND tip_detcon_pag.cd_con_pag_pai = :CAMPO_CD_CON_PAG
+         GROUP BY tip_detcon_pag.cd_con_pag_pai) impostos
+      , (SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador_con_pag_rep.cd_con_pag cd_con_pag
+               ,repasse_prestador_con_pag_rep.cd_prestador cd_prestador
+               ,repasse_prestador_con_pag_rep.cd_prestador_repasse
+           FROM dbamv.repasse repasse
+               ,dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_rep
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse.cd_repasse = repasse_prestador_con_pag_rep.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+            AND repasse_prestador_con_pag_rep.cd_con_pag = :CAMPO_CD_CON_PAG
+            AND repasse_prestador_con_pag_rep.cd_repasse IN (SELECT   MAX (repasse_prestador_con_pag_sub.cd_repasse) cd_repasse
+                                                                 FROM dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_sub
+                                                                WHERE repasse_prestador_con_pag_sub.cd_con_pag = repasse_prestador_con_pag_rep.cd_con_pag
+                                                             GROUP BY repasse_prestador_con_pag_sub.cd_con_pag)
+         UNION
+         SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador.cd_con_pag cd_con_pag
+               ,repasse_prestador.cd_prestador cd_prestador
+               ,repasse_prestador.cd_prestador_repasse cd_prestador_repasse
+           FROM dbamv.repasse_prestador
+               ,dbamv.repasse
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse_prestador.cd_repasse = repasse.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+            AND repasse_prestador.cd_con_pag = :CAMPO_CD_CON_PAG
+            AND NOT EXISTS (SELECT 1
+                              FROM dbamv.repasse_prestador_con_pag
+                             WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse)) repasse
+ WHERE repasse.cd_repasse = :CAMPO_CD_REPASSE
+   AND repasse.cd_repasse = it_repasse.cd_repasse
+   AND it_repasse.cd_reg_amb = itreg_amb.cd_reg_amb
+   AND it_repasse.cd_lancamento_amb = itreg_amb.cd_lancamento
+   AND itreg_amb.cd_convenio = convenio.cd_convenio
+   AND con_pag_principal.cd_con_pag = impostos.cd_con_pag(+)
+   AND con_pag_principal.cd_con_pag = repasse.cd_con_pag
+   AND prestador.cd_prestador = repasse.cd_prestador
+   AND grupo.cd_prestador = repasse.cd_prestador_repasse
+   AND EXISTS (SELECT 1
+                 FROM dbamv.reg_repasse_rateio
+                WHERE cd_prestador_repasse = repasse.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+UNION
+SELECT distinct convenio.cd_convenio
+      ,convenio.nm_convenio
+      ,repasse.cd_repasse
+  FROM dbamv.repasse
+      ,dbamv.repasse_prestador
+      ,dbamv.prestador mestre
+      ,dbamv.prestador filhos
+      ,dbamv.con_pag
+      ,dbamv.multi_empresas_pgto_rep
+      ,dbamv.it_repasse
+      ,dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.convenio
+ WHERE repasse.cd_repasse = :CAMPO_CD_REPASSE
+   AND repasse.cd_repasse = it_repasse.cd_repasse
+   AND it_repasse.cd_reg_fat = itreg_fat.cd_reg_fat
+   AND it_repasse.cd_lancamento_fat = itreg_fat.cd_lancamento
+   AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+   AND reg_fat.cd_convenio = convenio.cd_convenio
+   AND repasse_prestador.cd_prestador = filhos.cd_prestador
+   AND repasse_prestador.cd_prestador_repasse = mestre.cd_prestador
+   AND repasse_prestador.cd_repasse = repasse.cd_repasse
+   AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag
+   AND repasse_prestador.cd_con_pag = :CAMPO_CD_CON_PAG
+   AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+   AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+   AND NOT EXISTS (SELECT 1
+                     FROM dbamv.reg_repasse_rateio
+                    WHERE reg_repasse_rateio.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+   AND NOT EXISTS (
+          SELECT 1
+            FROM dbamv.repasse_prestador_con_pag
+           WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse
+             AND repasse_prestador_con_pag.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse)
+UNION
+SELECT distinct convenio.cd_convenio
+      ,convenio.nm_convenio
+      ,repasse.cd_repasse
+  FROM dbamv.repasse
+      ,dbamv.repasse_prestador
+      ,dbamv.prestador mestre
+      ,dbamv.prestador filhos
+      ,dbamv.con_pag
+      ,dbamv.repasse_prestador_con_pag
+      ,dbamv.multi_empresas_pgto_rep
+      ,dbamv.it_repasse
+      ,dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.convenio
+ WHERE repasse.cd_repasse = :CAMPO_CD_REPASSE
+   AND repasse.cd_repasse = it_repasse.cd_repasse
+   AND it_repasse.cd_reg_fat = itreg_fat.cd_reg_fat
+   AND it_repasse.cd_lancamento_fat = itreg_fat.cd_lancamento
+   AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+   AND reg_fat.cd_convenio = convenio.cd_convenio
+   AND repasse_prestador.cd_prestador = filhos.cd_prestador
+   AND repasse_prestador.cd_prestador_repasse = mestre.cd_prestador
+   AND repasse_prestador_con_pag.cd_repasse = repasse.cd_repasse
+   AND repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse
+   AND repasse_prestador_con_pag.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse
+   AND repasse_prestador_con_pag.cd_con_pag = con_pag.cd_con_pag
+   AND repasse_prestador_con_pag.cd_con_pag = :CAMPO_CD_CON_PAG
+   AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+   AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+   AND NOT EXISTS (SELECT 1
+                     FROM dbamv.reg_repasse_rateio
+                    WHERE reg_repasse_rateio.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+UNION
+SELECT distinct convenio.cd_convenio
+      ,convenio.nm_convenio
+      ,repasse.cd_repasse
+  FROM dbamv.con_pag con_pag_principal
+      ,dbamv.prestador grupo
+      ,dbamv.prestador prestador
+      ,dbamv.it_repasse
+      ,dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.convenio
+      , (SELECT   SUM (con_pag_impostos.vl_bruto_conta) vl_bruto_conta
+                 ,tip_detcon_pag.cd_con_pag_pai cd_con_pag
+             FROM dbamv.tip_detcon_pag
+                 ,dbamv.con_pag con_pag_impostos
+            WHERE tip_detcon_pag.cd_con_pag_filho = con_pag_impostos.cd_con_pag AND tip_detcon_pag.cd_con_pag_pai = :CAMPO_p_cd_con_pag
+         GROUP BY tip_detcon_pag.cd_con_pag_pai) impostos
+      , (SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador_con_pag_rep.cd_con_pag cd_con_pag
+               ,repasse_prestador_con_pag_rep.cd_prestador cd_prestador
+               ,repasse_prestador_con_pag_rep.cd_prestador_repasse
+           FROM dbamv.repasse repasse
+               ,dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_rep
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse.cd_repasse = repasse_prestador_con_pag_rep.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+            AND repasse_prestador_con_pag_rep.cd_con_pag = :CAMPO_CD_CON_PAG
+            AND repasse_prestador_con_pag_rep.cd_repasse IN (SELECT   MAX (repasse_prestador_con_pag_sub.cd_repasse) cd_repasse
+                                                                 FROM dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_sub
+                                                                WHERE repasse_prestador_con_pag_sub.cd_con_pag = repasse_prestador_con_pag_rep.cd_con_pag
+                                                             GROUP BY repasse_prestador_con_pag_sub.cd_con_pag)
+         UNION
+         SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador.cd_con_pag cd_con_pag
+               ,repasse_prestador.cd_prestador cd_prestador
+               ,repasse_prestador.cd_prestador_repasse cd_prestador_repasse
+           FROM dbamv.repasse_prestador
+               ,dbamv.repasse
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse_prestador.cd_repasse = repasse.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+            AND repasse_prestador.cd_con_pag = :CAMPO_CD_CON_PAG
+            AND NOT EXISTS (SELECT 1
+                              FROM dbamv.repasse_prestador_con_pag
+                             WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse)) repasse
+ WHERE repasse.cd_repasse = :CAMPO_CD_REPASSE
+   AND repasse.cd_repasse = it_repasse.cd_repasse
+   AND it_repasse.cd_reg_fat = itreg_fat.cd_reg_fat
+   AND it_repasse.cd_lancamento_fat = itreg_fat.cd_lancamento
+   AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+   AND reg_fat.cd_convenio = convenio.cd_convenio
+   AND con_pag_principal.cd_con_pag = impostos.cd_con_pag(+)
+   AND con_pag_principal.cd_con_pag = repasse.cd_con_pag
+   AND prestador.cd_prestador = repasse.cd_prestador
+   AND grupo.cd_prestador = repasse.cd_prestador_repasse
+   AND EXISTS (SELECT 1
+                 FROM dbamv.reg_repasse_rateio
+                WHERE cd_prestador_repasse = repasse.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+) convenios
+order by convenios.nm_convenio
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SOLICITACAO_PAGTO_R_PRESTADOR_Q_SOLIC_PAGTO
+SELECT (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0)) vl_repasse
+      ,con_pag.vl_acrescimo
+      ,con_pag.vl_desconto
+      ,repasse_prestador.cd_con_pag
+      ,repasse_prestador.cd_repasse cd_repasse
+      ,repasse.ds_repasse
+      ,filhos.cd_prestador cd_prestador_filho
+      ,filhos.nm_prestador nm_prestador_filho
+      ,mestre.cd_prestador
+      ,mestre.nm_prestador
+      ,empresa_prestador.cd_fornecedor cd_fornecedor
+  FROM dbamv.repasse
+      ,dbamv.repasse_prestador
+      ,dbamv.prestador mestre
+      ,dbamv.prestador filhos
+      ,dbamv.con_pag
+      ,dbamv.multi_empresas_pgto_rep
+      ,dbamv.empresa_prestador
+ WHERE repasse_prestador.cd_prestador = filhos.cd_prestador
+   AND repasse_prestador.cd_prestador_repasse = mestre.cd_prestador
+   AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag
+   AND empresa_prestador.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND empresa_prestador.cd_prestador = mestre.cd_prestador
+   AND repasse_prestador.cd_repasse = repasse.cd_repasse
+   AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag
+   AND repasse_prestador.cd_con_pag = :CAMPO_CD_CON_PAG
+   AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+   AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+   AND NOT EXISTS (SELECT 1
+                     FROM dbamv.reg_repasse_rateio
+                    WHERE reg_repasse_rateio.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+   AND NOT EXISTS (
+          SELECT 1
+            FROM dbamv.repasse_prestador_con_pag
+           WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse
+             AND repasse_prestador_con_pag.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse)
+UNION
+SELECT distinct (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0)) vl_repasse
+      ,con_pag.vl_acrescimo
+      ,con_pag.vl_desconto
+      ,repasse_prestador.cd_con_pag
+      ,repasse_prestador.cd_repasse cd_repasse
+      ,repasse.ds_repasse
+      ,filhos.cd_prestador cd_prestador_filho
+      ,filhos.nm_prestador nm_prestador_filho
+      ,mestre.cd_prestador
+      ,mestre.nm_prestador
+      ,empresa_prestador.cd_fornecedor cd_fornecedor
+  FROM dbamv.repasse
+      ,dbamv.repasse_prestador
+      ,dbamv.prestador mestre
+      ,dbamv.prestador filhos
+      ,dbamv.con_pag
+      ,dbamv.repasse_prestador_con_pag
+      ,dbamv.multi_empresas_pgto_rep
+      ,dbamv.empresa_prestador
+ WHERE repasse_prestador.cd_prestador = filhos.cd_prestador
+   AND repasse_prestador.cd_prestador_repasse = mestre.cd_prestador
+   AND empresa_prestador.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND empresa_prestador.cd_prestador = mestre.cd_prestador
+   AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag 
+   AND repasse_prestador_con_pag.cd_repasse = repasse.cd_repasse
+   AND repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse
+   AND repasse_prestador_con_pag.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse
+   AND repasse_prestador_con_pag.cd_con_pag = con_pag.cd_con_pag
+   AND repasse_prestador_con_pag.cd_con_pag = :CAMPO_CD_CON_PAG
+   AND repasse_prestador.cd_con_pag is not null
+   AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+   AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+   AND NOT EXISTS (SELECT 1
+                     FROM dbamv.reg_repasse_rateio
+                    WHERE reg_repasse_rateio.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+UNION
+SELECT con_pag_principal.vl_bruto_conta vl_repasse
+      ,con_pag_principal.vl_acrescimo vl_acrescimo
+      ,con_pag_principal.vl_desconto vl_desconto
+      ,con_pag_principal.cd_con_pag cd_con_pag
+      ,repasse.cd_repasse cd_repasse
+      ,repasse.ds_repasse ds_repasse
+      ,prestador.cd_prestador cd_prestador_filho
+      ,prestador.nm_prestador nm_prestador_filho
+      ,grupo.cd_prestador cd_prestador
+      ,grupo.nm_prestador nm_prestador
+      ,empresa_prestador.cd_fornecedor cd_fornecedor
+  FROM dbamv.con_pag con_pag_principal
+      ,dbamv.prestador grupo
+      ,dbamv.prestador prestador
+      ,dbamv.empresa_prestador
+      , (SELECT   SUM (con_pag_impostos.vl_bruto_conta) vl_bruto_conta
+                 ,tip_detcon_pag.cd_con_pag_pai cd_con_pag
+             FROM dbamv.tip_detcon_pag
+                 ,dbamv.con_pag con_pag_impostos
+            WHERE tip_detcon_pag.cd_con_pag_filho = con_pag_impostos.cd_con_pag
+               AND tip_detcon_pag.cd_con_pag_pai = :CAMPO_CD_CON_PAG
+         GROUP BY tip_detcon_pag.cd_con_pag_pai) impostos
+      , (SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador_con_pag_rep.cd_con_pag cd_con_pag
+               ,repasse_prestador_con_pag_rep.cd_prestador cd_prestador
+               ,repasse_prestador_con_pag_rep.cd_prestador_repasse
+           FROM dbamv.repasse repasse
+               ,dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_rep
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse.cd_repasse = repasse_prestador_con_pag_rep.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_pag
+            AND repasse_prestador_con_pag_rep.cd_con_pag = :CAMPO_CD_CON_PAG
+            AND repasse_prestador_con_pag_rep.cd_repasse IN (SELECT   MAX (repasse_prestador_con_pag_sub.cd_repasse) cd_repasse
+                                                                 FROM dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_sub
+                                                                WHERE repasse_prestador_con_pag_sub.cd_con_pag = repasse_prestador_con_pag_rep.cd_con_pag
+                                                             GROUP BY repasse_prestador_con_pag_sub.cd_con_pag)
+         UNION
+         SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador.cd_con_pag cd_con_pag
+               ,repasse_prestador.cd_prestador cd_prestador
+               ,repasse_prestador.cd_prestador_repasse cd_prestador_repasse
+           FROM dbamv.repasse_prestador
+               ,dbamv.repasse
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse_prestador.cd_repasse = repasse.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_pag
+            AND repasse_prestador.cd_con_pag = :CAMPO_CD_CON_PAG
+            AND NOT EXISTS (SELECT 1
+                              FROM dbamv.repasse_prestador_con_pag
+                             WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse)) repasse
+ WHERE con_pag_principal.cd_con_pag = impostos.cd_con_pag(+)
+   AND con_pag_principal.cd_con_pag = repasse.cd_con_pag
+   AND empresa_prestador.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND empresa_prestador.cd_prestador = grupo.cd_prestador
+   AND prestador.cd_prestador = repasse.cd_prestador
+   AND grupo.cd_prestador = repasse.cd_prestador_repasse
+   AND EXISTS (SELECT 1
+                 FROM dbamv.reg_repasse_rateio
+                WHERE cd_prestador_repasse = repasse.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+ORDER BY cd_repasse
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SOLICITACAO_PAGTO_R_REPASSE2_Q_DESC_ACRESC
+SELECT con_pag.vl_acrescimo
+      ,con_pag.vl_desconto
+      ,repasse_prestador.cd_con_pag
+      ,mestre.cd_prestador
+  FROM dbamv.repasse
+      ,dbamv.repasse_prestador
+      ,dbamv.prestador mestre
+      ,dbamv.prestador filhos
+      ,dbamv.con_pag
+      ,dbamv.multi_empresas_pgto_rep
+ WHERE repasse_prestador.cd_prestador = filhos.cd_prestador
+   AND repasse_prestador.cd_prestador_repasse = mestre.cd_prestador
+   AND repasse_prestador.cd_repasse = repasse.cd_repasse
+   AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag
+   AND repasse_prestador.cd_con_pag = :CAMPO_CD_CON_PAG
+   AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+   AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_rep
+   AND (con_pag.vl_desconto is not null or con_pag.vl_acrescimo is not null)
+   AND NOT EXISTS (SELECT 
+                     FROM dbamv.reg_repasse_rateio
+                    WHERE reg_repasse_rateio.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+   AND NOT EXISTS (
+          SELECT 
+            FROM dbamv.repasse_prestador_con_pag
+           WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse
+             AND repasse_prestador_con_pag.cd_prestador_repasse = repasse_prestador.cd_prestador_repasse)
+UNION
+SELECT con_pag_principal.vl_acrescimo vl_acrescimo
+      ,con_pag_principal.vl_desconto vl_desconto
+      ,con_pag_principal.cd_con_pag cd_con_pag
+      ,grupo.cd_prestador cd_prestador
+  FROM dbamv.con_pag con_pag_principal
+      ,dbamv.prestador grupo
+      ,dbamv.prestador prestador
+      , (SELECT   SUM (con_pag_impostos.vl_bruto_conta) vl_bruto_conta
+                 ,tip_detcon_pag.cd_con_pag_pai cd_con_pag
+             FROM dbamv.tip_detcon_pag
+                 ,dbamv.con_pag con_pag_impostos
+            WHERE tip_detcon_pag.cd_con_pag_filho = con_pag_impostos.cd_con_pag AND tip_detcon_pag.cd_con_pag_pai =:CAMPO_CD_CON_PAG
+         GROUP BY tip_detcon_pag.cd_con_pag_pai) impostos
+      , (SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador_con_pag_rep.cd_con_pag cd_con_pag
+               ,repasse_prestador_con_pag_rep.cd_prestador cd_prestador
+               ,repasse_prestador_con_pag_rep.cd_prestador_repasse
+           FROM dbamv.repasse repasse
+               ,dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_rep
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse.cd_repasse = repasse_prestador_con_pag_rep.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_pag
+            AND repasse_prestador_con_pag_rep.cd_con_pag =:CAMPO_CD_CON_PAG
+            AND repasse_prestador_con_pag_rep.cd_repasse IN (SELECT   MAX (repasse_prestador_con_pag_sub.cd_repasse) cd_repasse
+                                                                 FROM dbamv.repasse_prestador_con_pag repasse_prestador_con_pag_sub
+                                                                WHERE repasse_prestador_con_pag_sub.cd_con_pag = repasse_prestador_con_pag_rep.cd_con_pag
+                                                             GROUP BY repasse_prestador_con_pag_sub.cd_con_pag)
+         UNION
+         SELECT repasse.ds_repasse ds_repasse
+               ,repasse.cd_repasse cd_repasse
+               ,repasse_prestador.cd_con_pag cd_con_pag
+               ,repasse_prestador.cd_prestador cd_prestador
+               ,repasse_prestador.cd_prestador_repasse cd_prestador_repasse
+           FROM dbamv.repasse_prestador
+               ,dbamv.repasse
+               ,dbamv.multi_empresas_pgto_rep
+          WHERE repasse_prestador.cd_repasse = repasse.cd_repasse
+            AND multi_empresas_pgto_rep.cd_multi_empresa_pag = :CAMPO_CD_MULTI_EMPRESA
+            AND repasse.cd_multi_empresa = multi_empresas_pgto_rep.cd_multi_empresa_pag
+            AND repasse_prestador.cd_con_pag= :CAMPO_CD_CON_PAG
+            AND NOT EXISTS (SELECT 
+                              FROM dbamv.repasse_prestador_con_pag
+                             WHERE repasse_prestador_con_pag.cd_repasse = repasse_prestador.cd_repasse)) repasse
+ WHERE con_pag_principal.cd_con_pag = impostos.cd_con_pag(+)
+   AND con_pag_principal.cd_con_pag = repasse.cd_con_pag
+   AND prestador.cd_prestador = repasse.cd_prestador
+   AND (con_pag_principal.vl_desconto is not null or con_pag_principal.vl_acrescimo is not null)
+   AND grupo.cd_prestador = repasse.cd_prestador_repasse
+   AND EXISTS (SELECT 
+                 FROM dbamv.reg_repasse_rateio
+                WHERE cd_prestador_repasse = repasse.cd_prestador_repasse AND reg_repasse_rateio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)

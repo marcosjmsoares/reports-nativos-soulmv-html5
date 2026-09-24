@@ -1,0 +1,442 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCETE_SINT
+SELECT * FROM (
+SELECT    A.CD_CONTABIL           CD_CONTABIL
+         ,A.DS_CONTA              DS_CONTA
+         ,A.CD_GRAU               CD_GRAU
+        ,DECODE( :CAMPO_TP_PERIODO
+                ,'D', TRUNC(DATA_MOV)
+                ,'S', TRUNC(DATA_MOV, 'D' )
+                ,'M', TRUNC(DATA_MOV, 'MM' )
+                ,'A', TRUNC(DATA_MOV, 'YYYY' )) DT_MOV
+         ,A.TP_CONTA              TP_CONTA
+         ,A.VL_SALDO_ANT  VL_SALDO_ANTERIOR
+         ,A.CD_REDUZIDO    CD_REDUZIDO
+         ,SUM(NVL( A.VL_DEBITO, 0) )     VL_DEBITO
+         ,SUM(NVL( A.VL_CREDITO, 0) )    VL_CREDITO
+         ,SUM( A.VL_SALDO_ATU )   VL_SALDO_ATU
+         ,TO_CHAR(A.DT_SALDO_MES, 'YYYY')   DT_SALDO_MES
+FROM (
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+       ,DECODE(PC.TP_CONTA,'A',( lc.vl_lancado ),
+                                                             (SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                                 FROM DBAMV.LCTO_CONTABIL LC
+                                                              WHERE LC.CD_REDUZIDO_DEBITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                     FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                                  WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                              FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                          WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+						                                        and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                                 AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                                 AND LC.DT_LCTO <= :CAMPO_DT_FIM
+                                                                 )) vl_debito
+               ,to_number(NULL) vl_credito
+               ,0 vl_saldo_atu
+               ,lc.dt_lcto dt_saldo_mes
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND pc.cd_reduzido  =   lc.cd_reduzido_debito(+)
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'A'
+UNION ALL
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+       , to_number(NULL) vl_debito
+        ,DECODE(PC.TP_CONTA,'A',( lc.vl_lancado),
+                                                 'S',(SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                          FROM DBAMV.LCTO_CONTABIL LC
+                                                       WHERE LC.CD_REDUZIDO_CREDITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                             WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                         FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                     WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+                                                                                                                                    and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                            AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                            AND LC.DT_LCTO <= :CAMPO_DT_FIM ))  vl_credito
+               ,0 vl_saldo_atu
+               ,lc.dt_lcto  dt_saldo_mes
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND lc.cd_reduzido_credito(+) = pc.cd_reduzido
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'A'
+:CAMPO_CF_VISAO
+) A
+GROUP BY  A.CD_CONTABIL
+         ,A.DS_CONTA
+         ,A.CD_GRAU
+         ,A.TP_CONTA
+          ,A.DATA_MOV
+         ,TO_CHAR(A.DT_SALDO_MES, 'YYYY')
+         ,A.CD_REDUZIDO
+         ,A.VL_SALDO_ANT
+UNION
+SELECT    B.CD_CONTABIL           CD_CONTABIL
+         ,B.DS_CONTA              DS_CONTA
+         ,B.CD_GRAU               CD_GRAU
+        ,DECODE( :CAMPO_TP_PERIODO
+                ,'D', TRUNC(DATA_MOV)
+                ,'S', TRUNC(DATA_MOV, 'D' )
+                ,'M', TRUNC(DATA_MOV, 'MM' )
+                ,'A', TRUNC(DATA_MOV, 'YYYY' )) DT_MOV
+         ,B.TP_CONTA              TP_CONTA
+         ,B.VL_SALDO_ANT  VL_SALDO_ANTERIOR
+         ,B.CD_REDUZIDO    CD_REDUZIDO
+         ,SUM(NVL( B.VL_DEBITO, 0) )     VL_DEBITO
+         ,SUM(NVL( B.VL_CREDITO, 0) )    VL_CREDITO
+         ,SUM( B.VL_SALDO_ATU )   VL_SALDO_ATU
+         ,TO_CHAR(B.DT_SALDO_MES, 'W')  DT_SALDO_MES
+FROM (
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+               ,lc.dt_lcto dt_saldo_mes
+       ,DECODE(PC.TP_CONTA,'A',( lc.vl_lancado ),
+                                                             (SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                                 FROM DBAMV.LCTO_CONTABIL LC
+                                                              WHERE LC.CD_REDUZIDO_DEBITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                     FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                                  WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                              FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                          WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+						                                        and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                                 AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                                 AND LC.DT_LCTO <= :CAMPO_DT_FIM
+                                                                 )) vl_debito
+               ,to_number(NULL) vl_credito
+               ,0 vl_saldo_atu
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND pc.cd_reduzido  =   lc.cd_reduzido_debito(+)
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'S'
+UNION ALL
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+               ,lc.dt_lcto dt_saldo_mes
+       , to_number(NULL) vl_debito
+        ,DECODE(PC.TP_CONTA,'A',( lc.vl_lancado),
+                                                 'S',(SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                          FROM DBAMV.LCTO_CONTABIL LC
+                                                       WHERE LC.CD_REDUZIDO_CREDITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                             WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                         FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                     WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+                                                                                                                                    and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                            AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                            AND LC.DT_LCTO <= :CAMPO_DT_FIM ))  vl_credito
+               ,0 vl_saldo_atu
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND lc.cd_reduzido_credito(+) = pc.cd_reduzido
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'S'
+:CAMPO_CF_VISAO
+) B
+GROUP BY  B.CD_CONTABIL
+         ,B.DS_CONTA
+         ,B.CD_GRAU
+         ,B.TP_CONTA
+          ,B.DATA_MOV
+         ,TO_CHAR(B.DT_SALDO_MES, 'W')
+         ,B.CD_REDUZIDO
+         ,B.VL_SALDO_ANT
+UNION
+SELECT    C.CD_CONTABIL           CD_CONTABIL
+         ,C.DS_CONTA              DS_CONTA
+         ,C.CD_GRAU               CD_GRAU
+        ,DECODE( :CAMPO_TP_PERIODO
+                ,'D', TRUNC(DATA_MOV)
+                ,'S', TRUNC(DATA_MOV, 'D' )
+                ,'M', TRUNC(DATA_MOV, 'MM' )
+                ,'A', TRUNC(DATA_MOV, 'YYYY' )) DT_MOV
+         ,C.TP_CONTA              TP_CONTA
+         ,C.VL_SALDO_ANT  VL_SALDO_ANTERIOR
+         ,C.CD_REDUZIDO    CD_REDUZIDO
+         ,SUM(NVL( C.VL_DEBITO, 0) )     VL_DEBITO
+         ,SUM(NVL( C.VL_CREDITO, 0) )    VL_CREDITO
+         ,SUM( C.VL_SALDO_ATU )   VL_SALDO_ATU
+         ,TO_CHAR(C.DT_SALDO_MES, 'MM')   DT_SALDO_MES
+FROM (
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+       ,DECODE(PC.TP_CONTA,'A',( lc.vl_lancado ),
+                                                             (SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                                 FROM DBAMV.LCTO_CONTABIL LC
+                                                              WHERE LC.CD_REDUZIDO_DEBITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                     FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                                  WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                              FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                          WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+						                                        and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                                 AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                                 AND LC.DT_LCTO <= :CAMPO_DT_FIM
+                                                                 )) vl_debito
+               ,to_number(NULL) vl_credito
+               ,0 vl_saldo_atu
+               ,lc.dt_lcto dt_saldo_mes
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND pc.cd_reduzido  =   lc.cd_reduzido_debito(+)
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'M'
+UNION ALL
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+       , to_number(NULL) vl_debito
+        ,DECODE(PC.TP_CONTA,'A',( lc.vl_lancado),
+                                                 'S',(SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                          FROM DBAMV.LCTO_CONTABIL LC
+                                                       WHERE LC.CD_REDUZIDO_CREDITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                             WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                         FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                     WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+                                                                                                                                    and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                            AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                            AND LC.DT_LCTO <= :CAMPO_DT_FIM ))  vl_credito
+               ,0 vl_saldo_atu
+               ,lc.dt_lcto  dt_saldo_mes
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND lc.cd_reduzido_credito(+) = pc.cd_reduzido
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'M'
+:CAMPO_CF_VISAO
+) C
+GROUP BY  C.CD_CONTABIL
+         ,C.DS_CONTA
+         ,C.CD_GRAU
+         ,C.TP_CONTA
+          ,C.DATA_MOV
+         ,TO_CHAR(C.DT_SALDO_MES, 'MM')
+         ,C.CD_REDUZIDO
+         ,C.VL_SALDO_ANT
+UNION
+SELECT D.CD_CONTABIL           CD_CONTABIL
+         ,D.DS_CONTA              DS_CONTA
+         ,D.CD_GRAU               CD_GRAU
+        ,DECODE( :CAMPO_TP_PERIODO
+                ,'D', TRUNC(DATA_MOV)
+                ,'S', TRUNC(DATA_MOV, 'D' )
+                ,'M', TRUNC(DATA_MOV, 'MM' )
+                ,'A', TRUNC(DATA_MOV, 'YYYY' )) DT_MOV
+         ,D.TP_CONTA              TP_CONTA
+         ,D.VL_SALDO_ANT  VL_SALDO_ANTERIOR
+         ,D.CD_REDUZIDO    CD_REDUZIDO
+         ,SUM(NVL( D.VL_DEBITO, 0) )     VL_DEBITO
+         ,SUM(NVL( D.VL_CREDITO, 0) )    VL_CREDITO
+         ,SUM( D.VL_SALDO_ATU )   VL_SALDO_ATU
+         ,TO_CHAR(D.DT_SALDO_MES, 'DDMMYYYY')  DT_SALDO_MES
+FROM (
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+               ,lc.dt_lcto dt_saldo_mes
+       ,DECODE(PC.TP_CONTA,'A',(lc.vl_lancado ),
+                                                             (SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                                 FROM DBAMV.LCTO_CONTABIL LC
+                                                              WHERE LC.CD_REDUZIDO_DEBITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                     FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                                  WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                              FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                          WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+						                                        and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                                 AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                                 AND LC.DT_LCTO <= :CAMPO_DT_FIM
+                                                                 )) vl_debito
+               ,to_number(NULL) vl_credito
+               ,0 vl_saldo_atu
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND pc.cd_reduzido  =   lc.cd_reduzido_debito(+)
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'D'
+UNION ALL
+SELECT pc.cd_contabil cd_contabil
+       ,pc.ds_conta ds_conta
+       ,pc.cd_grau_da_conta cd_grau
+       ,pc.tp_conta tp_conta
+       , 0 vl_saldo_ant
+       ,decode(:CAMPO_TP_PERIODO
+               ,'D', trunc( lc.dt_lcto )
+               ,'S', trunc( lc.dt_lcto, 'd' )
+               ,'M', trunc( lc.dt_lcto, 'mm' )
+               ,'A', trunc( lc.dt_lcto, 'yyyy' )) data_mov
+       ,pc.cd_reduzido  cd_reduzido
+               ,lc.dt_lcto dt_saldo_mes
+       , to_number(NULL) vl_debito
+        ,DECODE(PC.TP_CONTA,'A',(lc.vl_lancado),
+                                                 'S',(SELECT SUM(NVL(LC.VL_LANCADO,0))
+                                                          FROM DBAMV.LCTO_CONTABIL LC
+                                                       WHERE LC.CD_REDUZIDO_CREDITO IN (SELECT PL1.CD_REDUZIDO
+                                                                                                                                FROM DBAMV.PLANO_CONTAS PL1
+                                                                                                                             WHERE PL1.cd_grau_da_conta > (SELECT PL2.CD_GRAU_DA_CONTA
+                                                                                                                                                                                         FROM DBAMV.PLANO_CONTAS PL2
+                                                                                                                                                                                     WHERE PL2.cd_reduzido = PC.CD_REDUZIDO)
+                                                                                                                                    and PL1.cd_contabil like PC.CD_CONTABIL || '%' )
+                                                            AND LC.DT_LCTO >= :CAMPO_DT_INI
+                                                            AND LC.DT_LCTO <= :CAMPO_DT_FIM ))  vl_credito
+               ,0 vl_saldo_atu
+   FROM dbamv.plano_contas pc, dbamv.lcto_contabil lc
+ WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND lc.cd_reduzido_credito(+) = pc.cd_reduzido
+   AND LC.DT_LCTO(+) >= :CAMPO_DT_INI
+   AND LC.DT_LCTO(+) <= :CAMPO_DT_FIM
+   AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+   AND pc.sn_imprime IN ('S',:CAMPO_SN_IMPRIME)
+   AND (:CAMPO_PSNCTRLUSUPLCONTAS = 'N' or :CAMPO_PSNCTRLUSUPLCONTAS = 'S'
+   AND EXISTS (SELECT CD_REDUZIDO
+	               FROM DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+   	            WHERE PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+	                AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                  AND PU.CD_ID_USUARIO     = USER  ))
+   AND :CAMPO_TP_ORIGEM  = 'L'
+   AND :CAMPO_TP_PERIODO = 'D'
+:CAMPO_CF_VISAO
+) D
+GROUP BY  D.CD_CONTABIL
+         ,D.DS_CONTA
+         ,D.CD_GRAU
+         ,D.TP_CONTA
+          ,D.DATA_MOV
+         ,TO_CHAR(D.DT_SALDO_MES, 'DDMMYYYY')
+         ,D.CD_REDUZIDO
+         ,D.VL_SALDO_ANT
+ORDER BY  CD_CONTABIL
+)
+ORDER BY CD_CONTABIL,DS_CONTA,
+DT_MOV

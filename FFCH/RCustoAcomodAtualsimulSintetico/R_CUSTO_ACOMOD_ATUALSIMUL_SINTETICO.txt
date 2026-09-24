@@ -1,0 +1,53 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_ACOMOD_ATUALSIMUL_SINTETICO
+SELECT * FROM (
+SELECT   custo_diaria_cencir.cd_setor
+        ,setor.nm_setor
+        ,TO_CHAR( custo_diaria_cencir.dt_competencia, 'mm/yyyy' ) dt_comp
+        ,SUM( Nvl(custo_diaria_cencir.qt_diarias_disponivel, 0) ) qt_diarias_disponivel
+        ,SUM( Nvl(custo_diaria_cencir.qt_diarias_faturadas, 0) ) qt_diarias_faturado
+        ,SUM( Nvl(custo_diaria_cencir.qt_diarias_utilizadas, 0) ) qt_diarias_utilizada
+        ,SUM( Nvl(custo_diaria_cencir.qt_diarias_pacdia, 0) ) qt_diarias_pacdia
+        ,(SELECT vl_custo_especificos FROM custo_final
+        WHERE cd_setor = custo_diaria_cencir.cd_setor AND trunc(dt_competencia, 'mm') = trunc( custo_diaria_cencir.dt_competencia, 'mm' )
+        AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA )  CUSTO_ESPECIFICOS
+        ,(SELECT vl_custo_genericos FROM custo_final
+        WHERE cd_setor = custo_diaria_cencir.cd_setor AND trunc(dt_competencia, 'mm') = trunc( custo_diaria_cencir.dt_competencia, 'mm' )
+        AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA )  CUSTO_GENERICOS
+        ,(SELECT (nvl(vl_custo_primario, 0) - nvl(vl_custo_matmed, 0)) vl_custo_primario FROM custo_final
+        WHERE cd_setor = custo_diaria_cencir.cd_setor AND trunc(dt_competencia, 'mm') = trunc( custo_diaria_cencir.dt_competencia, 'mm' )
+        AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) CUSTO_PRIMARIO
+        ,(SELECT nvl( vl_custo_genericos + vl_custo_especificos, 0)  FROM custo_final
+            WHERE cd_setor = custo_diaria_cencir.cd_setor AND trunc(dt_competencia, 'mm') = trunc( custo_diaria_cencir.dt_competencia, 'mm' )
+             AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) RATEIO_ABSORVIDO
+        ,(SELECT SUM(NVL(vl_custo_evento,0))+ SUM(DECODE(C.comp_rateio_gen,'N',0,NVL(vl_custo_genericos,0)))+ SUM(DECODE(C.comp_rateio_esp,'N',0,NVL(vl_custo_especificos,0)))+ SUM(DECODE(C.comp_op_matmed,'N',0,NVL(vl_custo_matmed,0)))SOMA
+            FROM custo_final,
+              (SELECT comp_op_matmed,
+                comp_rateio_esp,
+                comp_rateio_gen
+              FROM config_fcch
+              WHERE cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              AND rownum             = 1
+              ) C
+            WHERE cd_setor = CUSTO_DIARIA_CENCIR.CD_SETOR
+            AND trunc(DT_COMPETENCIA, 'mm') = Trunc(custo_diaria_cencir.dt_competencia,'mm')
+            AND custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            ) AS CUSTO_OPER
+    FROM dbamv.setor
+        ,dbamv.custo_diaria_cencir
+        ,dbamv.tip_acom
+        ,dbamv.tip_acom_setor
+   WHERE custo_diaria_cencir.cd_setor = setor.cd_setor
+     AND custo_diaria_cencir.cd_setor = tip_acom_setor.cd_setor(+)
+     AND custo_diaria_cencir.cd_tip_acom = tip_acom_setor.cd_tip_acom(+)
+     AND custo_diaria_cencir.cd_tip_acom = tip_acom.cd_tip_acom
+     AND custo_diaria_cencir.tp_custo = 'D'
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND DT_COMPETENCIA BETWEEN TO_DATE('01/'||:CAMPO_DTINI, 'dd/mm/yyyy') AND LAST_DAY(To_Date('01/'||:CAMPO_DTFIM,'dd/mm/yyyy'))
+     AND setor.tp_composicao_calculo = '4'
+GROUP BY custo_diaria_cencir.cd_setor
+        ,setor.nm_setor
+	, trunc( custo_diaria_cencir.dt_competencia, 'mm' )
+        , TO_CHAR( custo_diaria_cencir.dt_competencia, 'mm/yyyy' )
+)
+ORDER BY NM_SETOR, To_Date('01/'||dt_comp,'dd/mm/yyyy')

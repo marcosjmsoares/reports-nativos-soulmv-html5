@@ -1,0 +1,133 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_OCUP_POR_LEIT
+SELECT * FROM (
+SELECT  CD_UNID_INT
+       ,DS_UNID_INT
+       ,DS_RESUMO
+       ,DS_TIP_ACOM
+       ,cd_leito
+       ,sum(QT_PACIENTES) qt_pac
+       ,SUM(QT_DIARIAS) qt_dia
+from (
+  SELECT  UNID_INT.CD_UNID_INT          CD_UNID_INT
+         ,UNID_INT.DS_UNID_INT          DS_UNID_INT
+         ,LEITO.DS_RESUMO               DS_RESUMO
+         ,TIP_ACOM.DS_TIP_ACOM          DS_TIP_ACOM
+         ,COUNT(*)                      QT_PACIENTES
+         ,SUM( decode( tip_acom.tp_acomodacao,'H',1, NVL(TRUNC(MOV_INT.DT_LIB_MOV), :CAMPO_DATA_FIM ) - :CAMPO_DATA_INI ))   QT_DIARIAS
+         ,LEITO.cd_leito                cd_leito
+  FROM      DBAMV.MOV_INT
+               ,DBAMV.TIP_ACOM
+              ,DBAMV.LEITO
+             ,DBAMV.UNID_INT
+             ,DBAMV.CONVENIO
+             ,DBAMV.SETOR
+ WHERE  (TRUNC(mov_int.dt_mov_int)  <  :CAMPO_DATA_INI  AND
+         (TRUNC(mov_int.dt_lib_mov) BETWEEN :CAMPO_DATA_INI  AND  :CAMPO_DATA_FIM )
+          OR (TRUNC(mov_int.dt_mov_int)  <  :CAMPO_DATA_INI  AND mov_int.dt_lib_mov IS NULL))
+AND        mov_int.CD_TIP_ACOM    = TIP_ACOM.CD_TIP_ACOM(+) 
+AND        mov_int.CD_LEITO       = LEITO.CD_LEITO
+AND        LEITO.CD_UNID_INT      = UNID_INT.CD_UNID_INT
+AND        mov_int.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND        UNID_INT.CD_SETOR = SETOR.CD_SETOR
+AND        LEITO.DT_ATIVACAO <=  :CAMPO_DATA_FIM
+AND        NVL(LEITO.DT_DESATIVACAO,:CAMPO_DATA_FIM) >= :CAMPO_DATA_FIM
+group by UNID_INT.CD_UNID_INT
+       ,UNID_INT.DS_UNID_INT
+       ,LEITO.DS_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM
+       ,LEITO.cd_leito
+union all
+SELECT  UNID_INT.CD_UNID_INT          CD_UNID_INT
+       ,UNID_INT.DS_UNID_INT          DS_UNID_INT
+       ,LEITO.DS_RESUMO               DS_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM          DS_TIP_ACOM
+       ,COUNT(*)                      QT_PACIENTES
+       ,SUM(decode( tip_acom.tp_acomodacao,'H',1,NVL(TRUNC(MOV_INT.DT_LIB_MOV), :CAMPO_DATA_FIM ) - TRUNC(MOV_INT.DT_MOV_int)))   QT_DIARIAS
+       ,LEITO.cd_leito                cd_leito
+FROM         DBAMV.MOV_INT
+            ,DBAMV.TIP_ACOM
+            ,DBAMV.LEITO
+            ,DBAMV.UNID_INT
+            ,DBAMV.CONVENIO
+            ,DBAMV.SETOR
+WHERE  TRUNC(mov_int.DT_mov_int)  BETWEEN :CAMPO_DATA_INI  AND 
+and     ( TRUNC(mov_int.dt_lib_mov) BETWEEN :CAMPO_DATA_INI  AND  
+           or mov_int.dt_lib_mov IS NULL )
+AND        mov_int.CD_TIP_ACOM    = TIP_ACOM.CD_TIP_ACOM(+) 
+AND        mov_int.CD_LEITO       = LEITO.CD_LEITO
+AND        LEITO.CD_UNID_INT      = UNID_INT.CD_UNID_INT
+AND        mov_int.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND        UNID_INT.CD_SETOR = SETOR.CD_SETOR
+AND        LEITO.DT_ATIVACAO <=  :CAMPO_DATA_FIM
+AND        NVL(LEITO.DT_DESATIVACAO,:CAMPO_DATA_FIM) >= :CAMPO_DATA_FIM
+group by UNID_INT.CD_UNID_INT
+       ,UNID_INT.DS_UNID_INT
+       ,LEITO.DS_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM
+       ,LEITO.cd_leito
+union all
+SELECT  UNID_INT.CD_UNID_INT          CD_UNID_INT
+       ,UNID_INT.DS_UNID_INT          DS_UNID_INT
+       ,LEITO.DS_RESUMO               DS_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM          DS_TIP_ACOM
+       ,COUNT(*)                      QT_PACIENTES
+       ,SUM(decode(tip_acom.tp_acomodacao,'H',1,  :CAMPO_DATA_FIM - TRUNC(MOV_INT.DT_MOV_int) ) )   QT_DIARIAS
+       ,LEITO.cd_leito                cd_leito
+FROM         DBAMV.MOV_INT
+            ,DBAMV.TIP_ACOM
+            ,DBAMV.LEITO
+            ,DBAMV.UNID_INT
+            ,DBAMV.CONVENIO
+            ,DBAMV.SETOR
+WHERE  TRUNC(mov_int.DT_mov_int)  BETWEEN :CAMPO_DATA_INI  AND 
+and        mov_int.dt_lib_mov > :CAMPO_DATA_FIM
+AND        mov_int.CD_TIP_ACOM    = TIP_ACOM.CD_TIP_ACOM(+) 
+AND        mov_int.CD_LEITO       = LEITO.CD_LEITO
+AND        LEITO.CD_UNID_INT      = UNID_INT.CD_UNID_INT
+AND        mov_int.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND        UNID_INT.CD_SETOR = SETOR.CD_SETOR
+AND        LEITO.DT_ATIVACAO <=  :CAMPO_DATA_FIM
+AND        NVL(LEITO.DT_DESATIVACAO,:CAMPO_DATA_FIM) >= :CAMPO_DATA_FIM
+group by UNID_INT.CD_UNID_INT
+       ,UNID_INT.DS_UNID_INT
+       ,LEITO.DS_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM
+       ,LEITO.cd_leito
+UNION ALL
+  SELECT  UNID_INT.CD_UNID_INT          CD_UNID_INT
+         ,UNID_INT.DS_UNID_INT          DS_UNID_INT
+         ,LEITO.DS_RESUMO               DS_RESUMO
+         ,TIP_ACOM.DS_TIP_ACOM          DS_TIP_ACOM
+         ,COUNT(*)                      QT_PACIENTES
+         ,SUM( decode( tip_acom.tp_acomodacao,'H',1, NVL(TRUNC(MOV_INT.DT_LIB_MOV), :CAMPO_DATA_FIM ) - :CAMPO_DATA_INI ))   QT_DIARIAS
+         ,LEITO.cd_leito                cd_leito
+  FROM      DBAMV.MOV_INT
+               ,DBAMV.TIP_ACOM
+              ,DBAMV.LEITO
+             ,DBAMV.UNID_INT
+             ,DBAMV.CONVENIO
+             ,DBAMV.SETOR
+ WHERE  (TRUNC(mov_int.dt_mov_int)  <  :CAMPO_DATA_INI  AND
+         (TRUNC(mov_int.dt_lib_mov) >  :CAMPO_DATA_FIM ))
+AND        mov_int.CD_TIP_ACOM    = TIP_ACOM.CD_TIP_ACOM(+)
+AND        mov_int.CD_LEITO       = LEITO.CD_LEITO
+AND        LEITO.CD_UNID_INT      = UNID_INT.CD_UNID_INT
+AND        mov_int.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND        UNID_INT.CD_SETOR = SETOR.CD_SETOR
+AND        LEITO.DT_ATIVACAO <=  :CAMPO_DATA_FIM
+AND        NVL(LEITO.DT_DESATIVACAO,:CAMPO_DATA_INI) >= :CAMPO_DATA_INI
+group by UNID_INT.CD_UNID_INT
+       ,UNID_INT.DS_UNID_INT
+       ,LEITO.DS_RESUMO
+       ,TIP_ACOM.DS_TIP_ACOM
+       ,LEITO.cd_leito
+)
+group by CD_UNID_INT
+       ,DS_UNID_INT
+       ,DS_RESUMO
+       ,DS_TIP_ACOM
+       ,cd_leito
+order by   qt_dia desc
+)
+ORDER BY DS_UNID_INT, CD_LEITO

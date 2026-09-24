@@ -1,0 +1,97 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_CAIXA_TRAN_EMPRESA
+select  c.cd_caixa
+      , Rtrim(c.ds_caixa)                            ds_caixa ,
+       Decode( '', 'S', e.cd_multi_empresa, null )   cd_multi_empresa_Cx,
+       Decode( '', 'S', e.ds_multi_empresa, null )   ds_multi_empresa_Cx,
+       Decode( '', 'S', C.Ds_Caixa, C.Ds_Caixa||'    Empresa: '||e.Ds_Multi_Empresa ) Ds_Caixa_Empresa
+      , l.cd_lote_caixa
+      , l.dt_abertura
+      , l.dt_fechamento
+      , l.vl_saldo_inicial                          saldo_anterior
+      , m.cd_mov_caixa
+      , m.tp_movimentacao   tp_movimentacao_mov
+      , nvl(m.vl_movimentacao,0)   vl_movimentacao
+      , m.cd_doc_caixa
+      , m.cd_caucao
+      , trunc(m.dt_movimentacao)                    data
+      , nvl(m.ds_mov_caixa,'-')                     historico
+      , nvl(m.vl_movimentacao,0)                    valor
+      , decode(m.tp_movimentacao,'E','C','S','D')   tp_movimentacao
+      , x.cd_banco
+      , Rtrim(x.nm_banco)                            nm_banco
+      , x.cd_doc_caixa
+      , x.docto                                     docto
+      , nvl(x.tipo,'DIN')                           tipo
+      , docs.nr_documento
+      , docs.tp_con_rec
+      , docs.ds_con_rec
+      , docs.nm_cliente
+      , m.tp_origem_mov
+      ,itimp.cd_importa_mov_caixa
+      ,itimp.nr_sequencial
+      ,m.Cd_Multi_Empresa_Origem
+      ,m.Cd_Multi_Empresa_Destino
+from    dbamv.multi_empresas        E
+        , dbamv.mov_caixa           m
+        , dbamv.itimporta_mov_caixa itimp
+        , dbamv.lote_caixa          l
+        , dbamv.caixa               c
+      ,(select cr1.nr_documento
+             , cr1.tp_con_rec
+             , cr1.ds_con_rec
+             , rr.cd_mov_caixa
+             , cr1.nm_cliente
+          from dbamv.con_rec      cr1
+             , dbamv.itcon_rec    ic
+             , dbamv.reccon_rec   rr
+         where cr1.cd_con_rec        = ic.cd_con_rec
+           and rr.cd_itcon_rec       = ic.cd_itcon_rec
+           and cr1.tp_con_rec        = 'M'
+         group by  rr.cd_mov_caixa
+             , cr1.nr_documento
+             , cr1.tp_con_rec
+             , cr1.ds_con_rec
+             , cr1.nm_cliente    ) docs
+      , ( select  b.nm_banco
+                , C.cd_doc_caixa
+            	, C.cd_caixa
+            	, C.cd_banco
+            	, C.nr_documento                   docto
+            	, decode(C.tp_doc_caixa
+                		,'1','DIN'
+                		,'2','CHE'
+                		,'3','CAR'
+                		,'4','TEF'
+                		,'5','PRO'
+                		,'6','DUP'
+                		,'DIN')                    tipo
+          from  dbamv.doc_caixa C
+            	 ,dbamv.banco     b
+          where C.cd_banco = b.cd_banco(+)) x
+where  c.cd_caixa           = l.cd_caixa
+and    c.Cd_Multi_Empresa   = E.Cd_Multi_Empresa
+and     m.cd_doc_caixa      = x.cd_doc_caixa (+)
+and  ( exists
+       ( select  'x'
+         from    dbamv.atendime     a
+               , dbamv.con_rec      cr
+               , dbamv.itcon_rec    i
+               , dbamv.reccon_rec   r
+         where   r.cd_itcon_rec       = i.cd_itcon_rec
+         and     i.cd_con_rec         = cr.cd_con_rec
+         and     cr.cd_atendimento    = a.cd_atendimento(+)
+         and     r.cd_mov_caixa       = m.cd_mov_caixa
+         and     cr.cd_multi_empresa  = c.cd_multi_empresa
+         and     a.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+    or nvl(:CAMPO_CD_ORI_ATE,'%') = '%' )
+and     m.dt_cancelamento is null
+and     Nvl( M.Cd_Multi_Empresa_Origem, 0 )  = Nvl( :CAMPO_CD_MULTI_EMP_ORIGEM , Nvl( M.Cd_Multi_Empresa_Origem, 0 ) )
+and     Nvl( M.Cd_Multi_Empresa_Destino, 0 )  = Nvl( :CAMPO_CD_MULTI_EMP_DESTINO , Nvl( M.Cd_Multi_Empresa_Destino, 0 ) )
+and     m.cd_itimporta_mov_caixa = itimp.cd_itimporta_mov_caixa(+)
+and docs.cd_mov_caixa(+)= m.cd_mov_caixa
+order by l.dt_abertura , m.dt_movimentacao, m.tp_movimentacao
+,DS_MULTI_EMPRESA_CX,CD_MULTI_EMPRESA_CX,
+DS_CAIXA_EMPRESA,DS_CAIXA,CD_CAIXA,
+DT_ABERTURA,SALDO_ANTERIOR,CD_LOTE_CAIXA,DT_FECHAMENTO,
+DATA

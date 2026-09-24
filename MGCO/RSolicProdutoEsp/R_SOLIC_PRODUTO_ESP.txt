@@ -1,0 +1,166 @@
+/*----------------------------------------------------------------------------*/
+--R_SOLIC_PRODUTO_ESP
+Select cd_produto
+     , ds_produto
+     , sum(nvl(qtd_sol, 0)) Qtd_sol
+     , sum(nvl(vl_total, 0)) vl_total
+  From (Select Produto.cd_produto cd_produto
+             , Produto.ds_produto ds_produto
+             , count(NVL( ord_com.cd_ord_com,0)) Qtd_sol
+             , sum( nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_imposto,itord_pro.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_desconto,itord_pro.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM) , 0 )  ) vl_total
+          From Dbamv.Estoque
+             , Dbamv.Ord_Com
+             , Dbamv.Itord_pro
+             , Dbamv.Produto
+             , Dbamv.Especie
+             , Dbamv.ord_com_moeda
+         Where Estoque.cd_estoque       = Ord_com.cd_estoque
+           And Ord_com.cd_ord_com       = Itord_pro.cd_ord_com
+           And nvl(ord_com.tp_contrato, 'O') = 'O'
+           And Itord_pro.cd_produto     = Produto.cd_produto
+           And Produto.cd_especie       = Especie.cd_especie(+)
+           And ord_com.cd_ord_com       = ord_com_moeda.cd_ord_com(+)
+           And Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+           And to_date(to_char(ord_com.dt_ord_com, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                                    to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+          Group by  Produto.cd_produto,
+                    Produto.ds_produto
+          Union all
+          Select Produto.cd_produto cd_produto
+               , Produto.ds_produto ds_produto
+               , count(NVL( ent_pro.cd_ent_pro,0)) Qtd_sol
+               ,sum(nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_TOTAL,ITENT_PRO.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_IMPOSTO,ITENT_PRO.VL_IMPOSTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_DESCONTO,ITENT_PRO.VL_DESCONTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) ) vl_total
+            From Dbamv.Estoque
+               , Dbamv.Ord_Com
+               , Dbamv.Ent_pro
+               , Dbamv.Itent_pro
+               , Dbamv.Produto
+               , Dbamv.Especie
+               ,DBAMV.ENT_PRO_MOEDA
+           Where Estoque.cd_estoque       = ent_pro.cd_estoque
+             And Estoque.cd_estoque       = ord_com.cd_estoque
+             AND ent_pro.cd_ent_pro = ent_pro_moeda.cd_ent_pro(+)
+             And ent_pro.cd_ent_pro       = Itent_pro.cd_ent_pro
+             And ent_pro.cd_ord_com       = ord_com.cd_ord_com
+             And nvl(ord_com.tp_contrato, 'O') <> 'O'
+             And Itent_pro.cd_produto     = Produto.cd_produto
+             And Produto.cd_especie       = Especie.cd_especie(+)
+             And Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+             And to_date(to_char(ent_pro.dt_entrada, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                                      to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+           Group by Produto.cd_produto
+               , Produto.ds_produto
+               )
+ Group by cd_produto
+     , ds_produto
+Order by 4 desc
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_SOLIC_PRODUTO_ESP_GRAFICO
+Select RETORNO.cd_especie
+     , RETORNO.ds_especie
+     , nvl(RETORNO.qtd_sol, 0) Qtd_sol2
+     , nvl(RETORNO.vl_total, 0) vl_total2
+     , SUM(RETORNO2.VL_TOTAL)
+     , SUM(RETORNO2.QTD_SOL)
+  From (Select Especie.cd_especie cd_especie
+             , Especie.ds_especie ds_especie
+             , count(NVL( ord_com.cd_ord_com,0)) Qtd_sol
+             , sum( nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_imposto,itord_pro.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_desconto,itord_pro.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM) , 0 )  ) vl_total
+          From Dbamv.Estoque
+             , Dbamv.Ord_Com
+             , Dbamv.Itord_pro
+             , Dbamv.Produto
+             , Dbamv.Especie
+             , Dbamv.ord_com_moeda
+         Where Estoque.cd_estoque       = Ord_com.cd_estoque
+           And Ord_com.cd_ord_com       = Itord_pro.cd_ord_com
+           And nvl(ord_com.tp_contrato, 'O') = 'O'
+           And itord_pro.cd_mot_cancel  is null
+           And Itord_pro.cd_produto     = Produto.cd_produto
+           And Produto.cd_especie       = Especie.cd_especie(+)
+           And ord_com.cd_ord_com       = ord_com_moeda.cd_ord_com(+)
+           And Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+           And to_date(to_char(ord_com.dt_ord_com, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                       to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+         Group by Especie.cd_especie
+             , Especie.ds_especie
+         Union all
+        Select Especie.cd_especie cd_especie
+             , Especie.ds_especie ds_especie
+             , count(NVL( ent_pro.cd_ent_pro,0)) Qtd_sol
+             ,sum(nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_TOTAL,ITENT_PRO.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_IMPOSTO,ITENT_PRO.VL_IMPOSTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_DESCONTO,ITENT_PRO.VL_DESCONTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) ) vl_total
+          From Dbamv.Estoque
+             , Dbamv.Ord_Com
+             , Dbamv.Ent_pro
+             , Dbamv.Itent_pro
+             , Dbamv.Produto
+             , Dbamv.Especie
+             ,DBAMV.ENT_PRO_MOEDA
+         Where Estoque.cd_estoque       = ent_pro.cd_estoque
+           And Estoque.cd_estoque       = ord_com.cd_estoque
+           And ent_pro.cd_ent_pro       = Itent_pro.cd_ent_pro
+           And ent_pro.cd_ord_com       = ord_com.cd_ord_com
+           And nvl(ord_com.tp_contrato, 'O') <> 'O'
+           And Itent_pro.cd_produto     = Produto.cd_produto
+           And Produto.cd_especie       = Especie.cd_especie (+)
+            AND ent_pro.cd_ent_pro = ent_pro_moeda.cd_ent_pro(+)
+           And Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+           And to_date(to_char(ent_pro.dt_entrada, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                       to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+         Group by  Especie.cd_especie
+             , Especie.ds_especie) RETORNO ,
+             (Select Especie.cd_especie cd_especie
+             , Especie.ds_especie ds_especie
+             , count(NVL( ord_com.cd_ord_com,0)) Qtd_sol
+             , sum( nvl(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_imposto,itord_pro.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_desconto,itord_pro.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM) , 0 )  ) vl_total
+          From Dbamv.Estoque
+             , Dbamv.Ord_Com
+             , Dbamv.Itord_pro
+             , Dbamv.Produto
+             , Dbamv.Especie
+             , Dbamv.ord_com_moeda
+         Where Estoque.cd_estoque       = Ord_com.cd_estoque
+           And Ord_com.cd_ord_com       = Itord_pro.cd_ord_com
+           And nvl(ord_com.tp_contrato, 'O') = 'O'
+           And itord_pro.cd_mot_cancel  is null
+           And Itord_pro.cd_produto     = Produto.cd_produto
+           And Produto.cd_especie       = Especie.cd_especie(+)
+           And ord_com.cd_ord_com       = ord_com_moeda.cd_ord_com(+)
+           And Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+           And to_date(to_char(ord_com.dt_ord_com, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                       to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+         Group by Especie.cd_especie
+             , Especie.ds_especie
+         Union all
+        Select Especie.cd_especie cd_especie
+             , Especie.ds_especie ds_especie
+             , count(NVL( ent_pro.cd_ent_pro,0)) Qtd_sol
+             ,sum(nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_TOTAL,ITENT_PRO.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_IMPOSTO,ITENT_PRO.VL_IMPOSTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_DESCONTO,ITENT_PRO.VL_DESCONTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) ) vl_total
+          From Dbamv.Estoque
+             , Dbamv.Ord_Com
+             , Dbamv.Ent_pro
+             , Dbamv.Itent_pro
+             , Dbamv.Produto
+             , Dbamv.Especie
+             ,DBAMV.ENT_PRO_MOEDA
+         Where Estoque.cd_estoque       = ent_pro.cd_estoque
+           And Estoque.cd_estoque       = ord_com.cd_estoque
+           And ent_pro.cd_ent_pro       = Itent_pro.cd_ent_pro
+           And ent_pro.cd_ord_com       = ord_com.cd_ord_com
+           And nvl(ord_com.tp_contrato, 'O') <> 'O'
+           And Itent_pro.cd_produto     = Produto.cd_produto
+           And Produto.cd_especie       = Especie.cd_especie (+)
+           AND ent_pro.cd_ent_pro = ent_pro_moeda.cd_ent_pro(+)
+           And Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+           And to_date(to_char(ent_pro.dt_entrada, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                       to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+         Group by  Especie.cd_especie
+             , Especie.ds_especie) RETORNO2
+ Group by RETORNO.cd_especie
+     , RETORNO.ds_especie
+     , nvl(RETORNO.qtd_sol, 0)
+     , nvl(RETORNO.vl_total, 0)
+ Order by 4 desc

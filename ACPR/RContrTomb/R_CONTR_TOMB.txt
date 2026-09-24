@@ -1,0 +1,94 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTR_TOMB
+SELECT *
+   FROM
+    ( SELECT DISTINCT ent_pro.nr_documento,
+        fornecedor.cd_fornecedor codigo,
+        fornecedor.nm_fornecedor descricao,
+        fornecedor.nr_cgc_cpf,
+        ent_pro.dt_emissao,
+        itent_pro.cd_ent_pro,
+        itent_pro.cd_itent_pro,
+        ('EMPRESA ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa) empresa,
+        me.cd_multi_empresa,
+        ent_pro.dt_entrada
+       FROM dbamv.ent_pro,
+        dbamv.estoque,
+        dbamv.fornecedor,
+        dbamv.itent_pro,
+        dbamv.produto,
+        dbamv.sub_clas,
+        dbamv.multi_empresas me
+      WHERE ent_pro.cd_estoque          = estoque.cd_estoque
+        AND fornecedor.cd_fornecedor    = ent_pro.cd_fornecedor
+        AND itent_pro.cd_ent_pro        = ent_pro.cd_ent_pro
+        AND itent_pro.cd_produto        = produto.cd_produto
+        AND produto.cd_especie          = sub_clas.cd_especie
+        AND produto.cd_classe           = sub_clas.cd_classe
+        AND produto.cd_sub_cla          = sub_clas.cd_sub_cla
+        AND sub_clas.sn_prod_permanente = 'P'
+        AND estoque.cd_multi_empresa    = me.cd_multi_empresa
+	AND ( (ROUND(NVL(:CAMPO_SITUACAO,1)) = 1)
+    	    OR (ROUND(NVL(:CAMPO_SITUACAO,1)) = 2 AND NVL(itent_pro.qt_tombado, 0) > 0)
+	    OR (ROUND(NVL(:CAMPO_SITUACAO,1)) = 3 AND ( NVL(itent_pro.qt_entrada, 0) - NVL(itent_pro.qt_devolvida, 0) - NVL(itent_pro.qt_tombado, 0) > 0 ))
+)
+        :CAMPO_CF_ORDEM
+    )
+ORDER BY cd_multi_empresa,
+    empresa,
+    nr_documento,
+    codigo,
+    descricao,
+    nr_cgc_cpf,
+    dt_emissao,
+    cd_ent_pro,
+    dt_entrada
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTR_TOMB_R_G_CD_PRODUTO1_Q_2
+SELECT codigo,
+    descricao,
+    qt_entrada,
+    qt_tombado,
+    (qt_entrada - qt_tombado) qt_restante,
+    Trunc(vl_custo_real,2) vl_custo_real,
+    cd_ent_pro,
+    cd_itent_pro,
+    cd_sub_cla,
+    (Trunc(vl_custo_real,2) * qt_tombado) vl_custo_real_total,
+    (Trunc(vl_custo_real,2) * qt_entrada) vl_total_entrada,
+    (Trunc(vl_custo_real,2) * (qt_entrada - qt_tombado)) vl_total_nao_tombado
+   FROM
+    (SELECT produto.cd_produto codigo,
+        produto.ds_produto descricao,
+        itent_pro.qt_entrada,
+        NVL(itent_pro.qt_tombado, 0) qt_tombado,
+        itent_pro.vl_custo_real,
+        ent_pro.cd_ent_pro,
+        itent_pro.cd_itent_pro,
+        produto.cd_sub_cla
+       FROM dbamv.ent_pro,
+        dbamv.estoque,
+        dbamv.fornecedor,
+        dbamv.itent_pro,
+        dbamv.produto,
+        dbamv.sub_clas,
+        dbamv.multi_empresas me
+      WHERE ent_pro.cd_estoque          = estoque.cd_estoque
+        AND fornecedor.cd_fornecedor    = ent_pro.cd_fornecedor
+        AND itent_pro.cd_ent_pro        = ent_pro.cd_ent_pro
+        AND itent_pro.cd_produto        = produto.cd_produto
+        AND produto.cd_especie          = sub_clas.cd_especie
+        AND produto.cd_classe           = sub_clas.cd_classe
+        AND produto.cd_sub_cla          = sub_clas.cd_sub_cla
+        AND sub_clas.sn_prod_permanente = 'P'
+	AND ( (ROUND(NVL(:CAMPO_SITUACAO,1)) = 1)
+OR (ROUND(NVL(:CAMPO_SITUACAO,1)) = 2 AND NVL(itent_pro.qt_tombado, 0) > 0)
+OR (ROUND(NVL(:CAMPO_SITUACAO,1)) = 3 AND ( NVL(itent_pro.qt_entrada, 0) - NVL(itent_pro.qt_devolvida, 0) - NVL(itent_pro.qt_tombado, 0) > 0 ))
+)
+        AND estoque.cd_multi_empresa    = me.cd_multi_empresa
+        :CAMPO_CF_ORDEM
+    )
+  WHERE cd_ent_pro = :CAMPO_CD_ENT_PRO

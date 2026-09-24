@@ -1,0 +1,92 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTA_NOTA
+SELECT * FROM (
+SELECT   convenio.cd_convenio       cd_conv
+         ,convenio.nm_convenio      nm_conv
+         ,itreg_amb.cd_atendimento  atendimento
+         ,atendime.cd_paciente      pac
+         ,itreg_amb.dt_fechamento   dt_fech
+         ,itreg_amb.cd_reg_amb      conta
+         ,SUM (itreg_amb.vl_total_conta)  valor_conta
+FROM dbamv.itreg_amb itreg_amb
+     ,dbamv.atendime atendime
+     ,dbamv.ori_ate ori_ate
+     ,dbamv.fatura fatura
+     ,dbamv.reg_amb reg_amb
+     ,dbamv.remessa_fatura remessa_fatura
+     ,dbamv.convenio convenio
+     ,dbamv.servico servico
+     ,dbamv.empresa_convenio
+WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+  AND  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+  AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+  AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+  AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+  AND remessa_fatura.cd_fatura = fatura.cd_fatura
+  AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+  AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+  AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+  AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+  AND itreg_amb.cd_convenio = convenio.cd_convenio
+  AND itreg_amb.sn_fechada ='S'
+  AND convenio.tp_convenio = 'P'
+  AND atendime.cd_servico = servico.cd_servico(+)
+  AND  NOT exists ( SELECT n.cd_reg_amb
+                    FROM dbamv.nota_fiscal n
+                    WHERE n.cd_status = 'E'
+                    AND n.cd_reg_amb = reg_amb.cd_reg_amb)
+  GROUP BY    convenio.cd_convenio
+              ,convenio.nm_convenio
+              ,itreg_amb.cd_atendimento
+              ,atendime.cd_paciente
+              ,itreg_amb.dt_fechamento
+              ,itreg_amb.cd_reg_amb
+UNION
+SELECT   convenio.cd_convenio     cd_conv
+         ,convenio.nm_convenio     nm_conv
+         ,reg_fat.cd_atendimento   atendimento
+         ,atendime.cd_paciente pac
+         ,reg_fat.dt_fechamento    dt_fech
+         ,reg_fat.cd_reg_fat       conta
+         ,SUM (itreg_fat.vl_total_conta) valor_conta
+FROM dbamv.reg_fat reg_fat
+     ,dbamv.atendime atendime
+     ,dbamv.ori_ate ori_ate
+     ,dbamv.remessa_fatura remessa_fatura
+     ,dbamv.fatura fatura
+     ,dbamv.itreg_fat itreg_fat
+     ,dbamv.gru_fat gru_fat
+     ,dbamv.convenio convenio
+     ,dbamv.servico servico
+     ,dbamv.empresa_convenio
+WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+  AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+  AND atendime.cd_atendimento = reg_fat.cd_atendimento
+  AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+  AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+  AND remessa_fatura.cd_fatura = fatura.cd_fatura
+  AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+  AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+  AND NVL (itreg_fat.sn_pertence_pacote, 'N') = 'N'
+  AND NVL (itreg_fat.tp_pagamento, 'X') <> 'C'
+  AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+  AND reg_fat.cd_convenio = convenio.cd_convenio
+  AND reg_fat.sn_fechada = 'S'
+  AND convenio.tp_convenio = 'P'
+  AND atendime.cd_servico = servico.cd_servico(+)
+  AND  NOT exists ( SELECT n.cd_reg_fat
+                    FROM dbamv.nota_fiscal n
+                    WHERE n.cd_status = 'E'
+                    AND n.cd_reg_fat = reg_fat.cd_reg_fat)
+  GROUP BY convenio.cd_convenio
+          ,convenio.nm_convenio
+          ,reg_fat.cd_atendimento
+          ,atendime.cd_paciente
+          ,reg_fat.dt_fechamento
+          ,reg_fat.cd_reg_fat
+)
+ORDER BY CD_CONV,NM_CONV, atendimento, conta

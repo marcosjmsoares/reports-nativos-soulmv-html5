@@ -1,0 +1,143 @@
+/*----------------------------------------------------------------------------*/
+--R_REPASSE_PRESTADOR_SUS
+SELECT * FROM (
+select repasse.cd_convenio
+     , repasse.nm_convenio
+     , repasse.cd_ups
+     , repasse.ds_ups
+     , repasse.cd_prestador
+     , repasse.nm_prestador
+     , repasse.cd_procedimento
+     , repasse.ds_procedimento
+     , sum(repasse.quantidade) quantidade
+     , sum(repasse.valor_faturado) valor_faturado
+     , sum(repasse.valor_repassado) valor_repassado
+  from ( 
+         select convenio.cd_convenio
+              , convenio.nm_convenio
+              , unidade_prestadora_servico.cd_ups
+              , unidade_prestadora_servico.ds_ups
+              , prestador.cd_prestador
+              , prestador.nm_prestador
+              , procedimento_sus.cd_procedimento
+              , procedimento_sus.ds_procedimento
+              , nvl(eve_siasus.qt_lancada,0) quantidade
+              , nvl(it_repasse_sia.vl_total,0) valor_faturado
+              , nvl(it_repasse_sia.vl_repasse,0) valor_repassado
+           from dbamv.repasse
+              , dbamv.it_repasse_sia
+              , dbamv.prestador
+              , dbamv.eve_siasus
+              , dbamv.convenio
+              , dbamv.procedimento_sus
+              , dbamv.unidade_prestadora_servico
+          where repasse.cd_repasse                       = it_repasse_sia.cd_repasse
+            and prestador.cd_prestador                   = it_repasse_sia.cd_prestador_repasse
+            and eve_siasus.cd_eventos                    = it_repasse_sia.cd_eventos
+            and eve_siasus.cd_convenio                   = convenio.cd_convenio
+            and eve_siasus.cd_ups                        = unidade_prestadora_servico.cd_ups
+            and procedimento_sus.cd_procedimento         = eve_siasus.cd_procedimento
+            and repasse.cd_multi_empresa                 = :CAMPO_CD_MULTI_EMPRESA
+            and to_char(repasse.dt_competencia,'mmyyyy') = to_char(:CAMPO_COMPET,'mmyyyy')
+            and (:CAMPO_FATURA = 'SIA' or :CAMPO_FATURA = 'TOD')
+          union all
+         select 9999 cd_convenio
+              , 'SIH-SUS' nm_convenio
+              , 00 cd_ups
+              , 'NAO DEFINIDO' ds_ups
+              , prestador.cd_prestador
+              , prestador.nm_prestador
+              , procedimento_sus.cd_procedimento
+              , procedimento_sus.ds_procedimento
+              , nvl(itreg_fat.qt_lancamento,0) quantidade
+              , nvl(it_repasse_sih.vl_total,0) valor_faturado
+              , nvl(it_repasse_sih.vl_repasse,0) valor_repassado
+           from dbamv.repasse
+              , dbamv.prestador
+              , dbamv.procedimento_sus
+              , dbamv.it_repasse_sih
+              , dbamv.itreg_fat
+          where repasse.cd_repasse               = it_repasse_sih.cd_repasse
+            and prestador.cd_prestador           = it_repasse_sih.cd_prestador_repasse
+            and procedimento_sus.cd_procedimento = itreg_fat.cd_procedimento
+            and itreg_fat.cd_reg_fat             = it_repasse_sih.cd_reg_fat
+            and itreg_fat.cd_lancamento          = it_repasse_sih.cd_lancamento
+            and repasse.cd_multi_empresa         = :CAMPO_CD_MULTI_EMPRESA
+            and to_char(repasse.dt_competencia,'mmyyyy') = to_char(:CAMPO_COMPET,'mmyyyy')
+            and (:CAMPO_FATURA = 'SIH' or :CAMPO_FATURA = 'TOD')
+          union all
+         select convenio.cd_convenio
+              , convenio.nm_convenio
+              , 00 cd_ups
+              , 'NAO DEFINIDO' ds_ups
+              , prestador.cd_prestador
+              , prestador.nm_prestador
+              , pro_fat.cd_pro_fat cd_procedimento
+              , pro_fat.ds_pro_fat ds_procedimento
+              , nvl(itreg_fat.qt_lancamento,0) quantidade
+              , nvl(it_repasse.vl_total,0) valor_faturado
+              , nvl(it_repasse.vl_repasse,0) valor_repassado
+           from dbamv.repasse
+              , dbamv.it_repasse
+              , dbamv.prestador
+              , dbamv.itreg_fat
+              , dbamv.reg_fat
+              , dbamv.convenio
+              , dbamv.pro_fat
+          where repasse.cd_repasse                       = it_repasse.cd_repasse
+            and prestador.cd_prestador                   = it_repasse.cd_prestador_repasse
+            and itreg_fat.cd_reg_fat                     = it_repasse.cd_reg_fat
+            and itreg_fat.cd_lancamento                  = it_repasse.cd_lancamento_fat
+            and reg_fat.cd_reg_fat                       = itreg_fat.cd_reg_fat
+            and reg_fat.cd_convenio                      = convenio.cd_convenio
+            and pro_fat.cd_pro_fat                       = itreg_fat.cd_pro_fat
+            and repasse.cd_multi_empresa                 = :CAMPO_CD_MULTI_EMPRESA
+            and to_char(repasse.dt_competencia,'mmyyyy') = to_char(:CAMPO_COMPET,'mmyyyy')
+            and (:CAMPO_FATURA = 'CON' or :CAMPO_FATURA = 'TOD')
+          union all
+         select convenio.cd_convenio
+              , convenio.nm_convenio
+              , 00 cd_ups
+              , 'NAO DEFINIDO' ds_ups
+              , prestador.cd_prestador
+              , prestador.nm_prestador
+              , pro_fat.cd_pro_fat
+              , pro_fat.ds_pro_fat
+              , nvl(itreg_amb.qt_lancamento,0) quantidade
+              , nvl(it_repasse.vl_total,0) valor_faturado
+              , nvl(it_repasse.vl_repasse,0) valor_repassado
+           from dbamv.repasse
+              , dbamv.it_repasse
+              , dbamv.prestador
+              , dbamv.convenio
+              , dbamv.pro_fat
+              , dbamv.itreg_amb
+              , dbamv.reg_amb
+          where repasse.cd_repasse                       = it_repasse.cd_repasse
+            and prestador.cd_prestador                   = it_repasse.cd_prestador_repasse
+            and pro_fat.cd_pro_fat                       = itreg_amb.cd_pro_fat
+            and itreg_amb.cd_reg_amb                     = it_repasse.cd_reg_amb
+            and itreg_amb.cd_lancamento                  = it_repasse.cd_lancamento_amb
+            and convenio.cd_convenio                     = reg_amb.cd_convenio
+            and reg_amb.cd_reg_amb                       = itreg_amb.cd_reg_amb
+            and repasse.cd_multi_empresa                 = :CAMPO_CD_MULTI_EMPRESA
+            and to_char(repasse.dt_competencia,'mmyyyy') = to_char(:CAMPO_COMPET,'mmyyyy')
+            and (:CAMPO_FATURA = 'CON' or :CAMPO_FATURA = 'TOD')
+            :CAMPO_FC_ZERADOS_CON
+         ) repasse
+group by repasse.cd_convenio
+       , repasse.nm_convenio
+       , repasse.cd_ups
+       , repasse.ds_ups
+       , repasse.cd_prestador
+       , repasse.nm_prestador
+       , repasse.cd_procedimento
+       , repasse.ds_procedimento
+order by repasse.nm_convenio
+       , repasse.ds_ups
+       , repasse.nm_prestador
+       , repasse.cd_procedimento
+)
+ORDER BY NM_CONVENIO,CD_CONVENIO,
+DS_UPS,CD_UPS,
+NM_PRESTADOR,CD_PRESTADOR

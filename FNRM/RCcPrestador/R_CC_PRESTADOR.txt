@@ -1,0 +1,1581 @@
+/*----------------------------------------------------------------------------*/
+--R_CC_PRESTADOR
+SELECT prestador.cd_remessa,
+    prestador.dt_lancamento,
+    prestador.cd_reg_fat,
+    prestador.cd_reg_amb,
+    prestador.cd_lanc_fat,
+    prestador.cd_lanc_amb,
+    prestador.cd_eventos,
+    prestador.cd_aih,
+    prestador.cd_glosas,
+    prestador.conta,
+    prestador.qt_lancamento,
+    prestador.cd_especialid,
+    DECODE (:CAMPO_SN_GRUPO ,'S', DECODE (prestador.cd_prestador_repasse, NULL, prestador.cd_prestador, prestador.cd_prestador_repasse) ,prestador.cd_prestador ) cd_prestador ,
+    prestador.cd_ati_med,
+    prestador.vl_total_conta,
+    prestador.vl_sh,
+    prestador.vl_sp,
+    prestador.vl_sd,
+    prestador.vl_ato,
+    prestador.vl_pontos,
+    prestador.qt_pontos,
+    prestador.cd_sus,
+    prestador.vl_base_repassado,
+    prestador.cd_convenio,
+    DECODE(prestador.nm_convenio, NULL, '- Manual',prestador.nm_convenio)   nm_convenio,
+    prestador.cd_pro_fat,
+    prestador.ds_pro_fat,
+    prestador.cd_gru_pro,
+    prestador.cd_ori_ate,
+    prestador.cd_paciente,
+    prestador.nm_paciente,
+    DECODE (:CAMPO_SN_GRUPO, 'S', NULL, prestador.nm_prestador) nm_prestador,
+    prestador.cd_reg_repasse,
+    prestador.cd_gru_fat,
+    prestador.tp_remessa,
+    prestador.dt_entrega_da_fatura,
+    prestador.dt_competencia,
+    prestador.sn_pertence_pacote,
+    prestador.cd_tip_acom,
+    prestador.filme,
+    prestador.cd_setor,
+    prestador.vl_outros,
+    prestador.vl_auxiliar,
+    prestador.tp_pagamento,
+    prestador.tipo,
+    DECODE (:CAMPO_SN_GRUPO, 'S', prestador.cd_prestador, TO_NUMBER (NULL) ) cd_prestador_individ,
+    DECODE (:CAMPO_SN_GRUPO, 'S', prestador.nm_prestador, NULL) nm_prestador_individ,
+    prestador.tp_atendimento,
+    prestador.qt_ch_unitario,
+    prestador.cd_espec_sus,
+    prestador.cd_repasse,
+    prestador.hr_lancamento hr_lancamento,
+    prestador.cf_a_repassar,
+    prestador.cf_repassado,
+    prestador.cf_dt_compet_repasse,
+    prestador.cd_con_pag cp_cd_con_pag,
+    (SELECT dt_emissao FROM dbamv.con_pag WHERE cd_con_pag = prestador.cd_con_pag) CP_DT_QUITACAO
+FROM (
+SELECT distinct reg_amb.cd_remessa cd_remessa
+			,atendime.dt_atendimento dt_lancamento
+			,0 cd_reg_fat
+			,itreg_amb.cd_reg_amb cd_reg_amb
+			,0 cd_lanc_fat
+			,itreg_amb.cd_lancamento cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,0 cd_glosas
+			,itreg_amb.cd_reg_amb conta
+			,itreg_amb.cd_pro_fat cd_pro_fat
+			,itreg_amb.cd_convenio cd_convenio
+			,itreg_amb.qt_lancamento qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,itreg_amb.cd_ati_med cd_ati_med
+			,NVL (itreg_amb.vl_total_conta, 0) vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			,itreg_amb.vl_base_repassado vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			, itreg_amb.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+			, dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_amb.cd_multi_empresa
+																				,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																				,atendime.cd_ori_ate, itreg_amb.cd_setor
+                                                                                ,DECODE(ATENDIME.TP_ATENDIMENTO,'A',ATENDIME.CD_SER_DIS,ATENDIME.CD_SERVICO)
+																				,itreg_amb.cd_ati_med, atendime.tp_atendimento
+                                                                              ,dt_lancamento
+                                                                              ,hr_lancamento
+                                                                                ) cd_prestador_repasse
+			, itreg_amb.sn_pertence_pacote sn_pertence_pacote
+			,0 cd_tip_acom
+			,NVL (itreg_amb.vl_filme_unitario * qt_lancamento, 0) filme
+			,itreg_amb.cd_setor cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'C' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,itreg_amb.tp_pagamento tp_pagamento
+			,'A' tp_conta
+			,reg_amb.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,itreg_amb.qt_ch_unitario qt_ch_unitario
+			,NULL cd_espec_sus
+			,repasse.cd_repasse
+			,NULL cd_sus
+			,itreg_amb.hr_lancamento hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN itreg_amb.sn_repassado = 'S' THEN it_repasse.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN itreg_amb.sn_repassado = 'S' THEN 0 ELSE
+  dbamv.pkg_fnrm_calc_repasse.fnc_get_vl_repasse(itreg_amb.vl_total_conta, 'CNV_AMB', itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento, itreg_amb.cd_prestador, itreg_amb.hr_lancamento, itreg_amb.cd_ati_med) END ) CF_A_REPASSAR
+      ,repasse.dt_competencia CF_DT_COMPET_REPASSE
+	  ,repasse.tp_repasse
+    ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse.cd_prestador AND cd_prestador_repasse = it_repasse.cd_prestador_repasse) cd_con_pag
+	  FROM dbamv.reg_amb reg_amb
+			,dbamv.itreg_amb itreg_amb
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+      ,dbamv.it_repasse
+      ,dbamv.repasse
+	 WHERE itreg_amb.cd_prestador IS NOT NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+		AND reg_amb.cd_remessa IS NOT NULL
+		AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+		AND itreg_amb.cd_convenio = convenio.cd_convenio
+		AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+		AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND Nvl(it_repasse.cd_prestador, itreg_amb.cd_prestador) = prestador.cd_prestador
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_amb.cd_multi_empresa
+    AND itreg_amb.cd_reg_amb = it_repasse.cd_reg_amb(+)
+    AND itreg_amb.cd_lancamento = it_repasse.cd_lancamento_amb(+)
+    AND it_repasse.cd_repasse = repasse.cd_repasse(+)
+    AND itreg_amb.sn_fechada = 'S'
+  	UNION ALL
+	SELECT distinct reg_fat.cd_remessa cd_remessa
+			,itreg_fat.dt_lancamento dt_lancamento
+			,itreg_fat.cd_reg_fat cd_reg_fat
+			,0 cd_reg_amb
+			,itreg_fat.cd_lancamento cd_lanc_fat
+			,0 cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,0 cd_glosas
+			,itreg_fat.cd_reg_fat conta
+			,itreg_fat.cd_pro_fat cd_pro_fat
+			,reg_fat.cd_convenio cd_convenio
+			,itreg_fat.qt_lancamento qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,itreg_fat.cd_ati_med
+			,NVL (itreg_fat.vl_total_conta, 0) vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			,itreg_fat.vl_base_repassado vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,itreg_fat.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+			,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_fat.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, itreg_fat.cd_setor, atendime.cd_servico
+																			  ,itreg_fat.cd_ati_med, atendime.tp_atendimento
+                                                                              ,dt_lancamento
+                                                                              ,hr_lancamento
+                                                                              ) cd_prestador_repasse
+			,itreg_fat.sn_pertence_pacote sn_pertence_pacote
+			,reg_fat.cd_tip_acom cd_tip_acom
+			,NVL (itreg_fat.vl_filme_unitario * qt_lancamento, 0) filme
+			,itreg_fat.cd_setor cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'C' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,itreg_fat.tp_pagamento tp_pagamento
+			,'H' tp_conta
+			,reg_fat.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,itreg_fat.qt_ch_unitario qt_ch_unitario
+			,NULL cd_espec_sus
+			,repasse.cd_repasse
+			,NULL cd_sus
+			,itreg_fat.hr_lancamento hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN itreg_fat.sn_repassado = 'S' THEN it_repasse.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN itreg_fat.sn_repassado = 'S' THEN 0 ELSE
+  dbamv.pkg_fnrm_calc_repasse.fnc_get_vl_repasse(itreg_fat.vl_total_conta, 'CNV_INT', itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento, itreg_fat.cd_prestador, itreg_fat.dt_lancamento, itreg_fat.cd_ati_med) END ) CF_A_REPASSAR
+      ,repasse.dt_competencia  CF_DT_COMPET_REPASSE
+	  ,repasse.tp_repasse
+    ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse.cd_prestador AND cd_prestador_repasse = it_repasse.cd_prestador_repasse) cd_con_pag
+	  FROM dbamv.reg_fat reg_fat
+			,dbamv.itreg_fat itreg_fat
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+      ,dbamv.it_repasse
+      ,dbamv.repasse
+	 WHERE itreg_fat.cd_prestador IS NOT NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.le_Empresa
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+		AND reg_fat.cd_remessa IS NOT NULL
+		AND reg_fat.cd_convenio = convenio.cd_convenio
+		AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+		AND convenio.tp_convenio <> 'H'
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+		AND reg_fat.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND Nvl(it_repasse.cd_prestador, itreg_fat.cd_prestador) = prestador.cd_prestador
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_fat.cd_multi_empresa
+    AND itreg_fat.cd_reg_fat = it_repasse.cd_reg_fat(+)
+    AND itreg_fat.cd_lancamento = it_repasse.cd_lancamento_fat(+)
+	AND it_repasse.cd_repasse = repasse.cd_repasse(+)
+	UNION ALL
+	SELECT distinct reg_fat.cd_remessa cd_remessa
+			,itreg_fat.dt_lancamento dt_lancamento
+			,itreg_fat.cd_reg_fat cd_reg_fat
+			,0 cd_reg_amb
+			,itreg_fat.cd_lancamento cd_lanc_fat
+			,0 cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,0 cd_glosas
+			,itreg_fat.cd_reg_fat conta
+			,itreg_fat.cd_pro_fat cd_pro_fat
+			,reg_fat.cd_convenio cd_convenio
+			,itreg_fat.qt_lancamento qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,itlan_med.cd_ati_med cd_ati_med
+            ,nvl(nvl(itlan_med.vl_liquido, (itlan_med.vl_ato * itreg_fat.qt_lancamento)), 0) vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			, (itlan_med.vl_base_repassado * itreg_fat.qt_lancamento) vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+            ,nvl( dbamv.pkg_repasse.fnc_fnrm_reg_rep_auxiliar( itlan_med.cd_prestador ),
+                            empresa_prestador.cd_reg_repasse ) cd_reg_repasse
+			,itreg_fat.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+			,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_fat.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, itreg_fat.cd_setor, atendime.cd_servico
+																			  ,itlan_med.cd_ati_med, atendime.tp_atendimento
+                                                                              ,dt_lancamento
+                                                                              ,hr_lancamento
+                                                                              ) cd_prestador_repasse
+			,itreg_fat.sn_pertence_pacote sn_pertence_pacote
+			,reg_fat.cd_tip_acom cd_tip_acom
+			,0 filme
+			,itreg_fat.cd_setor cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'C' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,itlan_med.tp_pagamento tp_pagamento
+			,'H' tp_conta
+			,reg_fat.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,itreg_fat.qt_ch_unitario qt_ch_unitario
+			,NULL cd_espec_sus
+			,repasse.cd_repasse
+			,NULL cd_sus
+			,itreg_fat.hr_lancamento hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN itlan_med.sn_repassado = 'S' THEN it_repasse.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN itlan_med.sn_repassado = 'S' THEN 0 ELSE
+  dbamv.pkg_fnrm_calc_repasse.fnc_get_vl_repasse(nvl(nvl(itlan_med.vl_liquido, (itlan_med.vl_ato * itreg_fat.qt_lancamento)), 0), 'CNV_EQP', itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento, itlan_med.cd_prestador, itreg_fat.dt_lancamento, itlan_med.cd_ati_med) END ) CF_A_REPASSAR
+      ,repasse.dt_competencia CF_DT_COMPET_REPASSE
+	  ,repasse.tp_repasse
+    ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse.cd_prestador AND cd_prestador_repasse = it_repasse.cd_prestador_repasse) cd_con_pag
+	  FROM dbamv.reg_fat reg_fat
+			,dbamv.itreg_fat itreg_fat
+			,dbamv.itlan_med itlan_med
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+      ,dbamv.it_repasse
+      ,dbamv.repasse
+	 WHERE itreg_fat.cd_prestador IS NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+		AND reg_fat.cd_remessa IS NOT NULL
+		AND convenio.tp_convenio <> 'H'
+		AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		AND reg_fat.cd_reg_fat = itlan_med.cd_reg_fat
+		AND itreg_fat.cd_lancamento = itlan_med.cd_lancamento
+		AND reg_fat.cd_convenio = convenio.cd_convenio
+		AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+		AND reg_fat.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+        AND prestador.cd_prestador = Nvl(it_repasse.cd_prestador, itlan_med.cd_prestador)
+	 	AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_fat.cd_multi_empresa
+    AND itlan_med.cd_reg_fat = it_repasse.cd_reg_fat(+)
+    AND itlan_med.cd_lancamento = it_repasse.cd_lancamento_fat(+)
+    AND itlan_med.cd_ati_med = it_repasse.cd_ati_med(+)
+	AND it_repasse.cd_repasse = repasse.cd_repasse(+)
+	UNION ALL
+SELECT distinct fatura.cd_fat_sia cd_remessa
+     , eve_siasus.dt_eve_siasus dt_lancamento
+     , 0 cd_reg_fat
+     , 0 cd_reg_amb
+     , 0 cd_lanc_fat
+     , 0 cd_lanc_amb
+     , eve_siasus.cd_eventos cd_eventos
+     , NULL cd_aih
+     , 0 cd_glosas
+     , eve_siasus.cd_eventos conta
+     , eve_siasus.cd_procedimento cd_pro_fat
+     , eve_siasus.cd_convenio cd_convenio
+     , eve_siasus.qt_lancada qt_lancamento
+     , eve_siasus.cd_especialid cd_especialid
+     , prestador.cd_prestador cd_prestador
+     , NULL cd_ati_med
+     , NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_ambulatorial, 0) vl_total_conta
+     , 0 qt_pontos
+     , 0 vl_pontos
+     , 0 vl_sh
+     , 0 vl_sp
+     , 0 vl_sd
+     , 0 vl_ato
+     , NVL (eve_siasus.vl_base_repassado, 0) vl_base_repassado
+     , convenio.nm_convenio nm_convenio
+     , procedimento_sus.ds_procedimento ds_pro_fat
+     , 0 cd_gru_pro
+     , atendime.cd_paciente cd_paciente
+     , eve_siasus.cd_ori_ate cd_ori_ate
+     , nvl(eve_siasus.nm_paciente, dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)) nm_paciente
+     , prestador.nm_prestador nm_prestador
+     , empresa_prestador.cd_reg_repasse_sia cd_reg_repasse
+     , eve_siasus.cd_gru_ate cd_gru_fat
+     , NULL tp_remessa
+     , TO_DATE (NULL) dt_entrega_da_fatura
+     , fatura.dt_periodo_final dt_competencia
+     , dbamv.pkg_repasse_321.fnc_fnrm_retorna_grupo_repasse ( prestador.cd_prestador
+                                                            , eve_siasus.cd_multi_empresa
+                                                            , convenio.cd_convenio
+                                                            , NULL
+                                                            , procedimento_sus.cd_procedimento
+                                                            , atendime.cd_ori_ate
+                                                            , NULL
+                                                            , DECODE(ATENDIME.TP_ATENDIMENTO,'A',ATENDIME.CD_SER_DIS,ATENDIME.CD_SERVICO)
+                                                            , NULL
+                                                            , atendime.tp_atendimento
+                                                            , eve_siasus.dt_eve_siasus
+                                                            , atendime.hr_atendimento
+                                                            ) cd_prestador_repasse
+     , NULL sn_pertence_pacote
+     , 0 cd_tip_acom
+     , 0 filme
+     , TO_NUMBER (NULL) cd_setor
+     , 0 vl_outros
+     , NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_profissional, 0) vl_auxiliar
+     , 0 vl_anestesista
+     , 'A' tipo
+     , atendime.cd_atendimento cd_atendimento
+     , atendime.dt_atendimento dt_atendimento
+     , atendime.dt_alta dt_alta
+     , NULL tp_pagamento
+     , 'S' tp_conta
+     , TO_NUMBER (NULL) cd_multi_empresa
+     , atendime.tp_atendimento tp_atendimento
+     , 0 qt_ch_unitario
+     , NULL cd_espec_sus
+     , repasse.cd_repasse
+     , NULL cd_sus
+     , atendime.hr_atendimento hr_lancamento
+     , eve_siasus.cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN eve_siasus.vl_base_repassado is not null THEN it_repasse_sia.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN eve_siasus.vl_base_repassado is not null THEN 0 ELSE
+  dbamv.pkg_repasse_321.fnc_fnrm_calcula_repasse_sia(empresa_prestador.cd_reg_repasse_sia, eve_siasus.cd_prestador, eve_siasus.cd_convenio,
+    eve_siasus.cd_ori_ate, eve_siasus.cd_tip_ate, eve_siasus.cd_especialid, procedimento_sus.ds_procedimento, atendime.tp_atendimento,
+	  eve_siasus.qt_lancada, atendime.hr_atendimento, eve_siasus.dt_eve_siasus, 'M', NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_ambulatorial, 0),
+	  NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_profissional, 0), 0, 0, 'VR', null, null) END) CF_A_REPASSAR
+    ,repasse.dt_competencia CF_DT_COMPET_REPASSE
+	,repasse.tp_repasse
+  ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse_sia.cd_prestador AND cd_prestador_repasse = it_repasse_sia.cd_prestador_repasse) cd_con_pag
+  FROM dbamv.eve_siasus eve_siasus
+     , dbamv.procedimento_sus
+     , dbamv.especialid especialid
+     , dbamv.paciente paciente
+     , dbamv.prestador prestador
+     , dbamv.convenio convenio
+     , dbamv.fat_sia fatura
+     , dbamv.it_marcacao it_marcacao
+     , dbamv.ori_ate ori_ate
+     , dbamv.atendime atendime
+     , dbamv.empresa_prestador empresa_prestador
+     , dbamv.multi_empresas_repasse
+     , dbamv.it_repasse_sia
+     , dbamv.repasse
+ WHERE eve_siasus.cd_procedimento                  = procedimento_sus.cd_procedimento
+   and fatura.dt_fechamento                      IS NOT NULL
+   AND multi_empresas_repasse.cd_multi_empresa_rep = dbamv.pkg_mv2000.le_empresa
+   AND atendime.cd_multi_empresa                   = multi_empresas_repasse.cd_multi_empresa_fat
+   AND empresa_prestador.cd_multi_empresa          = dbamv.pkg_mv2000.le_empresa
+   AND fatura.cd_fat_sia                          = eve_siasus.cd_fat_sia
+   AND eve_siasus.cd_prestador                    IS NOT NULL
+   AND eve_siasus.cd_prestador_pode_ter           IS NULL
+   AND eve_siasus.cd_convenio                      = convenio.cd_convenio
+   AND eve_siasus.cd_ori_ate                       = ori_ate.cd_ori_ate
+   AND eve_siasus.cd_especialid                    = especialid.cd_especialid (+)
+   AND eve_siasus.cd_it_marcacao                   = it_marcacao.cd_it_marcacao(+)
+   AND eve_siasus.cd_atendimento                   = atendime.cd_atendimento (+)
+   AND eve_siasus.cd_prestador                     = prestador.cd_prestador
+   AND atendime.cd_paciente                        = paciente.cd_paciente(+)
+   AND prestador.cd_prestador                      = empresa_prestador.cd_prestador
+   AND empresa_prestador.cd_multi_empresa          = fatura.cd_multi_empresa
+   AND it_repasse_sia.tp_medico = 'M'
+	 AND it_repasse_sia.cd_eventos(+) = eve_siasus.cd_eventos
+	 AND it_repasse_sia.cd_repasse = repasse.cd_repasse(+)
+ UNION ALL
+SELECT distinct fatura.cd_fat_sia cd_remessa
+     , eve_siasus.dt_eve_siasus dt_lancamento
+     , 0 cd_reg_fat
+     , 0 cd_reg_amb
+     , 0 cd_lanc_fat
+     , 0 cd_lanc_amb
+     , eve_siasus.cd_eventos cd_eventos
+     , NULL cd_aih
+     , 0 cd_glosas
+     , eve_siasus.cd_eventos conta
+     , eve_siasus.cd_procedimento cd_pro_fat
+     , eve_siasus.cd_convenio cd_convenio
+     , eve_siasus.qt_lancada qt_lancamento
+     , eve_siasus.cd_especialid cd_especialid
+     , prestador.cd_prestador cd_prestador
+     , NULL cd_ati_med
+     , NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_anestesia   , 0) vl_total_conta
+     , 0 qt_pontos
+     , 0 vl_pontos
+     , 0 vl_sh
+     , 0 vl_sp
+     , 0 vl_sd
+     , 0 vl_ato
+     , NVL (eve_siasus.vl_base_repassado, 0) vl_base_repassado
+     , convenio.nm_convenio nm_convenio
+     , procedimento_sus.ds_procedimento ds_pro_fat
+     , 0 cd_gru_pro
+     , atendime.cd_paciente cd_paciente
+     , eve_siasus.cd_ori_ate cd_ori_ate
+     , Nvl(eve_siasus.nm_paciente, dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1)) nm_paciente
+     , prestador.nm_prestador nm_prestador
+     , empresa_prestador.cd_reg_repasse_sia cd_reg_repasse
+     , eve_siasus.cd_gru_ate cd_gru_fat
+     , NULL tp_remessa
+     , TO_DATE (NULL) dt_entrega_da_fatura
+     , fatura.dt_periodo_final dt_competencia
+     , dbamv.pkg_repasse_321.fnc_fnrm_retorna_grupo_repasse ( prestador.cd_prestador
+                                                            , eve_siasus.cd_multi_empresa
+                                                            , convenio.cd_convenio
+                                                            , NULL
+                                                            , eve_siasus.cd_procedimento
+                                                            , atendime.cd_ori_ate
+                                                            , NULL
+                                                            , DECODE(ATENDIME.TP_ATENDIMENTO,'A',ATENDIME.CD_SER_DIS,ATENDIME.CD_SERVICO)
+                                                            , NULL
+                                                            , atendime.tp_atendimento
+                                                            , eve_siasus.dt_eve_siasus
+                                                            , atendime.hr_atendimento
+                                                            ) cd_prestador_repasse
+     , NULL sn_pertence_pacote
+     , 0 cd_tip_acom
+     , 0 filme
+     , TO_NUMBER (NULL) cd_setor
+     , 0 vl_outros
+     , NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_profissional, 0) vl_auxiliar
+     , NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_anestesia   , 0) vl_anestesista
+     , 'A' tipo
+     , atendime.cd_atendimento cd_atendimento
+     , atendime.dt_atendimento dt_atendimento
+     , atendime.dt_alta dt_alta
+     , NULL tp_pagamento
+     , 'S' tp_conta
+     , TO_NUMBER (NULL) cd_multi_empresa
+     , atendime.tp_atendimento tp_atendimento
+     , 0 qt_ch_unitario
+     , NULL cd_espec_sus
+     , repasse.cd_repasse
+     , NULL cd_sus
+     , atendime.hr_atendimento hr_lancamento
+     , eve_siasus.cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN eve_siasus.vl_base_repassado is not null THEN it_repasse_sia.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN eve_siasus.vl_base_repassado is not null THEN 0 ELSE
+    dbamv.pkg_repasse_321.fnc_fnrm_calcula_repasse_sia(empresa_prestador.cd_reg_repasse_sia, eve_siasus.cd_prestador, eve_siasus.cd_convenio,
+      eve_siasus.cd_ori_ate, eve_siasus.cd_tip_ate, eve_siasus.cd_especialid, procedimento_sus.ds_procedimento, atendime.tp_atendimento,
+	  eve_siasus.qt_lancada, atendime.hr_atendimento, eve_siasus.dt_eve_siasus, 'A', NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_ambulatorial, 0),
+	  NVL(eve_siasus.qt_lancada, 0) * NVL(eve_siasus.vl_servico_profissional, 0), 0, 0, 'VR', null, null) END) CF_A_REPASSAR
+   , To_Date(null) CF_DT_COMPET_REPASSE
+	 , to_char(null)
+   ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse_sia.cd_prestador AND cd_prestador_repasse = it_repasse_sia.cd_prestador_repasse) cd_con_pag
+  FROM dbamv.procedimento_sus
+     , dbamv.eve_siasus eve_siasus
+     , dbamv.especialid especialid
+     , dbamv.paciente paciente
+     , dbamv.prestador prestador
+     , dbamv.convenio convenio
+     , dbamv.fat_sia fatura
+     , dbamv.it_marcacao it_marcacao
+     , dbamv.ori_ate ori_ate
+     , dbamv.atendime atendime
+     , dbamv.it_repasse_sia
+     , dbamv.empresa_prestador empresa_prestador
+     , dbamv.multi_empresas_repasse
+     , dbamv.repasse
+ WHERE eve_siasus.cd_procedimento                  = procedimento_sus.cd_procedimento
+   and fatura.dt_fechamento                      IS NOT NULL
+   AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+   AND atendime.cd_multi_empresa                   = multi_empresas_repasse.cd_multi_empresa_fat
+   AND empresa_prestador.cd_multi_empresa          = dbamv.pkg_mv2000.le_empresa
+   AND fatura.cd_fat_sia                          = eve_siasus.cd_fat_sia
+   AND eve_siasus.cd_convenio                      = convenio.cd_convenio
+   AND eve_siasus.cd_ori_ate                       = ori_ate.cd_ori_ate
+   AND eve_siasus.cd_especialid                    = especialid.cd_especialid(+)
+   AND eve_siasus.cd_prestador_pode_ter            = prestador.cd_prestador
+   AND eve_siasus.cd_it_marcacao                   = it_marcacao.cd_it_marcacao(+)
+   AND eve_siasus.cd_atendimento                   = atendime.cd_atendimento (+)
+   AND atendime.cd_paciente                        = paciente.cd_paciente(+)
+   AND prestador.cd_prestador                      = empresa_prestador.cd_prestador
+   AND empresa_prestador.cd_multi_empresa          = fatura.cd_multi_empresa
+   AND it_repasse_sia.cd_eventos(+)                = eve_siasus.cd_eventos
+	 AND it_repasse_sia.cd_repasse                   = repasse.cd_repasse(+)
+	UNION ALL
+	SELECT distinct reg_amb.cd_remessa cd_remessa
+			,atendime.dt_atendimento dt_lancamento
+			,0 cd_reg_fat
+			,0 cd_reg_amb
+			,0 cd_lanc_fat
+			,0 cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,glosas.cd_glosas cd_glosas
+			,reg_amb.cd_reg_amb conta
+			,glosas.cd_pro_fat cd_pro_fat
+			,reg_amb.cd_convenio cd_convenio
+			,glosas.qt_glosa qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,glosas.cd_ati_med cd_ati_med
+			, (NVL (glosas.vl_glosa, 0) ) * -1 vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			, (NVL (glosas.vl_base_repassado, 0) ) * -1 vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,glosas.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+			,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_amb.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, NULL
+                                                                              ,DECODE(ATENDIME.TP_ATENDIMENTO,'A',ATENDIME.CD_SER_DIS,ATENDIME.CD_SERVICO)
+                                                                              , glosas.cd_ati_med
+																			  ,atendime.tp_atendimento
+                                                                              ,null
+                                                                              ,null) cd_prestador_repasse
+			,'N' sn_pertence_pacote
+			,0 cd_tip_acom
+			,0 filme
+			,TO_NUMBER (NULL) cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'G' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,'G' tp_pagamento
+			,'A' tp_conta
+			,reg_amb.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,0 qt_ch_unitario
+			,NULL cd_espec_sus
+			,TO_NUMBER (NULL) cd_repasse
+			,NULL cd_sus
+			,TO_DATE (NULL) hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  			To_char(NULL) cd_ups,
+  			To_Char(NULL) cd_cbo,
+			0 CF_REPASSADO,
+  			0 CF_A_REPASSAR
+      , To_Date(null) CF_DT_COMPET_REPASSE
+	    , to_char(null)
+      , to_number(null) cd_con_pag
+	  FROM dbamv.reg_amb reg_amb
+			,dbamv.glosas
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.motivo_glosa motivo_glosa
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+	 WHERE glosas.cd_prestador IS NOT NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+    AND glosas.cd_remessa_glosa IS NOT NULL
+		AND glosas.cd_reg_amb = reg_amb.cd_reg_amb
+		AND glosas.cd_motivo_glosa = motivo_glosa.cd_motivo_glosa
+		AND motivo_glosa.tp_repasse_medico <> 'N'
+		AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_amb.cd_convenio = convenio.cd_convenio
+		AND glosas.cd_pro_fat = pro_fat.cd_pro_fat
+		AND glosas.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND glosas.cd_prestador = prestador.cd_prestador
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_amb.cd_multi_empresa
+    and glosas.vl_recebido is NULL
+	UNION ALL
+	SELECT distinct reg_fat.cd_remessa cd_remessa
+			,atendime.dt_atendimento dt_lancamento
+			,0 cd_reg_fat
+			,0 cd_reg_amb
+			,0 cd_lanc_fat
+			,0 cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,glosas.cd_glosas cd_glosas
+			,reg_fat.cd_reg_fat conta
+			,glosas.cd_pro_fat cd_pro_fat
+			,reg_fat.cd_convenio cd_convenio
+			,glosas.qt_glosa qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,glosas.cd_ati_med cd_ati_med
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			, (NVL (glosas.vl_glosa, 0) ) * -1 vl_total_conta
+			, (NVL (glosas.vl_base_repassado, 0) ) * -1 vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,glosas.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+			,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_fat.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, NULL, atendime.cd_servico, glosas.cd_ati_med
+																			  ,atendime.tp_atendimento
+                                                                              ,null
+                                                                              ,null
+                                                                              ) cd_prestador_repasse
+			,'N' sn_pertence_pacote
+			,0 cd_tip_acom
+			,0 filme
+			,TO_NUMBER (NULL) cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'G' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,'G' tp_pagamento
+			,'H' tp_conta
+			,reg_fat.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,0 qt_ch_unitario
+			,NULL cd_espec_sus
+			,TO_NUMBER (NULL) cd_repasse
+			,NULL cd_sus
+			,TO_DATE (NULL) hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  0 CF_REPASSADO,
+  0 CF_A_REPASSAR
+      , To_Date(null) CF_DT_COMPET_REPASSE
+	  , to_char(null)
+    , to_number(null) cd_con_pag
+  	  FROM dbamv.reg_fat reg_fat
+			,dbamv.glosas
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.motivo_glosa motivo_glosa
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+	 WHERE glosas.cd_prestador IS NOT NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+    AND glosas.cd_remessa_glosa IS NOT NULL
+		AND glosas.cd_reg_fat = reg_fat.cd_reg_fat
+		AND glosas.cd_motivo_glosa = motivo_glosa.cd_motivo_glosa
+		AND motivo_glosa.tp_repasse_medico <> 'N'
+		AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_fat.cd_convenio = convenio.cd_convenio
+		AND convenio.tp_convenio <> 'H'
+		AND glosas.cd_pro_fat = pro_fat.cd_pro_fat
+		AND reg_fat.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND glosas.cd_prestador = prestador.cd_prestador
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_fat.cd_multi_empresa
+        and glosas.vl_recebido is NULL
+	UNION ALL
+      SELECT distinct reg_amb.cd_remessa cd_remessa
+			,atendime.dt_atendimento dt_lancamento
+			,0 cd_reg_fat
+			,0 cd_reg_amb
+			,0 cd_lanc_fat
+			,0 cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,glosas.cd_glosas cd_glosas
+			,reg_amb.cd_reg_amb conta
+			,glosas.cd_pro_fat cd_pro_fat
+			,reg_amb.cd_convenio cd_convenio
+			,glosas.qt_glosa qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,glosas.cd_ati_med cd_ati_med
+			,(NVL(glosas.vl_recebido, 0)) vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			,(NVL(glosas.vl_recebido, 0)) vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,glosas.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+	        ,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_amb.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, NULL
+                                                                              ,DECODE(ATENDIME.TP_ATENDIMENTO,'A',ATENDIME.CD_SER_DIS,ATENDIME.CD_SERVICO)
+                                                                              , glosas.cd_ati_med
+																			  ,atendime.tp_atendimento
+                                                                              ,null
+                                                                              ,null) cd_prestador_repasse
+        	,'N' sn_pertence_pacote
+			,0 cd_tip_acom
+			,0 filme
+			,TO_NUMBER (NULL) cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'R' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,'G' tp_pagamento
+			,'A' tp_conta
+			,reg_amb.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,0 qt_ch_unitario
+			,NULL cd_espec_sus
+			,TO_NUMBER (NULL) cd_repasse
+			,NULL cd_sus
+			,TO_DATE (NULL) hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN glosas.vl_recurso_repassado is not null THEN glosas.vl_recurso_repassado else 0 end) CF_REPASSADO,
+  (CASE WHEN glosas.vl_recurso_repassado is not null THEN 0 ELSE
+  dbamv.pkg_fnrm_calc_repasse.fnc_get_vl_repasse(glosas.vl_recebido, 'CNV_AMB', glosas.cd_reg_amb, glosas.cd_lancamento_amb, glosas.cd_prestador, glosas.dt_glosa, glosas.cd_ati_med) END ) CF_A_REPASSAR
+     , To_Date(null) CF_DT_COMPET_REPASSE
+	 , to_char(null)
+   , to_number(null) cd_con_pag
+	  FROM dbamv.reg_amb reg_amb
+			,dbamv.glosas
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.motivo_glosa motivo_glosa
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+ 	  WHERE glosas.cd_prestador IS NOT NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    and glosas.cd_atendimento is not null
+    and glosas.vl_recebido is not null
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+    AND glosas.cd_remessa_glosa IS NOT NULL
+		AND glosas.cd_reg_amb = reg_amb.cd_reg_amb
+		AND glosas.cd_motivo_glosa = motivo_glosa.cd_motivo_glosa
+		AND motivo_glosa.tp_repasse_medico <> 'N'
+		AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_amb.cd_convenio = convenio.cd_convenio
+		AND glosas.cd_pro_fat = pro_fat.cd_pro_fat
+		AND glosas.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND glosas.cd_prestador = prestador.cd_prestador
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_amb.cd_multi_empresa
+	UNION ALL
+  	 SELECT distinct reg_fat.cd_remessa cd_remessa
+	  	    ,atendime.dt_atendimento dt_lancamento
+			,0 cd_reg_fat
+			,0 cd_reg_amb
+			,0 cd_lanc_fat
+			,0 cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,glosas.cd_glosas cd_glosas
+			,reg_fat.cd_reg_fat conta
+			,glosas.cd_pro_fat cd_pro_fat
+			,reg_fat.cd_convenio cd_convenio
+			,glosas.qt_glosa qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,glosas.cd_ati_med cd_ati_med
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			,(NVL (glosas.vl_recebido, 0))  vl_total_conta
+			,(NVL (glosas.vl_recebido, 0))  vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,glosas.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+        	,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_fat.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, NULL, atendime.cd_servico, glosas.cd_ati_med
+																			  ,atendime.tp_atendimento
+                                                                              ,null
+                                                                              ,null
+                                                                              ) cd_prestador_repasse
+		   	,'N' sn_pertence_pacote
+			,0 cd_tip_acom
+			,0 filme
+			,TO_NUMBER (NULL) cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'R' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,'G' tp_pagamento
+			,'H' tp_conta
+			,reg_fat.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,0 qt_ch_unitario
+			,NULL cd_espec_sus
+			,TO_NUMBER (NULL) cd_repasse
+			,NULL cd_sus
+			,TO_DATE (NULL) hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN glosas.vl_recurso_repassado is not null THEN glosas.vl_recurso_repassado else 0 end) CF_REPASSADO,
+  (CASE WHEN glosas.vl_recurso_repassado is not null THEN 0 ELSE
+  dbamv.pkg_fnrm_calc_repasse.fnc_get_vl_repasse(glosas.vl_recebido, 'CNV_INT', glosas.cd_reg_fat, glosas.cd_lancamento_fat, glosas.cd_prestador, glosas.dt_glosa, glosas.cd_ati_med) END ) CF_A_REPASSAR
+      , To_Date(null) CF_DT_COMPET_REPASSE
+	  , to_char(null)
+    , to_number(null) cd_con_pag
+	  FROM dbamv.reg_fat reg_fat
+			,dbamv.glosas
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.motivo_glosa motivo_glosa
+	    ,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+	 WHERE glosas.cd_prestador IS NOT NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    and glosas.cd_atendimento is not null
+    and glosas.vl_recebido is not null
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+    AND glosas.cd_remessa_glosa IS NOT NULL
+		AND glosas.cd_reg_fat = reg_fat.cd_reg_fat
+		AND glosas.cd_motivo_glosa = motivo_glosa.cd_motivo_glosa
+		AND motivo_glosa.tp_repasse_medico <> 'N'
+		AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_fat.cd_convenio = convenio.cd_convenio
+		AND convenio.tp_convenio <> 'H'
+		AND glosas.cd_pro_fat = pro_fat.cd_pro_fat
+		AND reg_fat.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND glosas.cd_prestador = prestador.cd_prestador
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_fat.cd_multi_empresa
+UNION ALL
+    SELECT distinct TO_NUMBER (NULL) cd_remessa
+			,repasse.dt_repasse dt_lancamento
+			,TO_NUMBER (NULL) cd_reg_fat
+			,TO_NUMBER (NULL) cd_reg_amb
+			,TO_NUMBER (NULL) cd_lanc_fat
+			,TO_NUMBER (NULL) cd_lanc_amb
+			,TO_NUMBER (NULL) cd_eventos
+			,NULL cd_aih
+			,TO_NUMBER (NULL) cd_glosas
+			,TO_NUMBER (NULL) conta
+			,NULL cd_pro_fat
+			,TO_NUMBER (NULL) cd_convenio
+			,TO_NUMBER (NULL) qt_lancamento
+			,TO_NUMBER (NULL) cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,NULL cd_ati_med
+			,NVL (repasse_prestador.vl_faturado, repasse_prestador.vl_repasse) vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			,NVL (repasse_prestador.vl_faturado, 0) vl_base_repassado
+			,NULL nm_convenio
+			,NULL ds_pro_fat
+			,TO_NUMBER (NULL) cd_gru_pro
+			,TO_NUMBER (NULL) cd_paciente
+			,TO_NUMBER (NULL) cd_ori_ate
+			,'Repasse Manual:'||repasse.ds_repasse nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,TO_NUMBER (NULL) cd_gru_fat
+			,NULL tp_remessa
+			,TO_DATE (NULL) dt_entrega_da_fatura
+			,repasse.dt_competencia
+			,prestador.cd_prestador_repasse cd_prestador_repasse
+			,NULL sn_pertence_pacote
+			,TO_NUMBER (NULL) cd_tip_acom
+			,0 filme
+			,repasse_prestador.cd_setor cd_setor
+			, NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'M' tipo
+			,TO_NUMBER (NULL) cd_atendimento
+			,TO_DATE (NULL) dt_atendimento
+			,TO_DATE (NULL) dt_alta
+			,'P' tp_pagamento
+			,NULL tp_conta
+			,repasse.cd_multi_empresa cd_multi_empresa
+			,NULL tp_atendimento
+			,TO_NUMBER (NULL) qt_ch_unitario
+			,NULL cd_espec_sus
+			,repasse.cd_repasse cd_repasse
+			,NULL cd_sus
+			,TO_DATE (NULL) hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  repasse_prestador.vl_repasse CF_REPASSADO,
+  0 CF_A_REPASSAR
+  , repasse.dt_competencia CF_DT_COMPET_REPASSE
+  ,'M' tp_repasse
+  ,repasse_prestador.cd_con_pag
+	  FROM dbamv.repasse_prestador
+			,dbamv.prestador
+			,dbamv.repasse
+			,dbamv.empresa_prestador empresa_prestador
+	 WHERE repasse.tp_repasse NOT IN ('C','A','I')
+		AND repasse.cd_repasse = repasse_prestador.cd_repasse
+		AND repasse_prestador.cd_prestador = prestador.cd_prestador
+    and repasse.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = repasse.cd_multi_empresa
+	UNION ALL
+	SELECT distinct reg_fat.cd_remessa cd_remessa
+			,itreg_fat.dt_lancamento dt_lancamento
+			,itreg_fat.cd_reg_fat cd_reg_fat
+			,0 cd_reg_amb
+			,itreg_fat.cd_lancamento cd_lanc_fat
+			,0 cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,0 cd_glosas
+			,itreg_fat.cd_reg_fat conta
+			,itreg_fat.cd_pro_fat cd_pro_fat
+			,reg_fat.cd_convenio cd_convenio
+			,itreg_fat.qt_lancamento qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,itreg_fat.cd_ati_med
+			,NVL (itreg_fat.vl_total_conta, 0) vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			,itreg_fat.vl_base_repassado vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,itreg_fat.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+			,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_fat.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, itreg_fat.cd_setor, atendime.cd_servico
+																			  ,itreg_fat.cd_ati_med, atendime.tp_atendimento
+                                                                              ,dt_lancamento
+                                                                              ,hr_lancamento
+                                                                              ) cd_prestador_repasse
+			,itreg_fat.sn_pertence_pacote sn_pertence_pacote
+			,reg_fat.cd_tip_acom cd_tip_acom
+			,NVL (itreg_fat.vl_filme_unitario * qt_lancamento, 0) filme
+			,itreg_fat.cd_setor cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'C' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,itreg_fat.tp_pagamento tp_pagamento
+			,'H' tp_conta
+			,reg_fat.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,itreg_fat.qt_ch_unitario qt_ch_unitario
+			,NULL cd_espec_sus
+			,repasse.cd_repasse
+			,NULL cd_sus
+			,itreg_fat.hr_lancamento hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN itreg_fat.sn_repassado = 'S' THEN it_repasse.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN itreg_fat.sn_repassado = 'S' THEN 0 ELSE
+  dbamv.pkg_fnrm_calc_repasse.fnc_get_vl_repasse(itreg_fat.vl_total_conta, 'CNV_INT', itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento, itreg_fat.cd_prestador, itreg_fat.dt_lancamento, itreg_fat.cd_ati_med) END ) CF_A_REPASSAR
+      , repasse.dt_competencia CF_DT_COMPET_REPASSE
+	  ,repasse.tp_repasse
+    ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse.cd_prestador AND cd_prestador_repasse = it_repasse.cd_prestador_repasse) cd_con_pag
+	  FROM dbamv.reg_fat reg_fat
+			,dbamv.itreg_fat itreg_fat
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.it_repasse it_repasse
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+      ,dbamv.repasse
+	 WHERE itreg_fat.cd_prestador IS NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+		AND reg_fat.cd_remessa IS NOT NULL
+		AND reg_fat.cd_convenio = convenio.cd_convenio
+		AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND convenio.tp_convenio <> 'H'
+		AND reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+		AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+		AND reg_fat.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND it_repasse.cd_prestador = prestador.cd_prestador
+		AND it_repasse.cd_reg_fat = itreg_fat.cd_reg_fat
+		AND it_repasse.cd_lancamento_fat = itreg_fat.cd_lancamento
+		AND it_repasse.cd_repasse = repasse.cd_repasse
+		AND NOT EXISTS (SELECT 1
+								FROM dbamv.itlan_med
+							  WHERE cd_reg_fat = itreg_fat.cd_reg_fat
+								 AND cd_lancamento = itreg_fat.cd_lancamento)
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_fat.cd_multi_empresa
+	UNION ALL
+	SELECT distinct reg_amb.cd_remessa cd_remessa
+			,atendime.dt_atendimento dt_lancamento
+			,0 cd_reg_fat
+			,itreg_amb.cd_reg_amb cd_reg_amb
+			,0 cd_lanc_fat
+			,itreg_amb.cd_lancamento cd_lanc_amb
+			,0 cd_eventos
+			,NULL cd_aih
+			,0 cd_glosas
+			,itreg_amb.cd_reg_amb conta
+			,itreg_amb.cd_pro_fat cd_pro_fat
+			,itreg_amb.cd_convenio cd_convenio
+			,itreg_amb.qt_lancamento qt_lancamento
+			,0 cd_especialid
+			,prestador.cd_prestador cd_prestador
+			,itreg_amb.cd_ati_med cd_ati_med
+			,NVL (itreg_amb.vl_total_conta, 0) vl_total_conta
+			,0 qt_pontos
+			,0 vl_pontos
+			,0 vl_sh
+			,0 vl_sp
+			,0 vl_sd
+			,0 vl_ato
+			,itreg_amb.vl_base_repassado vl_base_repassado
+			,convenio.nm_convenio nm_convenio
+			,pro_fat.ds_pro_fat ds_pro_fat
+			,pro_fat.cd_gru_pro cd_gru_pro
+			,atendime.cd_paciente cd_paciente
+			,atendime.cd_ori_ate cd_ori_ate
+			,dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+			,prestador.nm_prestador nm_prestador
+			,empresa_prestador.cd_reg_repasse cd_reg_repasse
+			,itreg_amb.cd_gru_fat cd_gru_fat
+			,remessa_fatura.sn_paga tp_remessa
+			,remessa_fatura.dt_entrega_da_fatura
+			,fatura.dt_competencia
+			,dbamv.pkg_repasse.fnc_fnrm_retorna_grupo_repasse (prestador.cd_prestador, reg_amb.cd_multi_empresa
+																			  ,convenio.cd_convenio, pro_fat.cd_gru_pro, pro_fat.cd_pro_fat
+																			  ,atendime.cd_ori_ate, itreg_amb.cd_setor
+                                                                              ,DECODE(ATENDIME.TP_ATENDIMENTO,'A',ATENDIME.CD_SER_DIS,ATENDIME.CD_SERVICO)
+																			  ,itreg_amb.cd_ati_med, atendime.tp_atendimento
+                                                                              ,dt_lancamento
+                                                                              ,hr_lancamento) cd_prestador_repasse
+			,itreg_amb.sn_pertence_pacote sn_pertence_pacote
+			,0 cd_tip_acom
+			,NVL (itreg_amb.vl_filme_unitario * qt_lancamento, 0) filme
+			,itreg_amb.cd_setor cd_setor
+			,TO_NUMBER (NULL) vl_outros
+			,TO_NUMBER (NULL) vl_auxiliar
+			, 0 vl_anestesista
+			,'C' tipo
+			,atendime.cd_atendimento cd_atendimento
+			,atendime.dt_atendimento dt_atendimento
+			,atendime.dt_alta dt_alta
+			,itreg_amb.tp_pagamento tp_pagamento
+			,'A' tp_conta
+			,reg_amb.cd_multi_empresa cd_multi_empresa
+			,atendime.tp_atendimento tp_atendimento
+			,itreg_amb.qt_ch_unitario qt_ch_unitario
+			,NULL cd_espec_sus
+			,repasse.cd_repasse
+			,NULL cd_sus
+			,itreg_amb.hr_lancamento hr_lancamento
+			,to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+    (CASE WHEN itreg_amb.sn_repassado = 'S' THEN it_repasse.vl_repasse else 0 end) CF_REPASSADO,
+    (CASE WHEN itreg_amb.sn_repassado = 'S' THEN 0 ELSE
+      dbamv.pkg_fnrm_calc_repasse.fnc_get_vl_repasse(itreg_amb.vl_total_conta, 'CNV_AMB', itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento, itreg_amb.cd_prestador, itreg_amb.hr_lancamento, itreg_amb.cd_ati_med) END ) CF_A_REPASSAR
+      , repasse.dt_competencia CF_DT_COMPET_REPASSE
+	  ,repasse.tp_repasse
+    ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse.cd_prestador AND cd_prestador_repasse = it_repasse.cd_prestador_repasse) cd_con_pag
+	  FROM dbamv.reg_amb reg_amb
+			,dbamv.itreg_amb itreg_amb
+			,dbamv.remessa_fatura remessa_fatura
+			,dbamv.pro_fat pro_fat
+			,dbamv.atendime atendime
+			,dbamv.paciente paciente
+			,dbamv.prestador prestador
+			,dbamv.convenio convenio
+			,dbamv.fatura fatura
+			,dbamv.it_repasse it_repasse
+			,dbamv.empresa_prestador empresa_prestador
+      ,dbamv.multi_empresas_repasse
+      ,dbamv.repasse
+	 WHERE itreg_amb.cd_prestador IS NULL
+	  and atendime.cd_multi_empresa = dbamv.pkg_mv2000.Le_Empresa
+    AND multi_empresas_repasse.cd_multi_empresa_rep = atendime.cd_multi_empresa
+    AND atendime.cd_multi_empresa = multi_empresas_repasse.cd_multi_empresa_fat
+		AND reg_amb.cd_remessa IS NOT NULL
+		AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+		AND remessa_fatura.sn_fechada = 'S'
+		AND remessa_fatura.cd_fatura = fatura.cd_fatura
+		AND reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+		AND itreg_amb.cd_convenio = convenio.cd_convenio
+		AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+		AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+		AND atendime.cd_paciente = paciente.cd_paciente
+		AND it_repasse.cd_prestador = prestador.cd_prestador
+		AND it_repasse.cd_reg_amb = itreg_amb.cd_reg_amb
+		AND it_repasse.cd_lancamento_amb = itreg_amb.cd_lancamento
+		AND it_repasse.cd_repasse = repasse.cd_repasse
+		AND prestador.cd_prestador = empresa_prestador.cd_prestador
+		AND empresa_prestador.cd_multi_empresa = reg_amb.cd_multi_empresa
+	UNION ALL
+SELECT distinct reg_fat.cd_remessa cd_remessa
+     , itreg_fat.dt_lancamento dt_lancamento
+     , itreg_fat.cd_reg_fat cd_reg_fat
+     , 0 cd_reg_amb
+     , itreg_fat.cd_lancamento cd_lanc_fat
+     , 0 cd_lanc_amb
+     , 0 cd_eventos
+     , reg_fat.nr_guia cd_aih
+     , 0 cd_glosas
+     , itreg_fat.cd_reg_fat conta
+     , itreg_fat.cd_procedimento cd_pro_fat
+     , reg_fat.cd_convenio cd_convenio
+     , itreg_fat.qt_lancamento qt_lancamento
+     , 0 cd_especialid
+     , prestador.cd_prestador cd_prestador
+     , itreg_fat.cd_ati_med
+     , nvl(itreg_fat.vl_total_conta,  itreg_fat.vl_sp) vl_total_conta
+     , itreg_fat.qt_pontos qt_pontos
+     , trunc(reg_fat.vl_ponto_prof_aih, 4) * decode(nvl(itreg_fat.qt_pontos, 0), 0, 1, itreg_fat.qt_pontos) vl_pontos
+     , itreg_fat.vl_sh vl_sh
+     , itreg_fat.vl_sp vl_sp
+     , 0 vl_sd
+     , itreg_fat.vl_ato vl_ato
+     , itreg_fat.vl_base_repassado vl_base_repassado
+     , convenio.nm_convenio nm_convenio
+     , procedimento_sus.ds_procedimento	ds_pro_fat
+     , procedimento_sus_detalhe.cd_gru_pro
+     , atendime.cd_paciente cd_paciente
+     , atendime.cd_ori_ate cd_ori_ate
+     , dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+     , prestador.nm_prestador nm_prestador
+     , empresa_prestador.cd_reg_repasse cd_reg_repasse
+     , itreg_fat.cd_gru_fat cd_gru_fat
+     , remessa_fatura.sn_paga tp_remessa
+     , remessa_fatura.dt_entrega_da_fatura
+     , fatura.dt_competencia
+     , dbamv.pkg_repasse_321.fnc_fnrm_retorna_grupo_repasse( prestador.cd_prestador
+                                                           , reg_fat.cd_multi_empresa
+                                                           , convenio.cd_convenio
+                                                           , procedimento_sus_detalhe.cd_gru_pro
+                                                           , itreg_fat.cd_procedimento
+                                                           , atendime.cd_ori_ate
+                                                           , itreg_fat.cd_setor
+                                                           , atendime.cd_servico
+                                                           , itreg_fat.cd_ati_med
+                                                           , atendime.tp_atendimento
+                                                           , dt_lancamento
+                                                           , hr_lancamento
+                                                           ) cd_prestador_repasse
+     , itreg_fat.sn_pertence_pacote sn_pertence_pacote
+     , 0 cd_tip_acom
+     , 0 filme
+     , itreg_fat.cd_setor cd_setor
+     , TO_NUMBER (NULL) vl_outros
+     , TO_NUMBER (NULL) vl_auxiliar
+     , 0 vl_anestesista
+     , 'I' tipo
+     , atendime.cd_atendimento cd_atendimento
+     , atendime.dt_atendimento dt_atendimento
+     , atendime.dt_alta dt_alta
+     , itreg_fat.tp_pagamento tp_pagamento
+     , 'H' tp_conta
+     , reg_fat.cd_multi_empresa cd_multi_empresa
+     , atendime.tp_atendimento tp_atendimento
+     , 0 qt_ch_unitario
+     , reg_fat.cd_espec_sus cd_espec_sus
+     , repasse.cd_repasse
+     , itreg_fat.cd_procedimento cd_sus
+     , itreg_fat.hr_lancamento hr_lancamento
+     , to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN itreg_fat.vl_base_repassado IS NOT NULL THEN it_repasse.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN itreg_fat.vl_base_repassado IS NOT NULL THEN 0 ELSE dbamv.pkg_repasse_321.fnc_fnrm_calcula_repasse_sih ( empresa_prestador.cd_reg_repasse_sih, atendime.cd_ori_ate,
+             itreg_fat.cd_pro_fat, itreg_fat.cd_ati_med, itreg_fat.dt_lancamento, itreg_fat.dt_lancamento, itreg_fat.cd_prestador, itreg_fat.qt_pontos, 
+             (trunc(reg_fat.vl_ponto_prof_aih, 4) * decode(nvl(itreg_fat.qt_pontos, 0), 0, 1, itreg_fat.qt_pontos)), 
+             itreg_fat.vl_sh, itreg_fat.vl_sp, 0, itreg_fat.qt_lancamento, 'VR', itreg_fat.cd_cbo_prestador) END ) CF_A_REPASSAR
+  , repasse.dt_competencia CF_DT_COMPET_REPASSE
+  ,repasse.tp_repasse
+  ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse.cd_prestador AND cd_prestador_repasse = it_repasse.cd_prestador_repasse) cd_con_pag
+  FROM dbamv.reg_fat reg_fat
+     , dbamv.itreg_fat itreg_fat
+     , dbamv.procedimento_sus
+     , dbamv.procedimento_sus_detalhe
+     , dbamv.atendime atendime
+     , dbamv.paciente paciente
+     , dbamv.prestador prestador
+     , dbamv.convenio convenio
+     , dbamv.fatura fatura
+     , dbamv.glosas_sus glosas_sus
+     , dbamv.config_ffcv config_ffcv
+     , dbamv.remessa_fatura remessa_fatura
+     , dbamv.empresa_prestador empresa_prestador
+     , dbamv.multi_empresas_repasse
+	   , dbamv.it_repasse_sih it_repasse
+     ,dbamv.repasse
+ WHERE Config_Ffcv.Cd_Multi_Empresa                = atendime.cd_multi_empresa
+   AND multi_empresas_repasse.cd_multi_empresa_rep = dbamv.pkg_mv2000.le_empresa
+   AND atendime.cd_multi_empresa                   = multi_empresas_repasse.cd_multi_empresa_fat
+   AND itreg_fat.cd_prestador                     IS NOT NULL
+   AND itreg_fat.cd_reg_fat                        = reg_fat.cd_reg_fat
+   AND reg_fat.cd_remessa                         IS NOT NULL
+   AND reg_fat.cd_convenio                         = convenio.cd_convenio
+   AND reg_fat.cd_remessa                          = remessa_fatura.cd_remessa
+   AND remessa_fatura.cd_fatura                    = fatura.cd_fatura
+   AND convenio.cd_convenio                        = Dbamv.Pkt_Config_ffis.Retorna_Campo('Cd_convenio')
+   and itreg_fat.cd_procedimento                   = procedimento_sus.cd_procedimento
+   and procedimento_sus.cd_procedimento            = procedimento_sus_detalhe.cd_procedimento
+   AND prestador.cd_prestador                      = Nvl(it_repasse.cd_prestador, itreg_fat.cd_prestador)
+   AND reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   AND atendime.cd_paciente                        = paciente.cd_paciente
+   AND nvl(it_repasse.cd_prestador, itreg_fat.cd_prestador) = prestador.cd_prestador
+   AND reg_fat.cd_reg_fat                          = glosas_sus.cd_reg_fat(+)
+   AND itreg_fat.cd_reg_fat = it_repasse.cd_reg_fat(+)
+   AND itreg_fat.cd_lancamento = it_repasse.cd_lancamento(+)
+   AND it_repasse.cd_repasse = repasse.cd_repasse(+)
+   AND (( glosas_sus.cd_glosas_sus IS NOT NULL AND config_ffcv.sn_repassa_glosa_sih = 'N') OR
+        ( glosas_sus.cd_glosas_sus IS NULL ))
+   AND itreg_fat.cd_tipo_vinculo NOT              IN (6, 7, 8, 17, 21, 23, 29, 40, 44)
+   AND NVL(prestador.tp_vinculo, 'X')             != 'U'
+   AND prestador.cd_prestador                      = empresa_prestador.cd_prestador
+   AND empresa_prestador.cd_multi_empresa          = reg_fat.cd_multi_empresa
+ UNION ALL
+SELECT distinct reg_fat.cd_remessa cd_remessa
+     , itreg_fat.dt_lancamento dt_lancamento
+     , itreg_fat.cd_reg_fat cd_reg_fat
+     , 0 cd_reg_amb
+     , itreg_fat.cd_lancamento cd_lanc_fat
+     , 0 cd_lanc_amb
+     , 0 cd_eventos
+     , reg_fat.nr_guia cd_aih
+     , 0 cd_glosas
+     , itreg_fat.cd_reg_fat conta
+	 , itreg_fat.cd_procedimento cd_pro_fat
+ 	 , reg_fat.cd_convenio cd_convenio
+     , itreg_fat.qt_lancamento qt_lancamento
+     , 0 cd_especialid
+     , prestador.cd_prestador cd_prestador
+     , itlan_med.cd_ati_med cd_ati_med
+     , nvl(itlan_med.vl_liquido, (itlan_med.vl_ato * itreg_fat.qt_lancamento)) vl_total_conta
+     , itlan_med.qt_pontos qt_pontos
+     , trunc(reg_fat.vl_ponto_prof_aih, 4) * decode(nvl(itlan_med.qt_pontos, 0), 0, 1, itlan_med.qt_pontos) vl_pontos
+     , 0 vl_sh
+     , 0 vl_sp
+     , 0 vl_sd
+     , nvl(itlan_med.vl_liquido, (itlan_med.vl_ato * itreg_fat.qt_lancamento)) vl_ato
+     , itlan_med.vl_base_repassado vl_base_repassado
+     , convenio.nm_convenio nm_convenio
+     , procedimento_sus.ds_procedimento	ds_pro_fat
+     , procedimento_sus_detalhe.cd_gru_pro
+     , atendime.cd_paciente cd_paciente
+     , atendime.cd_ori_ate cd_ori_ate
+     , dbamv.pkg_ffcv_paciente.FNC_RETORNA_NOME_PACIENTE(PACIENTE.CD_PACIENTE, 1) nm_paciente
+     , prestador.nm_prestador nm_prestador
+     , nvl( dbamv.pkg_repasse_321.fnc_fnrm_reg_rep_auxiliar( itlan_med.cd_prestador ), empresa_prestador.cd_reg_repasse ) cd_reg_repasse
+     , itreg_fat.cd_gru_fat cd_gru_fat
+     , remessa_fatura.sn_paga tp_remessa
+     , remessa_fatura.dt_entrega_da_fatura
+     , fatura.dt_competencia
+     , dbamv.pkg_repasse_321.fnc_fnrm_retorna_grupo_repasse( dbamv.pkg_repasse_321.fnc_fnrm_repassa_auxiliar( itreg_fat.cd_reg_fat
+                                                                                                            , itreg_fat.cd_lancamento
+                                                                                                            , itlan_med.cd_prestador
+                                                                                                            , itlan_med.cd_ati_med )
+                                                       , reg_fat.cd_multi_empresa
+                                                       , convenio.cd_convenio
+                                                       , procedimento_sus_detalhe.cd_gru_pro
+                                                       , itreg_fat.cd_procedimento
+                                                       , atendime.cd_ori_ate
+                                                       , itreg_fat.cd_setor
+                                                       , atendime.cd_servico
+                                                       , itlan_med.cd_ati_med
+                                                       , atendime.tp_atendimento
+                                                       , dt_lancamento
+                                                       , hr_lancamento) cd_prestador_repasse
+     , itreg_fat.sn_pertence_pacote sn_pertence_pacote
+     , 0 cd_tip_acom
+     , 0 filme
+     , itreg_fat.cd_setor cd_setor
+     , TO_NUMBER (NULL) vl_outros
+     , TO_NUMBER (NULL) vl_auxiliar
+     , 0 vl_anestesista
+     , 'I' tipo
+     , atendime.cd_atendimento cd_atendimento
+     , atendime.dt_atendimento dt_atendimento
+     , atendime.dt_alta dt_alta
+     , itlan_med.tp_pagamento tp_pagamento
+     , 'H' tp_conta
+     , reg_fat.cd_multi_empresa cd_multi_empresa
+     , atendime.tp_atendimento tp_atendimento
+     , 0 qt_ch_unitario
+     , reg_fat.cd_espec_sus cd_espec_sus
+     , repasse.cd_repasse
+     , itreg_fat.cd_procedimento cd_sus
+     , itreg_fat.hr_lancamento hr_lancamento
+     , to_number(Null) cd_tip_ate,
+  To_char(NULL) cd_ups,
+  To_Char(NULL) cd_cbo,
+  (CASE WHEN itlan_med.vl_base_repassado IS NOT NULL THEN it_repasse.vl_repasse else 0 end) CF_REPASSADO,
+  (CASE WHEN itlan_med.vl_base_repassado IS NOT NULL THEN 0 ELSE
+         dbamv.pkg_repasse_321.fnc_fnrm_calcula_repasse_sih ( empresa_prestador.cd_reg_repasse_sih, atendime.cd_ori_ate,
+             itreg_fat.cd_pro_fat, itlan_med.cd_ati_med, itreg_fat.dt_lancamento, itreg_fat.dt_lancamento, itlan_med.cd_prestador, itreg_fat.qt_pontos, 
+             (trunc(reg_fat.vl_ponto_prof_aih, 4) * decode(nvl(itlan_med.qt_pontos, 0), 0, 1, itlan_med.qt_pontos)), 
+             itreg_fat.vl_sh, itreg_fat.vl_sp, itlan_med.vl_ato, itreg_fat.qt_lancamento, 'VR', itreg_fat.cd_cbo_prestador) END) CF_A_REPASSAR
+     , repasse.dt_competencia CF_DT_COMPET_REPASSE
+	 ,repasse.tp_repasse
+   ,(SELECT cd_con_pag FROM dbamv.repasse_prestador WHERE cd_repasse = repasse.cd_repasse AND cd_prestador = it_repasse.cd_prestador AND cd_prestador_repasse = it_repasse.cd_prestador_repasse) cd_con_pag
+  FROM dbamv.reg_fat reg_fat
+     , dbamv.itreg_fat itreg_fat
+     , dbamv.procedimento_sus
+     , dbamv.procedimento_sus_detalhe
+     , dbamv.atendime atendime
+     , dbamv.paciente paciente
+     , dbamv.prestador prestador
+     , dbamv.convenio convenio
+     , dbamv.glosas_sus glosas_sus
+     , dbamv.config_ffcv config_ffcv
+     , dbamv.fatura fatura
+     , dbamv.remessa_fatura remessa_fatura
+     , dbamv.empresa_prestador empresa_prestador
+     , dbamv.itlan_med itlan_med
+     , dbamv.multi_empresas_repasse
+     , dbamv.it_repasse_sih it_repasse
+     ,dbamv.repasse
+ WHERE Config_Ffcv.Cd_Multi_Empresa                = atendime.cd_multi_empresa
+   AND multi_empresas_repasse.cd_multi_empresa_rep = dbamv.pkg_mv2000.le_empresa
+   AND atendime.cd_multi_empresa                   = multi_empresas_repasse.cd_multi_empresa_fat
+   AND itreg_fat.cd_reg_fat                        = reg_fat.cd_reg_fat
+   AND reg_fat.cd_remessa                         IS NOT NULL
+   AND reg_fat.cd_convenio                         = convenio.cd_convenio
+   AND reg_fat.cd_remessa                          = remessa_fatura.cd_remessa
+   AND remessa_fatura.cd_fatura                    = fatura.cd_fatura
+   AND convenio.cd_convenio                        = Dbamv.Pkt_Config_ffis.Retorna_Campo('Cd_convenio')
+   and itreg_fat.cd_procedimento                   = procedimento_sus.cd_procedimento
+   and procedimento_sus.cd_procedimento            = procedimento_sus_detalhe.cd_procedimento
+   AND reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   AND atendime.cd_paciente                        = paciente.cd_paciente
+   AND prestador.cd_prestador = Nvl(it_repasse.cd_prestador, itlan_med.cd_prestador)
+   AND itlan_med.cd_reg_fat                        = itreg_fat.cd_reg_fat
+   AND itlan_med.cd_lancamento                     = itreg_fat.cd_lancamento
+   AND it_repasse.cd_repasse = repasse.cd_repasse(+)
+   AND itlan_med.cd_reg_fat = it_repasse.cd_reg_fat(+)
+   AND itlan_med.cd_lancamento = it_repasse.cd_lancamento(+)
+   AND itlan_med.cd_ati_med = it_repasse.cd_ati_med(+)
+   AND reg_fat.cd_reg_fat                          = glosas_sus.cd_reg_fat(+)
+   AND ((glosas_sus.cd_glosas_sus IS NOT NULL AND config_ffcv.sn_repassa_glosa_sih = 'N') OR
+        (glosas_sus.cd_glosas_sus IS NULL ))
+   AND itlan_med.cd_tipo_vinculo NOT              IN (6, 7, 8, 17, 21, 23, 29, 40, 44)
+   AND NVL(prestador.tp_vinculo, 'X')             != 'U'
+   AND prestador.cd_prestador                      = empresa_prestador.cd_prestador
+   AND empresa_prestador.cd_multi_empresa          = reg_fat.cd_multi_empresa
+       :CAMPO_CF_COND_DATA
+) prestador
+ORDER BY CD_PRESTADOR,
+  CD_PRESTADOR_INDIVID,
+  NM_PRESTADOR_INDIVID,
+  NM_CONVENIO,
+  CD_CONVENIO

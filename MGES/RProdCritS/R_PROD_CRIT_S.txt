@@ -1,0 +1,63 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_CRIT_S
+Select RESU.CD_ESTOQUE,
+       RESU.DS_ESTOQUE,
+       RESU.CD_ESPECIE,
+       RESU.DS_ESPECIE,
+       Sum(RESU.QT_ESTOQUE_ATUAL * RESU.VL_CUSTO_MEDIO) As VL_CUSTO_MEDIO
+  From (Select RESUMO.CD_ESTOQUE,
+               RESUMO.DS_ESTOQUE,
+               RESUMO.CD_ESPECIE,
+               RESUMO.DS_ESPECIE,
+               DBAMV.Verif_Vl_Custo_Medio(PRODUTO.CD_PRODUTO, Trunc(SysDate), 'H', PRODUTO.VL_CUSTO_MEDIO, SysDate, :CAMPO_CD_MULTI_EMPRESA) As VL_CUSTO_MEDIO,
+               RESUMO.QT_ESTOQUE_ATUAL
+          From (Select ESTOQUE.CD_ESTOQUE,
+                       ESTOQUE.DS_ESTOQUE,
+                       ESPECIE.CD_ESPECIE,
+                       ESPECIE.DS_ESPECIE,
+                       Decode(:CAMPO_SN_MESTRE,
+                              'S',
+                              Nvl(PRODUTO.CD_PRODUTO_TEM,
+                                  PRODUTO.CD_PRODUTO),
+                              PRODUTO.CD_PRODUTO) As CD_PRODUTO,
+                       Sum(EST_PRO.QT_ESTOQUE_ATUAL) As QT_ESTOQUE_ATUAL
+                  From DBAMV.EST_PRO
+            Inner Join DBAMV.ESTOQUE On
+                       ESTOQUE.CD_ESTOQUE = EST_PRO.CD_ESTOQUE
+                   And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.PRODUTO On
+                       PRODUTO.CD_PRODUTO = EST_PRO.CD_PRODUTO
+                   And PRODUTO.SN_MESTRE = 'N'
+            Inner Join DBAMV.ESPECIE On
+                       ESPECIE.CD_ESPECIE = PRODUTO.CD_ESPECIE
+            Inner Join DBAMV.CLASSE On
+                       CLASSE.CD_ESPECIE = PRODUTO.CD_ESPECIE
+                   And CLASSE.CD_CLASSE = PRODUTO.CD_CLASSE
+            Inner Join DBAMV.SUB_CLAS On
+                       SUB_CLAS.CD_ESPECIE = PRODUTO.CD_ESPECIE
+                   And SUB_CLAS.CD_CLASSE = PRODUTO.CD_CLASSE
+                   And SUB_CLAS.CD_SUB_CLA = PRODUTO.CD_SUB_CLA
+              Group By ESTOQUE.CD_ESTOQUE,
+                       ESTOQUE.DS_ESTOQUE,
+                       ESPECIE.CD_ESPECIE,
+                       ESPECIE.DS_ESPECIE,
+                       Decode(:CAMPO_SN_MESTRE,
+                              'S',
+                              Nvl(PRODUTO.CD_PRODUTO_TEM,
+                                  PRODUTO.CD_PRODUTO),
+                              PRODUTO.CD_PRODUTO)) RESUMO
+    Inner Join DBAMV.PRODUTO On
+               PRODUTO.CD_PRODUTO = RESUMO.CD_PRODUTO
+    Inner Join DBAMV.EST_PRO On
+               EST_PRO.CD_ESTOQUE = RESUMO.CD_ESTOQUE
+           And EST_PRO.CD_PRODUTO = RESUMO.CD_PRODUTO
+         Where 1 = 1
+           :CAMPO_CF_TP_PROD_CRIT) RESU
+Group By RESU.CD_ESTOQUE,
+       RESU.DS_ESTOQUE,
+       RESU.CD_ESPECIE,
+       RESU.DS_ESPECIE
+Order By RESU.CD_ESTOQUE,
+       RESU.DS_ESTOQUE,
+       RESU.CD_ESPECIE,
+       RESU.DS_ESPECIE

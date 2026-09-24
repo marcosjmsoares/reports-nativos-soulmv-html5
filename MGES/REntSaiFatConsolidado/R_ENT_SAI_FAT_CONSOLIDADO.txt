@@ -1,0 +1,347 @@
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT_CONSOLIDADO
+SELECT * FROM (
+select cd_produto       cd_produto
+      ,ds_produto       ds_produto
+      ,trunc(dt_competencia,'MM' )   dt_competencia_produto
+      ,sum(qt_entrada)  qt_entrada_produto
+      ,sum(vl_entrada)  vl_entrada_produto
+      ,sum(qt_saida)    qt_saida_produto
+      ,sum(vl_saida)    vl_saida_produto
+      ,sum(qt_faturada) qt_faturada_produto
+      ,sum(vl_faturada) vl_faturada_produto
+from (
+select null cd_itreg_fat
+      ,null cd_reg_fat
+      ,produto.cd_produto cd_produto
+      ,produto.ds_produto ds_produto
+      ,to_date(to_char(c_conest.cd_mes,'00')||'/'||to_char(c_conest.cd_ano),'mm/yyyy')  DT_COMPETENCIA
+      ,nvl( c_conest.qt_entrada, 0 ) + nvl( c_conest.qt_doacao, 0 ) qt_entrada
+      ,nvl( c_conest.vl_entrada, 0 ) + nvl( c_conest.vl_doacao, 0 ) vl_entrada
+     ,(( nvl( c_conest.qt_saida_setor, 0 ) + nvl( c_conest.qt_saida_paciente, 0 ) )
+      -( nvl( c_conest.qt_devolucao_setor,0 ) + nvl( c_conest.qt_devolucao_paciente, 0 )) ) / Decode( produto.vl_fator_pro_FAT,0,1,NULL,1,produto.vl_fator_pro_FAT ) qt_saida
+      ,( nvl( c_conest.vl_saida_setor, 0 ) + nvl( c_conest.vl_saida_paciente, 0 ) )
+      -( nvl( c_conest.vl_devolucao_setor,0 ) + nvl( c_conest.vl_devolucao_paciente, 0 ) ) vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.produto,
+       dbamv.c_conest,
+       dbamv.estoque
+ where
+to_date('01/' || c_conest.cd_mes|| '/' || c_conest.cd_ano,'DD/MM/YYYY') = trunc(:CAMPO_DT_COMPETENCIA, 'MM')
+  AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  and estoque.cd_estoque            = c_conest.cd_estoque
+  and produto.cd_pro_fat is null
+  and c_conest.cd_produto           = produto.cd_produto
+  and ( ( nvl( c_conest.qt_entrada, 0 ) + nvl( c_conest.qt_doacao, 0 ) ) <> 0 or
+      ( nvl( c_conest.qt_saida_setor, 0 )    + nvl( c_conest.qt_saida_paciente, 0 )
+      + nvl( c_conest.qt_devolucao_setor,0 ) + nvl( c_conest.qt_devolucao_paciente, 0 ) ) <> 0 )
+  and produto.sn_mestre = 'N' )
+group by cd_produto
+             ,ds_produto
+            ,trunc(dt_competencia,'MM' )
+)
+ORDER BY DS_PRODUTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT_CONSOLIDADO_R_COMPETENCIA1_Q_1
+Select *
+  From (Select CD_PRO_FAT,
+               DS_PRO_FAT,
+               Sum(QT_ENTRADA) As QT_ENTRADA,
+               Sum(VL_ENTRADA) As VL_ENTRADA,
+               Sum(QT_SAIDA) As QT_SAIDA,
+               Sum(VL_SAIDA) As VL_SAIDA,
+               Sum(QT_FATURADA) As QT_FATURADA,
+               Sum(VL_FATURADA) As VL_FATURADA,
+               Sum(QT_CONSUMO_LCTO) As QT_CONSUMO_LCTO,
+               Sum(VL_CONSUMO_LCTO) As VL_CONSUMO_LCTO
+          From (Select ITREG_FAT.CD_LANCAMENTO As CD_ITREG_FAT,
+                       ITREG_FAT.CD_REG_FAT,
+                       PRO_FAT.CD_PRO_FAT,
+                       PRO_FAT.DS_PRO_FAT,
+                       To_Char(REMESSA_FATURA.DT_ENTREGA_DA_FATURA,
+                               'MM/YYYY') As DT_COMPETENCIA,
+                       0 As QT_ENTRADA,
+                       0 As VL_ENTRADA,
+                       0 As QT_SAIDA,
+                       0 As VL_SAIDA,
+                       ITREG_FAT.QT_LANCAMENTO As QT_FATURADA,
+                       ITREG_FAT.VL_TOTAL_CONTA As VL_FATURADA,
+                       0 As QT_CONSUMO_LCTO,
+                       0 As VL_CONSUMO_LCTO
+                  From DBAMV.PRO_FAT
+            Inner Join DBAMV.ITREG_FAT On
+                       ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+            Inner Join DBAMV.REG_FAT On
+                       REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                   And Nvl(REG_FAT.SN_DIAGNO,
+                           'N') = 'N'
+                   And REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.REMESSA_FATURA On
+                       REMESSA_FATURA.CD_REMESSA = REG_FAT.CD_REMESSA
+                   And Trunc(REMESSA_FATURA.DT_ENTREGA_DA_FATURA,
+                             'MM') = Trunc(:CAMPO_DT_COMPETENCIA,
+                                           'MM')
+            Inner Join DBAMV.GRU_PRO On
+                       GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+                   And GRU_PRO.TP_GRU_PRO In ('MT',
+                                              'MD',
+                                              'MM',
+                                              'OP')
+                 Where Exists (Select 1
+                                 From DBAMV.PRODUTO
+                                Where PRODUTO.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                                  And Exists (Select 1
+                                                From DBAMV.EMPRESA_PRODUTO
+                                               Where EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                                 And EMPRESA_PRODUTO.CD_PRODUTO = PRODUTO.CD_PRODUTO)
+                                      :CAMPO_CF_SUB_CLASSE)
+             Union All
+                Select ITREG_AMB.CD_LANCAMENTO As CD_ITREG_FAT,
+                       ITREG_AMB.CD_REG_AMB As CD_REG_FAT,
+                       PRO_FAT.CD_PRO_FAT,
+                       PRO_FAT.DS_PRO_FAT,
+                       To_Char(REMESSA_FATURA.DT_ENTREGA_DA_FATURA,
+                               'MM/YYYY') As DT_COMPETENCIA,
+                       0 As QT_ENTRADA,
+                       0 As VL_ENTRADA,
+                       0 As QT_SAIDA,
+                       0 As VL_SAIDA,
+                       ITREG_AMB.QT_LANCAMENTO As QT_FATURADA,
+                       ITREG_AMB.VL_TOTAL_CONTA As VL_FATURADA,
+                       0 As QT_CONSUMO_LCTO,
+                       0 As VL_CONSUMO_LCTO
+                  From DBAMV.PRO_FAT
+            Inner Join DBAMV.ITREG_AMB On
+                       ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+            Inner Join DBAMV.REG_AMB On
+                       REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                   And Nvl(REG_AMB.SN_DIAGNO,
+                           'N') = 'N'
+                   And REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.REMESSA_FATURA On
+                       REMESSA_FATURA.CD_REMESSA = REG_AMB.CD_REMESSA
+                   And Trunc(REMESSA_FATURA.DT_ENTREGA_DA_FATURA,
+                             'MM') = Trunc(:CAMPO_DT_COMPETENCIA,
+                                           'MM')
+            Inner Join DBAMV.GRU_PRO On
+                       GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+                   And GRU_PRO.TP_GRU_PRO In ('MT',
+                                              'MD',
+                                              'MM',
+                                              'OP')
+                 Where Exists (Select 1
+                                 From DBAMV.PRODUTO
+                                Where PRODUTO.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                                  And Exists (Select 1
+                                                From DBAMV.EMPRESA_PRODUTO
+                                               Where EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                                 And EMPRESA_PRODUTO.CD_PRODUTO = PRODUTO.CD_PRODUTO)
+                                      :CAMPO_CF_SUB_CLASSE)
+             Union All
+                Select ITREG_AMB.CD_LANCAMENTO As CD_ITREG_FAT,
+                       ITREG_AMB.CD_REG_AMB As CD_REG_FAT,
+                       PRO_FAT.CD_PRO_FAT,
+                       PRO_FAT.DS_PRO_FAT,
+                       To_Char(ATENDIME.DT_ATENDIMENTO,
+                               'MM/YYYY') As DT_COMPETENCIA,
+                       0 As QT_ENTRADA,
+                       0 As VL_ENTRADA,
+                       0 As QT_SAIDA,
+                       0 As VL_SAIDA,
+                       0 As QT_FATURADA,
+                       0 As VL_FATURADA,
+                       ITREG_AMB.QT_LANCAMENTO As QT_CONSUMO_LCTO,
+                       ITREG_AMB.VL_TOTAL_CONTA As VL_CONSUMO_LCTO
+                  From DBAMV.PRO_FAT
+            Inner Join DBAMV.ITREG_AMB On
+                       ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+            Inner Join DBAMV.REG_AMB On
+                       REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                   And Nvl(REG_AMB.SN_DIAGNO,
+                           'N') = 'N'
+                   And REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.ATENDIME On
+                       ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+                   And Trunc(ATENDIME.DT_ATENDIMENTO,
+                             'MM') = Trunc(:CAMPO_DT_COMPETENCIA,
+                                           'MM')
+            Inner Join DBAMV.GRU_PRO On
+                       GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+                   And GRU_PRO.TP_GRU_PRO In ('MT',
+                                              'MD',
+                                              'MM',
+                                              'OP')
+                 Where Exists (Select 1
+                                 From DBAMV.PRODUTO
+                                Where PRODUTO.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                                  And Exists (Select 1
+                                                From DBAMV.EMPRESA_PRODUTO
+                                               Where EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                                 And EMPRESA_PRODUTO.CD_PRODUTO = PRODUTO.CD_PRODUTO)
+                                      :CAMPO_CF_SUB_CLASSE)
+                   And REG_AMB.CD_REMESSA In (Select REMESSA_FATURA.CD_REMESSA
+                                                From DBAMV.REMESSA_FATURA
+                                               Where Trunc(:CAMPO_DT_COMPETENCIA,
+                                                           'MM') Between Add_Months(Trunc(REMESSA_FATURA.DT_ENTREGA_DA_FATURA,
+                                                                                          'MM'),
+                                                                                    -1)
+                                                                     And Add_Months(Trunc(REMESSA_FATURA.DT_ENTREGA_DA_FATURA,
+                                                                                          'MM'),
+                                                                                    1))
+             Union All
+                Select ITREG_FAT.CD_LANCAMENTO As CD_ITREG_FAT,
+                       ITREG_FAT.CD_REG_FAT,
+                       PRO_FAT.CD_PRO_FAT,
+                       PRO_FAT.DS_PRO_FAT,
+                       To_Char(ITREG_FAT.DT_LANCAMENTO,
+                               'MM/YYYY') As DT_COMPETENCIA,
+                       0 As QT_ENTRADA,
+                       0 As VL_ENTRADA,
+                       0 As QT_SAIDA,
+                       0 As VL_SAIDA,
+                       0 As QT_FATURADA,
+                       0 As VL_FATURADA,
+                       ITREG_FAT.QT_LANCAMENTO As QT_CONSUMO_LCTO,
+                       ITREG_FAT.VL_TOTAL_CONTA As VL_CONSUMO_LCTO
+                  From DBAMV.PRO_FAT
+            Inner Join DBAMV.ITREG_FAT On
+                       ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                   And Trunc(ITREG_FAT.DT_LANCAMENTO,
+                             'MM') = Trunc(:CAMPO_DT_COMPETENCIA,
+                                           'MM')
+            Inner Join DBAMV.REG_FAT On
+                       REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                   And Nvl(REG_FAT.SN_DIAGNO,
+                           'N') = 'N'
+                   And REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.GRU_PRO On
+                       GRU_PRO.CD_GRU_PRO = PRO_FAT.CD_GRU_PRO
+                   And GRU_PRO.TP_GRU_PRO In ('MT',
+                                              'MD',
+                                              'MM',
+                                              'OP')
+                 Where Exists (Select 1
+                                 From DBAMV.PRODUTO
+                                Where PRODUTO.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                                  And Exists (Select 1
+                                                From DBAMV.EMPRESA_PRODUTO
+                                               Where EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                                                 And EMPRESA_PRODUTO.CD_PRODUTO = PRODUTO.CD_PRODUTO)
+                                      :CAMPO_CF_SUB_CLASSE)
+             Union All
+                Select To_Number(Null) As CD_ITREG_FAT,
+                       To_Number(Null) As CD_REG_FAT,
+                       PRO_FAT.CD_PRO_FAT,
+                       PRO_FAT.DS_PRO_FAT,
+                       LPad(To_Char(C_CONEST.CD_MES),
+                            2,
+                            '0') || '/' || To_Char(C_CONEST.CD_ANO) As DT_COMPETENCIA,
+                       (Nvl(C_CONEST.QT_ENTRADA,
+                            0) + Nvl(C_CONEST.QT_DOACAO,
+                                     0)) / Decode(Nvl(PRODUTO.VL_FATOR_PRO_FAT,
+                                                      1),
+                                                  0,
+                                                  1,
+                                                  Nvl(PRODUTO.VL_FATOR_PRO_FAT,
+                                                      1)) As QT_ENTRADA,
+                       Nvl(C_CONEST.VL_ENTRADA,
+                           0) + Nvl(C_CONEST.VL_DOACAO,
+                                    0) As VL_ENTRADA,
+                       (Nvl(C_CONEST.QT_SAIDA_SETOR,
+                            0) + Nvl(C_CONEST.QT_SAIDA_PACIENTE,
+                                     0) - Nvl(C_CONEST.QT_DEVOLUCAO_SETOR,
+                                              0) - Nvl(C_CONEST.QT_DEVOLUCAO_PACIENTE,
+                                                       0)) / Decode(Nvl(PRODUTO.VL_FATOR_PRO_FAT,
+                                                                        1),
+                                                                    0,
+                                                                    1,
+                                                                    Nvl(PRODUTO.VL_FATOR_PRO_FAT,
+                                                                        1)) As QT_SAIDA,
+                       Nvl(C_CONEST.VL_SAIDA_SETOR,
+                           0) + Nvl(C_CONEST.VL_SAIDA_PACIENTE,
+                                    0) - Nvl(C_CONEST.VL_DEVOLUCAO_SETOR,
+                                             0) - Nvl(C_CONEST.VL_DEVOLUCAO_PACIENTE,
+                                                      0) As VL_SAIDA,
+                       0 As QT_FATURADA,
+                       0 As VL_FATURADA,
+                       0 As QT_CONSUMO_LCTO,
+                       0 As VL_CONSUMO_LCTO
+                  From DBAMV.C_CONEST
+            Inner Join DBAMV.PRODUTO On
+                       PRODUTO.CD_PRODUTO = C_CONEST.CD_PRODUTO
+                   And PRODUTO.SN_MESTRE = 'N'
+            Inner Join DBAMV.ESTOQUE On
+                       ESTOQUE.CD_ESTOQUE = C_CONEST.CD_ESTOQUE
+                   And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.PRO_FAT On
+                       PRO_FAT.CD_PRO_FAT = PRODUTO.CD_PRO_FAT
+                 Where To_Date(LPad(To_Char(C_CONEST.CD_MES),
+                                    2,
+                                    '0') || '/' || To_Char(C_CONEST.CD_ANO),
+                               'MM/YYYY') = Trunc(:CAMPO_DT_COMPETENCIA,
+                                                  'MM')
+                   And (Nvl(C_CONEST.QT_ENTRADA,
+                            0) + Nvl(C_CONEST.QT_DOACAO,
+                                     0) <> 0
+                     Or Nvl(C_CONEST.QT_SAIDA_SETOR,
+                            0) + Nvl(C_CONEST.QT_SAIDA_PACIENTE,
+                                     0) + Nvl(C_CONEST.QT_DEVOLUCAO_SETOR,
+                                              0) + Nvl(C_CONEST.QT_DEVOLUCAO_PACIENTE,
+                                                       0) <> 0))
+      Group By CD_PRO_FAT,
+               DS_PRO_FAT)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_FAT_CONSOLIDADO_R_REM_ENV3_NAO_RELACIONADOS
+SELECT * FROM (
+select cd_produto       cd_produto
+      ,ds_produto       ds_produto
+      ,trunc(dt_competencia,'MM' )   dt_competencia_produto
+      ,sum(qt_entrada)  qt_entrada_produto
+      ,sum(vl_entrada)  vl_entrada_produto
+      ,sum(qt_saida)    qt_saida_produto
+      ,sum(vl_saida)    vl_saida_produto
+      ,sum(qt_faturada) qt_faturada_produto
+      ,sum(vl_faturada) vl_faturada_produto
+from (
+select null cd_itreg_fat
+      ,null cd_reg_fat
+      ,produto.cd_produto cd_produto
+      ,produto.ds_produto ds_produto
+      ,to_date(to_char(c_conest.cd_mes,'00')||'/'||to_char(c_conest.cd_ano),'mm/yyyy')  DT_COMPETENCIA
+      ,(nvl( c_conest.qt_entrada, 0 ) + nvl( c_conest.qt_doacao, 0 ) ) / Decode( produto.vl_fator_pro_FAT,0,1,NULL,1,produto.vl_fator_pro_FAT )  qt_entrada
+      ,nvl( c_conest.vl_entrada, 0 ) + nvl( c_conest.vl_doacao, 0 ) vl_entrada
+     ,(( nvl( c_conest.qt_saida_setor, 0 ) + nvl( c_conest.qt_saida_paciente, 0 ) )
+      -( nvl( c_conest.qt_devolucao_setor,0 ) + nvl( c_conest.qt_devolucao_paciente, 0 )) ) / Decode( produto.vl_fator_pro_FAT,0,1,NULL,1,produto.vl_fator_pro_FAT ) qt_saida
+      ,( nvl( c_conest.vl_saida_setor, 0 ) + nvl( c_conest.vl_saida_paciente, 0 ) )
+      -( nvl( c_conest.vl_devolucao_setor,0 ) + nvl( c_conest.vl_devolucao_paciente, 0 ) ) vl_saida
+      , 0 qt_faturada
+      , 0 vl_faturada
+      , 0 qt_consumo_lcto
+      , 0 vl_consumo_lcto
+  from dbamv.produto,
+       dbamv.c_conest,
+       dbamv.estoque
+ where
+to_date('01/' || c_conest.cd_mes|| '/' || c_conest.cd_ano,'DD/MM/YYYY') = trunc(:CAMPO_DT_COMPETENCIA, 'MM')
+  AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  and estoque.cd_estoque            = c_conest.cd_estoque
+  and produto.cd_pro_fat is null
+  and c_conest.cd_produto           = produto.cd_produto
+  and ( ( nvl( c_conest.qt_entrada, 0 ) + nvl( c_conest.qt_doacao, 0 ) ) <> 0 or
+      ( nvl( c_conest.qt_saida_setor, 0 )    + nvl( c_conest.qt_saida_paciente, 0 )
+      + nvl( c_conest.qt_devolucao_setor,0 ) + nvl( c_conest.qt_devolucao_paciente, 0 ) ) <> 0 )
+  and produto.sn_mestre = 'N' )
+group by cd_produto
+             ,ds_produto
+            ,trunc(dt_competencia,'MM' )
+)
+ORDER BY DS_PRODUTO

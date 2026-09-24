@@ -1,0 +1,94 @@
+/*----------------------------------------------------------------------------*/
+--R_ABERCONTAGEM_CONF
+SELECT produtos.cd_produto, produtos.ds_produto
+ FROM (SELECT produto.cd_produto, produto.ds_produto
+FROM produto, empresa_produto, est_pro, localizacao
+WHERE produto.cd_especie = nvl(:CAMPO_CD_ESPECIE, produto.cd_especie) AND produto.cd_classe = nvl(:CAMPO_CD_CLASSE, produto.cd_classe) 
+AND produto.cd_sub_cla = nvl(:CAMPO_CD_SUB_CLA, produto.cd_sub_cla) AND produto.sn_consignado <> 'S' 
+AND ((:CAMPO_CTRL_CHK_NORMAL || :CAMPO_CTRL_CHK_REPROCESSADOS = 'XX' AND (produto.sn_consignado) IN ('N', 'R')) 
+OR (:CAMPO_CTRL_CHK_NORMAL || :CAMPO_CTRL_CHK_REPROCESSADOS = 'NR' AND (produto.sn_consignado) IN ('N', 'R')) 
+OR (:CAMPO_CTRL_CHK_NORMAL = 'N' AND :CAMPO_CTRL_CHK_REPROCESSADOS = 'X' AND produto.sn_consignado = 'N') 
+OR (:CAMPO_CTRL_CHK_REPROCESSADOS = 'R' AND :CAMPO_CTRL_CHK_NORMAL = 'X' AND produto.sn_consignado = 'R')) 
+AND Decode(:CAMPO_CD_ATIVIDADE, NULL, 'X', produto.cd_tip_ativ) = Decode(:CAMPO_CD_ATIVIDADE, NULL, 'X', :CAMPO_CD_ATIVIDADE) 
+AND Decode(:CAMPO_CD_LISTA, NULL, 'X', produto.CD_LISTA_CODIGO_MEDICAMENTO) = Decode(:CAMPO_CD_LISTA, NULL, 'X', :CAMPO_CD_LISTA) 
+AND (:CAMPO_CTRL_CHK_PADRONIZADOS || :CAMPO_CTRL_CHK_NAO_PADRONIZADOS = 'SS' OR (:CAMPO_CTRL_CHK_PADRONIZADOS = 'S' 
+AND :CAMPO_CTRL_CHK_NAO_PADRONIZADOS = 'X' AND produto.sn_padronizado = 'S') OR (:CAMPO_CTRL_CHK_PADRONIZADOS = 'X' 
+AND :CAMPO_CTRL_CHK_NAO_PADRONIZADOS = 'S' AND produto.sn_padronizado = 'N')) AND (:CAMPO_CTRL_CHK_CONTROLADOS || :CAMPO_CTRL_CHK_NAO_CONTROLADOS = 'SS' 
+OR (:CAMPO_CTRL_CHK_CONTROLADOS = 'S' AND :CAMPO_CTRL_CHK_NAO_CONTROLADOS = 'N' AND produto.sn_pscotropico = 'S') 
+OR (:CAMPO_CTRL_CHK_CONTROLADOS = 'N' AND :CAMPO_CTRL_CHK_NAO_CONTROLADOS = 'S' AND produto.sn_pscotropico = 'N')) 
+AND ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SSSS') 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SNSS') 
+OR (:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SNNS') 
+AND (produto.sn_lote = 'S' AND (produto.sn_controle_validade) IN ('S', 'N'))) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SNSN') 
+AND (produto.sn_lote = 'S' AND produto.sn_controle_validade = 'S')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SSSN') 
+AND ((produto.sn_lote) IN ('S', 'N') AND produto.sn_controle_validade = 'S')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSSS') 
+AND (produto.sn_lote = 'N' AND (produto.sn_controle_validade) IN ('S', 'N'))) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSNS') 
+AND (produto.sn_lote = 'N' AND produto.sn_controle_validade = 'N')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSSN') 
+AND (produto.sn_lote = 'N' AND produto.sn_controle_validade = 'S')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSSS') 
+AND (produto.sn_lote = 'N' AND (produto.sn_controle_validade) IN ('N', 'S')))) AND produto.sn_movimentacao = 'S' AND produto.sn_mestre = 'N' 
+AND produto.sn_kit = 'N' AND est_pro.cd_localizacao = localizacao.cd_localizacao(+) AND ((NVL(:CAMPO_CD_LOCALIZACAO, 'X') <> 'X' 
+AND est_pro.cd_localizacao = :CAMPO_CD_LOCALIZACAO) OR (NVL(:CAMPO_CD_LOCALIZACAO, 'X') = 'X' AND NVL(:CAMPO_CTRL_DSP_LOCALIZACAO, 'X') <> 'X' 
+AND localizacao.ds_localizacao LIKE '%' || :CAMPO_CTRL_DSP_LOCALIZACAO || '%') OR (NVL(:CAMPO_CD_LOCALIZACAO, 'X') = 'X' 
+AND NVL(:CAMPO_CTRL_DSP_LOCALIZACAO, 'X') = 'X')) 
+AND mges.f_configuracao_estoque(:CAMPO_CD_ESTOQUE, produto.cd_especie, produto.cd_classe, produto.cd_sub_cla, produto.CD_PRODUTO) > 0 
+AND produto.cd_produto = empresa_produto.cd_produto 
+AND empresa_produto.cd_multi_empresa = pkg_mv2000.le_empresa 
+AND est_pro.cd_produto(+) = produto.cd_produto AND est_pro.cd_estoque(+) = :CAMPO_CD_ESTOQUE 
+AND (nvl(est_pro.tp_classificacao_abc, 'X') = nvl(:CAMPO_CTRL_TP_CLASSIFICACAO_ABC, nvl(est_pro.tp_classificacao_abc, 'X')) 
+AND :CAMPO_CTRL_VERIF_CLASSIF_ABC = 'I')
+AND verif_vl_custo_medio (produto.cd_produto, SYSDATE, 'H') <= 0
+UNION ALL SELECT produto.cd_produto, produto.ds_produto
+FROM produto, empresa_produto, est_pro, localizacao
+WHERE produto.cd_especie = nvl(:CAMPO_CD_ESPECIE, produto.cd_especie) 
+AND produto.cd_classe = nvl(:CAMPO_CD_CLASSE, produto.cd_classe) 
+AND produto.cd_sub_cla = nvl(:CAMPO_CD_SUB_CLA, produto.cd_sub_cla) 
+AND produto.sn_consignado <> 'S' 
+AND ((:CAMPO_CTRL_CHK_NORMAL || :CAMPO_CTRL_CHK_REPROCESSADOS = 'XX') 
+OR (:CAMPO_CTRL_CHK_NORMAL || :CAMPO_CTRL_CHK_REPROCESSADOS = 'NR') OR (:CAMPO_CTRL_CHK_NORMAL = 'N' 
+AND :CAMPO_CTRL_CHK_REPROCESSADOS = 'X' AND produto.sn_consignado = 'N') OR (:CAMPO_CTRL_CHK_REPROCESSADOS = 'R' 
+AND :CAMPO_CTRL_CHK_NORMAL = 'X' 
+AND produto.sn_consignado = 'R')) 
+AND ((:CAMPO_CTRL_CHK_PADRONIZADOS || :CAMPO_CTRL_CHK_NAO_PADRONIZADOS = 'XX') OR (:CAMPO_CTRL_CHK_PADRONIZADOS || :CAMPO_CTRL_CHK_NAO_PADRONIZADOS = 'SS') 
+OR (:CAMPO_CTRL_CHK_PADRONIZADOS = 'S' AND :CAMPO_CTRL_CHK_NAO_PADRONIZADOS = 'X' 
+AND produto.sn_padronizado = 'S') OR (:CAMPO_CTRL_CHK_PADRONIZADOS = 'X' 
+AND :CAMPO_CTRL_CHK_NAO_PADRONIZADOS = 'S' 
+AND produto.sn_padronizado = 'N')) 
+AND Decode(:CAMPO_CD_ATIVIDADE, NULL, 'X', produto.cd_tip_ativ) = Decode(:CAMPO_CD_ATIVIDADE, NULL, 'X', :CAMPO_CD_ATIVIDADE) 
+AND Decode(:CAMPO_CD_LISTA, NULL, 'X', produto.CD_LISTA_CODIGO_MEDICAMENTO) = Decode(:CAMPO_CD_LISTA, NULL, 'X', :CAMPO_CD_LISTA) 
+AND (:CAMPO_CTRL_CHK_CONTROLADOS || :CAMPO_CTRL_CHK_NAO_CONTROLADOS = 'SS' OR (:CAMPO_CTRL_CHK_CONTROLADOS = 'S' AND :CAMPO_CTRL_CHK_NAO_CONTROLADOS = 'N' 
+AND produto.sn_pscotropico = 'S') OR (:CAMPO_CTRL_CHK_CONTROLADOS = 'N' AND :CAMPO_CTRL_CHK_NAO_CONTROLADOS = 'S' 
+AND produto.sn_pscotropico = 'N')) 
+AND ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SSSS') 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SNSS') 
+OR (:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SNNS') 
+AND (produto.sn_lote = 'S' AND (produto.sn_controle_validade) IN ('S', 'N'))) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SNSN') 
+AND (produto.sn_lote = 'S' AND produto.sn_controle_validade = 'S')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'SSSN') 
+AND ((produto.sn_lote) IN ('S', 'N') AND produto.sn_controle_validade = 'S')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSSS') 
+AND (produto.sn_lote = 'N' AND (produto.sn_controle_validade) IN ('S', 'N'))) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSNS') 
+AND (produto.sn_lote = 'N' AND produto.sn_controle_validade = 'N')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSSN') 
+AND (produto.sn_lote = 'N' AND produto.sn_controle_validade = 'S')) 
+OR ((:CAMPO_CTRL_CHK_CONTROLA_LOTE || :CAMPO_CTRL_CHK_NAO_CONTROLA_LOTE || :CAMPO_CTRL_CHK_CONTROLA_VALIDADE || :CAMPO_CTRL_CHK_NAO_CONTROLA_VALIDADE = 'NSSS') 
+AND (produto.sn_lote = 'N' AND (produto.sn_controle_validade) IN ('N', 'S')))) AND produto.sn_movimentacao = 'S' AND produto.sn_mestre = 'N' 
+AND produto.sn_kit = 'N' AND est_pro.cd_localizacao = localizacao.cd_localizacao(+) AND ((NVL(:CAMPO_CD_LOCALIZACAO, 'X') <> 'X' 
+AND est_pro.cd_localizacao = :CAMPO_CD_LOCALIZACAO) OR (NVL(:CAMPO_CD_LOCALIZACAO, 'X') = 'X' AND NVL(:CAMPO_CTRL_DSP_LOCALIZACAO, 'X') <> 'X' 
+AND localizacao.ds_localizacao LIKE '%' || :CAMPO_CTRL_DSP_LOCALIZACAO || '%') OR (NVL(:CAMPO_CD_LOCALIZACAO, 'X') = 'X' 
+AND NVL(:CAMPO_CTRL_DSP_LOCALIZACAO, 'X') = 'X')) 
+AND mges.f_configuracao_estoque(:CAMPO_CD_ESTOQUE, produto.cd_especie, produto.cd_classe, produto.cd_sub_cla, produto.CD_PRODUTO) > 0 
+AND produto.cd_produto = empresa_produto.cd_produto 
+AND empresa_produto.cd_multi_empresa = pkg_mv2000.le_empresa 
+AND est_pro.cd_produto(+) = produto.cd_produto AND est_pro.cd_estoque(+) = :CAMPO_CD_ESTOQUE 
+AND (nvl(empresa_produto.tp_classificacao_abc, 'X') = nvl(:CAMPO_CTRL_TP_CLASSIFICACAO_ABC, nvl(empresa_produto.tp_classificacao_abc, 'X')) 
+AND ((:CAMPO_CTRL_VERIF_CLASSIF_ABC = 'E') OR (:CAMPO_CTRL_VERIF_CLASSIF_ABC IS NULL)))
+AND verif_vl_custo_medio (produto.cd_produto, SYSDATE, 'H') <= 0 ) produtos
+ORDER BY produtos.cd_produto

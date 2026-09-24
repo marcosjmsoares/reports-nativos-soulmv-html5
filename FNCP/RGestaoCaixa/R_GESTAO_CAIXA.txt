@@ -1,0 +1,517 @@
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           CD_GRU_RES
+        ,A.DS_GRU_RES           DS_GRU_RES
+        ,A.CD_ITEM_RES          CD_ITEM_RES
+        ,A.DS_ITEM_RES          DS_ITEM_RES
+        ,A.DIA                  	DIA
+        ,SUM(A.VL_RATEIO)       VL_RATEIO
+        ,SUM(A.VL_RECEBIDO)     VL_RECEBIDO
+        ,SUM(A.VL_PREVISTO)     VL_PREVISTO
+FROM (
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,DECODE(:CAMPO_TP_PERIODO, '1',  TO_CHAR(CON.DT_EMISSAO, 'DD' ), '2' , TO_CHAR( ITCON.DT_PREVISTA_RECEBIMENTO,'DD') )                  DIA
+        ,RAT.VL_RATEIO              VL_RATEIO
+        ,REC.VL_RECEBIDO            VL_RECEBIDO
+        ,CON.VL_PREVISTO            VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.RAT_CONREC     RAT,
+       DBAMV.CON_REC        CON,
+       DBAMV.ITCON_REC        ITCON,
+       DBAMV.RECCON_REC   REC
+WHERE CON.CD_MULTI_EMPRESA              = :CAMPO_CD_MULTI_EMPRESA
+AND   CON.CD_CON_REC                    = RAT.CD_CON_REC
+AND   CON.CD_CON_REC                    = ITCON.CD_CON_REC
+AND   REC.CD_ITCON_REC (+)           = ITCON.CD_ITCON_REC
+AND   RAT.CD_ITEM_RES                   = ITEM.CD_ITEM_RES
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+UNION
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0		VL_RATEIO
+        ,0		VL_RECEBIDO
+        ,0		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES,DS_GRU_RES,
+CD_ITEM_RES,DS_ITEM_RES,
+DIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA_R_G_CD_GRU_RES_PAG1_Q_PAGAM_OPERACIONAIS
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           	CD_GRU_RES_PAG
+        ,A.DS_GRU_RES           		DS_GRU_RES_PAG
+        ,A.CD_ITEM_RES          		CD_ITEM_RES_PAG
+        ,A.DS_ITEM_RES          		DS_ITEM_RES_PAG
+        ,A.DIA                  		DIA_PAG
+        ,SUM(A.VL_RATEIO)       	VL_RATEIO_PAG
+        ,SUM(A.VL_RECEBIDO)     	VL_RECEBIDO_PAG
+        ,SUM(A.VL_PREVISTO)     	VL_PREVISTO_PAG
+FROM (
+SELECT   GRU.CD_GRU_RES         	CD_GRU_RES
+        ,GRU.DS_GRU_RES         	DS_GRU_RES
+        ,ITEM.CD_ITEM_RES       	CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES       	DS_ITEM_RES
+        ,DECODE(:CAMPO_TP_PERIODO, '1',  TO_CHAR(CON.DT_EMISSAO, 'DD' ), '2' , TO_CHAR( ITCON.DT_VENCIMENTO,'DD') )                  DIA
+        ,RAT.VL_RATEIO          		VL_RATEIO
+        ,ITCON.VL_SOMA_PAGO	VL_RECEBIDO
+        ,CON.VL_BRUTO_CONTA     	VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.RATCON_PAG     RAT,
+       DBAMV.CON_PAG        CON,
+       DBAMV.ITCON_PAG      ITCON
+WHERE CON.CD_MULTI_EMPRESA              =  :CAMPO_CD_MULTI_EMPRESA
+AND   CON.CD_CON_PAG                    = ITCON.CD_CON_PAG
+AND   CON.CD_CON_PAG                    = RAT.CD_CON_PAG
+AND   RAT.CD_ITEM_RES                   = ITEM.CD_ITEM_RES
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+UNION
+SELECT   GRU.CD_GRU_RES         	CD_GRU_RES
+        ,GRU.DS_GRU_RES         	DS_GRU_RES
+        ,ITEM.CD_ITEM_RES       	CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES       	DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0		VL_RATEIO
+        ,0		 VL_RECEBIDO
+        ,0		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES_PAG,DS_GRU_RES_PAG,
+CD_ITEM_RES_PAG,DS_ITEM_RES_PAG,
+DIA_PAG
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA_R_G_GRU_RES_NOP1_Q_RECEB_NAO_OPERAC
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           CD_GRU_RES_NOP
+        ,A.DS_GRU_RES           DS_GRU_RES_NOP
+        ,A.CD_ITEM_RES          CD_ITEM_RES_NOP
+        ,A.DS_ITEM_RES          DS_ITEM_RES_NOP
+        ,A.DIA                  	DIA_NOP
+        ,SUM(A.VL_RATEIO)       VL_RATEIO_NOP
+        ,SUM(A.VL_RECEBIDO)     VL_RECEBIDO_NOP
+        ,SUM(A.VL_PREVISTO)     VL_PREVISTO_NOP
+FROM (
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,TO_CHAR(MOV.DT_MOVIMENTACAO, 'DD' )     DIA
+        ,0			              	VL_RATEIO
+        ,MOV.VL_MOVIMENTACAO            VL_RECEBIDO
+        ,0                          		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.MOV_CONCOR     MOV,
+       DBAMV.LAN_CONCOR     LAN,
+       DBAMV.EMPRESA_LAN_CONCOR     EMP,
+       DBAMV.CON_COR	CON
+WHERE ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+AND   ITEM.CD_ITEM_RES		   = EMP.CD_ITEM_RES
+AND   MOV.CD_LAN_CONCOR                 = LAN.CD_LAN_CONCOR
+AND   LAN.CD_LAN_CONCOR                 = EMP.CD_LAN_CONCOR
+AND   EMP.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_CON_COR		    = CON.CD_CON_COR
+AND   CON.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_SAI_CAI                    IS NULL
+and not exists ( select '*'
+                       from   dbamv.rec_mov_con  rm
+                      where  mov.cd_mov_concor = rm.cd_mov_concor )
+AND   MOV.CD_BORDERO                    IS NULL
+AND   MOV.CD_CHEQUE                     IS NULL
+AND   MOV.CD_PAGCON_PAG                 IS NULL
+AND   LAN.TP_OPERACAO_SALDO_CONTA      = '+'
+AND   MOV.DT_MOVIMENTACAO >= TO_DATE( TO_CHAR( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND   MOV.DT_MOVIMENTACAO <= TO_DATE( TO_CHAR( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+UNION
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0                    VL_RATEIO
+        ,0                    VL_RECEBIDO
+        ,0                    VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES_NOP,DS_GRU_RES_NOP,
+CD_ITEM_RES_NOP,DS_ITEM_RES_NOP,
+DIA_NOP
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA_R_G_GRU_RES_NOP_PAG1_Q_PAGAM_NAO_OPERAC
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           CD_GRU_RES_NOP_PAG
+        ,A.DS_GRU_RES           DS_GRU_RES_NOP_PAG
+        ,A.CD_ITEM_RES          CD_ITEM_RES_NOP_PAG
+        ,A.DS_ITEM_RES          DS_ITEM_RES_NOP_PAG
+        ,A.DIA                  	DIA_NOP_PAG
+        ,SUM(A.VL_RATEIO)       VL_RATEIO_NOP_PAG
+        ,SUM(A.VL_RECEBIDO)     VL_RECEBIDO_NOP_PAG
+        ,SUM(A.VL_PREVISTO)     VL_PREVISTO_NOP_PAG
+FROM (
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,TO_CHAR(MOV.DT_MOVIMENTACAO, 'DD' )     DIA
+        ,0              			VL_RATEIO
+        ,MOV.VL_MOVIMENTACAO            VL_RECEBIDO
+        ,0                          		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.MOV_CONCOR     MOV,
+       DBAMV.LAN_CONCOR     LAN,
+       DBAMV.EMPRESA_LAN_CONCOR     EMP,
+       DBAMV.CON_COR	CON
+WHERE ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+AND   ITEM.CD_ITEM_RES		   = EMP.CD_ITEM_RES
+AND   MOV.CD_LAN_CONCOR                 = LAN.CD_LAN_CONCOR
+AND   LAN.CD_LAN_CONCOR                 = EMP.CD_LAN_CONCOR
+AND   EMP.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_CON_COR		    = CON.CD_CON_COR
+AND  CON.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_SAI_CAI                    IS NULL
+and not exists ( select '*'
+                       from   dbamv.rec_mov_con  rm
+                      where  mov.cd_mov_concor = rm.cd_mov_concor )
+AND   MOV.CD_BORDERO                    IS NULL
+AND   MOV.CD_CHEQUE                     IS NULL
+AND   MOV.CD_PAGCON_PAG                 IS NULL
+AND   LAN.TP_OPERACAO_SALDO_CONTA      = '-'
+AND   MOV.DT_MOVIMENTACAO >= TO_DATE( TO_CHAR( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND   MOV.DT_MOVIMENTACAO <= TO_DATE( TO_CHAR( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+UNION
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0                    VL_RATEIO
+        ,0                    VL_RECEBIDO
+        ,0                    VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES_NOP_PAG,DS_GRU_RES_NOP_PAG,
+CD_ITEM_RES_NOP_PAG,DS_ITEM_RES_NOP_PAG,
+DIA_NOP_PAG
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA_X_G_TOTAIS_ITEM_RES1
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           CD_GRU_RES
+        ,A.DS_GRU_RES           DS_GRU_RES
+        ,A.CD_ITEM_RES          CD_ITEM_RES
+        ,A.DS_ITEM_RES          DS_ITEM_RES
+        ,A.DIA                  	DIA
+        ,SUM(A.VL_RATEIO)       VL_RATEIO
+        ,SUM(A.VL_RECEBIDO)     VL_RECEBIDO
+        ,SUM(A.VL_PREVISTO)     VL_PREVISTO
+FROM (
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,DECODE(:CAMPO_TP_PERIODO, '1',  TO_CHAR(CON.DT_EMISSAO, 'DD' ), '2' , TO_CHAR( ITCON.DT_PREVISTA_RECEBIMENTO,'DD') )                  DIA
+        ,RAT.VL_RATEIO              VL_RATEIO
+        ,REC.VL_RECEBIDO            VL_RECEBIDO
+        ,CON.VL_PREVISTO            VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.RAT_CONREC     RAT,
+       DBAMV.CON_REC        CON,
+       DBAMV.ITCON_REC        ITCON,
+       DBAMV.RECCON_REC   REC
+WHERE CON.CD_MULTI_EMPRESA              = :CAMPO_CD_MULTI_EMPRESA
+AND   CON.CD_CON_REC                    = RAT.CD_CON_REC
+AND   CON.CD_CON_REC                    = ITCON.CD_CON_REC
+AND   REC.CD_ITCON_REC (+)           = ITCON.CD_ITCON_REC
+AND   RAT.CD_ITEM_RES                   = ITEM.CD_ITEM_RES
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+UNION
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0		VL_RATEIO
+        ,0		VL_RECEBIDO
+        ,0		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES,DS_GRU_RES,
+CD_ITEM_RES,DS_ITEM_RES,
+DIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA_X_G_TOTAIS_ITEM_RES_PAG1
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           	CD_GRU_RES_PAG
+        ,A.DS_GRU_RES           		DS_GRU_RES_PAG
+        ,A.CD_ITEM_RES          		CD_ITEM_RES_PAG
+        ,A.DS_ITEM_RES          		DS_ITEM_RES_PAG
+        ,A.DIA                  		DIA_PAG
+        ,SUM(A.VL_RATEIO)       	VL_RATEIO_PAG
+        ,SUM(A.VL_RECEBIDO)     	VL_RECEBIDO_PAG
+        ,SUM(A.VL_PREVISTO)     	VL_PREVISTO_PAG
+FROM (
+SELECT   GRU.CD_GRU_RES         	CD_GRU_RES
+        ,GRU.DS_GRU_RES         	DS_GRU_RES
+        ,ITEM.CD_ITEM_RES       	CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES       	DS_ITEM_RES
+        ,DECODE(:CAMPO_TP_PERIODO, '1',  TO_CHAR(CON.DT_EMISSAO, 'DD' ), '2' , TO_CHAR( ITCON.DT_VENCIMENTO,'DD') )                  DIA
+        ,RAT.VL_RATEIO          		VL_RATEIO
+        ,ITCON.VL_SOMA_PAGO	VL_RECEBIDO
+        ,CON.VL_BRUTO_CONTA     	VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.RATCON_PAG     RAT,
+       DBAMV.CON_PAG        CON,
+       DBAMV.ITCON_PAG      ITCON
+WHERE CON.CD_MULTI_EMPRESA              =  :CAMPO_CD_MULTI_EMPRESA
+AND   CON.CD_CON_PAG                    = ITCON.CD_CON_PAG
+AND   CON.CD_CON_PAG                    = RAT.CD_CON_PAG
+AND   RAT.CD_ITEM_RES                   = ITEM.CD_ITEM_RES
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+UNION
+SELECT   GRU.CD_GRU_RES         	CD_GRU_RES
+        ,GRU.DS_GRU_RES         	DS_GRU_RES
+        ,ITEM.CD_ITEM_RES       	CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES       	DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0		VL_RATEIO
+        ,0		 VL_RECEBIDO
+        ,0		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'S'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES_PAG,DS_GRU_RES_PAG,
+CD_ITEM_RES_PAG,DS_ITEM_RES_PAG,
+DIA_PAG
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA_X_G_TOTAIS_ITEM_RES_PAG_NOP1
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           CD_GRU_RES_NOP_PAG
+        ,A.DS_GRU_RES           DS_GRU_RES_NOP_PAG
+        ,A.CD_ITEM_RES          CD_ITEM_RES_NOP_PAG
+        ,A.DS_ITEM_RES          DS_ITEM_RES_NOP_PAG
+        ,A.DIA                  	DIA_NOP_PAG
+        ,SUM(A.VL_RATEIO)       VL_RATEIO_NOP_PAG
+        ,SUM(A.VL_RECEBIDO)     VL_RECEBIDO_NOP_PAG
+        ,SUM(A.VL_PREVISTO)     VL_PREVISTO_NOP_PAG
+FROM (
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,TO_CHAR(MOV.DT_MOVIMENTACAO, 'DD' )     DIA
+        ,0              			VL_RATEIO
+        ,MOV.VL_MOVIMENTACAO            VL_RECEBIDO
+        ,0                          		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.MOV_CONCOR     MOV,
+       DBAMV.LAN_CONCOR     LAN,
+       DBAMV.EMPRESA_LAN_CONCOR     EMP,
+       DBAMV.CON_COR	CON
+WHERE ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+AND   ITEM.CD_ITEM_RES		   = EMP.CD_ITEM_RES
+AND   MOV.CD_LAN_CONCOR                 = LAN.CD_LAN_CONCOR
+AND   LAN.CD_LAN_CONCOR                 = EMP.CD_LAN_CONCOR
+AND   EMP.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_CON_COR		    = CON.CD_CON_COR
+AND  CON.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_SAI_CAI                    IS NULL
+and not exists ( select '*'
+                       from   dbamv.rec_mov_con  rm
+                      where  mov.cd_mov_concor = rm.cd_mov_concor )
+AND   MOV.CD_BORDERO                    IS NULL
+AND   MOV.CD_CHEQUE                     IS NULL
+AND   MOV.CD_PAGCON_PAG                 IS NULL
+AND   LAN.TP_OPERACAO_SALDO_CONTA      = '-'
+AND   MOV.DT_MOVIMENTACAO >= TO_DATE( TO_CHAR( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND   MOV.DT_MOVIMENTACAO <= TO_DATE( TO_CHAR( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+UNION
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0                    VL_RATEIO
+        ,0                    VL_RECEBIDO
+        ,0                    VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES_NOP_PAG,DS_GRU_RES_NOP_PAG,
+CD_ITEM_RES_NOP_PAG,DS_ITEM_RES_NOP_PAG,
+DIA_NOP_PAG
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GESTAO_CAIXA_X_G_TOTAIS_ITEM_RES_RECEB_NOP1
+SELECT * FROM (
+SELECT   A.CD_GRU_RES           CD_GRU_RES_NOP
+        ,A.DS_GRU_RES           DS_GRU_RES_NOP
+        ,A.CD_ITEM_RES          CD_ITEM_RES_NOP
+        ,A.DS_ITEM_RES          DS_ITEM_RES_NOP
+        ,A.DIA                  	DIA_NOP
+        ,SUM(A.VL_RATEIO)       VL_RATEIO_NOP
+        ,SUM(A.VL_RECEBIDO)     VL_RECEBIDO_NOP
+        ,SUM(A.VL_PREVISTO)     VL_PREVISTO_NOP
+FROM (
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,TO_CHAR(MOV.DT_MOVIMENTACAO, 'DD' )     DIA
+        ,0			              	VL_RATEIO
+        ,MOV.VL_MOVIMENTACAO            VL_RECEBIDO
+        ,0                          		VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM,
+       DBAMV.MOV_CONCOR     MOV,
+       DBAMV.LAN_CONCOR     LAN,
+       DBAMV.EMPRESA_LAN_CONCOR     EMP,
+       DBAMV.CON_COR	CON
+WHERE ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+AND   ITEM.CD_ITEM_RES		   = EMP.CD_ITEM_RES
+AND   MOV.CD_LAN_CONCOR                 = LAN.CD_LAN_CONCOR
+AND   LAN.CD_LAN_CONCOR                 = EMP.CD_LAN_CONCOR
+AND   EMP.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_CON_COR		    = CON.CD_CON_COR
+AND   CON.CD_MULTI_EMPRESA	    = :CAMPO_CD_MULTI_EMPRESA
+AND   MOV.CD_SAI_CAI                    IS NULL
+and not exists ( select '*'
+                       from   dbamv.rec_mov_con  rm
+                      where  mov.cd_mov_concor = rm.cd_mov_concor )
+AND   MOV.CD_BORDERO                    IS NULL
+AND   MOV.CD_CHEQUE                     IS NULL
+AND   MOV.CD_PAGCON_PAG                 IS NULL
+AND   LAN.TP_OPERACAO_SALDO_CONTA      = '+'
+AND   MOV.DT_MOVIMENTACAO >= TO_DATE( TO_CHAR( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND   MOV.DT_MOVIMENTACAO <= TO_DATE( TO_CHAR( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+UNION
+SELECT   GRU.CD_GRU_RES             CD_GRU_RES
+        ,GRU.DS_GRU_RES             DS_GRU_RES
+        ,ITEM.CD_ITEM_RES           CD_ITEM_RES
+        ,ITEM.DS_ITEM_RES           DS_ITEM_RES
+        ,to_char( :CAMPO_DT_INICIAL + ROWNUM - 1 , 'DD' ) DIA
+        ,0                    VL_RATEIO
+        ,0                    VL_RECEBIDO
+        ,0                    VL_PREVISTO
+FROM   DBAMV.GRU_RES        GRU,
+       DBAMV.ITEM_RES       ITEM
+WHERE ROWNUM <= :CAMPO_DT_FINAL - :CAMPO_DT_INICIAL + 1
+AND   ITEM.CD_GRU_RES                   = GRU.CD_GRU_RES
+AND   GRU.TP_OPERACIONAL                = 'N'
+) A
+GROUP BY  A.CD_GRU_RES
+         ,A.DS_GRU_RES
+         ,A.CD_ITEM_RES
+         ,A.DS_ITEM_RES
+         ,A.DIA
+)
+ORDER BY CD_GRU_RES_NOP,DS_GRU_RES_NOP,
+CD_ITEM_RES_NOP,DS_ITEM_RES_NOP,
+DIA_NOP

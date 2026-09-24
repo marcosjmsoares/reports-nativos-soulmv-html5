@@ -1,0 +1,343 @@
+/*----------------------------------------------------------------------------*/
+--R_DET_CLI
+select  dt_emissao
+      , vl_previsto
+      , cd_acrescimo
+      , vl_acrescimo
+      , cd_desconto
+      , vl_desconto
+      , cd_reduzido
+      , cd_historico_padrao
+      , ds_con_rec
+      , cd_con_rec
+      , nr_documento
+      , nm_cliente
+      , cd_moeda
+      , vl_moeda
+      , vl_moeda_acrescimo
+      , vl_moeda_desconto
+      , cd_processo
+      , nr_serie
+      , cd_multi_empresa
+      , ds_multi_empresa
+      , cd_fornecedor
+      , nm_fornecedor
+      , dbamv.fnc_formata_cpf_cnpj(nr_cgc_cpf) nr_cgc_cpf
+      , dt_vencimento
+      , vl_iss
+      , vl_ir
+      , vl_csll
+      , vl_cofins
+      , vl_pis
+      , vl_recebido
+      , dt_recebimento
+      , vl_desconto_recebimento
+      , vl_acrescimo_recebimento
+      , tp_quitacao
+from (
+     select r.dt_emissao
+        , Nvl(r.vl_previsto,0) vl_previsto
+        , r.cd_acrescimo
+        , Nvl(r.vl_acrescimo,0) vl_acrescimo
+        , r.cd_desconto
+        , Nvl(r.vl_desconto,0) vl_desconto
+        , r.cd_reduzido cd_reduzido
+        , r.cd_historico_padrao
+        , r.ds_con_rec
+        , r.cd_con_rec
+        , r.nr_documento
+        , r.nm_cliente
+        , r.cd_moeda
+        , Nvl(r.vl_moeda,0) vl_moeda
+        , Nvl(r.vl_moeda_acrescimo,0) vl_moeda_acrescimo
+        , Nvl(r.vl_moeda_desconto,0) vl_moeda_desconto
+        , r.cd_processo
+        , r.nr_serie
+        , Decode('','S',r.cd_multi_empresa, null) cd_multi_empresa
+        , Decode('','S',emp.ds_multi_empresa, null) ds_multi_empresa
+        , f.cd_fornecedor
+        , f.nm_fornecedor
+        , f.nr_cgc_cpf
+        , i.dt_vencimento
+        ,Nvl((SELECT Sum(tdr.vl_detalhamento)
+            FROM dbamv.tip_detcon_rec tdr,
+                 dbamv.tip_detalhe t
+           WHERE t.cd_detalhamento = tdr.cd_detalhamento
+             AND tdr.cd_con_rec = r.cd_con_rec
+             AND t.tp_detalhamento = 'I'
+         GROUP BY t.tp_detalhamento ),0) vl_ISS
+       ,Decode('','S',
+               Nvl((SELECT Sum(tdr.vl_detalhamento)
+                      FROM dbamv.tip_detcon_rec tdr,
+                           dbamv.tip_detalhe t
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND tdr.cd_con_rec = r.cd_con_rec
+                       AND t.tp_detalhamento = 'J'
+                     GROUP BY t.tp_detalhamento),0),
+               Nvl((SELECT Sum(tdr.vl_tributo)
+                      FROM dbamv.tip_det_reccon_rec tdr,
+                           dbamv.itcon_rec it,
+                           dbamv.reccon_rec rcr,
+                           dbamv.tip_detalhe t,
+                           dbamv.con_rec cr
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND it.cd_con_rec = r.cd_con_rec
+                       AND tdr.cd_reccon_rec = rcr.cd_reccon_rec
+                       AND rcr.cd_itcon_rec = it.cd_itcon_rec
+                       AND cr.cd_con_rec = it.cd_con_rec
+                       AND t.tp_detalhamento = 'J'
+                     GROUP BY t.tp_detalhamento),0)) vl_IR
+       ,Decode('','S',
+               Nvl((SELECT Sum(tdr.vl_detalhamento)
+                      FROM dbamv.tip_detcon_rec tdr,
+                           dbamv.tip_detalhe t
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND tdr.cd_con_rec = r.cd_con_rec
+                       AND t.tp_detalhamento = 'L'
+                   GROUP BY t.tp_detalhamento),0),
+               Nvl((SELECT Sum(tdr.vl_tributo)
+                      FROM dbamv.tip_det_reccon_rec tdr,
+                           dbamv.itcon_rec it,
+                           dbamv.reccon_rec rcr,
+                           dbamv.tip_detalhe t,
+                           dbamv.con_rec cr
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND it.cd_con_rec = r.cd_con_rec
+                       AND tdr.cd_reccon_rec = rcr.cd_reccon_rec
+                       AND rcr.cd_itcon_rec = it.cd_itcon_rec
+                       AND cr.cd_con_rec = it.cd_con_rec
+                       AND t.tp_detalhamento = 'L'
+                   GROUP BY t.tp_detalhamento),0)) vl_csll
+        ,Decode('','S',
+               Nvl((SELECT Sum(tdr.vl_detalhamento)
+                      FROM dbamv.tip_detcon_rec tdr,
+                           dbamv.tip_detalhe t
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND tdr.cd_con_rec = r.cd_con_rec
+                       AND t.tp_detalhamento = 'P'
+                   GROUP BY t.tp_detalhamento),0),
+               Nvl((SELECT Sum(tdr.vl_tributo)
+                      FROM dbamv.tip_det_reccon_rec tdr,
+                           dbamv.itcon_rec it,
+                           dbamv.reccon_rec rcr,
+                           dbamv.tip_detalhe t,
+                           dbamv.con_rec cr
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND it.cd_con_rec = r.cd_con_rec
+                       AND tdr.cd_reccon_rec = rcr.cd_reccon_rec
+                       AND rcr.cd_itcon_rec = it.cd_itcon_rec
+                       AND cr.cd_con_rec = it.cd_con_rec
+                       AND t.tp_detalhamento = 'P'
+                   GROUP BY t.tp_detalhamento),0)) vl_pis
+        ,Decode('','S',
+               Nvl((SELECT Sum(tdr.vl_detalhamento)
+                      FROM dbamv.tip_detcon_rec tdr,
+                           dbamv.tip_detalhe t
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND tdr.cd_con_rec = r.cd_con_rec
+                       AND t.tp_detalhamento = 'C'
+                   GROUP BY t.tp_detalhamento),0),
+               Nvl((SELECT Sum(tdr.vl_tributo)
+                      FROM dbamv.tip_det_reccon_rec tdr,
+                           dbamv.itcon_rec it,
+                           dbamv.reccon_rec rcr,
+                           dbamv.tip_detalhe t,
+                           dbamv.con_rec cr
+                     WHERE t.cd_detalhamento = tdr.cd_detalhamento
+                       AND it.cd_con_rec = r.cd_con_rec
+                       AND tdr.cd_reccon_rec = rcr.cd_reccon_rec
+                       AND rcr.cd_itcon_rec = it.cd_itcon_rec
+                       AND cr.cd_con_rec = it.cd_con_rec
+                       AND t.tp_detalhamento = 'C'
+                   GROUP BY t.tp_detalhamento),0)) vl_cofins,
+        Nvl(Sum(Nvl(rr.vl_recebido,0)),0) vl_recebido,
+        Max(rr.dt_recebimento) dt_recebimento,
+        Nvl(Sum(Nvl(rr.vl_desconto,0)),0) vl_desconto_recebimento,
+        Nvl(Sum(Nvl(rr.vl_acrescimo,0)),0) VL_ACRESCIMO_RECEBIMENTO
+        ,i.tp_quitacao tp_quitacao
+      from dbamv.con_rec r,
+           dbamv.fornecedor f,
+           dbamv.forn_conta fc1,
+           dbamv.processo p ,
+           dbamv.itcon_rec i,
+           dbamv.reccon_rec rr,
+           dbamv.multi_empresas emp
+     WHERE r.cd_fornecedor is not NULL
+       and fc1.tp_conta (+)   = 'CL'
+       AND rr.cd_itcon_rec (+) = i.cd_itcon_rec
+       AND i.cd_con_rec = r.cd_con_rec
+       and r.cd_multi_empresa = fc1.cd_multi_empresa (+)
+       and r.cd_fornecedor = fc1.cd_fornecedor (+)
+       and r.cd_processo = p.cd_processo
+       and p.cd_estrutural in ('1.4.1.1.2', '3.1.1.2.3')
+       AND r.cd_multi_empresa = emp.cd_multi_empresa
+       AND f.cd_fornecedor = r.cd_fornecedor(+)
+       and nvl(r.vl_previsto,0) > 0
+ GROUP by r.dt_emissao
+        , r.vl_previsto
+        , r.cd_acrescimo
+        , r.vl_acrescimo
+        , r.cd_desconto
+        , r.vl_desconto
+        , r.cd_reduzido
+        , r.cd_historico_padrao
+        , r.ds_con_rec
+        , r.cd_con_rec
+        , r.nr_documento
+        , r.nm_cliente
+        , r.cd_moeda
+        , r.vl_moeda
+        , r.vl_moeda_acrescimo
+        , r.vl_moeda_desconto
+        , r.cd_processo
+        , r.nr_serie
+        , Decode('','S',r.cd_multi_empresa, null)
+        , Decode('','S',emp.ds_multi_empresa, null)
+        , f.cd_fornecedor
+        , f.nm_fornecedor
+        , f.nr_cgc_cpf
+        , i.dt_vencimento
+        , i.tp_quitacao
+)
+order by Decode('','S',ds_multi_empresa, null), nm_fornecedor
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DET_CLI_IMPOSTOS
+select  dt_emissao
+      , vl_previsto
+      , cd_acrescimo
+      , vl_acrescimo
+      , cd_desconto
+      , vl_desconto
+      , cd_reduzido
+      , cd_historico_padrao
+      , ds_con_rec
+      , cd_con_rec
+      , nr_documento
+      , nm_cliente
+      , cd_moeda
+      , vl_moeda
+      , vl_moeda_acrescimo
+      , vl_moeda_desconto
+      , cd_processo
+      , nr_serie
+      , cd_multi_empresa
+      , cd_fornecedor
+      , nm_fornecedor
+      , nr_cgc_cpf
+      , dt_vencimento
+      , vl_iss
+      , vl_ir
+      , vl_csll
+      , vl_cofins
+      , vl_pis
+      , vl_recebido
+      , dt_recebimento
+      , vl_desconto_recebimento
+      , vl_acrescimo_recebimento
+from (
+     select r.dt_emissao
+        , r.vl_previsto
+        , r.cd_acrescimo
+        , r.vl_acrescimo
+        , r.cd_desconto
+        , r.vl_desconto
+        , r.cd_reduzido cd_reduzido
+        , r.cd_historico_padrao
+        , r.ds_con_rec
+        , r.cd_con_rec
+        , r.nr_documento
+        , r.nm_cliente
+        , r.cd_moeda
+        , r.vl_moeda
+        , r.vl_moeda_acrescimo
+        , r.vl_moeda_desconto
+        , r.cd_processo
+        , r.nr_serie
+        , r.cd_multi_empresa
+        , f.cd_fornecedor
+        , f.nm_fornecedor
+        , f.nr_cgc_cpf
+        , i.dt_vencimento
+        ,(SELECT Sum(tdr.vl_detalhamento)
+            FROM dbamv.tip_detcon_rec tdr,
+                 dbamv.tip_detalhe t
+           WHERE t.cd_detalhamento = tdr.cd_detalhamento
+             AND tdr.cd_con_rec = r.cd_con_rec
+             AND t.tp_detalhamento = 'I'
+         GROUP BY t.tp_detalhamento ) vl_ISS
+       ,(SELECT Sum(tdr.vl_detalhamento)
+           FROM dbamv.tip_detcon_rec tdr,
+                dbamv.tip_detalhe t
+          WHERE t.cd_detalhamento = tdr.cd_detalhamento
+            AND tdr.cd_con_rec = r.cd_con_rec
+            AND t.tp_detalhamento = 'J'
+        GROUP BY t.tp_detalhamento) vl_IR
+       ,(SELECT Sum(tdr.vl_detalhamento)
+           FROM dbamv.tip_detcon_rec tdr,
+                dbamv.tip_detalhe t
+          WHERE t.cd_detalhamento = tdr.cd_detalhamento
+            AND tdr.cd_con_rec = r.cd_con_rec
+            AND t.tp_detalhamento = 'L'
+        GROUP BY t.tp_detalhamento) vl_csll
+        ,(SELECT Sum(tdr.vl_detalhamento)
+           FROM dbamv.tip_detcon_rec tdr,
+                dbamv.tip_detalhe t
+          WHERE t.cd_detalhamento = tdr.cd_detalhamento
+            AND tdr.cd_con_rec = r.cd_con_rec
+            AND t.tp_detalhamento = 'P'
+        GROUP BY t.tp_detalhamento) vl_pis
+        ,(SELECT Sum(tdr.vl_detalhamento)
+           FROM dbamv.tip_detcon_rec tdr,
+                dbamv.tip_detalhe t
+          WHERE t.cd_detalhamento = tdr.cd_detalhamento
+            AND tdr.cd_con_rec = r.cd_con_rec
+            AND t.tp_detalhamento = 'C'
+        GROUP BY t.tp_detalhamento) vl_cofins,
+        Sum(Nvl(rr.vl_recebido,0)) vl_recebido,
+        Max(rr.dt_recebimento) dt_recebimento,
+        Sum(Nvl(rr.vl_desconto,0)) vl_desconto_recebimento,
+        Sum(Nvl(rr.vl_acrescimo,0)) vl_acrescimo_recebimento
+      from dbamv.con_rec r,
+           dbamv.fornecedor f,
+           dbamv.forn_conta fc1,
+           dbamv.processo p ,
+           dbamv.itcon_rec i,
+           dbamv.reccon_rec rr
+     WHERE r.cd_fornecedor is not NULL
+       and fc1.tp_conta (+)   = 'CL'
+       AND rr.cd_itcon_rec = i.cd_itcon_rec
+       AND i.cd_con_rec = r.cd_con_rec
+       and r.cd_multi_empresa = fc1.cd_multi_empresa (+)
+       and r.cd_fornecedor = fc1.cd_fornecedor (+)
+       and r.cd_processo = p.cd_processo
+       and p.cd_estrutural = '1.4.1.1.2'
+       AND f.cd_fornecedor = r.cd_fornecedor(+)
+       and nvl(r.vl_previsto,0) > 0
+ GROUP by r.dt_emissao
+        , r.vl_previsto
+        , r.cd_acrescimo
+        , r.vl_acrescimo
+        , r.cd_desconto
+        , r.vl_desconto
+        , r.cd_reduzido
+        , r.cd_historico_padrao
+        , r.ds_con_rec
+        , r.cd_con_rec
+        , r.nr_documento
+        , r.nm_cliente
+        , r.cd_moeda
+        , r.vl_moeda
+        , r.vl_moeda_acrescimo
+        , r.vl_moeda_desconto
+        , r.cd_processo
+        , r.nr_serie
+        , r.cd_multi_empresa
+        , f.cd_fornecedor
+        , f.nm_fornecedor
+        , f.nr_cgc_cpf
+        , i.dt_vencimento
+)
+order by cd_fornecedor

@@ -1,0 +1,39 @@
+/*----------------------------------------------------------------------------*/
+--R_EMPRESTIMO_ENTRADA
+SELECT * FROM (
+ Select  Distinct Ent_pro.dt_entrada                  Dt_entrada,
+            Fornecedor.nm_fornecedor      Fornecedor,
+            Itent_pro.cd_ent_pro                Ent_pro,
+            Itent_pro.cd_itent_pro               Itent_pro,
+            ''                                               Situacao,
+            Produto.cd_produto                  cProduto,
+            Produto.ds_produto                  Produto,
+            Uni_pro.ds_unidade                 Unidade,
+            Itent_pro.qt_entrada                 Qt_entrada,
+            Itent_pro.vl_unitario                  Vl_unitario,
+            Itent_pro.vl_total                       Vl_total,
+            decode(Nvl(Itmvto_ent.tp_emprestimo,'ER'),'PER','ER',Nvl(Itmvto_ent.tp_emprestimo,'ER'))  Tp_emprestimo,
+            Decode(Itent_pro.sn_pendencia,'N', 'Entregue',  'Pendente') sn_pendencia
+   From Dbamv.Ent_pro                          Ent_pro,
+            Dbamv.Itent_pro                        Itent_pro,
+            Dbamv.Tip_doc                         Tip_doc,
+            Dbamv.Fornecedor                    Fornecedor,
+            Dbamv.Produto                          Produto,
+            Dbamv.Uni_pro                          Uni_pro,
+            Dbamv.Itmvto_ent                     Itmvto_ent
+ Where Fornecedor.cd_fornecedor     = Ent_pro.cd_fornecedor
+     And Ent_Pro.cd_tip_doc                = tip_doc.cd_tip_doc
+     And Ent_pro.cd_ent_pro                = Itent_pro.cd_ent_pro
+     And Itent_pro.cd_produto              = Produto.cd_produto
+     And Itent_pro.cd_uni_pro               = Uni_pro.cd_uni_pro
+     And Tip_Doc.tp_entrada                = 'E'
+     And Ent_pro.dt_entrada     Between :CAMPO_DT_INIC
+                                                       And 
+    And Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			            From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+     And Itent_pro.cd_itent_pro          =  Itmvto_ent.cd_itent_pro(+)
+     And Nvl(Itent_pro.sn_pendencia,'S')   =  decode(:CAMPO_TP_SITUACAO,'A', Nvl(itent_pro.sn_pendencia,'S'),  'E', 'N', 'P', 'S')
+order by  Ent_pro.dt_entrada
+)
+ORDER BY DT_ENTRADA

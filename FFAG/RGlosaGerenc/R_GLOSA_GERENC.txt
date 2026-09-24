@@ -1,0 +1,53 @@
+/*----------------------------------------------------------------------------*/
+--R_GLOSA_GERENC
+SELECT   nota.cd_nota_fiscal
+        ,recr.cd_remessa_glosa cd_recurso
+        ,recr.dt_entrega       dt_glosa
+        ,cnta.cd_con_rec
+        ,conv.nm_convenio
+        ,nota.nr_id_nota_fiscal
+        ,item.cd_remessa
+        ,nota.dt_emissao
+        ,item.cd_remessa
+        ,recr.dt_entrega
+        ,recr.dt_prevista_para_pgto
+        ,item.vl_faturado
+        ,item.vl_glosado vl_glosa
+        ,parc.dt_vencimento
+        ,(SELECT x.cd_usuario FROM dbamv.glosas x WHERE x.cd_remessa_glosa = recr.cd_remessa_glosa AND ROWNUM = 1) cd_usuario
+        ,item.vl_recursado
+        ,item.vl_recuperado vl_recurso_recebido
+        ,item.vl_aceito  vl_glosa_pre_aceita
+        ,(item.vl_glosado/item.vl_glosado) vl_perc_pre_aceita
+        ,(item.vl_glosado/Decode(item.vl_faturado, 0, 1, item.vl_faturado))*100 vl_perc_glosado
+        ,(item.vl_recuperado)/(item.vl_glosado)*100 vl_perc_rec_Fat
+        ,(NVL (item.vl_recuperado,1) - NVL (item.vl_recuperado,0)) vl_nao_recebido_recurso
+FROM   dbamv.nota_fiscal nota
+      ,dbamv.con_rec cnta
+      ,dbamv.itcon_rec parc
+      ,(
+SELECT item.cd_nota_fiscal,
+       item.cd_remessa,
+       recr.cd_remessa_glosa,
+       Sum(item.vl_itfat_nf)             vl_faturado,
+       Sum(Nvl(glos.vl_glosa,0))         vl_glosado,
+       Sum(Nvl(glos.vl_reapresentado,0)) vl_recursado,
+       Sum(Nvl(glos.vl_recebido,0))      vl_recuperado,
+       Sum(Nvl((SELECT Sum(Nvl(x.vl_glosa,0)) FROM dbamv.itmov_glosas x WHERE x.cd_glosas = glos.cd_glosas),0)) vl_aceito
+FROM   dbamv.itfat_nota_fiscal item,
+       dbamv.glosas glos,
+       dbamv.remessa_glosa recr
+WHERE  item.cd_itfat_nf = glos.cd_itfat_nf
+  AND  glos.cd_remessa_glosa = recr.cd_remessa_glosa
+GROUP BY item.cd_nota_fiscal,
+         item.cd_remessa,
+         recr.cd_remessa_glosa
+) item
+      ,dbamv.remessa_glosa recr
+      ,dbamv.convenio conv
+WHERE  nota.cd_nota_fiscal = cnta.cd_nota_fiscal
+  AND  cnta.cd_con_rec = parc.cd_con_rec
+  AND  nota.cd_nota_fiscal = item.cd_nota_fiscal
+  AND  item.cd_remessa_glosa = recr.cd_remessa_glosa
+  AND  nota.cd_convenio = conv.cd_convenio
+order by cd_recurso

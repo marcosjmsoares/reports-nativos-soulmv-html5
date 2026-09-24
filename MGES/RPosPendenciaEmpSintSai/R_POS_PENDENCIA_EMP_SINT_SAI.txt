@@ -1,0 +1,40 @@
+/*----------------------------------------------------------------------------*/
+--R_POS_PENDENCIA_EMP_SINT_SAI
+SELECT * FROM (
+  select
+         decode(pkg_mges_emprestimo.retorna_tp_emprestimo_sai(itmvto_estoque.cd_itmvto_estoque),'EC','EC','PEC','EC')  tp_emprestimo
+        ,fornecedor.cd_fornecedor
+        ,fornecedor.nm_fornecedor
+        ,nvl(itmvto_estoque.qt_movimentacao * uni_pro.vl_fator * dbamv.verif_vl_custo_medio(  produto.cd_produto
+                                                                                             ,mvto_estoque.dt_mvto_estoque
+                                                                                             ,'H'
+                                                                                             ,null
+                                                                                             ,mvto_estoque.hr_mvto_estoque
+                                                                                             ,null),0) vl_debito 
+        ,dbamv.pkg_mges_emprestimo.fnc_total_pagto_concedido(itmvto_estoque.cd_itmvto_estoque, :CAMPO_DT_FIM) vl_credito
+        ,mvto_estoque.cd_mvto_estoque cd_mvto
+        ,itmvto_estoque.cd_itmvto_estoque cd_itmvto
+        ,dbamv.pkg_mges_emprestimo.fnc_total_pend_recb_forn(fornecedor.cd_fornecedor, :CAMPO_DT_INIC) saldo_anterior
+    from dbamv.mvto_estoque
+          ,dbamv.itmvto_estoque
+          ,dbamv.estoque
+          ,dbamv.produto
+          ,dbamv.fornecedor
+          ,dbamv.uni_pro
+		  ,dbamv.empresa_produto
+  where mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+     and itmvto_estoque.cd_produto = produto.cd_produto
+     and uni_pro.cd_uni_pro = itmvto_estoque.cd_uni_pro
+     and estoque.cd_estoque = mvto_estoque.cd_estoque
+     and estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and fornecedor.cd_fornecedor = mvto_estoque.cd_fornecedor
+     and mvto_estoque.tp_mvto_estoque = 'E'
+     and mvto_estoque.dt_mvto_estoque >= :CAMPO_DT_INIC
+     and mvto_estoque.dt_mvto_estoque <= :CAMPO_DT_FIM
+     and pkg_mges_emprestimo.retorna_tp_emprestimo_sai(itmvto_estoque.cd_itmvto_estoque) IN ('EC','PEC')
+	 and empresa_produto.cd_produto = produto.cd_produto
+	 and empresa_produto.cd_multi_empresa = estoque.cd_multi_empresa
+     :CAMPO_CF_SUBCLASSE
+) WHERE 1 = 1
+ORDER BY TP_EMPRESTIMO,
+CD_FORNECEDOR,NM_FORNECEDOR

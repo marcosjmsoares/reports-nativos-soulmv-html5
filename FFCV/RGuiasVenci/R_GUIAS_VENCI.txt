@@ -1,0 +1,234 @@
+/*----------------------------------------------------------------------------*/
+--R_GUIAS_VENCI
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GUIAS_VENCI_CG__R_ATENDIME_CG__Q_ATENDIME
+SELECT *
+   FROM
+  (SELECT GUIA.CD_CONVENIO CD_CONVENIO ,
+    CONVENIO.NM_CONVENIO NM_CONVENIO   ,
+    GUIA.CD_ATENDIMENTO CD_ATENDIMENTO
+    ,
+    ATENDIME.CD_PACIENTE CD_PACIENTE
+    ,
+    PACIENTE.NM_PACIENTE NM_PACIENTE                  ,
+    PRESTADOR.NM_MNEMONICO NM_MNEMONICO               ,
+    ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO            ,
+    LEITO.CD_LEITO CD_LEITO                           ,
+    LEITO.DS_LEITO DS_LEITO                           ,
+    NVL(GUIA.NR_GUIA, 'NUMERO NÃO INFORMADO') NR_GUIA ,
+    GUIA.DT_VALIDADE DT_VAL_GUIA                      ,
+    GUIA.TP_GUIA TP_GUIA                              ,
+    PRESTADOR.CD_PRESTADOR CD_PRESTADOR               ,
+    PRESTADOR.NM_PRESTADOR NM_PRESTADOR
+    ,
+    DECODE(atendime.dt_alta, NULL, TRUNC( :CAMPO_DT_INIC ) - TRUNC( guia.dt_validade ), TRUNC(atendime.dt_alta) - TRUNC(guia.dt_validade)) guia_n_alt
+    ,
+    atendime.dt_alta dt_alta
+    ,
+    guia.dt_autorizacao ,
+    guia.dt_solicitacao ,
+    guia.dt_negacao     ,
+    guia.dt_suspensao
+     FROM DBAMV.GUIA          ,
+    DBAMV.PACIENTE PACIENTE   ,
+    DBAMV.CONVENIO CONVENIO   ,
+    DBAMV.ATENDIME ATENDIME   ,
+    DBAMV.LEITO LEITO         ,
+    DBAMV.PRESTADOR PRESTADOR ,
+    dbamv.unid_int            ,
+    Dbamv.Empresa_Convenio
+    WHERE Empresa_Convenio.Cd_Convenio  = Convenio.Cd_Convenio
+  AND Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND ( NVL(:CAMPO_SN_DT_VALIDADE,'N')='S'
+  OR (NVL(:CAMPO_SN_DT_VALIDADE,'N')  ='N'
+  AND GUIA.DT_VALIDADE              IS NOT NULL) )
+  AND ATENDIME.CD_PACIENTE      = PACIENTE.CD_PACIENTE
+  AND GUIA.CD_CONVENIO          = CONVENIO.CD_CONVENIO
+  AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  AND GUIA.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+  AND ATENDIME.CD_LEITO     = LEITO.CD_LEITO (+)
+  AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+  AND leito.cd_unid_int     = unid_int.cd_unid_int (+)
+  AND CONVENIO.tp_convenio  = 'C'
+  AND ( guia.dt_validade IS NULL
+  OR ( GUIA.CD_GUIA       =
+    (SELECT MAX(GUIA2.CD_GUIA)
+       FROM DBAMV.GUIA GUIA2 ,
+      dbamv.atendime
+      WHERE guia2.cd_atendimento  = atendime.cd_atendimento
+    AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND guia.tp_guia = guia2.tp_guia
+    AND GUIA2.CD_ATENDIMENTO = GUIA.CD_ATENDIMENTO
+    AND GUIA2.CD_CONVENIO = GUIA.CD_CONVENIO
+    AND GUIA2.DT_VALIDADE =
+      (SELECT MAX(GUIA3.DT_VALIDADE)
+         FROM DBAMV.GUIA GUIA3 ,
+        dbamv.atendime
+        WHERE guia3.cd_atendimento  = atendime.cd_atendimento
+      AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND guia2.tp_guia = guia3.tp_guia
+      AND GUIA3.CD_ATENDIMENTO = GUIA.CD_ATENDIMENTO
+      AND GUIA3.CD_CONVENIO    = GUIA.CD_CONVENIO
+        :CAMPO_CF_SITUACAO3
+      )
+    )
+    ) ) :CAMPO_CF_ORDEM
+  )
+ORDER BY NM_CONVENIO, CD_CONVENIO, NM_PACIENTE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GUIAS_VENCI_R_PRESTADOR1_Q_UNIDADE
+SELECT *
+   FROM
+  (SELECT GUIA.CD_CONVENIO CD_CONVENIO                                                                                                             ,
+    CONVENIO.NM_CONVENIO NM_CONVENIO                                                                                                               ,
+    GUIA.CD_ATENDIMENTO CD_ATENDIMENTO                                                                                                             ,
+    ATENDIME.CD_PACIENTE CD_PACIENTE                                                                                                               ,
+    PACIENTE.NM_PACIENTE NM_PACIENTE                                                                                                               ,
+    PRESTADOR.NM_MNEMONICO NM_MNEMONICO                                                                                                            ,
+    ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO                                                                                                         ,
+    LEITO.CD_LEITO CD_LEITO                                                                                                                        ,
+    LEITO.DS_LEITO DS_LEITO                                                                                                                        ,
+    NVL(GUIA.NR_GUIA, 'NÚMERO NÃO INFORMADO') NR_GUIA                                                                                              ,
+    GUIA.DT_VALIDADE DT_VAL_GUIA                                                                                                                   ,
+    GUIA.TP_GUIA TP_GUIA2                                                                                                                          ,
+    PRESTADOR.CD_PRESTADOR CD_PRESTADOR                                                                                                            ,
+    PRESTADOR.NM_PRESTADOR NM_PRESTADOR                                                                                                            ,
+    unid_int.cd_unid_int                                                                                                                           ,
+    unid_int.ds_unid_int                                                                                                                           ,
+    DECODE(atendime.dt_alta, NULL, TRUNC( :CAMPO_DT_INIC ) - TRUNC( guia.dt_validade ), TRUNC(atendime.dt_alta) - TRUNC(guia.dt_validade)) guia_n_alt ,
+    atendime.dt_alta dt_alta2                                                                                                                      ,
+    guia.dt_autorizacao                                                                                                                            ,
+    guia.dt_solicitacao                                                                                                                            ,
+    guia.dt_negacao                                                                                                                                ,
+    guia.dt_suspensao
+     FROM DBAMV.GUIA          ,
+    DBAMV.PACIENTE PACIENTE   ,
+    DBAMV.CONVENIO CONVENIO   ,
+    DBAMV.ATENDIME ATENDIME   ,
+    DBAMV.LEITO LEITO         ,
+    DBAMV.PRESTADOR PRESTADOR ,
+    dbamv.unid_int            ,
+    Dbamv.Empresa_Convenio
+    WHERE Empresa_Convenio.Cd_Convenio  = Convenio.Cd_Convenio
+  AND Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND GUIA.TP_GUIA                     IN ('I', 'R')
+  AND ( NVL(:CAMPO_SN_DT_VALIDADE,'N')   ='S'
+  OR NVL(:CAMPO_SN_DT_VALIDADE,'N')      ='N'
+  AND GUIA.DT_VALIDADE                 IS NOT NULL )
+  AND ATENDIME.CD_PACIENTE              = PACIENTE.CD_PACIENTE
+  AND ATENDIME.CD_MULTI_EMPRESA         = :CAMPO_CD_MULTI_EMPRESA
+  AND GUIA.CD_CONVENIO                  = CONVENIO.CD_CONVENIO
+  AND GUIA.CD_ATENDIMENTO               = ATENDIME.CD_ATENDIMENTO
+  AND ATENDIME.CD_LEITO                 = LEITO.CD_LEITO (+)
+  AND ATENDIME.CD_PRESTADOR             = PRESTADOR.CD_PRESTADOR
+  AND CONVENIO.tp_convenio              = 'C'
+  AND leito.cd_unid_int                 = unid_int.cd_unid_int (+)        
+  AND ( guia.dt_validade               IS NULL
+  OR ( GUIA.CD_GUIA                     =
+    (SELECT MAX( Guia2.CD_GUIA)
+       FROM DBAMV.GUIA GUIA2 ,
+      dbamv.atendime
+      WHERE guia2.cd_atendimento  = atendime.cd_atendimento
+    AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND GUIA2.TP_GUIA            IN ('I','R')
+    AND GUIA2.CD_ATENDIMENTO      = GUIA.CD_ATENDIMENTO
+    AND GUIA2.CD_CONVENIO         = GUIA.CD_CONVENIO 
+    AND GUIA2.DT_VALIDADE         =
+      (SELECT MAX(Guia3.DT_VALIDADE)
+         FROM DBAMV.GUIA GUIA3 ,
+        dbamv.atendime
+        WHERE guia3.cd_atendimento  = atendime.cd_atendimento
+      AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND GUIA3.TP_GUIA            IN ('I','R')
+      AND GUIA3.CD_ATENDIMENTO      = GUIA.CD_ATENDIMENTO
+      AND GUIA3.CD_CONVENIO         = GUIA.CD_CONVENIO :CAMPO_CF_SITUACAO3
+      )
+    ) ) ) :CAMPO_CF_ORDEM
+  )
+ORDER BY CD_UNID_INT,
+  DS_UNID_INT       ,
+  CD_CONVENIO       ,
+  NM_CONVENIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_GUIAS_VENCI_R_PRESTADOR_Q_ATEND_POR_MEDICO
+SELECT *
+   FROM
+  (SELECT GUIA.CD_CONVENIO CD_CONVENIO ,
+    CONVENIO.NM_CONVENIO NM_CONVENIO   ,
+    GUIA.CD_ATENDIMENTO CD_ATENDIMENTO ,
+    ATENDIME.CD_PACIENTE CD_PACIENTE
+    ,
+    PACIENTE.NM_PACIENTE NM_PACIENTE                                                                                                               ,
+    PRESTADOR.NM_MNEMONICO NM_MNEMONICO                                                                                                            ,
+    ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO                                                                                                         ,
+    LEITO.CD_LEITO CD_LEITO                                                                                                                        ,
+    LEITO.DS_LEITO DS_LEITO                                                                                                                        ,
+    NVL(GUIA.NR_GUIA, 'NÚMERO NÃO INFORMADO') NR_GUIA                                                                                              ,
+    GUIA.DT_VALIDADE DT_VAL_GUIA                                                                                                                   ,
+    GUIA.TP_GUIA TP_GUIA2                                                                                                                          ,
+    PRESTADOR.CD_PRESTADOR CD_PRESTADOR                                                                                                            ,
+    PRESTADOR.NM_PRESTADOR NM_PRESTADOR                                                                                                            ,
+    DECODE(atendime.dt_alta, NULL, TRUNC( :CAMPO_DT_INIC ) - TRUNC( guia.dt_validade ), TRUNC(atendime.dt_alta) - TRUNC(guia.dt_validade)) guia_n_alt ,
+    atendime.dt_alta dt_alta1                                                                                                                      ,
+    guia.dt_autorizacao                                                                                                                            ,
+    guia.dt_solicitacao                                                                                                                            ,
+    guia.dt_negacao                                                                                                                                ,
+    guia.dt_suspensao
+     FROM DBAMV.GUIA          ,
+    DBAMV.PACIENTE PACIENTE   ,
+    DBAMV.CONVENIO CONVENIO   ,
+    DBAMV.ATENDIME ATENDIME   ,
+    DBAMV.LEITO LEITO         ,
+    DBAMV.PRESTADOR PRESTADOR ,
+    dbamv.unid_int            ,
+    Dbamv.Empresa_Convenio
+    WHERE Empresa_Convenio.Cd_Convenio  = Convenio.Cd_Convenio
+  AND Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND GUIA.TP_GUIA                     IN ('I', 'R')
+  AND ( NVL(:CAMPO_SN_DT_VALIDADE,'N')   ='S'
+  OR NVL(:CAMPO_SN_DT_VALIDADE,'N')      ='N'
+  AND GUIA.DT_VALIDADE                 IS NOT NULL )
+  AND ATENDIME.CD_PACIENTE      = PACIENTE.CD_PACIENTE
+  AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  AND GUIA.CD_CONVENIO          = CONVENIO.CD_CONVENIO
+  AND GUIA.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+  AND ATENDIME.CD_LEITO         = LEITO.CD_LEITO (+)
+  AND ATENDIME.CD_PRESTADOR     = PRESTADOR.CD_PRESTADOR
+  AND CONVENIO.tp_convenio      = 'C'
+  AND leito.cd_unid_int         = unid_int.cd_unid_int (+)        
+  AND ( guia.dt_validade       IS NULL
+  OR ( GUIA.CD_GUIA             =
+    (SELECT MAX(Guia2.CD_GUIA)
+       FROM DBAMV.GUIA GUIA2 ,
+      dbamv.atendime
+      WHERE guia2.cd_atendimento  = atendime.cd_atendimento
+    AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND GUIA2.TP_GUIA            IN ('I','R')
+    AND GUIA2.CD_ATENDIMENTO      = GUIA.CD_ATENDIMENTO
+    AND GUIA2.CD_CONVENIO         = GUIA.CD_CONVENIO 
+    AND GUIA2.DT_VALIDADE         =
+      (SELECT MAX(Guia3.DT_VALIDADE)
+         FROM DBAMV.GUIA GUIA3 ,
+        dbamv.atendime
+        WHERE guia3.cd_atendimento  = atendime.cd_atendimento
+      AND atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND GUIA3.TP_GUIA            IN ('I','R')
+      AND GUIA3.CD_ATENDIMENTO      = GUIA.CD_ATENDIMENTO
+      AND GUIA3.CD_CONVENIO         = GUIA.CD_CONVENIO :CAMPO_CF_SITUACAO
+      )
+    ) ) ) :CAMPO_CF_ORDEM
+  )
+ORDER BY CD_PRESTADOR,
+  NM_PRESTADOR       ,
+  CD_CONVENIO        ,
+  NM_CONVENIO

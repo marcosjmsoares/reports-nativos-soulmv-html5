@@ -1,0 +1,762 @@
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_RET_SC
+SELECT cd_reduzido
+	 ,cd_contabil
+	 ,ds_conta
+	 ,tp_natureza
+	 ,tp_auxiliar
+	 ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_saldo_anterior, NULL, NULL), 0) vl_saldo_anterior
+FROM (
+		SELECT DISTINCT conta.cd_reduzido
+			  ,conta.cd_contabil
+			  ,conta.ds_conta
+			  ,conta.tp_natureza
+			  ,conta.tp_auxiliar
+			 ,(Nvl(anterior.vl_saldo_anterior, 0)
+					+ Nvl(anterior.vl_deb, 0) * Decode(conta.tp_natureza,'D', 1, -1)
+					+ Nvl(anterior.vl_cred, 0) * Decode(conta.tp_natureza,'C', 1, -1)
+				) vl_saldo_anterior
+		FROM (
+			SELECT pe.cd_reduzido
+				  ,pe.cd_contabil
+				  ,pe.ds_conta
+				  ,pc.tp_natureza
+				  ,pc.tp_auxiliar tp_auxiliar
+				FROM dbamv.lcto_contabil lc
+				JOIN dbamv.plano_contas pc
+				  ON pc.cd_reduzido = lc.cd_reduzido_debito
+				JOIN dbamv.plano_estr pe
+				  ON pe.cd_plano = :CAMPO_CD_PLANO
+				JOIN dbamv.plano_contabil depara
+				  ON depara.cd_reduzido = pc.cd_reduzido
+				  AND depara.cd_plano_estr = pe.cd_plano_estr
+			  LEFT JOIN dbamv.lote
+				ON lc.cd_lote = lote.cd_lote
+			  WHERE lc.cd_reduzido_debito IS NOT NULL
+			    AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+				AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+				AND (lc.cd_lanc_agrup IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+			UNION ALL
+			SELECT pe.cd_reduzido
+				  ,pe.cd_contabil
+				  ,pe.ds_conta
+				  ,pc.tp_natureza
+				  ,pc.tp_auxiliar tp_auxiliar
+				FROM dbamv.lcto_contabil lc
+				JOIN dbamv.plano_contas pc
+				  ON pc.cd_reduzido = lc.cd_reduzido_credito
+				JOIN dbamv.plano_estr pe
+				  ON pe.cd_plano = :CAMPO_CD_PLANO
+				JOIN dbamv.plano_contabil depara
+				  ON depara.cd_reduzido = pc.cd_reduzido
+				  AND depara.cd_plano_estr = pe.cd_plano_estr
+			  LEFT JOIN dbamv.lote
+				ON lc.cd_lote = lote.cd_lote
+			  WHERE lc.cd_reduzido_credito IS NOT NULL
+			    AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+				AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+				AND (lc.cd_lanc_agrup IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+			UNION ALL
+			SELECT pe.cd_reduzido
+				  ,pe.cd_contabil
+				  ,pe.ds_conta
+				  ,pc.tp_natureza
+				  ,pc.tp_auxiliar tp_auxiliar
+				FROM dbamv.plano_contas pc
+				JOIN dbamv.plano_estr pe
+				  ON pe.cd_plano = :CAMPO_CD_PLANO
+				JOIN dbamv.plano_contabil depara
+				  ON depara.cd_reduzido = pc.cd_reduzido
+				  AND depara.cd_plano_estr = pe.cd_plano_estr
+				WHERE :CAMPO_ZERADAS = 'S'
+				  :CAMPO_CF_COND_CONTA_CONTABIL
+  ) conta
+  LEFT JOIN ( SELECT cd_reduzido
+		 ,Sum(vl_saldo_anterior) vl_saldo_anterior
+		 ,Sum(vl_deb) vl_deb
+		 ,Sum(vl_cred) vl_cred
+   FROM (
+		 SELECT pe.cd_reduzido
+				,0 vl_saldo_anterior
+				,lc.vl_lancado vl_deb
+				,0 vl_cred
+			FROM dbamv.lcto_contabil lc
+			JOIN dbamv.plano_contas pc
+			  ON pc.cd_reduzido = lc.cd_reduzido_debito
+			JOIN dbamv.plano_estr pe
+			  ON pe.cd_plano = :CAMPO_CD_PLANO
+			JOIN dbamv.plano_contabil depara
+			  ON depara.cd_reduzido = pc.cd_reduzido
+			  AND depara.cd_plano_estr = pe.cd_plano_estr
+		 WHERE lc.cd_reduzido_debito is not null
+		   AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+		   AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+		UNION ALL
+		 SELECT pe.cd_reduzido
+				,0 vl_saldo_anterior
+				,0 vl_deb
+				,lc.vl_lancado vl_cred
+			FROM dbamv.lcto_contabil lc
+			JOIN dbamv.plano_contas pc
+			  ON pc.cd_reduzido = lc.cd_reduzido_credito
+			JOIN dbamv.plano_estr pe
+			  ON pe.cd_plano = :CAMPO_CD_PLANO
+			JOIN dbamv.plano_contabil depara
+			  ON depara.cd_reduzido = pc.cd_reduzido
+			  AND depara.cd_plano_estr = pe.cd_plano_estr
+		 WHERE lc.cd_reduzido_credito is not null
+		   AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+		   AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+		UNION ALL
+		SELECT pe.cd_reduzido
+			 ,saldo_ant.vl_saldo_anterior
+			 ,0 vl_deb
+			 ,0 vl_cred
+		FROM dbamv.saldo_mensal_emp saldo_ant
+		JOIN dbamv.plano_contas pc
+		  ON pc.cd_reduzido = saldo_ant.cd_reduzido
+		JOIN dbamv.plano_estr pe
+		  ON pe.cd_plano = :CAMPO_CD_PLANO
+		JOIN dbamv.plano_contabil depara
+		  ON depara.cd_reduzido = pc.cd_reduzido
+		  AND depara.cd_plano_estr = pe.cd_plano_estr
+		WHERE saldo_ant.cd_multi_empresa_origem IN (:CAMPO_CF_COND_EMPRESA)
+		 :CAMPO_CF_COND_CONTA_CONTABIL
+       )
+       GROUP BY cd_reduzido
+		 ) anterior
+     ON conta.cd_reduzido = anterior.cd_reduzido
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_CONTA_AUX_RET_SC
+SELECT lc.cd_reduzido
+      ,lc.cd_auxiliar
+	  ,Nvl(lc.ds_conta_aux, '') ds_conta_aux
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, lc.vl_saldo_anterior, NULL, NULL ), 0) vl_saldo_anterior
+FROM (
+SELECT DISTINCT conta.cd_reduzido
+      ,conta.cd_auxiliar
+	  ,Nvl(auxiliar.ds_conta_aux, '') ds_conta_aux
+	  ,(Nvl(anterior.vl_saldo_anterior, 0)
+		 + Nvl(anterior.vl_deb, 0) * Decode('D', 'D', 1, -1)
+		 + Nvl(anterior.vl_cred, 0) * Decode('D', 'C', 1, -1)) vl_saldo_anterior
+FROM (
+		SELECT pe.cd_reduzido
+			  ,lc.cd_auxiliar_deb cd_auxiliar
+		  FROM dbamv.lcto_contabil lc
+		  JOIN dbamv.plano_estr pe
+			ON pe.cd_plano = :CAMPO_CD_PLANO
+		  JOIN dbamv.plano_contabil depara
+			ON depara.cd_reduzido = lc.cd_reduzido_debito
+		   AND depara.cd_plano_estr = pe.cd_plano_estr
+		  LEFT JOIN dbamv.lote
+			ON lc.cd_lote = lote.cd_lote
+		  WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+			AND lc.cd_reduzido_debito IS NOT NULL
+			AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+			AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+			AND (lc.cd_lanc_agrup IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+		UNION ALL
+		SELECT pe.cd_reduzido
+			  ,lc.cd_auxiliar_crd cd_auxiliar
+		  FROM dbamv.lcto_contabil lc
+		  JOIN dbamv.plano_estr pe
+			ON pe.cd_plano = :CAMPO_CD_PLANO
+		  JOIN dbamv.plano_contabil depara
+			ON depara.cd_reduzido = lc.cd_reduzido_credito
+		   AND depara.cd_plano_estr = pe.cd_plano_estr
+		  LEFT JOIN dbamv.lote
+			ON lc.cd_lote = lote.cd_lote
+		  WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+			AND lc.cd_reduzido_credito IS NOT NULL
+			AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+			AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+			AND (lc.cd_lanc_agrup IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+		UNION
+		SELECT pe.cd_reduzido
+			  ,saldo_ant.cd_auxiliar
+		  FROM dbamv.saldo_mensal_emp_aux saldo_ant
+		  JOIN dbamv.plano_estr pe
+			ON pe.cd_plano = :CAMPO_CD_PLANO
+		  JOIN dbamv.plano_contabil depara
+			ON depara.cd_reduzido = saldo_ant.cd_reduzido
+		   AND depara.cd_plano_estr = pe.cd_plano_estr
+		 WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+		   AND :CAMPO_ZERADAS = 'S'
+	) conta
+	LEFT JOIN ( SELECT cd_reduzido
+					 ,cd_auxiliar
+					,Sum(vl_saldo_anterior) vl_saldo_anterior
+					,Sum(vl_deb) vl_deb
+					,Sum(vl_cred) vl_cred
+		   FROM (
+				 SELECT pe.cd_reduzido
+						,lc.cd_auxiliar_deb cd_auxiliar
+						,0 vl_saldo_anterior
+						,lc.vl_lancado vl_deb
+						,0 vl_cred
+				 FROM dbamv.lcto_contabil lc
+				  JOIN dbamv.plano_estr pe
+					ON pe.cd_plano = :CAMPO_CD_PLANO
+				  JOIN dbamv.plano_contabil depara
+					ON depara.cd_reduzido = lc.cd_reduzido_debito
+				   AND depara.cd_plano_estr = pe.cd_plano_estr
+				 WHERE lc.cd_reduzido_debito is not null
+				 AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+				 AND pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+				UNION ALL
+				 SELECT pe.cd_reduzido
+						,lc.cd_auxiliar_crd cd_auxiliar
+						,0 vl_saldo_anterior
+						,0 vl_deb
+						,lc.vl_lancado vl_cred
+				 FROM dbamv.lcto_contabil lc
+				  JOIN dbamv.plano_estr pe
+					ON pe.cd_plano = :CAMPO_CD_PLANO
+				  JOIN dbamv.plano_contabil depara
+					ON depara.cd_reduzido = lc.cd_reduzido_credito
+				   AND depara.cd_plano_estr = pe.cd_plano_estr
+				 WHERE lc.cd_reduzido_credito is not null
+				 AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+				 AND pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+				UNION ALL
+				SELECT pe.cd_reduzido
+					   ,saldo_ant.cd_auxiliar
+					   ,saldo_ant.vl_saldo_anterior
+					   ,0 vl_deb
+					   ,0 vl_cred
+				FROM dbamv.saldo_mensal_emp_aux saldo_ant
+				JOIN dbamv.plano_estr pe
+				  ON pe.cd_plano = :CAMPO_CD_PLANO
+				JOIN dbamv.plano_contabil depara
+				  ON depara.cd_reduzido = saldo_ant.cd_reduzido
+				 AND depara.cd_plano_estr = pe.cd_plano_estr
+				WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+				 :CAMPO_CF_COND_DATA_SALDO_ANT
+				 )
+				   GROUP BY cd_reduzido
+						   ,cd_auxiliar
+			) anterior
+			ON conta.cd_reduzido = anterior.cd_reduzido
+			AND conta.cd_auxiliar = anterior.cd_auxiliar
+			LEFT JOIN (SELECT cd_conta_aux, ds_conta_aux
+					  FROM (
+						  SELECT cd_fornecedor cd_conta_aux
+								,nm_fornecedor ds_conta_aux
+							FROM dbamv.fornecedor FF
+						   WHERE '01' = :CAMPO_TP_AUXILIAR
+							 AND FF.tp_cliente_forn IN ( 'F', 'A', 'R', 'P', 'O', 'T' )
+						UNION ALL
+						  SELECT cd_fornecedor
+								,nm_fornecedor
+						   FROM dbamv.fornecedor FC
+						  WHERE '02' = :CAMPO_TP_AUXILIAR
+							AND FC.tp_cliente_forn IN ( 'C', 'A', 'N', 'T' )
+						UNION ALL
+						  SELECT cd_caixa
+								,ds_caixa
+							FROM dbamv.caixa C
+						   WHERE '03' = :CAMPO_TP_AUXILIAR
+							 AND C.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+						UNION ALL
+						  SELECT cd_con_cor
+								,ds_con_cor
+							FROM dbamv.con_cor con
+						   WHERE '04' = :CAMPO_TP_AUXILIAR
+							 AND con.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+						UNION ALL
+						  SELECT cd_convenio
+								,nm_convenio
+							FROM dbamv.convenio CONV
+						   WHERE '05' = :CAMPO_TP_AUXILIAR
+					   )) auxiliar
+		ON auxiliar.cd_conta_aux = conta.cd_auxiliar
+	) lc
+WHERE lc.cd_auxiliar IS NOT NULL
+ORDER BY lc.cd_auxiliar
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_LANCAMENTOS_PROC_RET_SC
+SELECT
+       dt_lcto data
+      ,to_char(dt_lcto, 'DD/MM/YYYY') dt_lcto
+	  ,to_char(dt_lcto, 'MM/YYYY') dt_lcto_mes_ano
+	  ,cd_lcto_contabil
+	  ,cd_reduzido
+	  ,cd_conta_auxiliar
+	  ,cd_contabil
+	  ,ds_conta
+	  ,cd_multi_emp_lancamento
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_debito, NULL, NULL), 0) vl_debito
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_credito, NULL, NULL), 0) vl_credito
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, saldo_atual, NULL, NULL), 0) saldo_atual
+	  ,ds_processo
+	  ,estrutural_processo
+FROM (
+	SELECT Trunc(lc.dt_lcto) dt_lcto
+		 ,to_number(null) cd_lcto_contabil
+		 ,to_number(null) cd_multi_emp_lancamento
+		 ,pe.cd_reduzido
+		 ,lc.cd_auxiliar_deb cd_conta_auxiliar
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,Sum(lc.vl_lancado) vl_debito
+		 ,Sum(0) vl_credito
+		 ,(:CAMPO_SALDO_ANTERIOR + Sum(lc.vl_lancado) * Decode(:CAMPO_TP_NATUREZA, 'D', 1, -1)) saldo_atual
+		 ,(proc.cd_estrutural||' - '||proc.ds_processo) ds_processo
+		 ,proc.cd_estrutural estrutural_processo
+	  FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_debito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	  LEFT JOIN dbamv.lote
+	    ON lc.cd_lote = lote.cd_lote
+	  LEFT JOIN dbamv.processo proc
+		ON proc.cd_processo = lc.cd_processo
+	  WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+	  AND lc.cd_reduzido_debito IS NOT NULL
+	  AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+	  AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+  GROUP BY Trunc(lc.dt_lcto)
+		  ,lc.cd_lote
+		  ,pe.cd_reduzido
+		  ,lc.cd_auxiliar_deb
+		  ,pe.cd_contabil
+		  ,pe.ds_conta
+		  ,proc.ds_processo
+		  ,proc.cd_estrutural
+UNION ALL
+	SELECT Trunc(lc.dt_lcto) dt_lcto
+		 ,to_number(null) cd_lcto_contabil
+		 ,to_number(null)cd_multi_emp_lancamento
+		 ,pe.cd_reduzido
+		 ,lc.cd_auxiliar_crd cd_conta_auxiliar
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,Sum(0) vl_debito
+		 ,Sum(lc.vl_lancado) vl_credito
+		 ,(:CAMPO_SALDO_ANTERIOR + Sum(lc.vl_lancado) * Decode(:CAMPO_TP_NATUREZA, 'D', -1, 1)) saldo_atual
+		 ,(proc.cd_estrutural||' - '||proc.ds_processo) ds_processo
+		 ,proc.cd_estrutural estrutural_processo
+	  FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_credito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	  LEFT JOIN dbamv.lote
+	    ON lc.cd_lote = lote.cd_lote
+	  LEFT JOIN dbamv.processo proc
+		ON proc.cd_processo = lc.cd_processo
+	  WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+	   AND lc.cd_reduzido_credito IS NOT NULL
+	   AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+	   AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+  GROUP BY Trunc(lc.dt_lcto)
+		  ,lc.cd_lote
+		  ,pe.cd_reduzido
+		  ,lc.cd_auxiliar_crd
+		  ,pe.cd_contabil
+		  ,pe.ds_conta
+		  ,proc.ds_processo
+		  ,proc.cd_estrutural
+	UNION ALL
+	SELECT To_date(null)
+		 ,To_number(null)
+		 ,To_number(null)
+		 ,pe.cd_reduzido
+		 ,To_number(null)
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,To_number(null)
+		 ,To_number(null)
+		 ,To_number(null)
+		 ,to_char(null)
+		 ,to_char(null)
+	  FROM dbamv.plano_estr pe
+	WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+	  AND :CAMPO_ZERADAS = 'S'
+)
+ORDER BY cd_contabil, cd_reduzido, data
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_LANCAMENTOS_RET_SC
+SELECT
+       dt_lcto data
+      ,to_char(dt_lcto, 'DD/MM/YYYY') dt_lcto
+	  ,to_char(dt_lcto, 'MM/YYYY') dt_lcto_mes_ano
+      ,cd_lote
+	  ,cd_lcto_contabil
+	  ,cd_lcto_movimento
+	  ,cd_reduzido
+	  ,cd_conta_auxiliar
+	  ,cd_contabil
+	  ,ds_conta
+	  ,cd_multi_emp_lancamento
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_debito, NULL, NULL), 0) vl_debito
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_credito, NULL, NULL), 0) vl_credito
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, saldo_atual, NULL, NULL), 0) saldo_atual
+	  ,Decode(Concat(:CAMPO_HISTORICO, :CAMPO_DS_COMPLEMENTO), 'SS'
+						,Decode(Nvl(ds_historico_padrao, ''), Nvl(ds_complemento, ''),ds_historico_padrao, ds_historico_padrao||' '||ds_complemento)
+						,'SN', ds_historico_padrao
+						,'NS', ds_complemento
+						) DS_HISTORICO_COMPLEMENTO
+	  ,ds_processo
+	  ,estrutural_processo
+FROM (
+	SELECT Trunc(lc.dt_lcto) dt_lcto
+		 ,lc.cd_lote
+		 ,lc.cd_lcto_contabil
+		 ,lc.cd_lcto_movimento
+		 ,lc.cd_multi_empresa cd_multi_emp_lancamento
+		 ,pe.cd_reduzido
+		 ,lc.cd_auxiliar_deb cd_conta_auxiliar
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,Sum(lc.vl_lancado) vl_debito
+		 ,Sum(0) vl_credito
+		 ,(:CAMPO_SALDO_ANTERIOR + Sum(lc.vl_lancado) * Decode(:CAMPO_TP_NATUREZA, 'D', 1, -1)) saldo_atual
+		 ,lc.ds_complemento
+		 ,hp.ds_historico_padrao
+		 ,null ds_processo
+		 ,null estrutural_processo
+	  FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_debito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	  LEFT JOIN dbamv.lote
+		ON lc.cd_lote = lote.cd_lote
+	  LEFT JOIN dbamv.historico_padrao hp
+		ON lc.cd_historico_padrao = hp.cd_historico_padrao
+	  WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+		AND lc.cd_reduzido_debito IS NOT NULL
+		AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+		AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+		AND (lc.cd_lanc_agrup IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+	GROUP BY Trunc(lc.dt_lcto)
+			,lc.cd_lote
+			,lc.cd_lcto_contabil
+			,lc.cd_lcto_movimento
+			,lc.cd_multi_empresa
+			,pe.cd_reduzido
+			,lc.cd_auxiliar_deb
+			,pe.cd_contabil
+			,pe.ds_conta
+			,lc.ds_complemento
+			,hp.ds_historico_padrao
+	UNION ALL
+	SELECT Trunc(lc.dt_lcto)
+		 ,lc.cd_lote
+		 ,lc.cd_lcto_contabil
+		 ,lc.cd_lcto_movimento
+		 ,lc.cd_multi_empresa
+		 ,pe.cd_reduzido
+		 ,lc.cd_auxiliar_crd
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,Sum(0) vl_debito
+		 ,Sum(lc.vl_lancado) vl_credito
+		 ,(:CAMPO_SALDO_ANTERIOR + Sum(lc.vl_lancado) * Decode(:CAMPO_TP_NATUREZA, 'D', -1, 1)) saldo_atual
+		 ,lc.ds_complemento
+		 ,hp.ds_historico_padrao
+		 ,null ds_processo
+		 ,null estrutural_processo
+	  FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_credito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	  LEFT JOIN dbamv.lote
+	    ON lc.cd_lote = lote.cd_lote
+	  LEFT JOIN dbamv.historico_padrao hp
+		ON lc.cd_historico_padrao = hp.cd_historico_padrao
+	WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+	  AND lc.cd_reduzido_credito IS NOT NULL
+	  AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+	  AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+	  AND (lc.cd_lanc_agrup IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+	GROUP BY Trunc(lc.dt_lcto)
+			,lc.cd_lote
+			,lc.cd_lcto_contabil
+			,lc.cd_lcto_movimento
+			,lc.cd_multi_empresa
+			,pe.cd_reduzido
+			,lc.cd_auxiliar_crd
+			,pe.cd_contabil
+			,pe.ds_conta
+			,lc.ds_complemento
+			,hp.ds_historico_padrao
+	UNION ALL
+	SELECT null
+		 ,null
+		 ,null
+		 ,null
+		 ,null
+		 ,pe.cd_reduzido
+		 ,null
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,null
+		 ,null
+		 ,null
+		 ,null
+		 ,null
+		 ,null ds_processo
+		 ,null estrutural_processo
+	 FROM dbamv.plano_estr pe
+	WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+	  AND pe.cd_plano = :CAMPO_CD_PLANO
+	  AND NOT EXISTS ( SELECT 'X'
+						 FROM dbamv.lcto_contabil lc
+							 ,dbamv.plano_contabil depara
+						WHERE depara.cd_reduzido = lc.cd_reduzido_debito
+						  AND depara.cd_plano_estr = pe.cd_plano_estr
+						  AND lc.cd_reduzido_debito IS NOT NULL
+						  AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA) )
+	  AND NOT EXISTS ( SELECT 'X'
+						 FROM dbamv.lcto_contabil lc
+							 ,dbamv.plano_contabil depara
+						WHERE depara.cd_reduzido = lc.cd_reduzido_credito
+						  AND depara.cd_plano_estr = pe.cd_plano_estr
+						  AND lc.cd_reduzido_credito IS NOT NULL
+						  AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA) )
+	  AND :CAMPO_ZERADAS = 'S'
+UNION ALL
+	SELECT Trunc(lc.dt_lcto)
+		 ,lc.cd_lote
+		 ,Min(lc.cd_lcto_contabil) cd_lcto_contabil
+		 ,Min(lc.cd_lcto_movimento) cd_lcto_movimento
+		 ,lc.cd_multi_empresa
+		 ,pe.cd_reduzido
+		 ,lc.cd_auxiliar_deb
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,Sum(lc.vl_lancado) vl_debito
+		 ,Sum(0) vl_credito
+		 ,(:CAMPO_SALDO_ANTERIOR + Sum(lc.vl_lancado) * Decode(:CAMPO_TP_NATUREZA, 'D', 1, -1)) saldo_atual
+		 ,'DEPOSITO AGRUPADO' ds_complemento
+		 ,hp.ds_historico_padrao
+		 ,null ds_processo
+		 ,null estrutural_processo
+	  FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_debito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	  LEFT JOIN dbamv.lote
+	    ON lc.cd_lote = lote.cd_lote
+	  LEFT JOIN dbamv.historico_padrao hp
+		ON lc.cd_historico_padrao = hp.cd_historico_padrao
+	  WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+	  AND lc.cd_reduzido_debito IS NOT NULL
+	  AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+	  AND lc.cd_lanc_agrup IS NOT NULL
+	  AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+	  AND :CAMPO_SN_AGRUPA_DEP = 'S'
+   GROUP BY Trunc(lc.dt_lcto)
+		  ,lc.cd_lote
+		  ,lc.cd_multi_empresa
+		  ,pe.cd_reduzido
+		  ,lc.cd_auxiliar_deb
+		  ,pe.cd_contabil
+		  ,pe.ds_conta
+		  ,hp.ds_historico_padrao
+		  ,lc.cd_lanc_agrup
+		  ,lc.sn_transitoria
+UNION ALL
+	SELECT Trunc(lc.dt_lcto) dt_lcto
+		 ,lc.cd_lote
+		 ,Min(lc.cd_lcto_contabil) cd_lcto_contabil
+		 ,Min(lc.cd_lcto_movimento) cd_lcto_movimento
+		 ,lc.cd_multi_empresa
+		 ,pe.cd_reduzido
+		 ,lc.cd_auxiliar_crd
+		 ,pe.cd_contabil
+		 ,pe.ds_conta
+		 ,Sum(0) vl_debito
+		 ,Sum(lc.vl_lancado) vl_credito
+		 ,(:CAMPO_SALDO_ANTERIOR + Sum(lc.vl_lancado) * Decode(:CAMPO_TP_NATUREZA, 'D', -1, 1)) saldo_atual
+		 ,'DEPOSITO AGRUPADO' ds_complemento
+		 ,hp.ds_historico_padrao
+		 ,null ds_processo
+		 ,null estrutural_processo
+	  FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_credito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	  LEFT JOIN dbamv.lote
+	    ON lc.cd_lote = lote.cd_lote
+	  LEFT JOIN dbamv.historico_padrao hp
+		ON lc.cd_historico_padrao = hp.cd_historico_padrao
+	  WHERE pe.cd_reduzido = :CAMPO_CD_REDUZIDO
+	  AND lc.cd_reduzido_credito IS NOT NULL
+	  AND lc.cd_multi_empresa IN (:CAMPO_CF_COND_EMPRESA)
+	  AND lc.cd_lanc_agrup IS NOT NULL
+	  AND NVL(lc.sn_transitoria, 'N') IN ('N', Nvl(:CAMPO_INC_CONTA_TRANSITORIA, 'N'))
+	  AND :CAMPO_SN_AGRUPA_DEP = 'S'
+   GROUP BY Trunc(lc.dt_lcto)
+		  ,lc.cd_lote
+		  ,lc.cd_multi_empresa
+		  ,pe.cd_reduzido
+		  ,lc.cd_auxiliar_crd
+		  ,pe.cd_contabil
+		  ,pe.ds_conta
+		  ,hp.ds_historico_padrao
+		  ,lc.cd_lanc_agrup
+		  ,lc.sn_transitoria
+)order by cd_reduzido, cd_contabil, data, dt_lcto_mes_ano
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_RET_SC_CONTRAPARTIDA
+SELECT cd_reduzido
+	  ,cd_contabil
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_credito, NULL, NULL), 0) vl_credito
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_debito, NULL, NULL), 0) vl_debito
+	  ,cd_lote
+	  ,cd_lcto_movimento
+	  ,cd_lcto_contabil
+	  ,Decode(:CAMPO_HISTORICO, 'S', rtrim(ltrim(Nvl(ds_historico_padrao, ''))), '') ds_historico_padrao
+	  ,Decode(:CAMPO_DS_COMPLEMENTO, 'S', rtrim(ltrim(Nvl(ds_complemento, ''))), '') ds_complemento
+	  ,cd_multi_empresa
+FROM  (
+	 	SELECT pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,To_number(null) vl_credito
+		  ,Sum(lc.vl_lancado) vl_debito
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.cd_lcto_contabil
+		  ,hi.ds_historico_padrao
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+	 FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_debito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	 LEFT JOIN dbamv.historico_padrao hi
+	 ON hi.cd_historico_padrao = lc.cd_historico_padrao
+	WHERE lc.cd_lote = :CAMPO_CD_LOTE
+	GROUP BY pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.cd_lcto_contabil
+		  ,hi.ds_historico_padrao
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+	UNION ALL
+	SELECT pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,Sum(lc.vl_lancado) vl_credito
+		  ,To_number(null) vl_debito
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.cd_lcto_contabil
+		  ,hi.ds_historico_padrao
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+	 FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_credito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	 LEFT JOIN dbamv.historico_padrao hi
+	 ON hi.cd_historico_padrao = lc.cd_historico_padrao
+     WHERE lc.cd_lote = :CAMPO_CD_LOTE
+	GROUP BY pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.cd_lcto_contabil
+		  ,hi.ds_historico_padrao
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+)
+WHERE cd_lcto_movimento = :CAMPO_CD_LCTO_MOVIMENTO
+  AND (
+         cd_lcto_contabil != :CAMPO_CD_LCTO_CONTABIL
+      OR (cd_lcto_contabil = :CAMPO_CD_LCTO_CONTABIL AND DECODE(:CAMPO_VL_LANCADO_CRE,0 , Nvl(vl_credito, 0), Nvl(vl_debito, 0)) > 0)
+	)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_RET_SC_CONTRAPARTIDA_SIN
+SELECT cd_reduzido
+	  ,cd_contabil
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_credito, NULL, NULL), 0) vl_credito
+	  ,Nvl(dbamv.converte_moeda_valor(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA, :CAMPO_DT_INICIAL, vl_debito, NULL, NULL), 0) vl_debito
+	  ,cd_lote
+	  ,cd_lcto_movimento
+	 ,cd_multi_empresa
+FROM  (
+	 	SELECT pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,To_number(null) vl_credito
+		  ,Sum(lc.vl_lancado) vl_debito
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+	 FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_debito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	WHERE lc.cd_lote = :CAMPO_CD_LOTE
+  AND  LC.cd_lcto_movimento = :CAMPO_CD_LCTO_MOVIMENTO
+  AND  LC.cd_lcto_contabil != :CAMPO_CD_LCTO_CONTABIL
+	GROUP BY pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.cd_lcto_contabil
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+	UNION ALL
+	SELECT pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,Sum(lc.vl_lancado) vl_credito
+		  ,To_number(null) vl_debito
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+	 FROM dbamv.lcto_contabil lc
+	  JOIN dbamv.plano_estr pe
+		ON pe.cd_plano = :CAMPO_CD_PLANO
+    AND  LC.cd_lcto_movimento = :CAMPO_CD_LCTO_MOVIMENTO
+   AND  LC.cd_lcto_contabil != :CAMPO_CD_LCTO_CONTABIL
+	  JOIN dbamv.plano_contabil depara
+		ON depara.cd_reduzido = lc.cd_reduzido_credito
+	   AND depara.cd_plano_estr = pe.cd_plano_estr
+	   WHERE lc.cd_lote = :CAMPO_CD_LOTE
+	GROUP BY pe.cd_reduzido
+		  ,pe.cd_contabil
+		  ,lc.cd_lote
+		  ,lc.cd_lcto_movimento
+		  ,lc.cd_lcto_contabil
+		  ,lc.ds_complemento
+		  ,lc.cd_multi_empresa
+)

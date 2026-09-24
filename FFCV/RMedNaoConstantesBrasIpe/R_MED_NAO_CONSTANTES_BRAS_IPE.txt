@@ -1,0 +1,90 @@
+/*----------------------------------------------------------------------------*/
+--R_MED_NAO_CONSTANTES_BRAS_IPE
+SELECT * FROM (
+SELECT reg_fat.cd_reg_fat   cd_conta
+      ,reg_fat.cd_atendimento  cd_atendimento
+      ,paciente.nm_paciente    nm_paciente
+      ,itreg_fat.dt_lancamento  dt_lancamento
+      ,itreg_fat.cd_pro_fat        cd_pro_fat
+      ,pro_fat.ds_pro_fat        ds_pro_fat
+      ,'HOSPITALAR'   TP_CONTA
+      ,sum(itreg_fat.qt_lancamento)  qt_lancamento
+      ,sum(NVL(itreg_fat.vl_unitario,0))    vl_unitario
+      ,sum(NVL(itreg_fat.vl_total_conta,0)) vl_total_conta
+FROM   dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.paciente
+      ,dbamv.atendime
+      ,dbamv.pro_fat
+      ,dbamv.gru_pro
+WHERE  reg_fat.cd_remessa   = :CAMPO_COD_REMESSA
+ AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+  and   reg_fat.cd_reg_fat   = itreg_fat.cd_reg_fat
+ and   reg_fat.cd_atendimento=atendime.cd_atendimento
+ and   atendime.cd_paciente = paciente.cd_paciente
+ and   itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+ and   pro_fat.cd_gru_pro   = gru_pro.cd_gru_pro
+ and   gru_pro.tp_gru_pro   = 'MD'
+ and   NVL(itreg_fat.SN_PERTENCE_PACOTE,'N') = 'N'
+ and not exists ( select i.cd_pro_fat
+                            from dbamv.imp_bra i, dbamv.itregra r
+                          where pro_fat.cd_pro_fat = i.cd_pro_fat
+	             and reg_fat.cd_regra = r.cd_regra
+	             and r.cd_gru_pro = pro_fat.cd_gru_pro
+	             and ( nvl(r.cd_tab_fat,0) = nvl(i.cd_tab_fat,0)
+                                      or i.cd_tab_fat is null ) )
+ and itreg_fat.cd_reg_fat_rel is null
+ and itreg_fat.cd_lancamento_rel is null
+ Group By  reg_fat.cd_reg_fat
+          ,reg_fat.cd_atendimento
+          ,paciente.nm_paciente
+          ,itreg_fat.dt_lancamento
+          ,itreg_fat.cd_pro_fat
+          ,pro_fat.ds_pro_fat
+UNION ALL
+ SELECT reg_amb.cd_reg_amb   cd_conta
+      ,itreg_amb.cd_atendimento    cd_atendimento
+      ,paciente.nm_paciente           nm_paciente
+      ,itreg_amb.hr_lancamento      dt_lancamento
+      ,itreg_amb.cd_pro_fat            cd_pro_fat
+      ,pro_fat.ds_pro_fat            ds_pro_fat
+      ,'AMBULATORIAL'   TP_CONTA
+      ,sum(itreg_amb.qt_lancamento)  qt_lancamento
+      ,sum(NVL(itreg_amb.vl_unitario,0))    vl_unitario
+      ,sum(NVL(itreg_amb.vl_total_conta,0)) vl_total_conta
+FROM   dbamv.reg_amb
+      ,dbamv.itreg_amb
+      ,dbamv.paciente
+      ,dbamv.atendime
+      ,dbamv.pro_fat
+      ,dbamv.gru_pro
+WHERE  reg_amb.cd_remessa   = :CAMPO_COD_REMESSA
+  and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+ and   reg_amb.cd_reg_amb   = itreg_amb.cd_reg_amb
+ and   itreg_amb.cd_atendimento=atendime.cd_atendimento
+ and   atendime.cd_paciente = paciente.cd_paciente
+ and   itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+ and   pro_fat.cd_gru_pro   = gru_pro.cd_gru_pro
+ and   gru_pro.tp_gru_pro   = 'MD'
+ and   NVL(itreg_amb.SN_PERTENCE_PACOTE,'N') = 'N'
+ and not exists ( select i.cd_pro_fat
+                             from dbamv.imp_bra i, dbamv.itregra r, dbamv.con_pla c
+                          where pro_fat.cd_pro_fat = i.cd_pro_fat
+	             and itreg_amb.cd_convenio = c.cd_convenio
+	             and itreg_amb.cd_con_pla = c.cd_con_pla
+	             and c.cd_regra = r.cd_regra
+	             and r.cd_gru_pro = pro_fat.cd_gru_pro
+	             and ( nvl(r.cd_tab_fat,0) = nvl(i.cd_tab_fat,0)
+                                      or i.cd_tab_fat is null ) )
+ and itreg_amb.cd_reg_amb_rel is null
+ and itreg_amb.cd_lancamento_rel is null
+ Group By  reg_amb.cd_reg_amb
+          ,itreg_amb.cd_atendimento
+          ,paciente.nm_paciente
+          ,itreg_amb.hr_lancamento
+          ,itreg_amb.cd_pro_fat
+          ,pro_fat.ds_pro_fat
+)
+ORDER BY CD_CONTA,CD_ATENDIMENTO,NM_PACIENTE,TP_CONTA

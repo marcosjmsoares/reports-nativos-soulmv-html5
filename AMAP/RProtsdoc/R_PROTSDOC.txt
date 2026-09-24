@@ -1,0 +1,52 @@
+/*----------------------------------------------------------------------------*/
+--R_PROTSDOC
+SELECT * FROM (
+select Protocolos.cd_protocolo,
+       To_char(protocolos.dt_saida, 'dd/mm/yyyy') dt_saida,
+       To_char(protocolos.hr_saida, 'hh24') hr_saida,
+       To_char(protocolos.dt_prev_retorno, 'dd/mm/yyyy') dt_prev_retorno,
+       Protocolos.cd_portador,
+       Portadores.ds_portador,
+       Protocolos.ds_motivo,
+       Same.nr_matricula_same,
+       same.nr_volume,
+       It_same_protocolos.cd_atendimento cd_atendimento,
+       TO_CHAR(atendime.dt_atendimento,'DD/MM/YYYY') dt_atendimento,
+       To_number(null) dt_entrada,
+       Sala_same.cd_sala_same,
+       Sala_same.ds_sala_same,
+       Same.cd_armario_same,
+       Armario_same.ds_armario_same,
+       Same.ds_linha,
+       Same.ds_coluna,
+       Paciente.nm_paciente,
+       Port_Dest.cd_portador Cd_Portador_Destino,
+       Port_Dest.cd_portador||' - '||Port_Dest.ds_portador Ds_Portador_Destino,
+       Transportador.cd_transportador,
+        Transportador.cd_transportador||' - '||Transportador.ds_transportador ds_transportador,
+       Protocolos.ds_solicitante
+  from dbamv.It_same_protocolos
+      ,dbamv.protocolos
+      ,dbamv.same
+      ,dbamv.Armario_same
+      ,dbamv.sala_same
+      ,dbamv.paciente
+      ,dbamv.portadores
+      ,dbamv.portadores Port_Dest
+      ,dbamv.transportador
+      ,dbamv.atendime
+ where protocolos.cd_protocolo = It_same_protocolos.cd_protocolo
+   AND it_same_protocolos.nr_matricula_same  =  same.nr_matricula_same
+   AND it_same_protocolos.nr_volume  =  same.nr_volume
+   and It_same_protocolos.cd_cad_same = same.cd_cad_same
+   and Same.cd_armario_same = Armario_same.cd_armario_same (+)
+   and Armario_same.cd_sala_same = sala_same.cd_sala_same (+)
+   and paciente.cd_paciente = same.cd_paciente
+   and portadores.cd_portador = protocolos.cd_portador
+   and Port_Dest.cd_portador = protocolos.cd_portador_destino
+   and transportador.cd_transportador = protocolos.cd_transportador
+   and It_same_protocolos.cd_atendimento = atendime.cd_atendimento (+)
+   and atendime.cd_multi_empresa (+) = dbamv.pkg_mv2000.le_empresa
+   and It_same_protocolos.cd_protocolo    =  :CAMPO_CD_PROTOCOLO
+ORDER  BY nr_matricula_same
+)

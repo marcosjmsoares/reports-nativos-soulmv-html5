@@ -1,0 +1,84 @@
+/*----------------------------------------------------------------------------*/
+--R_ANA_DESEM_SET_RAT
+select setor.cd_setor     cd_setor,
+           setor.nm_setor    nm_setor,
+          (custo_final.vl_receita_sh+ custo_final.vl_receita_sd) receita,
+          custo_final.vl_receita_matmed        vl_receita_matmed,
+          custo_final.vl_custo_matmed          vl_custo_matmed,
+          custo_final.vl_receita_honorarios    vl_receita_honorarios,
+          setor.sn_deducao_honorario           sn_deducao_honorario,
+          nvl(custo_final.vl_receita_no,0)         vl_receita_no,
+setor.TP_CALCULO_HONORARIO  TP_CALCULO_HONORARIO,
+          custo_final.vl_custo_Fixo               vl_Custo_Fixo,
+          custo_final.vl_custo_Variavel               vl_Custo_Variavel,
+          custo_final.vl_custo_Genericos       vl_Custo_Genericos,
+          custo_final.vl_custo_Especificos     vl_Custo_Especificos,
+          custo_final.vl_custo_Primario           vl_custo_Primario,
+          custo_final.vl_custo_Evento            vl_custo_Evento,
+	  Nvl(custo_final.vl_deduz_glosa, 0)            vl_deduz_glosa,
+          Nvl(custo_final.vl_deduz_imposto, 0)          vl_deduz_imposto,
+          Nvl(custo_final.vl_deduz_honorario, 0)        vl_deduz_honorario,
+          Nvl(custo_final.vl_deduz_outro, 0)            vl_deduz_outro
+    from dbamv.setor
+          ,dbamv.custo_final
+where setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and setor.cd_setor = custo_final.cd_setor
+   and custo_Final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(dt_competencia,'mm/yyyy') = :CAMPO_DT_COMP
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_DESEM_SET_RAT_ind_produtividade
+select ds_item_producao_ip,
+       vl_ponto_equilibrio,
+       vl_unid_producao,
+       vl_receita_media,
+       vl_custo_medio,
+       vl_meta,
+       vl_margem_cont,
+	   Decode(vl_unid_producao,0,0,vl_marg_aplicada) vl_marg_aplicada,
+       cd_setor_ip
+  from ( 	select item_producao.ds_item_producao ds_item_producao_ip
+				  ,ip.vl_ponto_equilibrio         vl_ponto_equilibrio
+				  ,ip.vl_unid_producao            vl_unid_producao
+				  ,round(ip.vl_receita_media,2)   vl_receita_media
+				  ,round(((nvl(ip.vl_custo_fixo,0)+nvl(ip.vl_custo_variavel,0))/nvl(ip.vl_unid_producao,1)),2) vl_custo_medio
+				  ,nvl(ip.vl_meta_producao,nvl(si.vl_cap_esperada,0)) vl_meta
+				  ,ip.vl_margem_cont   vl_margem_cont
+				  ,ip.cd_setor   cd_setor_ip
+				  ,( select SUM (  vl_receita_total
+               - vl_receita_total * vl_glosa
+			   - vl_receita_total * vl_imposto
+			   - vl_custo_dir_aplic)
+	 from (	select SUM( Nvl( cf.vl_receita_sh, 0)     +
+	                    Nvl( cf.vl_receita_sd, 0)     +
+						Nvl( cf.vl_receita_matmed, 0) +
+						Nvl( cf.vl_receita_honorarios, 0)) vl_receita_total,
+				   (select (nvl(c.taxa_glosa, 0) / 100) vl_glosa
+					  from dbamv.competencia c
+					 where c.dt_competencia = to_date(:CAMPO_DT_COMP, 'mm/yyyy')
+					   and c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) vl_glosa,
+				   (select (nvl(c.taxa_impostos, 0) / 100) vl_imposto
+					  from dbamv.competencia c
+					 where c.dt_competencia = to_date(:CAMPO_DT_COMP, 'mm/yyyy')
+					  and c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) vl_imposto,
+	               SUM( Nvl( cf.vl_custo_Primario, 0) +
+						Nvl( cf.vl_custo_Especificos, 0)) vl_custo_dir_aplic
+              from dbamv.custo_final cf
+			 where cf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+			   and cf.dt_competencia = to_date(:CAMPO_DT_COMP, 'mm/yyyy')
+			   and cf.cd_setor = :CAMPO_CD_SETOR
+		  group by 2, 3
+		  ) a
+	) vl_marg_aplicada
+			  from dbamv.ind_produtividade ip
+				  ,dbamv.setor_item  si
+				  ,dbamv.item_producao
+			 where ip.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+				and ip.dt_competencia = to_date(:CAMPO_DT_COMP, 'mm/yyyy')
+				and ip.cd_setor = :CAMPO_CD_SETOR
+				and ip.cd_setor = si.cd_setor
+				and ip.cd_item_producao = si.cd_item_producao
+				and ip.cd_item_producao = item_producao.cd_item_producao
+				)

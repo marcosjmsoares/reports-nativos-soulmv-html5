@@ -1,0 +1,55 @@
+/*----------------------------------------------------------------------------*/
+--R_ORD_COM_PEND
+SELECT substr(multi_empresas.ds_multi_empresa, 1, 15)       ds_multi_empresa
+       ,estoque.ds_estoque              ds_estoque
+       ,itord_pro.cd_produto                           cd_produto
+       ,PRODUTO.ds_produto || DECODE(PRODUTO.ds_complemento, null,null,' ') || PRODUTO.ds_complemento || DECODE(PRODUTO.nr_referencia, null,null,' ') || PRODUTO.nr_referencia	ds_produto
+       ,uni_pro.ds_unidade                           ds_unidade
+       ,itord_pro.cd_ord_com                          cd_ord_com
+       ,Decode(licitacao.tp_licitacao, 'M', 'BEC', 'Q', 'BEC')      tp_licitacao
+       ,ord_com.dt_ord_com                  dt_ord_com
+       ,itord_pro.qt_comprada                         qt_comprada
+       ,Nvl(qt_recebida, 0)                     qt_recebida
+       ,itord_pro.qt_comprada - ( Nvl(itord_pro.qt_recebida, 0) + abs(Nvl(itord_pro.qt_cancelada, 0)) ) qt_a_receber
+       ,dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_unitario,itord_pro.vl_unitario_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM)     vl_unitario
+       ,(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM) - ((dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM) * Nvl(itord_pro.qt_recebida, 0)) / itord_pro.qt_comprada)) vl_total
+       ,licitacao.nr_processo                           nr_processo
+       ,Nvl(To_char(licitacao.nr_licitacao), To_char(ord_com.nr_empenho) )    nr_empenho
+       ,Nvl(licitacao.dt_licitacao, ord_com.dt_empenho )                    dt_empenho
+       ,licitacao.hr_abertura                           dt_retira_empenho
+       ,ord_com.dt_prev_entrega - ord_com.dt_prev_entrega_intervalo           qt_prazo
+       ,Trunc(SYSDATE) - Trunc(ord_com.dt_prev_entrega)  qt_dias_atraso
+       ,fornecedor.nr_cgc_cpf                          nr_cgc_cpf
+       ,fornecedor.nm_fantasia                       nm_fornecedor
+       ,(SELECT CFORN.ds_for_com
+           FROM dbamv.for_com CFORN,
+                dbamv.tip_comun
+          WHERE  CFORN.cd_fornecedor(+) =  fornecedor.cd_fornecedor
+            AND tip_comun.cd_tip_comun = CFORN.cd_tip_comun
+            AND tip_comun.ds_tip_comun LIKE '%FONE%'
+            AND ROWNUM = 1)                   ds_contato
+       ,(SELECT CNFORN.nm_contato
+           FROM dbamv.contato_fornec CNFORN
+          WHERE CNFORN.cd_fornecedor(+) = fornecedor.cd_fornecedor
+            AND ROWNUM = 1)                  nm_contato
+	, ORD_COM.DT_PREV_ENTREGA
+FROM   dbamv.itord_pro,
+       dbamv.produto,
+       dbamv.ord_com,
+       dbamv.uni_pro,
+       dbamv.licitacao, 
+       dbamv.estoque,
+       dbamv.setor ,
+       dbamv.multi_empresas,
+       dbamv.fornecedor,  
+       dbamv.ord_com_moeda
+WHERE  itord_pro.qt_comprada - ( Nvl(itord_pro.qt_recebida, 0) + abs(Nvl(itord_pro.qt_cancelada, 0)) ) > 0
+       AND  itord_pro.cd_ord_com = ord_com.cd_ord_com
+       AND ord_com.cd_fornecedor = fornecedor.cd_fornecedor
+       AND itord_pro.cd_uni_pro = uni_pro.cd_uni_pro
+       AND itord_pro.cd_produto = produto.cd_produto
+       AND ord_com.cd_estoque = estoque.cd_estoque
+       AND estoque.cd_setor = setor.cd_setor(+)
+       AND setor.cd_multi_empresa = multi_empresas.cd_multi_empresa
+       AND ord_com.cd_sol_com = licitacao.cd_sol_com(+)
+       AND ord_com.cd_ord_com = ord_com_moeda.cd_ord_com(+)

@@ -1,0 +1,572 @@
+/*----------------------------------------------------------------------------*/
+--R_ANA_CUSTO_SETOR_SINT
+select setor.cd_setor     cd_setor_base,
+           setor.nm_setor    nm_setor_base,
+           setor.cd_cen_cus   cd_cen_cus,
+           setor.cd_setor_custo  cd_setor_custo
+   from dbamv.setor
+where setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_CUSTO_SETOR_SINT_R_3_Q_1
+SELECT * FROM (
+SELECT  cd_setor_base_padrao
+      ,setor_nivel.cd_setor cd_setor_filho
+      ,setor_nivel.nm_setor nm_setor_filho
+  FROM (SELECT s1.cd_setor
+              ,s1.nm_setor nm_setor
+        FROM   dbamv.setor s1
+              ,dbamv.setor
+         WHERE s1.cd_setor = setor.cd_setor
+           AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+           AND setor.cd_setor = :CAMPO_CD_SETOR_BASE
+        UNION ALL
+        SELECT s2.cd_setor
+              ,s2.nm_setor nm_setor
+        FROM   dbamv.setor s2
+              ,dbamv.setor
+         WHERE s2.cd_setor_custo = setor.cd_setor
+           AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+           AND setor.cd_setor = :CAMPO_CD_SETOR_BASE
+        UNION ALL
+        SELECT s3.cd_setor
+              ,s3.nm_setor nm_setor
+        FROM   dbamv.setor s3
+         WHERE s3.cd_setor_custo IN (SELECT s1.cd_setor
+                                       FROM dbamv.setor s1
+                                           ,dbamv.setor
+                                      WHERE s1.cd_setor_custo = setor.cd_setor
+                                        AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                        AND setor.cd_setor = :CAMPO_CD_SETOR_BASE)
+        UNION ALL
+        SELECT s4.cd_setor
+              ,s4.nm_setor nm_setor
+        FROM   dbamv.setor s4
+         WHERE s4.cd_setor_custo IN (SELECT cd_setor
+                                       FROM dbamv.setor s3
+                                      WHERE s3.cd_setor_custo IN (SELECT s1.cd_setor
+                                                                    FROM dbamv.setor s1
+                                                                        ,dbamv.setor
+                                                                   WHERE s1.cd_setor_custo = setor.cd_setor
+                                                                     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                     AND setor.cd_setor = :CAMPO_CD_SETOR_BASE)
+                                                                                                         )
+        UNION ALL
+        SELECT s5.cd_setor
+              ,s5.nm_setor
+        FROM   dbamv.setor s5
+         WHERE s5.cd_setor_custo IN (SELECT cd_setor
+                                       FROM dbamv.setor s4
+                                      WHERE s4.cd_setor_custo IN (SELECT cd_setor
+                                                                    FROM dbamv.setor s3
+                                                                   WHERE s3.cd_setor_custo IN (SELECT s1.cd_setor
+                                                                                                 FROM dbamv.setor s1
+                                                                                                     ,dbamv.setor
+                                                                                                WHERE s1.cd_setor_custo = setor.cd_setor
+                                                                                                  AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                                                  AND setor.cd_setor = :CAMPO_CD_SETOR_BASE)
+                                                                                                                                      )
+                                                                                                                                       )) setor_nivel
+)
+WHERE CD_SETOR_BASE_PADRAO = :CAMPO_CD_SETOR_BASE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_CUSTO_SETOR_SINT_R_CD_ITEM_RES2_Q_7
+SELECT * FROM (
+SELECT * FROM (
+SELECT  setor_base.cd_setor         gruset_setor_base
+       ,Setor.Cd_setor              gruset_Cd_setor
+       ,setor.nm_setor              gruset_nm_setor
+       ,setor.cd_cen_cus            gruset_cd_cen_cus
+       ,Gru_res.Cd_gru_res          gruset_Cd_gru_res
+       ,Gru_res.Ds_gru_res          gruset_Ds_gru_res
+       ,Gru_res.nr_ordem_grupo      gruset_nr_ordem_grupo
+       ,item_res.cd_item_res        gruset_cd_item_res
+       ,item_res.ds_item_res        gruset_ds_item_res
+       ,item_res.nr_ordem_item      gruset_nr_ordem_item
+        ,SUM( Vl_custo_setor )       gruset_Vl_custo_setor
+    FROM Dbamv.Custo_primario
+        ,Dbamv.Item_res
+        ,Dbamv.Gru_res
+        ,Dbamv.Setor
+        ,dbamv.setor setor_base
+    WHERE Custo_primario.Dt_competencia = to_date( :CAMPO_DT_COMP, 'mm/yyyy' )
+     AND Custo_primario.Cd_setor = Setor.Cd_setor
+     AND Setor.Cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+     AND Custo_primario.Cd_item_res = Item_res.Cd_item_res
+     AND Item_res.Cd_gru_res = Gru_res.Cd_gru_res
+     AND custo_primario.cd_item_res = item_res.cd_item_res
+     AND item_res.cd_gru_res        = gru_res.cd_gru_res
+     AND Custo_primario.Vl_custo_setor <> 0
+     and setor_base.cd_setor  = :CAMPO_CD_SETOR_BASE
+     AND Setor.Cd_setor   in ( SELECT Setor_nivel.Cd_setor
+                                       FROM Dbamv.Setor,
+                                           (  SELECT S1.Cd_setor
+                                              FROM Dbamv.Setor S1
+                                                  ,Dbamv.Setor
+                                             WHERE S1.Cd_setor = Setor.Cd_setor
+                                               AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                               and setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                                             UNION ALL
+                                            SELECT S2.Cd_setor
+                                              FROM Dbamv.Setor S2,
+                                                   dbamv.setor
+                                             WHERE S2.Cd_setor_custo = setor.cd_setor
+                                               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                               and setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                                              UNION ALL
+                                             SELECT S3.Cd_setor
+                                               FROM Dbamv.Setor S3
+                                              WHERE S3.Cd_setor_custo IN(
+                                                      SELECT S1.Cd_setor
+                                                        FROM Dbamv.Setor S1
+                                                             ,Dbamv.Setor
+                                                       WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                         AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                         and setor.cd_setor = :CAMPO_CD_SETOR_BASE   )
+                                              UNION ALL
+                                             SELECT S4.Cd_setor
+                                               FROM Dbamv.Setor S4
+                                              WHERE S4.Cd_setor_custo IN(
+                                                       SELECT Cd_setor
+                                                         FROM Dbamv.Setor S3
+                                                         WHERE S3.Cd_setor_custo IN(
+                                                                  SELECT S1.Cd_setor
+                                                                    FROM Dbamv.Setor S1
+                                                                        ,Dbamv.Setor
+                                                                   WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                     AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                     and setor.cd_setor = :CAMPO_CD_SETOR_BASE  )
+                                                                        )
+                                              UNION ALL
+                                             SELECT S5.Cd_setor
+                                               FROM Dbamv.Setor S5
+                                              WHERE S5.Cd_setor_custo IN(
+                                                       SELECT Cd_setor
+                                                         FROM Dbamv.Setor S4
+                                                        WHERE S4.Cd_setor_custo IN(
+                                                                 SELECT Cd_setor
+                                                                   FROM Dbamv.Setor S3
+                                                                  WHERE S3.Cd_setor_custo IN(
+                                                                           SELECT S1.Cd_setor
+                                                                             FROM Dbamv.Setor S1, dbamv.setor
+                                                                            WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                              AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                              and Setor.cd_setor = :CAMPO_CD_SETOR_BASE )
+                                                                                   )
+                                                                         )
+                                         ) Setor_nivel
+                                    WHERE Setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                      and setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                                  )
+GROUP BY setor_base.cd_setor
+       ,Setor.Cd_setor
+       ,setor.nm_setor
+       ,setor.cd_cen_cus
+       ,Gru_res.Cd_gru_res
+       ,Gru_res.Ds_gru_res
+       ,Gru_res.nr_ordem_grupo
+       ,item_res.cd_item_res
+       ,item_res.ds_item_res
+       ,item_res.nr_ordem_item
+:CAMPO_CF_ORDEM_GRUSET
+)
+WHERE GRUSET_SETOR_BASE = :CAMPO_CD_SETOR_BASE
+)
+ORDER BY GRUSET_DS_GRU_RES,GRUSET_CD_GRU_RES,GRUSET_SETOR_BASE,GRUSET_NR_ORDEM_GRUPO,
+GRUSET_CD_SETOR,GRUSET_NM_SETOR,GRUSET_CD_CEN_CUS,gruset_cd_item_res
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_CUSTO_SETOR_SINT_R_CD_ITEM_RES4_Q_9
+SELECT * FROM (
+SELECT * FROM (
+SELECT   setor_base.cd_setor         setgru_setor_base
+        ,Setor.Cd_setor              setgru_Cd_setor
+        ,setor.nm_setor              setgru_nm_setor
+		,setor.cd_cen_cus            setgru_cd_cen_cus
+        ,Gru_res.Cd_gru_res          setgru_Cd_gru_res
+        ,Gru_res.Ds_gru_res          setgru_Ds_gru_res
+		,gru_res.nr_ordem_grupo      setgru_nr_ordem_grupo
+        ,item_res.cd_item_res        SetGru_cd_item_res
+        ,item_res.ds_item_res        SetGru_ds_item_res
+		,item_res.nr_ordem_item      Setgru_nr_ordem_item
+        ,SUM( Vl_custo_setor )       setgru_Vl_custo_setor
+    FROM Dbamv.Custo_primario
+        ,Dbamv.Item_res
+        ,Dbamv.Gru_res
+        ,Dbamv.Setor
+        ,dbamv.setor setor_base
+   WHERE Custo_primario.Dt_competencia = to_date( :CAMPO_DT_COMP, 'mm/yyyy' )
+     AND Custo_primario.Cd_setor = Setor.Cd_setor
+     AND Setor.Cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+     AND Custo_primario.Cd_item_res = Item_res.Cd_item_res
+     AND Item_res.Cd_gru_res = Gru_res.Cd_gru_res
+     AND Custo_primario.Vl_custo_setor <> 0
+     and setor_base.cd_setor  = :CAMPO_CD_SETOR_BASE
+     AND Setor.Cd_setor   in ( SELECT Setor_nivel.Cd_setor
+                                       FROM Dbamv.Setor,
+                                           (  SELECT S1.Cd_setor
+                                              FROM Dbamv.Setor S1
+                                                  ,Dbamv.Setor
+                                             WHERE S1.Cd_setor = Setor.Cd_setor
+                                               AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                               and setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                                             UNION ALL
+                                            SELECT S2.Cd_setor
+                                              FROM Dbamv.Setor S2,
+                                                   dbamv.setor
+                                             WHERE S2.Cd_setor_custo = setor.cd_setor
+                                               and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                               and setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                                              UNION ALL
+                                             SELECT S3.Cd_setor
+                                               FROM Dbamv.Setor S3
+                                              WHERE S3.Cd_setor_custo IN(
+                                                      SELECT S1.Cd_setor
+                                                        FROM Dbamv.Setor S1
+                                                             ,Dbamv.Setor
+                                                       WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                         AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                         and setor.cd_setor = :CAMPO_CD_SETOR_BASE   )
+                                              UNION ALL
+                                             SELECT S4.Cd_setor
+                                               FROM Dbamv.Setor S4
+                                              WHERE S4.Cd_setor_custo IN(
+                                                       SELECT Cd_setor
+                                                         FROM Dbamv.Setor S3
+                                                         WHERE S3.Cd_setor_custo IN(
+                                                                  SELECT S1.Cd_setor
+                                                                    FROM Dbamv.Setor S1
+                                                                        ,Dbamv.Setor
+                                                                   WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                     AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                     and setor.cd_setor = :CAMPO_CD_SETOR_BASE  )
+                                                                        )
+                                              UNION ALL
+                                             SELECT S5.Cd_setor
+                                               FROM Dbamv.Setor S5
+                                              WHERE S5.Cd_setor_custo IN(
+                                                       SELECT Cd_setor
+                                                         FROM Dbamv.Setor S4
+                                                        WHERE S4.Cd_setor_custo IN(
+                                                                 SELECT Cd_setor
+                                                                   FROM Dbamv.Setor S3
+                                                                  WHERE S3.Cd_setor_custo IN(
+                                                                           SELECT S1.Cd_setor
+                                                                             FROM Dbamv.Setor S1, dbamv.setor
+                                                                            WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                              AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                              and Setor.cd_setor = :CAMPO_CD_SETOR_BASE )
+                                                                                   )
+                                                                         )
+                                         ) Setor_nivel
+                                    WHERE Setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                      and setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                                  )
+GROUP BY setor_base.cd_setor
+        ,Setor.Cd_setor
+        ,setor.nm_setor
+		,setor.cd_cen_cus
+        ,Gru_res.Cd_gru_res
+        ,Gru_res.Ds_gru_res
+		,gru_res.nr_ordem_grupo
+        ,item_res.cd_item_res
+        ,item_res.ds_item_res
+		,item_res.nr_ordem_item
+  :CAMPO_CF_ORDEM_SETGRU
+)
+WHERE SETGRU_SETOR_BASE = :CAMPO_CD_SETOR_BASE
+)
+ORDER BY  SETGRU_SETOR_BASE,SETGRU_CD_SETOR,SETGRU_NM_SETOR,SETGRU_CD_CEN_CUS,
+SETGRU_CD_GRU_RES,SETGRU_DS_GRU_RES,SETGRU_NR_ORDEM_GRUPO,SetGru_cd_item_res
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_CUSTO_SETOR_SINT_R_CD_ITEM_RES6_Q_5
+SELECT * FROM (
+SELECT * FROM (
+SELECT   setor_base.cd_setor         gruite_setor_base,
+         gru_res.cd_gru_res          gruite_cd_gru_res,
+         gru_res.ds_gru_res          gruite_ds_gru_res,
+		 gru_res.nr_ordem_grupo      gruite_nr_ordem_grupo,
+         item_res.cd_item_res        gruite_cd_item_res,
+         item_res.ds_item_res        gruite_ds_item_res,
+         item_res.nr_ordem_item      gruite_nr_ordem_item,
+         setor.cd_setor              gruite_cd_setor,
+         setor.nm_setor              gruite_nm_setor,
+         Setor.cd_cen_cus            gruite_cd_cen_cus,
+         SUM (vl_custo_setor)        gruite_vl_custo_setor
+    FROM dbamv.custo_primario,
+         dbamv.item_res,
+         dbamv.gru_res,
+         dbamv.setor,
+         dbamv.setor setor_base
+   WHERE Custo_primario.Dt_competencia = to_Date( :CAMPO_DT_COMP, 'mm/yyyy' )
+     AND custo_primario.cd_setor    = setor.cd_setor
+     AND setor.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+     AND custo_primario.cd_item_res = item_res.cd_item_res
+     AND item_res.cd_gru_res        = gru_res.cd_gru_res
+     AND custo_primario.vl_custo_setor <> 0
+     AND setor_base.cd_setor = :CAMPO_CD_SETOR_BASE
+     AND setor.cd_setor IN (
+            SELECT setor_nivel.cd_setor
+              FROM dbamv.setor,
+                   (SELECT s1.cd_setor
+                      FROM dbamv.setor s1, dbamv.setor
+                     WHERE s1.cd_setor = setor.cd_setor
+                       AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                       AND setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                    UNION ALL
+                    SELECT s2.cd_setor
+                      FROM dbamv.setor s2, dbamv.setor
+                     WHERE s2.cd_setor_custo = setor.cd_setor
+                       AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                       AND setor.cd_setor = :CAMPO_CD_SETOR_BASE
+                    UNION ALL
+                    SELECT s3.cd_setor
+                      FROM dbamv.setor s3
+                     WHERE s3.cd_setor_custo IN (
+                              SELECT s1.cd_setor
+                                FROM dbamv.setor s1, dbamv.setor
+                               WHERE s1.cd_setor_custo = setor.cd_setor
+                                 AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                 AND setor.cd_setor = :CAMPO_CD_SETOR_BASE)
+                    UNION ALL
+                    SELECT s4.cd_setor
+                      FROM dbamv.setor s4
+                     WHERE s4.cd_setor_custo IN (
+                              SELECT cd_setor
+                                FROM dbamv.setor s3
+                               WHERE s3.cd_setor_custo IN (
+                                        SELECT s1.cd_setor
+                                          FROM dbamv.setor s1, dbamv.setor
+                                         WHERE s1.cd_setor_custo =
+                                                                setor.cd_setor
+                                           AND setor.cd_multi_empresa =
+                                           AND setor.cd_setor = :CAMPO_CD_SETOR_BASE))
+                    UNION ALL
+                    SELECT s5.cd_setor
+                      FROM dbamv.setor s5
+                     WHERE s5.cd_setor_custo IN (
+                              SELECT cd_setor
+                                FROM dbamv.setor s4
+                               WHERE s4.cd_setor_custo IN (
+                                        SELECT cd_setor
+                                          FROM dbamv.setor s3
+                                         WHERE s3.cd_setor_custo IN (
+                                                  SELECT s1.cd_setor
+                                                    FROM dbamv.setor s1,
+                                                         dbamv.setor
+                                                   WHERE s1.cd_setor_custo =
+                                                                setor.cd_setor
+                                                     AND setor.cd_multi_empresa =
+                                                     AND setor.cd_setor =
+                                                                :CAMPO_CD_SETOR_BASE)))) setor_nivel
+             WHERE setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND setor.cd_setor = :CAMPO_CD_SETOR_BASE)
+GROUP BY setor_base.cd_setor
+         ,gru_res.cd_gru_res
+         ,gru_res.ds_gru_res
+		 ,gru_res.nr_ordem_grupo
+         ,item_res.cd_item_res
+         ,item_res.ds_item_res
+         ,item_res.nr_ordem_item
+         ,setor.cd_setor
+         ,setor.nm_setor
+         ,Setor.cd_cen_cus
+:CAMPO_CF_ORDEM_GRUITE
+)
+WHERE GRUITE_SETOR_BASE = :CAMPO_CD_SETOR_BASE
+)
+ORDER BY GRUITE_SETOR_BASE,GRUITE_CD_GRU_RES,GRUITE_DS_GRU_RES,GRUITE_NR_ORDEM_GRUPO,
+GRUITE_CD_ITEM_RES,GRUITE_DS_ITEM_RES,GRUITE_NR_ORDEM_ITEM
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_CUSTO_SETOR_SINT_R_CLA_ABSORCAO1_Q_3
+SELECT * FROM (
+SELECT  Abs_Cd_setor_base
+       ,abs_Cd_setor_Origem
+       ,abs_Nm_setor
+       ,DECODE( Abs_Clas_origem,'G',:CAMPO_TRAD_GEN,'E',:CAMPO_TRAD_ESP,null,:CAMPO_TRAD_NINF ) Abs_Clas_origem
+       ,Abs_Vlr_origem
+       ,Abs_Ds_Multi_Empresa
+  FROM (
+SELECT   Setor_base.Cd_setor Abs_Cd_setor_base
+        ,Custo_absorvido.Cd_setor_origem   abs_Cd_setor_Origem
+        ,INITCAP( Origem.Nm_setor ) abs_Nm_setor
+        ,Origem.Classificacao Abs_Clas_origem
+        ,sum( trunc( nvl( Custo_absorvido.Vl_custo_absorvido,0),2) ) Abs_Vlr_origem
+        ,multi_empresas.ds_multi_empresa Abs_Ds_Multi_Empresa
+    FROM Dbamv.Custo_absorvido
+        ,Dbamv.Setor Destino
+        ,Dbamv.Setor Origem
+        ,dbamv.setor  setor_base
+        ,dbamv.multi_empresas
+   WHERE Custo_absorvido.Cd_setor_destino = Destino.Cd_setor
+     AND Custo_absorvido.Cd_setor_origem = Origem.Cd_setor
+     AND multi_empresas.Cd_multi_empresa = Destino.Cd_multi_empresa
+     AND multi_empresas.Cd_multi_empresa = Custo_absorvido.Cd_multi_empresa
+     AND Destino.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND Custo_absorvido.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and setor_base.cd_setor = :CAMPO_CD_SETOR_BASE
+ AND Custo_absorvido.Dt_competencia = to_date(:CAMPO_DT_COMP, 'mm/yyyy' ) AND Destino.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND Destino.Cd_setor IN( SELECT Setor_nivel.Cd_setor
+                               FROM Dbamv.Setor
+                                   ,( SELECT S1.Cd_setor
+                                       FROM Dbamv.Setor S1
+                                           ,Dbamv.Setor
+                                      WHERE S1.Cd_setor = Setor.Cd_setor
+                                        AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                        AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE
+                                     UNION ALL
+                                     SELECT S2.Cd_setor
+                                       FROM Dbamv.Setor S2
+                                           ,Dbamv.Setor
+                                      WHERE S2.Cd_setor_custo = Setor.Cd_setor
+                                        AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                        AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE
+                                     UNION ALL
+                                     SELECT S3.Cd_setor
+                                       FROM Dbamv.Setor S3
+                                      WHERE S3.Cd_setor_custo IN( SELECT S1.Cd_setor
+                                                                   FROM Dbamv.Setor S1
+                                                                       ,Dbamv.Setor
+                                                                  WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                    AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                    AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE )
+                                     UNION ALL
+                                     SELECT S4.Cd_setor
+                                       FROM Dbamv.Setor S4
+                                      WHERE S4.Cd_setor_custo IN( SELECT Cd_setor
+                                                                   FROM Dbamv.Setor S3
+                                                                  WHERE S3.Cd_setor_custo IN( SELECT S1.Cd_setor
+                                                                                               FROM Dbamv.Setor S1
+                                                                                                   ,Dbamv.Setor
+                                                                                              WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                                                AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                                                AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE ))
+                                     UNION ALL
+                                     SELECT S5.Cd_setor
+                                       FROM Dbamv.Setor S5
+                                      WHERE S5.Cd_setor_custo IN( SELECT Cd_setor
+                                                                   FROM Dbamv.Setor S4
+                                                                  WHERE S4.Cd_setor_custo IN( SELECT Cd_setor
+                                                                                               FROM Dbamv.Setor S3
+                                                                                              WHERE S3.Cd_setor_custo IN( SELECT S1.Cd_setor
+                                                                                                                           FROM Dbamv.Setor S1
+                                                                                                                               ,Dbamv.Setor
+                                                                                                                          WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                                                                            AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                                                                            AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE )))) Setor_nivel
+                              WHERE Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE )
+     AND trunc( Custo_absorvido.Vl_custo_absorvido,2) <> 0
+group by  Setor_base.Cd_setor
+        ,Custo_absorvido.Cd_setor_origem
+        ,INITCAP( Origem.Nm_setor )
+        ,Origem.Classificacao
+        ,multi_empresas.ds_multi_empresa
+ORDER BY
+        Abs_Clas_origem
+        ,abs_Cd_setor_Origem
+        ,Abs_Cd_setor_base
+        ,abs_Nm_setor
+)
+WHERE ABS_CD_SETOR_BASE = :CAMPO_CD_SETOR_BASE
+)
+ORDER BY ABS_CLAS_ORIGEM,ABS_CD_SETOR_BASE,abs_Cd_setor_Origem
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_CUSTO_SETOR_SINT_R_DISTRIBUIDO1_Q_4
+SELECT * FROM (
+SELECT * FROM (
+ select Setor_base.Cd_setor Dist_Cd_setor_base,
+        custo_absorvido.cd_setor_destino       Dst_cd_setor_destino,
+        Initcap(destino.nm_setor)              Dst_Nm_Setor_Destino,
+        Sum( custo_absorvido.vl_custo_absorvido )  Dst_vlr_Destino,
+        multi_empresas.ds_multi_empresa Dst_Ds_Multi_Empresa
+   from dbamv.custo_absorvido,
+        dbamv.setor   destino,
+        dbamv.setor   origem,
+        dbamv.setor  setor_base,
+        dbamv.multi_empresas
+  where custo_absorvido.cd_setor_destino   = destino.cd_setor
+    and custo_absorvido.cd_setor_origem    = origem.cd_setor
+    and multi_empresas.Cd_multi_empresa = Destino.Cd_multi_empresa
+    and multi_empresas.Cd_multi_empresa = Custo_absorvido.Cd_multi_empresa
+    and destino.cd_multi_empresa           = :CAMPO_CD_MULTI_EMPRESA
+    and setor_base.cd_setor = :CAMPO_CD_SETOR_BASE
+    and custo_absorvido.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    and custo_absorvido.vl_custo_absorvido <> 0
+ AND Custo_absorvido.Dt_competencia = to_date( :CAMPO_DT_COMP, 'mm/yyyy' ) AND Destino.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    and origem.cd_setor in (SELECT Setor_nivel.Cd_setor
+                               FROM Dbamv.Setor
+                                   ,( SELECT S1.Cd_setor
+                                       FROM Dbamv.Setor S1
+                                           ,Dbamv.Setor
+                                      WHERE S1.Cd_setor = Setor.Cd_setor
+                                        AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                        AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE
+                                     UNION ALL
+                                     SELECT S2.Cd_setor
+                                       FROM Dbamv.Setor S2
+                                           ,Dbamv.Setor
+                                      WHERE S2.Cd_setor_custo = Setor.Cd_setor
+                                        AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                        AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE
+                                     UNION ALL
+                                     SELECT S3.Cd_setor
+                                       FROM Dbamv.Setor S3
+                                      WHERE S3.Cd_setor_custo IN( SELECT S1.Cd_setor
+                                                                   FROM Dbamv.Setor S1
+                                                                       ,Dbamv.Setor
+                                                                  WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                    AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                    AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE )
+                                     UNION ALL
+                                     SELECT S4.Cd_setor
+                                       FROM Dbamv.Setor S4
+                                      WHERE S4.Cd_setor_custo IN( SELECT Cd_setor
+                                                                   FROM Dbamv.Setor S3
+                                                                  WHERE S3.Cd_setor_custo IN( SELECT S1.Cd_setor
+                                                                                               FROM Dbamv.Setor S1
+                                                                                                   ,Dbamv.Setor
+                                                                                              WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                                                AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                                                AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE ))
+                                     UNION ALL
+                                     SELECT S5.Cd_setor
+                                       FROM Dbamv.Setor S5
+                                      WHERE S5.Cd_setor_custo IN( SELECT Cd_setor
+                                                                   FROM Dbamv.Setor S4
+                                                                  WHERE S4.Cd_setor_custo IN( SELECT Cd_setor
+                                                                                               FROM Dbamv.Setor S3
+                                                                                              WHERE S3.Cd_setor_custo IN( SELECT S1.Cd_setor
+                                                                                                                           FROM Dbamv.Setor S1
+                                                                                                                               ,Dbamv.Setor
+                                                                                                                          WHERE S1.Cd_setor_custo = Setor.Cd_setor
+                                                                                                                            AND Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                                                                            AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE )))) Setor_nivel
+                              WHERE Setor.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                AND Setor.Cd_setor = :CAMPO_CD_SETOR_BASE )
+group by Setor_base.Cd_setor ,
+        custo_absorvido.cd_setor_destino ,
+        Initcap(destino.nm_setor),
+	multi_empresas.ds_multi_empresa
+  order by  Dist_Cd_setor_base,
+           Dst_cd_setor_destino,
+           Dst_Nm_Setor_Destino
+)
+WHERE DIST_CD_SETOR_BASE = :CAMPO_CD_SETOR_BASE
+)ORDER BY Dst_cd_setor_destino

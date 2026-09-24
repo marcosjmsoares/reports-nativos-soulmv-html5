@@ -1,0 +1,48 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_CAIXA_CARACT
+SELECT * FROM (
+select        M.CD_MOV_CAIXA
+            , L.CD_LOTE_CAIXA
+            , c.CD_CAIXA
+            , C.DS_CAIXA
+            , l.DT_ABERTURA
+            , l.DT_FECHAMENTO
+            , l.vl_saldo_inicial                                    SALDO_ANTERIOR
+            , m.dt_movimentacao                                     DATA
+            , NVL(m.ds_mov_caixa,'-')                                        HISTORICO
+            , NVL(m.vl_movimentacao,0)                                     VALOR
+            , decode(m.tp_movimentacao,'E','C','S','D')             TP_MOVIMENTACAO
+            , x.CD_BANCO
+            , x.NM_BANCO
+            , x.CD_DOC_CAIXA
+            , x.DOCTO
+            , NVL(x.TIPO,'DIN')                                     TIPO
+from    dbamv.mov_caixa   m
+       ,dbamv.lote_caixa       l
+       ,dbamv.usuario_caixa    u
+       ,dbamv.caixa    c
+       ,(select  B.NM_BANCO
+               , D.CD_DOC_CAIXA
+               , D.CD_CAIXA
+               , D.CD_BANCO
+               , nvl(d.nr_documento,0)         DOCTO
+               , decode(d.tp_doc_caixa
+             		   ,'1','DIN'
+                       ,'2','CHE'
+                       ,'3','CAR'
+                       ,'4','TEF'
+                       ,'5','PRO'
+                       ,'6','DUP'
+                       ,'DIN')                        TIPO
+         from    dbamv.doc_caixa d
+               , dbamv.banco b
+         where   d.cd_banco = b.cd_banco (+)) x
+where   u.cd_caixa      = l.cd_caixa
+and     u.cd_usuario    = l.cd_usuario
+and     u.cd_caixa      = c.cd_caixa
+and     m.cd_doc_caixa  = x.cd_doc_caixa (+)
+and     c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+order by l.DT_ABERTURA
+)
+ORDER BY DS_CAIXA,NM_BANCO,CD_BANCO,CD_CAIXA,
+DT_ABERTURA,DT_FECHAMENTO,SALDO_ANTERIOR,CD_LOTE_CAIXA

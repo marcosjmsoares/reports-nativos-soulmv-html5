@@ -1,0 +1,437 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_FASE_COLABORA
+SELECT * FROM (
+Select Sequencia
+      ,Fase
+      ,Cd_Ciclo
+      ,Ds_Res_Kit
+      ,Dt_Inc_Usuario
+      ,Nm_Prestador
+      ,Cd_Produto
+      ,Cd_Identificacao
+From (
+Select '1' Sequencia
+      ,'Expurgo' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,CASE 
+					WHEN IT_MVTO_CME.CD_KIT IS NOT NULL THEN
+						(SELECT CX_KIT.DS_RES_KIT FROM dbamv.CX_KIT WHERE CX_KIT.CD_KIT = IT_MVTO_CME.CD_KIT)
+					WHEN IT_MVTO_CME.CD_BEM IS NOT NULL THEN
+						(SELECT BENS.DS_BEM FROM dbamv.BENS WHERE BENS.CD_BEM = IT_MVTO_CME.CD_BEM)
+					WHEN IT_MVTO_CME.CD_BEM_TERCEIRO IS NOT NULL THEN
+						(SELECT BEM_TERCEIRO_CME.DS_BEM_TERCEIRO FROM dbamv.BEM_TERCEIRO_CME WHERE BEM_TERCEIRO_CME.CD_BEM_TERCEIRO = IT_MVTO_CME.CD_BEM_TERCEIRO)
+					WHEN IT_MVTO_CME.CD_PRODUTO_ROUPARIA IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_ROUPARIA)
+					WHEN IT_MVTO_CME.CD_PRODUTO_REPROCESSADO IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_REPROCESSADO)
+			 END  Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,nvl(Prestador.Nm_Prestador, 'SEM PRESTADOR') nm_prestador
+      ,Nvl(IT_MVTO_CME.CD_KIT, Nvl(IT_MVTO_CME.CD_BEM, Nvl(IT_MVTO_CME.CD_BEM_TERCEIRO, Nvl(IT_MVTO_CME.CD_PRODUTO_ROUPARIA, IT_MVTO_CME.CD_PRODUTO_REPROCESSADO))))   Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Config_Cme
+		,dbasgu.usuarios
+    ,Dbamv.Prestador
+    ,dbamv.setor
+Where 
+	It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Expurgo
+	AND Config_Cme.cd_multi_empresa = setor.cd_multi_empresa
+  and setor.cd_setor = It_Mvto_Cme.Cd_Setor
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND it_mvto_cme.cd_usuario_inc = usuarios.cd_usuario
+  and usuarios.cd_prestador = Prestador.Cd_Prestador(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+union all
+Select '2' Sequencia
+      ,'Desinfeccao' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,CASE 
+					WHEN IT_MVTO_CME.CD_KIT IS NOT NULL THEN
+						(SELECT CX_KIT.DS_RES_KIT FROM dbamv.CX_KIT WHERE CX_KIT.CD_KIT = IT_MVTO_CME.CD_KIT)
+					WHEN IT_MVTO_CME.CD_BEM IS NOT NULL THEN
+						(SELECT BENS.DS_BEM FROM dbamv.BENS WHERE BENS.CD_BEM = IT_MVTO_CME.CD_BEM)
+					WHEN IT_MVTO_CME.CD_BEM_TERCEIRO IS NOT NULL THEN
+						(SELECT BEM_TERCEIRO_CME.DS_BEM_TERCEIRO FROM dbamv.BEM_TERCEIRO_CME WHERE BEM_TERCEIRO_CME.CD_BEM_TERCEIRO = IT_MVTO_CME.CD_BEM_TERCEIRO)
+					WHEN IT_MVTO_CME.CD_PRODUTO_ROUPARIA IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_ROUPARIA)
+					WHEN IT_MVTO_CME.CD_PRODUTO_REPROCESSADO IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_REPROCESSADO)
+			 END  Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,nvl(Prestador.Nm_Prestador, 'SEM PRESTADOR') nm_prestador
+      ,Nvl(IT_MVTO_CME.CD_KIT, Nvl(IT_MVTO_CME.CD_BEM, Nvl(IT_MVTO_CME.CD_BEM_TERCEIRO, Nvl(IT_MVTO_CME.CD_PRODUTO_ROUPARIA, IT_MVTO_CME.CD_PRODUTO_REPROCESSADO))))   Cd_Produto
+      ,Prestador.Cd_Identificacao
+From  Dbamv.It_Mvto_Cme
+    ,Dbamv.Config_Cme
+		,dbasgu.usuarios
+    ,Dbamv.Prestador
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Desinfeccao
+	AND Config_Cme.cd_multi_empresa = setor.cd_multi_empresa 
+  and setor.cd_setor = It_Mvto_Cme.Cd_Setor
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND it_mvto_cme.cd_usuario_inc = usuarios.cd_usuario
+  and usuarios.cd_prestador = Prestador.Cd_Prestador(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+union all
+Select '3' Sequencia
+      ,'Preparo' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,CASE 
+					WHEN IT_MVTO_CME.CD_KIT IS NOT NULL THEN
+						(SELECT CX_KIT.DS_RES_KIT FROM dbamv.CX_KIT WHERE CX_KIT.CD_KIT = IT_MVTO_CME.CD_KIT)
+					WHEN IT_MVTO_CME.CD_BEM IS NOT NULL THEN
+						(SELECT BENS.DS_BEM FROM dbamv.BENS WHERE BENS.CD_BEM = IT_MVTO_CME.CD_BEM)
+					WHEN IT_MVTO_CME.CD_BEM_TERCEIRO IS NOT NULL THEN
+						(SELECT BEM_TERCEIRO_CME.DS_BEM_TERCEIRO FROM dbamv.BEM_TERCEIRO_CME WHERE BEM_TERCEIRO_CME.CD_BEM_TERCEIRO = IT_MVTO_CME.CD_BEM_TERCEIRO)
+					WHEN IT_MVTO_CME.CD_PRODUTO_ROUPARIA IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_ROUPARIA)
+					WHEN IT_MVTO_CME.CD_PRODUTO_REPROCESSADO IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_REPROCESSADO)
+			 END  Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,nvl(Prestador.Nm_Prestador, 'SEM PRESTADOR') nm_prestador
+      ,Nvl(IT_MVTO_CME.CD_KIT, Nvl(IT_MVTO_CME.CD_BEM, Nvl(IT_MVTO_CME.CD_BEM_TERCEIRO, Nvl(IT_MVTO_CME.CD_PRODUTO_ROUPARIA, IT_MVTO_CME.CD_PRODUTO_REPROCESSADO))))   Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Config_Cme
+		,dbasgu.usuarios
+    ,Dbamv.Prestador
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Preparo
+	AND Config_Cme.cd_multi_empresa = setor.cd_multi_empresa
+  and setor.cd_setor = It_Mvto_Cme.Cd_Setor
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND it_mvto_cme.cd_usuario_inc = usuarios.cd_usuario
+  and usuarios.cd_prestador = Prestador.Cd_Prestador(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+union all
+Select '4' Sequencia
+      ,'Esterilizacao' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,CASE 
+					WHEN IT_MVTO_CME.CD_KIT IS NOT NULL THEN
+						(SELECT CX_KIT.DS_RES_KIT FROM dbamv.CX_KIT WHERE CX_KIT.CD_KIT = IT_MVTO_CME.CD_KIT)
+					WHEN IT_MVTO_CME.CD_BEM IS NOT NULL THEN
+						(SELECT BENS.DS_BEM FROM dbamv.BENS WHERE BENS.CD_BEM = IT_MVTO_CME.CD_BEM)
+					WHEN IT_MVTO_CME.CD_BEM_TERCEIRO IS NOT NULL THEN
+						(SELECT BEM_TERCEIRO_CME.DS_BEM_TERCEIRO FROM dbamv.BEM_TERCEIRO_CME WHERE BEM_TERCEIRO_CME.CD_BEM_TERCEIRO = IT_MVTO_CME.CD_BEM_TERCEIRO)
+					WHEN IT_MVTO_CME.CD_PRODUTO_ROUPARIA IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_ROUPARIA)
+					WHEN IT_MVTO_CME.CD_PRODUTO_REPROCESSADO IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_REPROCESSADO)
+			 END  Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,nvl(Prestador.Nm_Prestador, 'SEM PRESTADOR') nm_prestador
+      ,Nvl(IT_MVTO_CME.CD_KIT, Nvl(IT_MVTO_CME.CD_BEM, Nvl(IT_MVTO_CME.CD_BEM_TERCEIRO, Nvl(IT_MVTO_CME.CD_PRODUTO_ROUPARIA, IT_MVTO_CME.CD_PRODUTO_REPROCESSADO))))   Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Config_Cme
+		,dbasgu.usuarios
+    ,Dbamv.Prestador
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Esterilizacao
+	AND Config_Cme.cd_multi_empresa = setor.cd_multi_empresa
+  and setor.cd_setor = It_Mvto_Cme.Cd_Setor
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND it_mvto_cme.cd_usuario_inc = usuarios.cd_usuario
+  and usuarios.cd_prestador = Prestador.Cd_Prestador(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+union all
+Select '5' Sequencia
+      ,'Arsenal' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+			,CASE 
+					WHEN IT_MVTO_CME.CD_KIT IS NOT NULL THEN
+						(SELECT CX_KIT.DS_RES_KIT FROM dbamv.CX_KIT WHERE CX_KIT.CD_KIT = IT_MVTO_CME.CD_KIT)
+					WHEN IT_MVTO_CME.CD_BEM IS NOT NULL THEN
+						(SELECT BENS.DS_BEM FROM dbamv.BENS WHERE BENS.CD_BEM = IT_MVTO_CME.CD_BEM)
+					WHEN IT_MVTO_CME.CD_BEM_TERCEIRO IS NOT NULL THEN
+						(SELECT BEM_TERCEIRO_CME.DS_BEM_TERCEIRO FROM dbamv.BEM_TERCEIRO_CME WHERE BEM_TERCEIRO_CME.CD_BEM_TERCEIRO = IT_MVTO_CME.CD_BEM_TERCEIRO)
+					WHEN IT_MVTO_CME.CD_PRODUTO_ROUPARIA IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_ROUPARIA)
+					WHEN IT_MVTO_CME.CD_PRODUTO_REPROCESSADO IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_REPROCESSADO)
+			 END  Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,nvl(Prestador.Nm_Prestador, 'SEM PRESTADOR') nm_prestador
+      ,Nvl(IT_MVTO_CME.CD_KIT, Nvl(IT_MVTO_CME.CD_BEM, Nvl(IT_MVTO_CME.CD_BEM_TERCEIRO, Nvl(IT_MVTO_CME.CD_PRODUTO_ROUPARIA, IT_MVTO_CME.CD_PRODUTO_REPROCESSADO))))   Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Config_Cme
+		,dbasgu.usuarios
+    ,Dbamv.Prestador
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Arsenal
+	AND Config_Cme.cd_multi_empresa = setor.cd_multi_empresa
+  and setor.cd_setor = It_Mvto_Cme.Cd_Setor
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND it_mvto_cme.cd_usuario_inc = usuarios.cd_usuario
+  and usuarios.cd_prestador = Prestador.Cd_Prestador(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+union all
+Select '6' Sequencia
+      ,'Externo' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,CASE 
+					WHEN IT_MVTO_CME.CD_KIT IS NOT NULL THEN
+						(SELECT CX_KIT.DS_RES_KIT FROM dbamv.CX_KIT WHERE CX_KIT.CD_KIT = IT_MVTO_CME.CD_KIT)
+					WHEN IT_MVTO_CME.CD_BEM IS NOT NULL THEN
+						(SELECT BENS.DS_BEM FROM dbamv.BENS WHERE BENS.CD_BEM = IT_MVTO_CME.CD_BEM)
+					WHEN IT_MVTO_CME.CD_BEM_TERCEIRO IS NOT NULL THEN
+						(SELECT BEM_TERCEIRO_CME.DS_BEM_TERCEIRO FROM dbamv.BEM_TERCEIRO_CME WHERE BEM_TERCEIRO_CME.CD_BEM_TERCEIRO = IT_MVTO_CME.CD_BEM_TERCEIRO)
+					WHEN IT_MVTO_CME.CD_PRODUTO_ROUPARIA IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_ROUPARIA)
+					WHEN IT_MVTO_CME.CD_PRODUTO_REPROCESSADO IS NOT NULL THEN
+						(SELECT Nvl(PRODUTO.DS_PRODUTO_RESUMIDO, PRODUTO.DS_PRODUTO) FROM dbamv.PRODUTO WHERE PRODUTO.CD_PRODUTO = IT_MVTO_CME.CD_PRODUTO_REPROCESSADO)
+			 END  Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,nvl(Prestador.Nm_Prestador, 'SEM PRESTADOR') nm_prestador
+      ,Nvl(IT_MVTO_CME.CD_KIT, Nvl(IT_MVTO_CME.CD_BEM, Nvl(IT_MVTO_CME.CD_BEM_TERCEIRO, Nvl(IT_MVTO_CME.CD_PRODUTO_ROUPARIA, IT_MVTO_CME.CD_PRODUTO_REPROCESSADO))))   Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Config_Cme
+    ,Dbamv.Prestador
+		,dbasgu.usuarios
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Externo
+	AND Config_Cme.cd_multi_empresa = setor.cd_multi_empresa
+  and setor.cd_setor = It_Mvto_Cme.Cd_Setor
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+	AND it_mvto_cme.cd_usuario_inc = usuarios.cd_usuario
+  and usuarios.cd_prestador = Prestador.Cd_Prestador(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+:CAMPO_CF_TP_CAIXA
+)
+group by Sequencia
+      ,Fase
+      ,Cd_Ciclo
+      ,Ds_Res_Kit
+      ,Dt_Inc_Usuario
+      ,Nm_Prestador
+      ,Cd_Produto
+      ,Cd_Identificacao
+Order by Sequencia
+)
+ORDER BY 
+	NM_PRESTADOR,
+	FASE,
+	CD_IDENTIFICACAO,
+	CD_CICLO,
+	DS_RES_KIT,
+	SEQUENCIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_FASE_COLABORA_X_G_5
+SELECT * FROM (
+Select Sequencia
+      ,Fase
+      ,Cd_Ciclo
+      ,Ds_Res_Kit
+      ,Dt_Inc_Usuario
+      ,Nm_Prestador
+      ,Cd_Produto
+      ,Cd_Identificacao
+From (
+Select '1' Sequencia
+      ,'Expurgo' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Cx_kit
+    ,Dbamv.Config_Cme
+    ,Dbamv.Prestador
+    ,Dbamv.Produto
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Kit = Cx_kit.Cd_kit
+  and It_Mvto_Cme.Cd_Localidade = Config_Cme.Cd_Localidade_Expurgo
+  and It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Expurgo
+  and setor.cd_setor = config_cme.cd_setor_principal
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and It_Mvto_Cme.Cd_Prestador_Identifica = Prestador.Cd_Prestador(+)
+  and Cx_Kit.Cd_Produto = Produto.Cd_Produto(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+  and Prestador.Nm_Prestador = :CAMPO_NM_PRESTADOR
+group by
+     It_Mvto_Cme.Cd_Ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+union all
+Select '2' Sequencia
+      ,'Desinfeccao' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Cx_kit
+    ,Dbamv.Config_Cme
+    ,Dbamv.Prestador
+    ,Dbamv.Produto
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Kit = Cx_kit.Cd_kit
+  and It_Mvto_Cme.Cd_Localidade = Config_Cme.Cd_Localidade_Desinfeccao
+  and It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Desinfeccao
+  and setor.cd_setor = config_cme.cd_setor_principal
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and It_Mvto_Cme.Cd_Prestador_Identifica = Prestador.Cd_Prestador(+)
+  and Cx_Kit.Cd_Produto = Produto.Cd_Produto(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+  and Prestador.Nm_Prestador = :CAMPO_NM_PRESTADOR
+group by
+     It_Mvto_Cme.Cd_Ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+union all
+Select '3' Sequencia
+      ,'Preparo' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Cx_kit
+    ,Dbamv.Config_Cme
+    ,Dbamv.Prestador
+    ,Dbamv.Produto
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Kit = Cx_kit.Cd_kit
+  and It_Mvto_Cme.Cd_Localidade = Config_Cme.Cd_Localidade_Preparo
+  and It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Preparo
+  and setor.cd_setor = config_cme.cd_setor_principal
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and It_Mvto_Cme.Cd_Prestador_Identifica = Prestador.Cd_Prestador(+)
+  and Cx_Kit.Cd_Produto = Produto.Cd_Produto(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+  and Prestador.Nm_Prestador = :CAMPO_NM_PRESTADOR
+group by
+     It_Mvto_Cme.Cd_Ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+union all
+Select '4' Sequencia
+      ,'Esterilizacao' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Cx_kit
+    ,Dbamv.Config_Cme
+    ,Dbamv.Prestador
+    ,Dbamv.Produto
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Kit = Cx_kit.Cd_kit
+  and It_Mvto_Cme.Cd_Localidade = Config_Cme.Cd_Localidade_Esterilizacao
+  and It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Esterilizacao
+  and setor.cd_setor = config_cme.cd_setor_principal
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and It_Mvto_Cme.Cd_Prestador_Identifica = Prestador.Cd_Prestador(+)
+  and Cx_Kit.Cd_Produto = Produto.Cd_Produto(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+  and Prestador.Nm_Prestador = :CAMPO_NM_PRESTADOR
+group by
+     It_Mvto_Cme.Cd_Ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+union all
+Select '5' Sequencia
+      ,'Arsenal' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Cx_kit
+    ,Dbamv.Config_Cme
+    ,Dbamv.Prestador
+    ,Dbamv.Produto
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Kit = Cx_kit.Cd_kit
+  and It_Mvto_Cme.Cd_Localidade = Config_Cme.Cd_Localidade_Arsenal
+  and It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Arsenal
+  and setor.cd_setor = config_cme.cd_setor_principal
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and It_Mvto_Cme.Cd_Prestador_Identifica = Prestador.Cd_Prestador(+)
+  and Cx_Kit.Cd_Produto = Produto.Cd_Produto(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+  and Prestador.Nm_Prestador = :CAMPO_NM_PRESTADOR
+group by
+     It_Mvto_Cme.Cd_Ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+union all
+Select '6' Sequencia
+      ,'Externo' Fase
+      ,nvl(It_Mvto_Cme.Cd_Ciclo,0) cd_ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+      ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+From Dbamv.It_Mvto_Cme
+    ,Dbamv.Cx_kit
+    ,Dbamv.Config_Cme
+    ,Dbamv.Prestador
+    ,Dbamv.Produto
+    ,dbamv.setor
+Where It_Mvto_Cme.Cd_Kit = Cx_kit.Cd_kit
+  and It_Mvto_Cme.Cd_Localidade = Config_Cme.Cd_Localidade_Externo
+  and It_Mvto_Cme.Cd_Setor = Config_Cme.Cd_Setor_Externo
+  and setor.cd_setor = config_cme.cd_setor_principal
+  and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and It_Mvto_Cme.Cd_Prestador_Identifica = Prestador.Cd_Prestador(+)
+  and Cx_Kit.Cd_Produto = Produto.Cd_Produto(+)
+  and It_Mvto_Cme.Cd_Cancelamento is null
+  and Prestador.Nm_Prestador = :CAMPO_NM_PRESTADOR
+group by
+     It_Mvto_Cme.Cd_Ciclo
+      ,Cx_Kit.Ds_Res_Kit
+      ,It_Mvto_Cme.Dt_Inc_Usuario
+      ,Prestador.Nm_Prestador
+     ,Produto.Cd_Produto
+      ,Prestador.Cd_Identificacao
+)
+group by Sequencia
+      ,Fase
+      ,Cd_Ciclo
+      ,Ds_Res_Kit
+      ,Dt_Inc_Usuario
+      ,Nm_Prestador
+      ,Cd_Produto
+      ,Cd_Identificacao
+Order by Sequencia
+)
+ORDER BY NM_PRESTADOR,CD_IDENTIFICACAO,
+CD_CICLO,DS_RES_KIT,
+SEQUENCIA,FASE

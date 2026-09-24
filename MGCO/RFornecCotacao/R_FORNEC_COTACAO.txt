@@ -1,0 +1,68 @@
+/*----------------------------------------------------------------------------*/
+--R_FORNEC_COTACAO
+SELECT * FROM (
+Select distinct
+             sol_com.cd_sol_com              cd_sol_com
+           ,sol_com.dt_sol_com              dt_sol_com
+           ,sol_com.dt_maxima               dt_maxima
+           ,cotador.cd_cotador              cd_cotador
+           ,cotador.ds_cotador              ds_cotador
+           ,fornecedor.cd_fornecedor        cd_fornecedor
+           ,fornecedor.nm_fornecedor        nm_fornecedor
+           ,fornecedor.nm_contato           nm_contato
+           ,for_com.ds_for_com              ds_for_com
+From    dbamv.sol_com            sol_com
+          ,dbamv.itsol_com          itsol_com
+          ,dbamv.produto            produto
+          ,dbamv.tip_ativ             tip_ativ
+          ,dbamv.ati_for              ati_for
+          ,dbamv.fornecedor       fornecedor
+          ,dbamv.for_com              for_com
+          ,dbamv.cotador           cotador
+	  ,dbamv.estoque
+Where sol_com.cd_sol_com         = :CAMPO_SOLIC
+   and   sol_com.tp_situacao         not in ( 'C', 'F' )
+   and   sol_com.cd_sol_com        = itsol_com.cd_sol_com
+   and   sol_com.cd_cotador         = cotador.cd_cotador
+   and   itsol_com.cd_produto       = produto.cd_produto
+   and   produto.cd_tip_ativ          = tip_ativ.cd_tip_ativ
+   and   produto.cd_tip_ativ          = ati_for.cd_tip_ativ
+   and   ati_for.cd_fornecedor       = fornecedor.cd_fornecedor
+   and   fornecedor.tp_cliente_forn in ( 'F', 'A' )
+   and  fornecedor.cd_fornecedor = for_com.cd_fornecedor
+   and itsol_com.cd_mot_cancel is null
+   And Estoque.Cd_Estoque = Sol_Com.Cd_Estoque
+   And  Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND ((Nvl(pkg_mv2000.le_configuracao('MGCO','SN_R_FORNEC_COTACAO_COLETA'),'N') = 'S'
+   AND fornecedor.cd_fornecedor IN (SELECT c.cd_fornecedor FROM coleta c WHERE c.cd_sol_com = sol_com.cd_sol_com))
+   OR Nvl(pkg_mv2000.le_configuracao('MGCO','SN_R_FORNEC_COTACAO_COLETA'),'N') = 'N')
+Union All
+Select  distinct sol_com.cd_sol_com               cd_sol_com
+          ,sol_com.dt_sol_com                 dt_sol_com
+          ,sol_com.dt_maxima                  dt_maxima
+          ,cotador.cd_cotador                  cd_cotador
+          ,cotador.ds_cotador                  ds_cotador
+          ,fornecedor.cd_fornecedor        cd_fornecedor
+          ,fornecedor.nm_fornecedor        nm_fornecedor
+          ,fornecedor.nm_contato             nm_contato
+          ,for_com.ds_for_com                 ds_for_com
+From  dbamv.sol_com                          sol_com
+         ,dbamv.itsol_ser                          itsol_ser
+         ,dbamv.fornecedor_ser_sol         fornecedor_ser_sol
+         ,dbamv.fornecedor                      fornecedor
+         ,dbamv.for_com                          for_com
+         ,dbamv.cotador                          cotador
+	 ,dbamv.estoque
+Where  sol_com.cd_sol_com          =  :CAMPO_SOLIC
+   and   sol_com.tp_situacao           not in ( 'C', 'F' )
+   and   sol_com.cd_sol_com          = itsol_ser.cd_sol_com
+   and   sol_com.cd_cotador           = cotador.cd_cotador
+   and   itsol_ser.cd_ser_sol            = fornecedor_ser_sol.cd_ser_sol
+   and   fornecedor.cd_fornecedor  = fornecedor_ser_sol.cd_fornecedor
+   and   fornecedor.tp_cliente_forn   in ( 'F', 'A' )
+   and  fornecedor.cd_fornecedor   = for_com.cd_fornecedor
+   And Estoque.Cd_Estoque = Sol_Com.Cd_Estoque
+  And  Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+order by nm_fornecedor
+)
+ORDER BY CD_SOL_COM,CD_FORNECEDOR,NM_CONTATO

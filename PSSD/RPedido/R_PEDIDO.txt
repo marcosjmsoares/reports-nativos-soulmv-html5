@@ -1,0 +1,152 @@
+/*----------------------------------------------------------------------------*/
+--R_PEDIDO
+SELECT * FROM (
+SELECT  PED_LAB.CD_PED_LAB                                CD_PED_LAB
+               ,PED_LAB.NR_CONTROLE                            NR_CONTROLE
+               ,PED_LAB.DS_OBSERVACAO                        DS_OBSERVACAO
+			   ,DECODE(PED_LAB.TP_SOLICITACAO, 'R', 'ROTINA',
+               								   'U', 'URGÊNCIA',
+               								        'EMERGÊNCIA') TP_SOLICITACAO
+	       ,ATENDIME.CD_ATENDIMENTO_ORIGINAL             CD_ATENDIMENTO_ORIGINAL
+               ,(TO_CHAR(PED_LAB.DT_COLETA,'DD/MM/YYYY') || ' ' || TO_CHAR(PED_LAB.HR_COLETA, 'HH24')) DT_COLETA
+               ,ATENDIME.CD_PACIENTE                            CD_PACIENTE
+               ,SETOR.NM_SETOR                                       NM_SETOR
+               ,DECODE(PED_LAB.CD_PRESTADOR, NULL, PED_LAB.NM_PRESTADOR, PRESTADOR.NM_PRESTADOR)   NM_PRESTADOR
+               ,PACIENTE.NM_PACIENTE                            NM_PACIENTE
+               ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE
+               ,Decode(PACIENTE.TP_SEXO, 'M', 'MASCULINO'
+                                       , 'F', 'FEMININO'
+                                       , 'I', 'INDEFINIDO'
+                                       , 'G', 'IGNORADO'
+                                       , ' ')                                     TP_SEXO
+               ,dbamv.PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO,SYSDATE)    NR_IDADE
+               ,CONVENIO.NM_CONVENIO                          NM_CONVENIO
+               ,CON_PLA.DS_CON_PLA                               DS_CON_PLA
+               ,ORI_ATE.DS_ORI_ATE                                 DS_ORI_ATE
+               ,PACIENTE.NR_FONE
+               ,PACIENTE.NR_IDENTIDADE
+               ,PACIENTE.DT_NASCIMENTO
+               ,ATENDIME.CD_ATENDIMENTO                 CD_ATENDIMENTO
+               ,ATENDIME.TP_ATENDIMENTO                 TP_ATENDIMENTO
+               ,Nvl(ATENDIME.CD_LEITO,ORIGEM.CD_LEITO) CD_LEITO
+               ,CONVENIO.TP_CONVENIO                         TP_CONVENIO
+               ,POSTO_COLETA.DS_POSTO_COLETA
+	       ,TO_CHAR(PED_LAB.DT_PEDIDO,'DD/MM/YYYY') DT_PEDIDO
+		   ,Decode(ATENDIME.TP_ATENDIMENTO,'I',0,1) ordem
+FROM  DBAMV.PED_LAB
+           ,DBAMV.SETOR
+           ,DBAMV.PRESTADOR
+           ,DBAMV.CONVENIO
+           ,DBAMV.CON_PLA
+           ,DBAMV.ATENDIME
+		   ,DBAMV.ATENDIME ORIGEM
+           ,DBAMV.PACIENTE
+           ,DBAMV.ORI_ATE
+           ,DBAMV.POSTO_COLETA
+Where      PED_LAB.CD_SETOR = SETOR.CD_SETOR
+AND       PED_LAB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+AND       PED_LAB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND       PED_LAB.CD_CONVENIO = CON_PLA.CD_CONVENIO(+)
+AND       PED_LAB.CD_CON_PLA = CON_PLA.CD_CON_PLA(+)
+AND       PED_LAB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND       ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+AND       atendime.CD_ATENDIMENTO_ORIGINAL = ORIGEM.cd_atendimento(+)
+AND       PED_LAB.CD_POSTO_COLETA = POSTO_COLETA.CD_POSTO_COLETA(+)
+ORDER BY ped_lab.cd_ped_lab
+)
+ORDER BY CD_PED_LAB,DS_OBSERVACAO,NR_CONTROLE,TP_SOLICITACAO,NM_SETOR,NM_PRESTADOR,NM_CONVENIO,DS_CON_PLA,DS_ORI_ATE,CD_PACIENTE,NM_PACIENTE,TP_SEXO,NR_IDADE,CD_ATENDIMENTO,CD_LEITO,TP_CONVENIO,DT_PEDIDO,DT_COLETA,DS_POSTO_COLETA,NR_FONE,NR_IDENTIDADE,DT_NASCIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PEDIDO_EXAME
+SELECT * FROM (
+SELECT         atendime.cd_atendimento, PED_LAB.CD_PED_LAB                     PED_LAB
+               , EXA_LAB.CD_EXA_LAB                   CD_EXA_LAB
+               ,EXA_LAB.NM_EXA_LAB                   NM_EXA_LAB
+               ,LABORATORIO.DS_LABORATORIO           DS_LABORATORIO
+               ,DECODE(NVL(ITPED_LAB.SN_COLETA_PENDENTE,'N'),'N',TO_CHAR(ITPED_LAB.DT_ENTREGA,'DD/MM/YYYY'),'Pendente')  DT_PREVISAO 
+               ,round( DBAMV.CALC_VL_PROC_UNIT( convenio.tp_convenio,
+                                                                               decode( convenio.tp_convenio, 'A', exa_lab.cd_Procedimento_sia
+                                                                              ,'H', exa_lab.cd_Procedimento_sih
+                                                                              ,exa_lab.cd_pro_fat),
+                                                                               ped_lab.dt_pedido,
+                                                                               ped_lab.hr_ped_lab,
+                                                                               convenio.cd_convenio,
+                                                                               con_pla.cd_con_pla,
+                                                                              atendime.tp_atendimento,
+                                                                             atendime.cd_tip_acom,  'U') , 2)   VL_CUSTO
+               ,ITPED_LAB.CD_ITPED_LAB                        CD_ITPED_LAB
+               ,PED_LAB.DT_PEDIDO
+               ,convenio.tp_convenio
+               ,nvl(DBAMV.PACK_FFCV_PROIBICAO.FNC_FFCV_PROIBICAO(EXA_LAB.CD_PRO_FAT,
+                                                     PED_LAB.CD_CONVENIO,
+                                                     PED_LAB.CD_CON_PLA,
+                                                     ATENDIME.TP_ATENDIMENTO,
+                                                     PED_LAB.DT_PEDIDO,
+                                                     PED_LAB.CD_SETOR,
+                                                     ATENDIME.CD_ATENDIMENTO,
+                                                     ATENDIME.CD_PACIENTE), 'AT') TP_PROIBICAO
+ FROM  DBAMV.PED_LAB
+           ,DBAMV.SETOR
+           ,DBAMV.PRESTADOR
+           ,DBAMV.CONVENIO
+           ,DBAMV.CON_PLA
+           ,DBAMV.ATENDIME
+           ,DBAMV.PACIENTE
+           ,DBAMV.ORI_ATE
+           ,DBAMV.ITPED_LAB
+           ,DBAMV.EXA_LAB
+           ,DBAMV.LABORATORIO
+           ,DBAMV.POSTO_COLETA
+Where     PED_LAB.CD_SETOR = SETOR.CD_SETOR
+AND       PED_LAB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+AND       PED_LAB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND       PED_LAB.CD_CONVENIO = CON_PLA.CD_CONVENIO(+)
+AND       PED_LAB.CD_CON_PLA = CON_PLA.CD_CON_PLA(+)
+AND       PED_LAB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND       ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+AND       PED_LAB.CD_PED_LAB  =  ITPED_LAB.CD_PED_LAB
+AND       ITPED_LAB.CD_EXA_LAB  =  EXA_LAB.CD_EXA_LAB
+AND       PED_LAB.CD_POSTO_COLETA = POSTO_COLETA.CD_POSTO_COLETA(+)
+AND       ITPED_LAB.CD_LABORATORIO  =  LABORATORIO.CD_LABORATORIO
+AND       PED_LAB.CD_PED_LAB = :CAMPO_NR_PEDIDO
+ORDER BY ped_lab.cd_ped_lab, itped_lab.cd_itped_lab)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PEDIDO_SET
+SELECT distinct (nm_setor),PRESTADOR FROM (
+SELECT   nm_setor, Nvl(prestador.nm_prestador, prestador_externo.nm_pres_ext) PRESTADOR
+			   FROM DBAMV.ITPED_PREST_SETOR_SOLIC
+			   INNER JOIN DBAMV.ITPED_LAB ON (ITPED_LAB.CD_ITPED_LAB = ITPED_PREST_SETOR_SOLIC.CD_ITPED_LAB)
+         INNER JOIN DBAMV.SETOR ON (ITPED_PREST_SETOR_SOLIC.CD_SETOR = SETOR.CD_SETOR)
+         INNER JOIN dbamv.ped_lab ON (itped_lab.cd_ped_lab = ped_lab.cd_ped_lab)
+         LEFT  JOIN DBAMV.PRESTADOR          ON (DBAMV.ITPED_PREST_SETOR_SOLIC.CD_PRESTADOR = DBAMV.PRESTADOR.CD_PRESTADOR)
+         LEFT  JOIN DBAMV.PRESTADOR_EXTERNO  ON (DBAMV.ITPED_PREST_SETOR_SOLIC.CD_PRES_EXT  = DBAMV.PRESTADOR_EXTERNO.CD_PRES_EXT)
+			   WHERE 1=1
+UNION ALL
+SELECT SETOR.NM_SETOR, ped_lab.nm_prestador
+FROM  DBAMV.PED_LAB
+           ,DBAMV.SETOR
+           ,DBAMV.PRESTADOR
+           ,DBAMV.CONVENIO
+           ,DBAMV.CON_PLA
+           ,DBAMV.ATENDIME
+           ,DBAMV.PACIENTE
+           ,DBAMV.ORI_ATE
+           ,DBAMV.POSTO_COLETA
+Where      PED_LAB.CD_SETOR = SETOR.CD_SETOR
+AND       PED_LAB.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+AND       PED_LAB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND       PED_LAB.CD_CONVENIO = CON_PLA.CD_CONVENIO(+)
+AND       PED_LAB.CD_CON_PLA = CON_PLA.CD_CON_PLA(+)
+AND       PED_LAB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND       ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+AND       PED_LAB.CD_POSTO_COLETA = POSTO_COLETA.CD_POSTO_COLETA(+)
+:CAMPO_NR_PEDIDO
+) ORDER BY NM_SETOR ASC

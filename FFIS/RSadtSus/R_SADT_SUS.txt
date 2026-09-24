@@ -1,0 +1,73 @@
+/*----------------------------------------------------------------------------*/
+--R_SADT_SUS
+Select Prest.Cd_Prestador
+     , Prest.Nm_Prestador
+     , Fat.Cd_Fatura
+     , RemFat.Cd_Remessa
+     , Reg_Fat.Cd_Reg_Fat
+     , Reg_Fat.Cd_Atendimento
+     , ItReg.Cd_Procedimento
+     , Proc.Ds_Procedimento
+     , Setor.Cd_Setor
+     , Setor.Nm_Setor
+     , Sum(ItReg.Qt_Lancamento) Qtd
+     , Sadt.Nr_Peso_Percentual
+     , Decode(Sadt.Sn_Peso, 'S', :CAMPO_VL_PONTOS, 'N', dbamv.pkg_ffis_calc_aih.FNC_SUS_MAX_VALOR_SH(ItReg.Cd_Procedimento, Reg_Fat.Cd_Reg_Fat) ) Base_Calculo
+     , Decode(Sadt.Sn_Peso, 'S', 'p', 'N', '%' ) Sn_Peso
+     , Sum(Decode(Sadt.Sn_Peso,
+                  'S', ItReg.Qt_Lancamento*(Sadt.Nr_Peso_Percentual * :CAMPO_VL_PONTOS ),
+                  'N', ItReg.Qt_Lancamento*((Sadt.Nr_Peso_Percentual*dbamv.pkg_ffis_calc_aih.FNC_SUS_MAX_VALOR_SH(ItReg.Cd_Procedimento, Reg_Fat.Cd_Reg_Fat))/100)
+                  ) ) Valor
+  From Dbamv.Config_FFIS Cfg
+     , Dbamv.Fatura Fat
+     , Dbamv.Remessa_Fatura RemFat
+     , Dbamv.Reg_Fat Reg_Fat
+     , Dbamv.Prestador Prest
+     , Dbamv.Setor Setor
+     , Dbamv.ItReg_Fat ItReg
+     , Dbamv.Procedimento_Sus Proc
+     , Dbamv.procedimento_detalhe_vigencia Detalhe
+     , Dbamv.Procedimento_Sus_Sadt    Sadt
+     , ( Select SadtIn.Cd_Procedimento
+              , Max(SadtIn.Dt_Vigencia) Dt_Vigencia
+           From Dbamv.Procedimento_Sus_Sadt SadtIn
+          Where SadtIn.Cd_Multi_Empresa = NVL( dbamv.pkg_mv2000.le_empresa, 1)
+            And TO_CHAR( SadtIn.Dt_Vigencia, 'YYYYMM' ) <= TO_CHAR( :CAMPO_COMPET, 'YYYYMM' )
+         Group by SadtIn.Cd_Procedimento ) Sadt_Vigencia
+ Where TO_CHAR( Fat.Dt_Competencia, 'YYYYMM' ) = TO_CHAR( :CAMPO_COMPET, 'YYYYMM' )
+   And Fat.Cd_Multi_Empresa          = NVL( dbamv.pkg_mv2000.le_empresa, 1)
+   And Cfg.Cd_Multi_Empresa          = Fat.Cd_Multi_Empresa
+   And Fat.Cd_Convenio               = Cfg.Cd_Convenio
+   And RemFat.Cd_Fatura              = Fat.Cd_Fatura
+   And Reg_Fat.Cd_Remessa            = RemFat.Cd_Remessa
+   And ItReg.Cd_Reg_Fat              = Reg_Fat.Cd_Reg_Fat
+   And Prest.Cd_Prestador            = ItReg.Cd_Prestador
+   And Setor.Cd_Setor                = ItReg.Cd_Setor_Produziu
+   And Proc.Cd_Procedimento          = ItReg.Cd_Procedimento
+   And Detalhe.Cd_Procedimento       = Proc.Cd_Procedimento
+   And TRUNC(ItReg.Dt_lancamento, 'MM') between Detalhe.dt_validade_inicial and nvl(Detalhe.dt_validade_final,TRUNC(ItReg.Dt_lancamento, 'MM'))
+   And Sadt_Vigencia.cd_procedimento = Proc.Cd_Procedimento
+   And Sadt.Dt_Vigencia              = Sadt_Vigencia.Dt_Vigencia
+   And Sadt.Cd_Procedimento          = Proc.Cd_Procedimento
+   And Sadt.SN_SADT                  = 'S'
+   And Sadt.cd_multi_empresa = reg_fat.cd_multi_empresa
+Group By Prest.Cd_Prestador
+       , Prest.Nm_Prestador
+       , Fat.Cd_Fatura
+       , RemFat.Cd_Remessa
+       , Reg_Fat.Cd_Reg_Fat
+       , Reg_Fat.Cd_Atendimento
+       , ItReg.Cd_Procedimento
+       , Proc.Ds_Procedimento
+       , Setor.Cd_Setor
+       , Setor.Nm_Setor
+       , Sadt.Nr_Peso_Percentual
+       , Decode(Sadt.Sn_Peso, 'S', :CAMPO_VL_PONTOS, 'N', dbamv.pkg_ffis_calc_aih.FNC_SUS_MAX_VALOR_SH(ItReg.Cd_Procedimento, Reg_Fat.Cd_Reg_Fat) )
+       , Decode(Sadt.Sn_Peso, 'S', 'p', 'N', '%' )
+Order By Prest.Cd_Prestador
+       , Prest.Nm_Prestador
+       , Fat.Cd_Fatura
+       , RemFat.Cd_Remessa
+       , Reg_Fat.Cd_Reg_Fat
+       , Reg_Fat.Cd_Atendimento
+       , ItReg.Cd_Procedimento

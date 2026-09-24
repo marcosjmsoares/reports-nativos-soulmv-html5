@@ -1,0 +1,257 @@
+/*----------------------------------------------------------------------------*/
+--R_ANA_DESEM_SETOR
+SELECT * FROM (
+select nm_setor,
+           gru_res.nr_ordem_grupo nr_ordem_grupo,
+           gru_res.ds_gru_res  ds_gru_res,
+           item_res.ds_item_res,
+           custo_final.dt_competencia dt_comp,
+           custo_final.dt_competencia,
+                to_number(to_char(custo_final.dt_competencia,'yyyymm')) dt_ord,
+  Nvl(( SELECT Sum(cp.vl_custo_setor)  FROM dbamv.custo_primario cp WHERE 1=1
+           AND cp.cd_item_res = item_res.cd_item_res
+           AND cp.cd_setor = setor.cd_setor
+           and to_char(custo_final.dt_competencia,'yyyy/mm') =  to_char(cp.dt_competencia,'yyyy/mm')),0) valor,
+           nvl(custo_final.vl_custo_genericos,0) vl_generico,
+           nvl(custo_final.vl_custo_especificos,0) vl_especifico,
+           nvl(custo_final.vl_custo_primario,0) vl_custo_primario,
+           ds_grupo_de_custo,
+           custo_final.cd_setor
+from dbamv.gru_res,
+       dbamv.item_res,
+       dbamv.setor,
+       dbamv.custo_final,
+       dbamv.grupo_de_custo
+WHERE 1=1
+     and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and item_res.cd_gru_res = gru_res.cd_gru_res
+     and  to_char(custo_final.dt_competencia,'yyyy/mm') >= :CAMPO_DT_INI
+     and to_char(custo_final.dt_competencia,'yyyy/mm') <= :CAMPO_DT_FIM
+     and custo_final.cd_setor = setor.cd_setor
+     and custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and setor.cd_grupo_de_custo = grupo_de_custo.cd_grupo_de_custo
+:CAMPO_CF_ORDENAR
+)
+where 1=1
+AND ( valor <> 0 OR vl_generico <> 0 OR vl_especifico <> 0 OR vl_custo_primario <> 0 )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_DESEM_SETOR_X_2
+SELECT  nm_setor,
+    nr_ordem_grupo,
+    ds_gru_res,
+    cd_gru_res,
+    ds_item_res,
+    dt_comp,
+    dt_ord,
+    valor,
+    vl_generico,
+    vl_especifico,
+    vl_custo_primario,
+    ds_grupo_de_custo,
+    cd_setor,                                                                                  
+    valor_grupo,
+    media_aux,
+    nova_media,
+    total_media
+    ,dt_comp_ant 
+    ,valor_ant
+    ,valor_grupo_ant
+    ,Trunc(((valor - valor_ant) / Nvl(Decode(valor_ant,0,1,valor_ant),1) * 100), 3) porcentagem
+    ,Trunc(((valor_grupo - valor_grupo_ant) / Nvl(Decode(valor_grupo_ant,0,1,valor_grupo_ant),1) * 100), 3) porcentagem_total
+    FROM ( 
+SELECT  nm_setor,
+    nr_ordem_grupo,
+    ds_gru_res,
+    cd_gru_res,
+    ds_item_res,
+    dt_comp,
+    dt_ord,
+    valor,
+    vl_generico,
+    vl_especifico,
+    vl_custo_primario,
+    ds_grupo_de_custo,
+    cd_setor,
+    valor_grupo,
+    media_aux,
+    nova_media,
+    Sum(media_aux)  OVER(PARTITION BY cd_setor, ds_grupo_de_custo ,ds_gru_res) total_media
+    ,dt_comp_ant
+    ,Lag(valor_var)OVER(PARTITION BY cd_setor, cd_gru_res, ds_item_res ORDER BY dt_comp)  valor_ant 
+    ,Lag(valor_grupo_var)OVER(PARTITION BY cd_setor, cd_gru_res ORDER BY dt_comp)  valor_grupo_ant  
+    FROM (
+    SELECT nm_setor,
+    nr_ordem_grupo,
+    ds_gru_res,
+    cd_gru_res,       
+    ds_item_res,
+    dt_comp,
+    dt_ord,
+    valor,
+    vl_generico,
+    vl_especifico,
+    vl_custo_primario,
+    ds_grupo_de_custo,
+    cd_setor,
+    total_conta,
+    valor_grupo,
+    media_aux,    
+    total_conta / (Count(distinct dt_comp) OVER(PARTITION BY cd_setor,ds_grupo_de_custo)) nova_media 
+    ,Lag(dt_comp) OVER(PARTITION BY cd_setor, cd_gru_res ORDER BY dt_comp) dt_comp_ant
+    , valor valor_var 
+    , valor_grupo valor_grupo_var 
+   FROM (
+SELECT nm_setor,
+    nr_ordem_grupo,
+    ds_gru_res,
+    cd_gru_res,
+    ds_item_res,
+    dt_comp,
+    dt_ord,
+    valor,
+    vl_generico,
+    vl_especifico,
+    vl_custo_primario,
+    ds_grupo_de_custo,
+    cd_setor,
+    SUM(valor) OVER(PARTITION BY cd_setor, nm_setor, nr_ordem_grupo, ds_gru_res, dt_comp) valor_grupo,
+    Sum(valor)  OVER(PARTITION BY cd_setor, nm_setor, nr_ordem_grupo, ds_gru_res,ds_item_res) total_conta,    
+    valor / (Count(distinct dt_comp) OVER(PARTITION BY cd_setor,ds_grupo_de_custo)) media_aux 
+   FROM
+    (SELECT nm_setor,
+        gru_res.nr_ordem_grupo nr_ordem_grupo,
+        gru_res.ds_gru_res ds_gru_res,
+        gru_res.cd_gru_res cd_gru_res,
+        item_res.ds_item_res,
+        custo_primario.dt_competencia dt_comp,
+        to_number(TO_CHAR(custo_primario.dt_competencia, 'yyyymm')) dt_ord,
+        SUM(NVL(vl_custo_setor, 0)) valor,
+        NVL(custo_final.vl_custo_genericos, 0) vl_generico,
+        NVL(custo_final.vl_custo_especificos, 0) vl_especifico,
+        NVL(custo_final.vl_custo_primario, 0) vl_custo_primario,
+        ds_grupo_de_custo,
+        custo_primario.cd_setor
+       FROM dbamv.gru_res,
+        dbamv.item_res,
+        dbamv.setor,
+        dbamv.custo_primario,
+        dbamv.custo_final,
+        dbamv.grupo_de_custo
+      WHERE setor.cd_setor(+)                              = custo_primario.cd_setor
+        AND NVL(vl_custo_setor, 0)                        <> 0
+        AND item_res.cd_item_res(+)                        = custo_primario.cd_item_res
+        AND setor.cd_multi_empresa                         = :CAMPO_CD_MULTI_EMPRESA
+        AND item_res.cd_gru_res                            = gru_res.cd_gru_res
+        AND custo_primario.dt_competencia                 >= TO_DATE(:CAMPO_DT_INI, 'YYYY/MM') 
+        AND custo_primario.dt_competencia                 <= TO_DATE(:CAMPO_DT_FIM, 'YYYY/MM') 
+        AND custo_final.cd_setor                           = setor.cd_setor
+        AND custo_final.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+        AND TO_CHAR(custo_final.dt_competencia, 'yyyy/mm') = TO_CHAR(custo_primario.dt_competencia, 'yyyy/mm')
+        AND setor.cd_grupo_de_custo                        = grupo_de_custo.cd_grupo_de_custo
+        AND SETOR.CD_SETOR                                 = :CAMPO_CD_SETOR
+   GROUP BY nm_setor,
+        gru_res.nr_ordem_grupo,
+        gru_res.ds_gru_res,
+        gru_res.cd_gru_res,
+        item_res.ds_item_res,
+        custo_primario.dt_competencia,
+        to_number(TO_CHAR(custo_primario.dt_competencia, 'yyyymm')),
+        custo_final.vl_custo_genericos,
+        custo_final.vl_custo_especificos,
+        vl_custo_primario,
+        ds_grupo_de_custo,
+        custo_primario.cd_setor
+    )
+    )
+    )
+    )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_DESEM_SETOR_subreport1
+select * from (
+select ordem, ds_linha, trunc(dt_competencia,'MM') dt_competencia, SUM(valor) valor
+from (
+SELECT 1 ordem, 'Custo Primário + Produto Direto :' ds_linha, custo_final.dt_competencia dt_competencia, nvl(custo_final.vl_custo_primario,0) valor
+from dbamv.custo_final
+where custo_final.cd_setor = :CAMPO_CD_SETOR and
+      custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA and
+      to_char(custo_final.dt_competencia,'yyyy/mm') between :CAMPO_DT_INI UNION ALL
+SELECT 2 ordem, 'Rateio Específico :' ds_linha, custo_final.dt_competencia dt_competencia, nvl(custo_final.vl_custo_especificos,0) valor
+from dbamv.custo_final
+where custo_final.cd_setor = :CAMPO_CD_SETOR and
+      custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA and
+      to_char(custo_final.dt_competencia,'yyyy/mm') between :CAMPO_DT_INI UNION ALL
+SELECT 3 ordem, 'Rateio Genérico :' ds_linha, custo_final.dt_competencia dt_competencia, nvl(custo_final.vl_custo_genericos,0) valor
+from dbamv.custo_final
+where custo_final.cd_setor = :CAMPO_CD_SETOR and
+      custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA and
+      to_char(custo_final.dt_competencia,'yyyy/mm') between :CAMPO_DT_INI UNION ALL
+SELECT 4 ordem, 'Custo Centro de Custo :' ds_linha, custo_final.dt_competencia dt_competencia, nvl(custo_final.vl_custo_primario+custo_final.vl_custo_especificos+custo_final.vl_custo_genericos,0) valor
+from dbamv.custo_final
+where custo_final.cd_setor = :CAMPO_CD_SETOR and
+      custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA and
+      to_char(custo_final.dt_competencia,'yyyy/mm') between :CAMPO_DT_INI UNION ALL
+SELECT 5 ordem, 'Custo Primário + Específico:' ds_linha, custo_final.dt_competencia dt_competencia, nvl(custo_final.vl_custo_primario+custo_final.vl_custo_especificos,0) valor
+from dbamv.custo_final
+where custo_final.cd_setor = :CAMPO_CD_SETOR and
+      custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA and
+      to_char(custo_final.dt_competencia,'yyyy/mm') between :CAMPO_DT_INI and :CAMPO_DT_FIM
+)
+group by ordem, ds_linha, trunc(dt_competencia,'MM')
+)
+order by ordem
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_DESEM_SETOR_subreport_total
+SELECT   *
+FROM     ( SELECT  ordem
+                  ,ds_linha
+                  ,SUM( valor ) valor
+          FROM     (
+                    SELECT 1 ordem
+                           ,'Total Custo Primário + Produto Direto :' ds_linha
+                           ,NVL( custo_final.vl_custo_primario, 0 ) valor
+                    FROM   dbamv.custo_final
+                    WHERE  custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                    AND    TO_CHAR( custo_final.dt_competencia, 'yyyy/mm' )
+                    BETWEEN :CAMPO_DT_INI UNION ALL
+                    SELECT 2 ordem
+                          ,'Rateio Específico :' ds_linha
+                          ,NVL( custo_final.vl_custo_especificos, 0 ) valor
+                    FROM   dbamv.custo_final
+                    WHERE  custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                    AND    TO_CHAR( custo_final.dt_competencia, 'yyyy/mm' )
+                    BETWEEN :CAMPO_DT_INI UNION ALL
+                    SELECT 3 ordem
+                          ,'Rateio Genérico :' ds_linha
+                          ,NVL( custo_final.vl_custo_genericos, 0 ) valor
+                    FROM   dbamv.custo_final
+                    WHERE  custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                    AND    TO_CHAR( custo_final.dt_competencia, 'yyyy/mm' )
+                    BETWEEN :CAMPO_DT_INI UNION ALL
+                    SELECT 4 ordem
+                          ,'Total Custo Centro de Custo :' ds_linha
+                          ,NVL(custo_final.vl_custo_primario + custo_final.vl_custo_especificos + custo_final.vl_custo_genericos, 0 ) valor
+                    FROM   dbamv.custo_final
+                    WHERE  custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                    AND    TO_CHAR( custo_final.dt_competencia, 'yyyy/mm' )
+                    BETWEEN :CAMPO_DT_INI UNION ALL
+                    SELECT 5 ordem
+                          ,'Total Custo Primário + Específico:' ds_linha
+                          ,NVL(custo_final.vl_custo_primario + custo_final.vl_custo_especificos, 0 ) valor
+                    FROM   dbamv.custo_final
+                    WHERE  custo_final.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                    AND    TO_CHAR( custo_final.dt_competencia, 'yyyy/mm' )
+                    BETWEEN :CAMPO_DT_INI AND 
+	          :CAMPO_CF_SETOR_TOTAL
+                    )
+          GROUP BY ordem
+                  ,ds_linha)
+ORDER BY ordem

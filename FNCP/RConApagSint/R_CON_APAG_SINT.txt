@@ -1,0 +1,53 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_APAG_SINT
+select nm_fantasia                                              nm_fantasia
+     , cd_fornecedor                                            cd_fornecedor
+     , sum(decode(tp_vencimento, 'VC61'  , vl_devido, 0.00))    vl_vc61
+     , sum(decode(tp_vencimento, 'VC3160', vl_devido, 0.00))    vl_vc3160
+     , sum(decode(tp_vencimento, 'VC0130', vl_devido, 0.00))    vl_vc0130
+     , sum(decode(tp_vencimento, 'AV00'  , vl_devido, 0.00))    vl_av00
+     , sum(decode(tp_vencimento, 'AV0130', vl_devido, 0.00))    vl_av0130
+     , sum(decode(tp_vencimento, 'AV31'  , vl_devido, 0.00))    vl_av31
+from (
+select decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)-60)), -1, 'VC61',
+           decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)-30)), -1, 'VC3160',
+               decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)-00)), -1, 'VC0130',
+                   decode(     trunc(itcon_pag.dt_vencimento), trunc(:CAMPO_DATA_BASE), 'AV00',
+                       decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)+31)), -1, 'AV0130','AV31')))))  tp_vencimento
+     , con_pag.cd_fornecedor                                                                    cd_fornecedor
+     , decode(con_pag.cd_fornecedor, null, con_pag.ds_fornecedor, fornecedor.nm_fantasia)       nm_fantasia
+     , con_pag.cd_con_pag                                                                       cd_con_pag
+     , itcon_pag.cd_itcon_pag                                                                   cd_itcon_pag
+     , nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + (nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) ) )     vl_devido
+from dbamv.con_pag
+   , dbamv.itcon_pag
+   , (select *
+      from dbamv.pagcon_pag
+      where nvl(pagcon_pag.sn_estorno,'N') = 'N'
+        and pagcon_pag.dt_pagamento <= :CAMPO_DATA_BASE
+        and pagcon_pag.dt_baixa <= :CAMPO_DATA_BASE
+      ) pagcon_pag
+   , dbamv.fornecedor
+where con_pag.cd_con_pag                = itcon_pag.cd_con_pag
+  and con_pag.cd_fornecedor             = fornecedor.cd_fornecedor(+)
+  and con_pag.cd_multi_empresa          =  :CAMPO_CD_MULTI_EMPRESA
+  and itcon_pag.cd_itcon_pag            = pagcon_pag.cd_itcon_pag(+)
+  and con_pag.cd_con_pag_dev        is null
+  and nvl(con_pag.vl_bruto_conta,0)     > 0
+  and itcon_pag.cd_con_pag_agrup    is null
+  and nvl(itcon_pag.vl_duplicata,0)     > 0
+  and trunc(con_pag.dt_lancamento)      <= trunc(:CAMPO_DATA_BASE)
+group by decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)-60)), -1, 'VC60',
+           decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)-30)), -1, 'VC30',
+               decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)-00)), -1, 'VC00',
+                   decode(sign( trunc(itcon_pag.dt_vencimento)-(trunc(:CAMPO_DATA_BASE)+30)), -1, 'AV00','AV30'))))
+       , trunc(itcon_pag.dt_vencimento)
+       , con_pag.cd_fornecedor
+       , decode(con_pag.cd_fornecedor, null, con_pag.ds_fornecedor, fornecedor.nm_fantasia)
+       , con_pag.cd_con_pag
+       , itcon_pag.cd_itcon_pag
+       , nvl(itcon_pag.vl_duplicata,0)
+having nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + (nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) ) ) > 0
+) Contas_APAG
+group by nm_fantasia
+       , cd_fornecedor

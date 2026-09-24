@@ -1,0 +1,55 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTROLE_PERMANENCIA
+SELECT * FROM (
+SELECT ATENDIME.CD_ATENDIMENTO
+              ,ATENDIME.DT_ATENDIMENTO
+             ,(ATENDIME.DT_ATENDIMENTO + DECODE(CONVENIO.TP_CONVENIO, 'C',  PRO_FAT.NR_DIAS_INTERNACAO,
+                                                                             'P',  PRO_FAT.NR_DIAS_INTERNACAO,
+                                                                             'A',  PROCEDIMENTO_SUS.NR_DIAS_INTERNACAO,
+                                                                             'H', PROCEDIMENTO_SUS.NR_DIAS_INTERNACAO))    DT_LIMITE
+             ,DECODE(CONVENIO.TP_CONVENIO, 'C',  ATENDIME.CD_PRO_INT,
+                                                                             'P',  ATENDIME.CD_PRO_INT,
+                                                                             'A',  PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                             'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO)     CD_PRO_INT
+              ,ATENDIME.CD_PACIENTE
+              ,ATENDIME.CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR
+              ,PACIENTE.NM_PACIENTE
+              ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  CD_PACIENTE) NM_SOCIAL_PACIENTE
+              ,LEITO.DS_RESUMO
+              ,UNID_INT.CD_UNID_INT
+              ,(TRUNC(SYSDATE) - TRUNC(ATENDIME.DT_ATENDIMENTO))   NR_INTERNADO
+              ,DECODE(CONVENIO.TP_CONVENIO, 'C',  PRO_FAT.NR_DIAS_INTERNACAO,
+                                                                             'P',  PRO_FAT.NR_DIAS_INTERNACAO,
+                                                                             'A',  PROCEDIMENTO_SUS.NR_DIAS_INTERNACAO,
+                                                                             'H', PROCEDIMENTO_SUS.NR_DIAS_INTERNACAO) NR_PERMITIDO
+FROM   DBAMV.PRESTADOR
+             ,DBAMV.ATENDIME
+             ,DBAMV.PACIENTE
+             ,DBAMV.CONVENIO
+             ,DBAMV.PRO_FAT
+             ,DBAMV.LEITO
+             ,DBAMV.UNID_INT
+             ,DBAMV.PROCEDIMENTO_SUS
+            ,(select unid_int.cd_unid_int
+               from dbamv.unid_int
+               where unid_int.tp_unid_int = 'I'
+               and DBAMV.FNC_MV_USUARIO_POR_UNIDADE( unid_int.cd_unid_int, null ) = 'S' ) Ret_Unid
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ATENDIME.DT_ALTA IS NULL
+AND        ATENDIME.TP_ATENDIMENTO = 'I'
+AND        ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+AND        ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+AND        ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_PRO_INT = PRO_FAT.CD_PRO_FAT(+)
+AND        ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)
+AND        ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+AND        LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+and        atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+and unid_int.cd_unid_int = ret_unid.cd_unid_int
+:CAMPO_COND_CONVENIO
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR

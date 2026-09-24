@@ -1,0 +1,57 @@
+/*----------------------------------------------------------------------------*/
+--R_INDICE_PERDA
+SELECT movimento.cd_estoque,
+       estoque.ds_estoque,
+       movimento.cd_produto,
+       produto.ds_produto,
+	   To_Char(movimento.dt_mvto_estoque, 'mm/yyyy') competencia,
+       round(dbamv.fnc_mges_saldo_anterior(movimento.cd_estoque, movimento.cd_produto, To_Date('', 'dd/mm/yyyy'))
+             / dbamv.verif_vl_fator_prod(movimento.cd_produto)
+             * dbamv.verif_vl_custo_medio(movimento.cd_produto, To_Date('', 'dd/mm/yyyy'), NULL, NULL, NULL, null), 4) vl_inicial_competencia,
+       Sum(round(movimento.vl_entradas_no_periodo, 4)) vl_entradas_no_periodo,
+       Sum(round(movimento.vl_total_baixa_periodo, 4)) vl_total_baixa_periodo
+FROM (
+   SELECT ent_pro.cd_estoque cd_estoque
+         ,itent_pro.cd_produto cd_produto
+         ,Sum(Nvl(itent_pro.vl_unitario,0) * Nvl(itent_pro.qt_entrada,0)) vl_entradas_no_periodo
+         ,0 vl_total_baixa_periodo
+		 ,null dt_mvto_estoque
+    FROM  dbamv.ent_pro
+         ,dbamv.itent_pro
+         ,dbamv.estoque
+   WHERE itent_pro.cd_ent_pro = ent_pro.cd_ent_pro
+     AND ent_pro.cd_estoque = estoque.cd_estoque
+GROUP BY ent_pro.cd_estoque
+         ,itent_pro.cd_produto
+UNION ALL
+    SELECT mvto_estoque.cd_estoque,
+           itmvto_estoque.cd_produto,
+           0,
+           Sum(Nvl(itmvto_estoque.qt_movimentacao,0)
+               * uni_pro.vl_fator
+               * dbamv.verif_vl_custo_medio(itmvto_estoque.cd_produto, To_Date('', 'dd/mm/yyyy'), 'H' ,NULL,NULL,NULL)) vl_total_baixa_periodo
+		   ,mvto_estoque.dt_mvto_estoque
+      FROM dbamv.mvto_estoque,
+           dbamv.itmvto_estoque,
+           dbamv.uni_pro,
+           dbamv.estoque
+     WHERE mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+        AND itmvto_estoque.cd_uni_pro = uni_pro.cd_uni_pro
+        AND mvto_estoque.cd_estoque = estoque.cd_estoque
+        AND mvto_estoque.tp_mvto_estoque = 'X'
+        AND mvto_estoque.cd_mot_bai IN (SELECT cd_mot_bai FROM dbamv.mot_bai WHERE sn_calcula_indice_perda = 'S')
+GROUP BY mvto_estoque.cd_estoque,
+           itmvto_estoque.cd_produto
+		   ,mvto_estoque.dt_mvto_estoque) movimento,
+           dbamv.estoque,
+           dbamv.produto
+WHERE estoque.cd_estoque = movimento.cd_estoque
+  AND produto.cd_produto = movimento.cd_produto
+  AND movimento.vl_entradas_no_periodo + vl_total_baixa_periodo <> 0
+GROUP BY movimento.cd_estoque,
+         estoque.ds_estoque,
+         movimento.cd_produto,
+         produto.ds_produto,
+	 movimento.dt_mvto_estoque
+ORDER BY movimento.cd_estoque,
+         movimento.cd_produto

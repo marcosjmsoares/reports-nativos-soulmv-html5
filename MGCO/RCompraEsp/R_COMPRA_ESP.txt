@@ -1,0 +1,177 @@
+/*----------------------------------------------------------------------------*/
+--R_COMPRA_ESP
+select RETORNO.DATA                             DATA
+    ,RETORNO.COMPETENCIA          COMPETENCIA
+    ,RETORNO.CD_ESPECIE           CD_ESPECIE
+    ,RETORNO.DS_ESPECIE           DS_ESPECIE
+    ,SUM(RETORNO.QTD_CD_MOT_PED)  QTD_CD_MOT_PED
+    ,SUM(VL_TOTAL)                VL_TOTAL
+from(
+SELECT   decode('', 'C', DATA, 'Período de ' || :CAMPO_COMP_INI || ' até ' || :CAMPO_COMP_FIM) DATA
+,decode('', 'C', COMPETENCIA, 'Período de ' || :CAMPO_COMP_INI || ' até ' || :CAMPO_COMP_FIM) COMPETENCIA
+,CD_ESPECIE
+,DS_ESPECIE
+,NVL(SUM(QTD_CD_MOT_PED),0) QTD_CD_MOT_PED
+,NVL(SUM(VL_TOTAL),0) VL_TOTAL
+FROM    (SELECT    TO_CHAR(ORD_COM.DT_ORD_COM,'MM/YYYY')  DATA
+              ,TO_CHAR(ORD_COM.DT_ORD_COM,'YYYYMM')      COMPETENCIA
+    ,DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE)  CD_ESPECIE
+    ,INITCAP(DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE))  DS_ESPECIE
+    ,NVL(COUNT (NVL( PRODUTO.CD_PRODUTO, 0) ), 0)  QTD_CD_MOT_PED
+    ,SUM(NVL( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) + NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_imposto,itord_pro.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)-NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_desconto,itord_pro.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0))  VL_TOTAL
+FROM      DBAMV.ORD_COM
+    ,DBAMV.ITORD_PRO
+    ,DBAMV.PRODUTO
+    ,DBAMV.ESPECIE
+    ,DBAMV.ORD_COM_MOEDA
+,DBAMV.ESTOQUE
+WHERE     ORD_COM.CD_ORD_COM = ITORD_PRO.CD_ORD_COM
+AND       ITORD_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+AND       ORD_COM.CD_ORD_COM    = ORD_COM_MOEDA.CD_ORD_COM(+)
+AND       PRODUTO.CD_ESPECIE = ESPECIE.CD_ESPECIE(+)
+AND       ORD_COM.TP_SITUACAO NOT IN ('N','C')
+AND       NVL(ORD_COM.TP_CONTRATO, 'O') = 'O'
+AND      TO_DATE(TO_CHAR(ORD_COM.DT_ORD_COM,'DD/MM/YYYY'), 'DD/MM/YYYY')
+              BETWEEN DECODE('', 'C', TO_DATE(:CAMPO_COMP_INI, 'DD/MM/YYYY'), TO_DATE(:CAMPO_COMP_INI, 'DD/MM/YYYY'))
+              AND  TO_DATE(:CAMPO_COMP_FIM, 'DD/MM/YYYY')
+AND      ESTOQUE.CD_ESTOQUE = ORD_COM.CD_ESTOQUE
+AND      ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY  TO_CHAR(ORD_COM.DT_ORD_COM,'MM/YYYY')
+              ,TO_CHAR(ORD_COM.DT_ORD_COM,'YYYYMM')
+    ,DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE)
+    ,DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE)
+UNION ALL
+SELECT    TO_CHAR(ENT_PRO.DT_ENTRADA,'MM/YYYY')   DATA
+                ,TO_CHAR(ENT_PRO.DT_ENTRADA,'YYYYMM')    COMPETENCIA
+    ,DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE)  CD_ESPECIE
+    ,INITCAP(DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE))  DS_ESPECIE
+    ,NVL(COUNT (NVL( PRODUTO.CD_PRODUTO, 0) ), 0)  QTD_CD_MOT_PED
+    ,SUM(NVL( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_TOTAL,ITENT_PRO.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0) + NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_IMPOSTO,ITENT_PRO.VL_IMPOSTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0)-NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_DESCONTO,ITENT_PRO.VL_DESCONTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0))  VL_TOTAL
+FROM      DBAMV.ORD_COM
+    ,DBAMV.ENT_PRO
+    ,DBAMV.ITENT_PRO
+    ,DBAMV.PRODUTO
+    ,DBAMV.ESPECIE
+    ,DBAMV.ENT_PRO_MOEDA
+,DBAMV.ESTOQUE
+WHERE     ENT_PRO.CD_ENT_PRO   = ITENT_PRO.CD_ENT_PRO
+AND       ITENT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+AND       ENT_PRO.CD_ENT_PRO   = ENT_PRO_MOEDA.CD_ENT_PRO(+)
+AND       PRODUTO.CD_ESPECIE   = ESPECIE.CD_ESPECIE(+)
+AND       ENT_PRO.CD_ORD_COM   = ORD_COM.CD_ORD_COM
+AND       ESTOQUE.CD_ESTOQUE = ORD_COM.CD_ESTOQUE
+AND       ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND       NVL(ORD_COM.TP_CONTRATO, 'O')  <> 'O'
+AND       ORD_COM.TP_SITUACAO NOT IN ('N','C')
+AND      TO_DATE(TO_CHAR(ENT_PRO.DT_ENTRADA,'DD/MM/YYYY'), 'DD/MM/YYYY')
+              BETWEEN DECODE('', 'C', TO_DATE(:CAMPO_COMP_INI, 'DD/MM/YYYY'), TO_DATE(:CAMPO_COMP_INI, 'DD/MM/YYYY'))
+              AND            TO_DATE(:CAMPO_COMP_FIM, 'DD/MM/YYYY')
+GROUP BY  TO_CHAR(ENT_PRO.DT_ENTRADA,'MM/YYYY')
+                  ,TO_CHAR(ENT_PRO.DT_ENTRADA,'YYYYMM')
+    ,DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE)
+    ,DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE))
+GROUP BY  DATA
+,COMPETENCIA
+,CD_ESPECIE
+,DS_ESPECIE
+ORDER BY CD_ESPECIE,DS_ESPECIE,COMPETENCIA,DATA, VL_TOTAL
+) RETORNO
+GROUP BY  RETORNO.DATA
+    ,RETORNO.COMPETENCIA
+    ,RETORNO.CD_ESPECIE
+    ,RETORNO.DS_ESPECIE
+ORDER BY DS_ESPECIE,CD_ESPECIE,
+COMPETENCIA,DATA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COMPRA_ESP_SUB
+SELECT RETORNO1.CD_ESPECIE                          ,
+	  RETORNO1.DS_ESPECIE                                ,
+	  NVL(RETORNO1.QTD_CD_MOT_PED,0) QTD_CD_MOT_PED ,
+	  NVL(RETORNO1.VL_TOTAL,0) VL_TOTAL ,
+	  SUM(RETORNO2.VL_TOTAL1) VL_TOTAL_GERAL
+	FROM (      SELECT DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE) CD_ESPECIE                 ,
+	              INITCAP(DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE)) DS_ESPECIE ,
+	              NVL(COUNT (NVL( PRODUTO.CD_PRODUTO, 0) ), 0) QTD_CD_MOT_PED                            ,
+	              SUM(NVL( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) + NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_imposto,itord_pro.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)-NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_desconto,itord_pro.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)) VL_TOTAL
+	               FROM DBAMV.ORD_COM ,
+	              DBAMV.ITORD_PRO     ,
+	              DBAMV.PRODUTO       ,
+	              DBAMV.ORD_COM_MOEDA ,
+	              DBAMV.ESPECIE       ,
+	              DBAMV.ESTOQUE
+	              WHERE ORD_COM.CD_ORD_COM        = ITORD_PRO.CD_ORD_COM
+	              AND ORD_COM.CD_ORD_COM        = ORD_COM_MOEDA.CD_ORD_COM(+)
+	            AND ITORD_PRO.CD_PRODUTO          = PRODUTO.CD_PRODUTO
+	            AND PRODUTO.CD_ESPECIE            = ESPECIE.CD_ESPECIE(+)
+	            AND ORD_COM.TP_SITUACAO NOT      IN ('N','C')
+	            AND TO_DATE(TO_CHAR(ORD_COM.DT_ORD_COM,'DD/MM/YYYY'), 'DD/MM/YYYY') BETWEEN TO_DATE(:CAMPO_COMP_INI,'DD/MM/YYYY') AND TO_DATE(:CAMPO_COMP_FIM,'DD/MM/YYYY')
+	            AND ITORD_PRO.CD_MOT_CANCEL IS NULL
+	            AND ESTOQUE.CD_ESTOQUE       = ORD_COM.CD_ESTOQUE
+	            AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+	           GROUP BY DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE) ,
+	              DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE)
+	          UNION ALL
+	             SELECT DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE) CD_ESPECIE                 ,
+	              INITCAP(DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE)) DS_ESPECIE ,
+	              NVL(COUNT (NVL( PRODUTO.CD_PRODUTO, 0) ), 0) QTD_CD_MOT_PED                            ,
+	              SUM(NVL( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_TOTAL,ITENT_PRO.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,ENT_PRO.DT_ENTRADA,ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0) + NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_IMPOSTO,ITENT_PRO.VL_IMPOSTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,ENT_PRO.DT_ENTRADA,ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0)-NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_DESCONTO,ITENT_PRO.VL_DESCONTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,ENT_PRO.DT_ENTRADA,ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0)) VL_TOTAL
+	               FROM DBAMV.ORD_COM ,
+	              DBAMV.ENT_PRO       ,
+	              DBAMV.ENT_PRO_MOEDA ,
+	              DBAMV.ITENT_PRO     ,
+	              DBAMV.PRODUTO       ,
+	              DBAMV.ESPECIE       ,
+	              DBAMV.ESTOQUE
+	              WHERE ENT_PRO.CD_ENT_PRO         = ITENT_PRO.CD_ENT_PRO
+	            AND ENT_PRO.CD_ENT_PRO         = ENT_PRO_MOEDA.CD_ENT_PRO(+)
+	            AND ITENT_PRO.CD_PRODUTO           = PRODUTO.CD_PRODUTO
+	            AND PRODUTO.CD_ESPECIE             = ESPECIE.CD_ESPECIE(+)
+	            AND ENT_PRO.CD_ORD_COM             = ORD_COM.CD_ORD_COM
+	            AND ESTOQUE.CD_ESTOQUE             = ORD_COM.CD_ESTOQUE
+	            AND ESTOQUE.CD_MULTI_EMPRESA       = :CAMPO_CD_MULTI_EMPRESA
+	            AND ORD_COM.TP_SITUACAO NOT       IN ('N','C')
+	            AND TO_DATE(TO_CHAR(ENT_PRO.DT_ENTRADA,'DD/MM/YYYY'), 'DD/MM/YYYY') BETWEEN TO_DATE(:CAMPO_COMP_INI,'DD/MM/YYYY') AND TO_DATE(:CAMPO_COMP_FIM,'DD/MM/YYYY')
+	           GROUP BY DECODE(ESPECIE.CD_ESPECIE, '', 0, ESPECIE.CD_ESPECIE) ,
+	              DECODE(ESPECIE.DS_ESPECIE, '', 'NÃO INFORMADA',ESPECIE.DS_ESPECIE) ) RETORNO1 ,
+	       ( SELECT SUM(NVL( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0) + NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_imposto,itord_pro.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)-NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_desconto,itord_pro.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM),0)) VL_TOTAL1
+	           FROM DBAMV.ORD_COM ,
+	          DBAMV.ITORD_PRO     ,
+	          DBAMV.ORD_COM_MOEDA ,
+	          DBAMV.PRODUTO       ,
+	          DBAMV.ESPECIE       ,
+	          DBAMV.ESTOQUE
+	          WHERE ORD_COM.CD_ORD_COM        = ITORD_PRO.CD_ORD_COM
+	        AND ITORD_PRO.CD_PRODUTO          = PRODUTO.CD_PRODUTO
+	        AND ORD_COM.CD_ORD_COM            = ORD_COM_MOEDA.CD_ORD_COM(+)
+	        AND PRODUTO.CD_ESPECIE            = ESPECIE.CD_ESPECIE(+)
+	        AND ORD_COM.TP_SITUACAO NOT      IN ('N','C')
+	        AND TO_DATE(TO_CHAR(ORD_COM.DT_ORD_COM,'DD/MM/YYYY'), 'DD/MM/YYYY') BETWEEN TO_DATE(:CAMPO_COMP_INI,'DD/MM/YYYY') AND TO_DATE(:CAMPO_COMP_FIM,'DD/MM/YYYY')
+	        AND ITORD_PRO.CD_MOT_CANCEL IS NULL
+	        AND ESTOQUE.CD_ESTOQUE       = ORD_COM.CD_ESTOQUE
+	        AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+	      UNION ALL
+	         SELECT SUM(NVL( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_TOTAL,ITENT_PRO.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0) + NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_IMPOSTO,ITENT_PRO.VL_IMPOSTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0)-NVL(dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_DESCONTO,ITENT_PRO.VL_DESCONTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO),0)) VL_TOTAL1
+	           FROM DBAMV.ORD_COM ,
+	          DBAMV.ENT_PRO       ,
+	          DBAMV.ITENT_PRO     ,
+	          DBAMV.ENT_PRO_MOEDA ,
+	          DBAMV.PRODUTO       ,
+	          DBAMV.ESPECIE       ,
+	          DBAMV.ESTOQUE
+	          WHERE ENT_PRO.CD_ENT_PRO         = ITENT_PRO.CD_ENT_PRO
+	        AND ITENT_PRO.CD_PRODUTO           = PRODUTO.CD_PRODUTO
+	        AND ENT_PRO.CD_ENT_PRO         = ENT_PRO_MOEDA.CD_ENT_PRO(+)
+	        AND PRODUTO.CD_ESPECIE             = ESPECIE.CD_ESPECIE(+)
+	        AND ENT_PRO.CD_ORD_COM             = ORD_COM.CD_ORD_COM
+	        AND ESTOQUE.CD_ESTOQUE             = ORD_COM.CD_ESTOQUE
+	        AND ESTOQUE.CD_MULTI_EMPRESA       = :CAMPO_CD_MULTI_EMPRESA
+	        AND ORD_COM.TP_SITUACAO NOT       IN ('N','C')
+	        AND TO_DATE(TO_CHAR(ENT_PRO.DT_ENTRADA,'DD/MM/YYYY'), 'DD/MM/YYYY') BETWEEN TO_DATE(:CAMPO_COMP_INI,'DD/MM/YYYY') AND TO_DATE(:CAMPO_COMP_FIM,'DD/MM/YYYY')
+	:CAMPO_CF_TP_SITUACAO
+	) RETORNO2
+	GROUP BY RETORNO1.CD_ESPECIE ,
+	  RETORNO1.DS_ESPECIE, QTD_CD_MOT_PED, VL_TOTAL
+	ORDER BY VL_TOTAL asc

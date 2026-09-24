@@ -1,0 +1,1058 @@
+/*----------------------------------------------------------------------------*/
+--R_AUDITORIA_DE_CONTAS
+select emp.ds_multi_empresa Multi_Empresa,
+          log.logomarca_relatorio
+from dbamv.multi_empresas emp,
+          dbamv.multi_empresas_logomarca log
+where emp.cd_multi_empresa = log.cd_multi_empresa(+)
+              and emp.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_AUDITORIA_DE_CONTAS_R_CONVENIO2_Q_1
+SELECT cd_setor         ,
+  nm_setor               ,
+  cd_atendimento         ,
+  dt_Atendimento         ,
+  dt_alta                ,
+  nm_paciente            ,
+  cd_convenio            ,
+  nm_convenio            ,
+  cd_pro_fat             ,
+  ds_pro_fat             ,
+  Qt_Prescrita_Checados  ,
+  Qt_Prescrita_N_Checados,
+  qt_saida               ,
+  qt_devolvida           ,
+  Qt_Consumo             ,
+  qt_faturada            ,
+  ds_unidade             ,
+  qt_prescrita           ,
+  cd_pro_fat_entrada     ,
+  cd_pro_fat_alta        ,
+  regra
+   FROM
+  (SELECT Cd_Setor                                                                                 ,
+    Nm_Setor                                                                                       ,
+    NVL( Cd_Atendimento_Pai, Cd_Atendimento ) Cd_Atendimento                                       ,
+    NVL( Dt_Atendimento_Pai, Dt_Atendimento ) Dt_Atendimento                                       ,
+    NVL( Dt_Alta_Pai, Dt_Alta ) Dt_Alta                                                            ,
+    NVL( Nm_Paciente_Pai, Nm_Paciente ) Nm_Paciente                                                ,
+    Cd_Convenio                                                                                    ,
+    Nm_Convenio                                                                                    ,
+    Cd_Pro_Fat                                                                                     ,
+    Ds_Pro_Fat                                                                                     ,
+    MAX(Cd_Pro_Fat_Entrada) Cd_Pro_Fat_Entrada                                                     ,
+    MAX(Ds_Pro_Fat_Entrada) Ds_Pro_Fat_Entrada                                                     ,
+    MAX(Cd_Pro_Fat_Alta) Cd_Pro_Fat_Alta                                                           ,
+    MAX(Ds_Pro_Fat_Alta) Ds_Pro_Fat_Alta                                                           ,
+    Ds_unidade                                                                                     ,
+    SUM( Qt_Prescrita * DECODE( NVL( qt_horarios, 0 ), 0, 1, NVL( qt_horarios, 0 ) ) ) Qt_Prescrita,
+    SUM( Qt_Prescrita * NVL( Qt_Horarios_Checados, 0 ) ) Qt_Prescrita_Checados                     ,
+    SUM( Qt_Prescrita * NVL( Qt_Horarios_Checados_Nao, 0 ) ) Qt_Prescrita_N_Checados               ,
+    SUM( ROUND( Qt_Saida, 2 ) ) qt_Saida                                                           ,
+    SUM( ROUND( Qt_Devolvida, 2 ) ) Qt_Devolvida                                                   ,
+    SUM( ROUND( Qt_Consumo, 2 ) ) Qt_Consumo                                                       ,
+    SUM( NVL( Qt_Faturada, 0 ) ) Qt_Faturada                                                       ,
+    Regra                                                                                          ,
+    Cd_gru_pro
+     FROM
+    (SELECT mvto_Estoque.Cd_Setor                                                                                                                                                                                      ,
+      Setor.Nm_Setor                                                                                                                                                                                                   ,
+      Mvto_Estoque.Cd_Atendimento Cd_Atendimento                                                                                                                                                                       ,
+      Atendime.Cd_Atendimento_Pai                                                                                                                                                                                      ,
+      Pro_Fat_Int.Cd_Pro_Fat Cd_Pro_Fat_Entrada                                                                                                                                                                        ,
+      Pro_Fat_Int.Ds_Pro_Fat Ds_Pro_Fat_Entrada                                                                                                                                                                        ,
+      Pro_Fat_Alta.Cd_Pro_Fat Cd_Pro_Fat_Alta                                                                                                                                                                          ,
+      Pro_Fat_Alta.Ds_Pro_Fat Ds_Pro_Fat_Alta                                                                                                                                                                          ,
+      Atendime.Dt_Atendimento                                                                                                                                                                                          ,
+      Atendime.Dt_Alta                                                                                                                                                                                                 ,
+      Paciente.Nm_Paciente                                                                                                                                                                                             ,
+      Atendime_Pai.Dt_Atendimento Dt_Atendimento_Pai                                                                                                                                                                   ,
+      Atendime_Pai.Dt_Alta Dt_Alta_Pai                                                                                                                                                                                 ,
+      Paciente_Pai.Nm_Paciente Nm_Paciente_Pai                                                                                                                                                                         ,
+      Atendime.Cd_Convenio                                                                                                                                                                                             ,
+      Convenio.Nm_Convenio                                                                                                                                                                                             ,
+      Produto.Cd_Pro_Fat                                                                                                                                                                                               ,
+      Pro_Fat.Ds_Pro_Fat                                                                                                                                                                                               ,
+      Pro_Fat.Ds_unidade                                                                                                                                                                                               ,
+      TO_NUMBER(0) Qt_Prescrita                                                                                                                                                                                        ,
+      0 Qt_Horarios                                                                                                                                                                                                    ,
+      0 Qt_Horarios_Checados                                                                                                                                                                                           ,
+      0 Qt_Horarios_Checados_Nao                                                                                                                                                                                       ,
+      ItMvto_Estoque.Qt_Movimentacao * NVL( Uni_Pro.Vl_Fator, 1 ) / NVL( Produto.Vl_Fator_Pro_Fat, 1 ) * DECODE( Mvto_Estoque.Tp_Mvto_Estoque, 'C', 0, 1 ) Qt_Saida                                                    ,
+      ItMvto_Estoque.Qt_Movimentacao * NVL( Uni_Pro.Vl_Fator, 1 ) / NVL( Produto.Vl_Fator_Pro_Fat, 1 ) * DECODE( Mvto_Estoque.Tp_Mvto_Estoque, 'C', 1, 0 ) Qt_Devolvida                                                ,
+      ItMvto_Estoque.Qt_Movimentacao * NVL( Uni_Pro.Vl_Fator, 1 ) / NVL( Produto.Vl_Fator_Pro_Fat, 1 ) * DECODE( Mvto_Estoque.Tp_Mvto_Estoque, 'C', -1, 1 ) Qt_Consumo                                                 ,
+      0 Qt_Faturada                                                                                                                                                                                                    ,
+      dbamv.fnc_ffcv_retorna_motivo ( Pro_Fat.Cd_Pro_Fat, Setor.Cd_setor, Mvto_Estoque.cd_setor, Atendime.Cd_atendimento, TRUNC(ItMvto_Estoque.DH_Mvto_Estoque), NULL, Atendime.Cd_Convenio, Atendime.Cd_Con_Pla) Regra,
+      Pro_fat.Cd_gru_pro
+       FROM Dbamv.ItMvto_Estoque ,
+      Dbamv.Mvto_Estoque         ,
+      Dbamv.Produto              ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      Dbamv.Atendime             ,
+      Dbamv.Atendime Atendime_Pai,
+      Dbamv.Paciente             ,
+      Dbamv.Paciente Paciente_Pai,
+      Dbamv.Convenio             ,
+      Dbamv.Setor                ,
+      Dbamv.Uni_Pro
+      WHERE ItMvto_Estoque.Cd_Mvto_Estoque      = Mvto_Estoque.Cd_mvto_Estoque
+    AND ItMvto_Estoque.Cd_Produto               = Produto.Cd_Produto
+    AND mvto_estoque.cd_mvto_estoque            > 0
+    AND Produto.Cd_Pro_Fat                      = Pro_Fat.Cd_Pro_Fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Convenio                    = Convenio.Cd_Convenio
+    AND Mvto_Estoque.Cd_Atendimento             = Atendime.Cd_Atendimento (+)
+    AND Atendime.Cd_Paciente                    = Paciente.Cd_Paciente (+)
+    AND Atendime.Cd_Atendimento_Pai             = Atendime_Pai.Cd_Atendimento (+)
+    AND Atendime_Pai.Cd_Paciente                = Paciente_Pai.Cd_Paciente (+)
+    AND Produto.Cd_Pro_Fat                     IS NOT NULL
+    AND Mvto_Estoque.Cd_Atendimento            IS NOT NULL
+    AND Uni_Pro.Cd_Uni_Pro                      = ItMVto_Estoque.Cd_Uni_Pro
+    AND Mvto_Estoque.Cd_Setor                   = Setor.Cd_Setor
+    AND ( Mvto_Estoque.Tp_Mvto_Estoque         IN ( 'C', 'P' )
+    OR Mvto_Estoque.Cd_Aviso_Cirurgia          IS NOT NULL )
+    AND atendime.cd_convenio                    = convenio.cd_convenio
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT ItReg_Fat.Cd_Setor                                                                                                                                                                       ,
+      Setor.Nm_Setor                                                                                                                                                                                 ,
+      Reg_Fat.Cd_Atendimento Cd_Atendimento                                                                                                                                                          ,
+      Atendime.Cd_Atendimento_Pai                                                                                                                                                                    ,
+      Pro_Fat_Int.Cd_Pro_Fat Cd_Pro_Fat_Entrada                                                                                                                                                      ,
+      Pro_Fat_Int.Ds_Pro_Fat Ds_Pro_Fat_Entrada                                                                                                                                                      ,
+      Pro_Fat_Alta.Cd_Pro_Fat Cd_Pro_Fat_Alta                                                                                                                                                        ,
+      Pro_Fat_Alta.Ds_Pro_Fat Ds_Pro_Fat_Alta                                                                                                                                                        ,
+      Atendime.Dt_Atendimento                                                                                                                                                                        ,
+      Atendime.Dt_Alta                                                                                                                                                                               ,
+      Paciente.Nm_Paciente                                                                                                                                                                           ,
+      Atendime_Pai.Dt_Atendimento Dt_Atendimento_Pai                                                                                                                                                 ,
+      Atendime_Pai.Dt_Alta Dt_Alta_Pai                                                                                                                                                               ,
+      Paciente_Pai.Nm_Paciente Nm_Paciente_Pai                                                                                                                                                       ,
+      Atendime.Cd_Convenio                                                                                                                                                                           ,
+      Convenio.Nm_Convenio                                                                                                                                                                           ,
+      ItReg_Fat.Cd_Pro_Fat                                                                                                                                                                           ,
+      Pro_Fat.Ds_Pro_Fat                                                                                                                                                                             ,
+      Pro_Fat.Ds_unidade                                                                                                                                                                             ,
+      TO_NUMBER(0) Qt_Prescrita                                                                                                                                                                      ,
+      0 Qt_Horarios                                                                                                                                                                                  ,
+      0 Qt_Horarios_Checados                                                                                                                                                                         ,
+      0 Qt_Horarios_Checados_Nao                                                                                                                                                                     ,
+      0 Qt_Saida                                                                                                                                                                                     ,
+      0 Qt_Devolvida                                                                                                                                                                                 ,
+      0 Qt_Consumo                                                                                                                                                                                   ,
+      NVL( ItReg_Fat.Qt_Lancamento, 0 ) Qt_Faturada                                                                                                                                                  ,
+      dbamv.fnc_ffcv_retorna_motivo ( Pro_Fat.Cd_Pro_Fat, Setor.Cd_setor, ItReg_Fat.cd_setor, Atendime.Cd_atendimento, ItReg_Fat.Dt_Lancamento, NULL, Atendime.Cd_Convenio, Reg_fat.Cd_Con_Pla) Regra,
+      Pro_fat.Cd_gru_pro
+       FROM Dbamv.Reg_Fat        ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      Dbamv.Atendime             ,
+      Dbamv.Atendime Atendime_Pai,
+      Dbamv.Paciente             ,
+      Dbamv.Paciente Paciente_Pai,
+      Dbamv.Setor                ,
+      Dbamv.Convenio             ,
+      Dbamv.ItReg_Fat
+      WHERE Reg_Fat.Cd_Reg_Fat                  = ItReg_Fat.Cd_Reg_Fat
+    AND ItReg_Fat.Cd_Pro_Fat                    = Pro_Fat.cd_Pro_fat
+    AND Reg_Fat.Cd_Atendimento                  = Atendime.Cd_Atendimento
+    AND Atendime.Cd_Paciente                    = Paciente.Cd_Paciente
+    AND Atendime.Cd_Atendimento_Pai             = Atendime_Pai.Cd_Atendimento (+)
+    AND Atendime_Pai.Cd_Paciente                = Paciente_Pai.Cd_Paciente (+)
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND ItReg_Fat.Cd_Setor                      = Setor.Cd_Setor
+    AND Atendime.Cd_Convenio                    = Convenio.Cd_Convenio
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    AND atendime.cd_convenio                    = convenio.cd_convenio
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT ItReg_Amb.Cd_Setor                                                                                                                                                                         ,
+      Setor.Nm_Setor                                                                                                                                                                                   ,
+      ItReg_Amb.Cd_Atendimento Cd_Atendimento                                                                                                                                                          ,
+      Atendime.Cd_Atendimento_Pai                                                                                                                                                                      ,
+      Pro_Fat_Int.Cd_Pro_Fat Cd_Pro_Fat_Entrada                                                                                                                                                        ,
+      Pro_Fat_Int.Ds_Pro_Fat Ds_Pro_Fat_Entrada                                                                                                                                                        ,
+      Pro_Fat_Alta.Cd_Pro_Fat Cd_Pro_Fat_Alta                                                                                                                                                          ,
+      Pro_Fat_Alta.Ds_Pro_Fat Ds_Pro_Fat_Alta                                                                                                                                                          ,
+      Atendime.Dt_Atendimento                                                                                                                                                                          ,
+      Atendime.Dt_Alta                                                                                                                                                                                 ,
+      Paciente.Nm_Paciente                                                                                                                                                                             ,
+      Atendime_Pai.Dt_Atendimento Dt_Atendimento_Pai                                                                                                                                                   ,
+      Atendime_Pai.Dt_Alta Dt_Alta_Pai                                                                                                                                                                 ,
+      Paciente_Pai.Nm_Paciente Nm_Paciente_Pai                                                                                                                                                         ,
+      Atendime.Cd_Convenio                                                                                                                                                                             ,
+      Convenio.Nm_Convenio                                                                                                                                                                             ,
+      ItReg_Amb.Cd_Pro_Fat                                                                                                                                                                             ,
+      Pro_Fat.Ds_Pro_Fat                                                                                                                                                                               ,
+      Pro_Fat.Ds_unidade                                                                                                                                                                               ,
+      TO_NUMBER(0) Qt_Prescrita                                                                                                                                                                        ,
+      0 Qt_Horarios                                                                                                                                                                                    ,
+      0 Qt_Horarios_Checados                                                                                                                                                                           ,
+      0 Qt_Horarios_Checados_Nao                                                                                                                                                                       ,
+      0 Qt_Saida                                                                                                                                                                                       ,
+      0 Qt_Devolvida                                                                                                                                                                                   ,
+      0 Qt_Consumo                                                                                                                                                                                     ,
+      NVL( ItReg_Amb.Qt_Lancamento, 0 ) Qt_Faturada                                                                                                                                                    ,
+      dbamv.fnc_ffcv_retorna_motivo ( Pro_Fat.Cd_Pro_Fat, Setor.Cd_setor, ItReg_amb.cd_setor, Atendime.Tp_atendimento, Atendime.Dt_atendimento, NULL, Atendime.Cd_Convenio, ItReg_Amb.Cd_Con_Pla) Regra,
+      Pro_fat.Cd_gru_pro
+       FROM Dbamv.ItReg_Amb      ,
+      Dbamv.Atendime             ,
+      Dbamv.Atendime Atendime_Pai,
+      Dbamv.Paciente             ,
+      Dbamv.Paciente Paciente_Pai,
+      Dbamv.Setor                ,
+      Dbamv.Convenio             ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta
+      WHERE ItReg_Amb.Cd_Pro_Fat                = Pro_Fat.Cd_Pro_Fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND ItReg_Amb.Cd_Atendimento                = Atendime.Cd_Atendimento
+    AND ItReg_Amb.Cd_Setor                      = Setor.Cd_Setor
+    AND Atendime.Cd_Paciente                    = Paciente.Cd_Paciente
+    AND Atendime.Cd_Convenio                    = Convenio.cd_convenio
+    AND Atendime.Cd_Atendimento_Pai             = Atendime_Pai.Cd_Atendimento (+)
+    AND Atendime_Pai.Cd_Paciente                = Paciente_Pai.Cd_Paciente (+)
+    AND atendime.cd_convenio                    = convenio.cd_convenio
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Pre_Med.Cd_Setor                                                                     ,
+      Setor.Nm_Setor                                                                             ,
+      Pre_Med.Cd_Atendimento Cd_Atendimento                                                      ,
+      Atendime.Cd_Atendimento_Pai                                                                ,
+      Pro_Fat_Int.Cd_Pro_Fat Cd_Pro_Fat_Entrada                                                  ,
+      Pro_Fat_Int.Ds_Pro_Fat Ds_Pro_Fat_Entrada                                                  ,
+      Pro_Fat_Alta.Cd_Pro_Fat Cd_Pro_Fat_Alta                                                    ,
+      Pro_Fat_Alta.Ds_Pro_Fat Ds_Pro_Fat_Alta                                                    ,
+      Atendime.Dt_Atendimento                                                                    ,
+      Atendime.Dt_Alta                                                                           ,
+      Paciente.Nm_Paciente                                                                       ,
+      Atendime_Pai.Dt_Atendimento Dt_Atendimento_Pai                                             ,
+      Atendime_Pai.Dt_Alta Dt_Alta_Pai                                                           ,
+      Paciente_Pai.Nm_Paciente Nm_Paciente_Pai                                                   ,
+      Atendime.Cd_Convenio                                                                       ,
+      Convenio.Nm_Convenio                                                                       ,
+      Pro_Fat.Cd_Pro_Fat                                                                         ,
+      Pro_Fat.Ds_Pro_Fat                                                                         ,
+      Pro_Fat.Ds_unidade                                                                         ,
+      ItPre_Med.Qt_ItPre_Med * Uni_Pro.Vl_Fator / NVL( Produto.Vl_Fator_Pro_Fat, 1 ) qt_Prescrita,
+      (SELECT COUNT(         *)
+         FROM Dbamv.HrItPre_Med
+        WHERE ItPre_Med.Cd_ItPre_Med = HrItPre_Med.Cd_ItPre_Med
+      ) Qt_Horarios,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'N'
+      ) Qt_Horarios_Checados,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'S'
+      ) Qt_Horarios_Checados_Nao                                                                                                                                                                    ,
+      0 qt_Saida                                                                                                                                                                                    ,
+      0 Qt_Devolvida                                                                                                                                                                                ,
+      0 Qt_Consumo                                                                                                                                                                                  ,
+      0 Qt_Faturada                                                                                                                                                                                 ,
+      dbamv.fnc_ffcv_retorna_motivo ( Pro_Fat.Cd_Pro_Fat, Setor.Cd_setor, Pre_med.cd_setor, Atendime.Tp_atendimento, Atendime.Dt_atendimento, NULL, Atendime.Cd_Convenio, Atendime.Cd_Con_Pla) Regra,
+      Pro_fat.Cd_gru_pro
+       FROM Dbamv.ItPre_Med      ,
+      Dbamv.Pre_Med              ,
+      Dbamv.Tip_Presc            ,
+      Dbamv.Setor                ,
+      Dbamv.Paciente             ,
+      Dbamv.PAciente Paciente_Pai,
+      Dbamv.Atendime             ,
+      Dbamv.Atendime Atendime_Pai,
+      Dbamv.Convenio             ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      Dbamv.Produto              ,
+      Dbamv.Uni_Pro
+      WHERE ItPre_Med.Cd_Pre_Med                = Pre_Med.Cd_Pre_Med
+    AND ItPre_Med.Cd_Tip_Presc                  = Tip_presc.Cd_Tip_Presc
+    AND Tip_Presc.Cd_Produto                    = Produto.Cd_Produto
+    AND Pre_Med.Cd_Setor                        = Setor.Cd_Setor
+    AND Pre_Med.Cd_Atendimento                  = Atendime.Cd_Atendimento
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    AND Atendime.Cd_Paciente                    = Paciente.Cd_Paciente
+    AND Atendime.Cd_Convenio                    = Convenio.Cd_Convenio
+    AND Produto.Cd_Pro_Fat                      = Pro_Fat.Cd_Pro_Fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND ItPre_Med.Cd_Uni_pro                    = Uni_pro.Cd_Uni_Pro
+    AND Pre_Med.Tp_Pre_Med                     IN ( 'M', 'E' )
+    AND Atendime.Cd_Atendimento_Pai             = Atendime_Pai.Cd_Atendimento (+)
+    AND Atendime_Pai.Cd_Paciente                = Paciente_Pai.Cd_Paciente (+)
+    AND atendime.cd_convenio                    = convenio.cd_convenio
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Pre_Med.Cd_Setor                                                                       ,
+      Setor.Nm_Setor                                                                               ,
+      Pre_Med.Cd_Atendimento Cd_Atendimento                                                        ,
+      Atendime.Cd_Atendimento_Pai                                                                  ,
+      Pro_Fat_Int.Cd_Pro_Fat Cd_Pro_Fat_Entrada                                                    ,
+      Pro_Fat_Int.Ds_Pro_Fat Ds_Pro_Fat_Entrada                                                    ,
+      Pro_Fat_Alta.Cd_Pro_Fat Cd_Pro_Fat_Alta                                                      ,
+      Pro_Fat_Alta.Ds_Pro_Fat Ds_Pro_Fat_Alta                                                      ,
+      Atendime.Dt_Atendimento                                                                      ,
+      Atendime.Dt_Alta                                                                             ,
+      Paciente.Nm_Paciente                                                                         ,
+      Atendime_Pai.Dt_Atendimento Dt_Atendimento_Pai                                               ,
+      Atendime_Pai.Dt_Alta Dt_Alta_Pai                                                             ,
+      Paciente_Pai.Nm_Paciente Nm_Paciente_Pai                                                     ,
+      Atendime.Cd_Convenio                                                                         ,
+      Convenio.Nm_Convenio                                                                         ,
+      Pro_Fat.Cd_Pro_Fat                                                                           ,
+      Pro_Fat.Ds_Pro_Fat                                                                           ,
+      Pro_Fat.Ds_unidade                                                                           ,
+      cItPre_Med.Qt_Componente * Uni_Pro.Vl_Fator / NVL( Produto.Vl_Fator_Pro_Fat, 1 ) qt_Prescrita,
+      (SELECT COUNT(           *)
+         FROM Dbamv.HrItPre_Med
+        WHERE ItPre_Med.Cd_ItPre_Med = HrItPre_Med.Cd_ItPre_Med
+      ) Qt_Horarios,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'N'
+      ) Qt_Horarios_Checados,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'S'
+      ) Qt_Horarios_Checados_Nao                                                                                                                                                                    ,
+      0 qt_Saida                                                                                                                                                                                    ,
+      0 Qt_Devolvida                                                                                                                                                                                ,
+      0 Qt_Consumo                                                                                                                                                                                  ,
+      0 Qt_Faturada                                                                                                                                                                                 ,
+      dbamv.fnc_ffcv_retorna_motivo ( Pro_Fat.Cd_Pro_Fat, Setor.Cd_setor, Pre_Med.cd_setor, Atendime.Tp_atendimento, Atendime.Dt_atendimento, NULL, Atendime.Cd_Convenio, Atendime.Cd_Con_Pla) Regra,
+      Pro_fat.Cd_gru_pro
+       FROM Dbamv.CItPre_Med     ,
+      Dbamv.ItPre_Med            ,
+      Dbamv.Pre_Med              ,
+      Dbamv.Tip_Presc            ,
+      Dbamv.Setor                ,
+      Dbamv.Paciente             ,
+      Dbamv.Paciente PAciente_Pai,
+      Dbamv.Atendime             ,
+      Dbamv.Atendime Atendime_Pai,
+      Dbamv.Convenio             ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      Dbamv.Produto              ,
+      Dbamv.Uni_Pro
+      WHERE ItPre_Med.Cd_Pre_Med                = Pre_Med.Cd_Pre_Med
+    AND cItPre_Med.Cd_Tip_Presc                 = Tip_presc.Cd_Tip_Presc
+    AND Tip_Presc.Cd_Produto                    = Produto.Cd_Produto
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    AND Pre_Med.Cd_Setor                        = Setor.Cd_Setor
+    AND Pre_Med.Cd_Atendimento                  = Atendime.Cd_Atendimento
+    AND Atendime.Cd_Paciente                    = Paciente.Cd_Paciente
+    AND Atendime.Cd_Convenio                    = Convenio.Cd_Convenio
+    AND Produto.Cd_Pro_Fat                      = Pro_Fat.Cd_Pro_Fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND cItPre_Med.Cd_Uni_pro                   = Uni_pro.Cd_Uni_Pro
+    AND ItPre_Med.Cd_ItPre_Med                  = cItPre_Med.Cd_ItPre_Med
+    AND Pre_Med.Tp_Pre_Med                     IN ( 'M', 'E' )
+    AND Atendime.Cd_Atendimento_Pai             = Atendime_Pai.Cd_Atendimento (+)
+    AND Atendime_Pai.Cd_Paciente                = Paciente_Pai.Cd_Paciente (+)
+    AND atendime.cd_convenio                    = convenio.cd_convenio
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Pre_Med.Cd_Setor                        ,
+      Setor.Nm_Setor                                ,
+      Pre_Med.Cd_Atendimento Cd_Atendimento         ,
+      Atendime.Cd_Atendimento_Pai                   ,
+      Pro_Fat_Int.Cd_Pro_Fat Cd_Pro_Fat_Entrada     ,
+      Pro_Fat_Int.Ds_Pro_Fat Ds_Pro_Fat_Entrada     ,
+      Pro_Fat_Alta.Cd_Pro_Fat Cd_Pro_Fat_Alta       ,
+      Pro_Fat_Alta.Ds_Pro_Fat Ds_Pro_Fat_Alta       ,
+      Atendime.Dt_Atendimento                       ,
+      Atendime.Dt_Alta                              ,
+      Paciente.Nm_Paciente                          ,
+      Atendime_Pai.Dt_Atendimento Dt_Atendimento_Pai,
+      Atendime_Pai.Dt_Alta Dt_Alta_Pai              ,
+      Paciente_Pai.Nm_Paciente Nm_Paciente_Pai      ,
+      Atendime.Cd_Convenio                          ,
+      Convenio.Nm_Convenio                          ,
+      Pro_Fat.Cd_Pro_Fat                            ,
+      Pro_Fat.Ds_Pro_Fat                            ,
+      Pro_Fat.Ds_unidade                            ,
+      ItPre_Med.Qt_ItPre_Med qt_Prescrita           ,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Med
+        WHERE ItPre_Med.Cd_ItPre_Med = HrItPre_Med.Cd_ItPre_Med
+      ) Qt_Horarios,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'N'
+      ) Qt_Horarios_Checados,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'S'
+      ) Qt_Horarios_Checados_Nao                                                                                                                                                                    ,
+      0 qt_Saida                                                                                                                                                                                    ,
+      0 Qt_Devolvida                                                                                                                                                                                ,
+      0 Qt_Consumo                                                                                                                                                                                  ,
+      0 Qt_Faturada                                                                                                                                                                                 ,
+      dbamv.fnc_ffcv_retorna_motivo ( Pro_Fat.Cd_Pro_Fat, Setor.Cd_setor, Pre_Med.cd_setor, Atendime.Tp_atendimento, Atendime.Dt_atendimento, NULL, Atendime.Cd_Convenio, Atendime.Cd_Con_Pla) Regra,
+      Pro_fat.Cd_gru_pro
+       FROM Dbamv.ItPre_Med      ,
+      Dbamv.Pre_Med              ,
+      Dbamv.Tip_Presc            ,
+      Dbamv.Setor                ,
+      Dbamv.Paciente             ,
+      Dbamv.PAciente Paciente_Pai,
+      Dbamv.Atendime             ,
+      Dbamv.Atendime Atendime_Pai,
+      Dbamv.Convenio             ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta
+      WHERE ItPre_Med.Cd_Pre_Med                = Pre_Med.Cd_Pre_Med
+    AND ItPre_Med.Cd_Tip_Presc                  = Tip_presc.Cd_Tip_Presc
+    AND Pre_Med.Cd_Setor                        = Setor.Cd_Setor
+    AND Pre_Med.Cd_Atendimento                  = Atendime.Cd_Atendimento
+    AND Atendime.Cd_Paciente                    = Paciente.Cd_Paciente
+    AND Tip_Presc.Cd_Pro_Fat                    = Pro_Fat.Cd_Pro_Fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND Pre_Med.Tp_Pre_Med                     IN ( 'M', 'E' )
+    AND Atendime.Cd_Atendimento_Pai             = Atendime_Pai.Cd_Atendimento (+)
+    AND Atendime_Pai.Cd_Paciente                = Paciente_Pai.Cd_Paciente (+)
+    AND atendime.cd_convenio                    = convenio.cd_convenio
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Pre_Med.Cd_Setor                        ,
+      Setor.Nm_Setor                                ,
+      Pre_Med.Cd_Atendimento Cd_Atendimento         ,
+      Atendime.Cd_Atendimento_Pai                   ,
+      Pro_Fat_Int.Cd_Pro_Fat Cd_Pro_Fat_Entrada     ,
+      Pro_Fat_Int.Ds_Pro_Fat Ds_Pro_Fat_Entrada     ,
+      Pro_Fat_Alta.Cd_Pro_Fat Cd_Pro_Fat_Alta       ,
+      Pro_Fat_Alta.Ds_Pro_Fat Ds_Pro_Fat_Alta       ,
+      Atendime.Dt_Atendimento                       ,
+      Atendime.Dt_Alta                              ,
+      Paciente.Nm_Paciente                          ,
+      Atendime_Pai.Dt_Atendimento Dt_Atendimento_Pai,
+      Atendime_Pai.Dt_Alta Dt_Alta_Pai              ,
+      Paciente_Pai.Nm_Paciente Nm_Paciente_Pai      ,
+      Atendime.Cd_Convenio                          ,
+      Convenio.Nm_Convenio                          ,
+      Pro_Fat.Cd_Pro_Fat                            ,
+      Pro_Fat.Ds_Pro_Fat                            ,
+      Pro_Fat.Ds_unidade                            ,
+      cItPre_Med.Qt_Componente qt_Prescrita         ,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Med
+        WHERE ItPre_Med.Cd_ItPre_Med = HrItPre_Med.Cd_ItPre_Med
+      ) Qt_Horarios,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'N'
+      ) Qt_Horarios_Checados,
+      (SELECT COUNT(*)
+         FROM Dbamv.HrItPre_Cons
+        WHERE ItPre_Med.Cd_ItPre_Med          = HrItPre_Cons.Cd_ItPre_Med
+      AND NVL( HrItPre_Cons.Sn_Suspenso, 'N') = 'S'
+      ) Qt_Horarios_Checados_Nao                                                                                                                                                                    ,
+      0 qt_Saida                                                                                                                                                                                    ,
+      0 Qt_Devolvida                                                                                                                                                                                ,
+      0 Qt_Consumo                                                                                                                                                                                  ,
+      0 Qt_Faturada                                                                                                                                                                                 ,
+      dbamv.fnc_ffcv_retorna_motivo ( Pro_Fat.Cd_Pro_Fat, Setor.Cd_setor, Pre_Med.cd_setor, Atendime.Tp_atendimento, Atendime.Dt_atendimento, NULL, Atendime.Cd_Convenio, Atendime.Cd_Con_Pla) Regra,
+      Pro_fat.Cd_gru_pro
+       FROM Dbamv.CItPre_Med     ,
+      Dbamv.ItPre_Med            ,
+      Dbamv.Pre_Med              ,
+      Dbamv.Tip_Presc            ,
+      Dbamv.Setor                ,
+      Dbamv.Paciente             ,
+      Dbamv.Paciente PAciente_Pai,
+      Dbamv.Atendime             ,
+      Dbamv.Atendime Atendime_Pai,
+      Dbamv.Convenio             ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta
+      WHERE ItPre_Med.Cd_Pre_Med                = Pre_Med.Cd_Pre_Med
+    AND cItPre_Med.Cd_Tip_Presc                 = Tip_presc.Cd_Tip_Presc
+    AND Pre_Med.Cd_Setor                        = Setor.Cd_Setor
+    AND Pre_Med.Cd_Atendimento                  = Atendime.Cd_Atendimento
+    AND Atendime.Cd_Paciente                    = Paciente.Cd_Paciente
+    AND Atendime.Cd_Convenio                    = Convenio.Cd_Convenio
+    AND Tip_Presc.Cd_Pro_Fat                    = Pro_Fat.Cd_Pro_Fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND ItPre_Med.Cd_ItPre_Med                  = cItPre_Med.Cd_ItPre_Med
+    AND Pre_Med.Tp_Pre_Med                     IN ( 'M', 'E' )
+    AND Atendime.Cd_Atendimento_Pai             = Atendime_Pai.Cd_Atendimento (+)
+    AND Atendime_Pai.Cd_Paciente                = Paciente_Pai.Cd_Paciente (+)
+    AND atendime.cd_convenio                    = convenio.cd_convenio
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    AND Tip_presc.cd_produto IS null
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT ped_rx.cd_setor                                      ,
+      setor.nm_setor                                             ,
+      ped_rx.cd_atendimento                                      ,
+      ped_rx.cd_atendimento cd_atendimento_pai                   ,
+      atendime.cd_pro_int cd_pro_fat_entrada                     ,
+      pro_fat_int.ds_pro_fat ds_pro_fat_entrada                  ,
+      atendime.cd_pro_int_procedimento_entrad cd_pro_fat_alta    ,
+      pro_fat_alta.ds_pro_fat ds_pro_fat_alta                    ,
+      atendime.dt_atendimento                                    ,
+      atendime.dt_alta                                           ,
+      paciente.nm_paciente                                       ,
+      atendime.dt_atendimento dt_atendimento_pai                 ,
+      atendime.dt_alta dt_alta_pai                               ,
+      paciente.nm_paciente nm_paciente_pai                       ,
+      NVL (ped_rx.cd_convenio, atendime.cd_convenio) cd_convenio ,
+      convenio.nm_convenio                                       ,
+      exa_Rx.exa_Rx_cd_pro_Fat cd_pro_Fat                        ,
+      pro_fat.ds_pro_fat                                         ,
+      pro_fat.ds_unidade ds_unidade                              ,
+      1 qt_prescrita                                             ,
+      0 Qt_Horarios                                              ,
+      NVL( 1, itped_rx.nr_faturado) Qt_Horarios_Checados         ,
+      0 Qt_Horarios_Checados_Nao                                 ,
+      1 qt_saida                                                 ,
+      0 qt_devolvida                                             ,
+      1 Qt_Consumo                                               ,
+      0 qt_faturada                                              ,
+      NULL regra                                                 ,
+      pro_fat.Cd_gru_pro
+       FROM dbamv.ped_rx         ,
+      dbamv.itped_Rx             ,
+      dbamv.setor                ,
+      dbamv.Exa_Rx               ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      dbamv.atendime             ,
+      dbamv.paciente             ,
+      dbamv.set_exa              ,
+      dbamv.convenio
+      WHERE atendime.cd_atendimento             = ped_rx.cd_atendimento
+    AND ped_rx.cd_set_exa                       = set_exa.cd_set_exa
+    AND convenio.cd_convenio                    = NVL (ped_rx.cd_convenio, atendime.cd_convenio)
+    AND atendime.cd_paciente                    = paciente.cd_paciente
+    AND itped_rx.cd_ped_rx                      = ped_rx.cd_ped_rx
+    AND itped_rx.cd_exa_rx                      = exa_rx.cd_exa_rx
+    AND exa_Rx.exa_rx_cd_pro_fat                = pro_fat.cd_pro_fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND ped_rx.cd_setor                         = setor.cd_setor
+    AND atendime.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Ped_lab.cd_setor                                      ,
+      setor.nm_setor                                              ,
+      ped_lab.cd_atendimento                                      ,
+      ped_lab.cd_atendimento cd_atendimento_pai                   ,
+      atendime.cd_pro_int cd_pro_fat_entrada                      ,
+      pro_fat_int.ds_pro_fat ds_pro_fat_entrada                   ,
+      atendime.cd_pro_int_procedimento_entrad cd_pro_fat_alta     ,
+      pro_fat_alta.ds_pro_fat ds_pro_fat_alta                     ,
+      atendime.dt_atendimento                                     ,
+      atendime.dt_alta                                            ,
+      paciente.nm_paciente                                        ,
+      atendime.dt_atendimento dt_atendimento_pai                  ,
+      atendime.dt_alta dt_alta_pai                                ,
+      paciente.nm_paciente nm_paciente_pai                        ,
+      NVL (ped_lab.cd_convenio, atendime.cd_convenio) cd_convenio ,
+      convenio.nm_convenio                                        ,
+      exa_lab.cd_pro_Fat                                          ,
+      pro_fat.ds_pro_fat                                          ,
+      pro_fat.ds_unidade ds_unidade                               ,
+      1 qt_prescrita                                              ,
+      0 Qt_Horarios                                               ,
+      1 Qt_Prescrita_Checados                                     ,
+      0 Qt_Prescrita_N_Checados                                   ,
+      1 qt_saida                                                  ,
+      0 qt_devolvida                                              ,
+      1 Qt_Consumo                                                ,
+      0 qt_faturada                                               ,
+      NULL regra                                                  ,
+      pro_fat.cd_gru_pro
+       FROM dbamv.ped_lab        ,
+      dbamv.itped_lab            ,
+      dbamv.setor                ,
+      dbamv.Exa_lab              ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      dbamv.atendime             ,
+      dbamv.paciente             ,
+      dbamv.set_exa              ,
+      dbamv.convenio
+      WHERE atendime.cd_atendimento             = ped_lab.cd_atendimento
+    AND itped_lab.cd_set_exa                    = set_exa.cd_set_exa
+    AND convenio.cd_convenio                    = NVL (ped_lab.cd_convenio, atendime.cd_convenio)
+    AND atendime.cd_paciente                    = paciente.cd_paciente
+    AND itped_lab.cd_ped_lab                    = ped_lab.cd_ped_lab
+    AND itped_lab.cd_exa_lab                    = exa_lab.cd_exa_lab
+    AND exa_lab.cd_pro_fat                      = pro_fat.cd_pro_fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND ped_lab.cd_setor                        = setor.cd_setor
+    AND convenio.tp_convenio                   IN ('H', 'P', 'C')
+    AND ATENDIME.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+     and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Sal_cir.cd_setor                                              ,
+      setor.nm_setor                                                      ,
+      aviso_cirurgia.cd_atendimento                                       ,
+      aviso_cirurgia.cd_atendimento cd_atendimento_pai                    ,
+      atendime.cd_pro_int cd_pro_fat_entrada                              ,
+      pro_fat_int.ds_pro_fat ds_pro_fat_entrada                           ,
+      atendime.cd_pro_int_procedimento_entrad cd_pro_fat_alta             ,
+      pro_fat_alta.ds_pro_fat ds_pro_fat_alta                             ,
+      atendime.dt_atendimento                                             ,
+      atendime.dt_alta                                                    ,
+      paciente.nm_paciente                                                ,
+      atendime.dt_atendimento dt_atendimento_pai                          ,
+      atendime.dt_alta dt_alta_pai                                        ,
+      NULL nm_paciente_pai                                                ,
+      NVL( cirurgia_aviso.cd_convenio, atendime.cd_convenio ) cd_convenio ,
+      convenio.nm_convenio                                                ,
+      cirurgia.cd_pro_Fat                                                 ,
+      pro_fat.ds_pro_fat                                                  ,
+      pro_fat.ds_unidade ds_unidade                                       ,
+      1 qt_prescrita                                                      ,
+      0 Qt_Horarios                                                       ,
+      1 Qt_Prescrita_Checados                                             ,
+      0 Qt_Prescrita_N_Checados                                           ,
+      1 qt_saida                                                          ,
+      0 qt_devolvida                                                      ,
+      1 Qt_Consumo                                                        ,
+      (SELECT NVL(MAX(qt_lancamento),0)
+         FROM dbamv.itreg_fat,
+        dbamv.reg_fat
+        WHERE reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+      AND reg_fat.cd_atendimento = atendime.cd_atendimento
+      AND itreg_fat.cd_pro_fat   = cirurgia.cd_pro_fat
+      )qt_faturada ,
+      NULL Regra   ,
+      pro_fat.cd_gru_pro
+       FROM dbamv.aviso_cirurgia ,
+      dbamv.cirurgia_aviso       ,
+      dbamv.sal_cir              ,
+      dbamv.setor                ,
+      dbamv.cirurgia             ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      dbamv.atendime             ,
+      dbamv.paciente             ,
+      dbamv.convenio
+      WHERE atendime.cd_atendimento             = aviso_cirurgia.cd_atendimento
+    AND aviso_cirurgia.cd_aviso_cirurgia        = cirurgia_aviso.cd_aviso_cirurgia
+    AND convenio.cd_convenio                    = NVL( cirurgia_aviso.cd_convenio, atendime.cd_convenio )
+    AND atendime.cd_paciente                    = paciente.cd_paciente
+    AND cirurgia_aviso.cd_cirurgia              = cirurgia.cd_cirurgia
+    AND aviso_cirurgia.cd_sal_cir               = sal_cir.cd_sal_cir
+    AND cirurgia.cd_pro_fat                     = pro_fat.cd_pro_fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND sal_cir.cd_setor                        = setor.cd_setor
+    AND convenio.tp_convenio                   IN ('H', 'P', 'C')
+    AND ATENDIME.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+   and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Sal_cir.cd_setor                                              ,
+      setor.nm_setor                                                      ,
+      aviso_cirurgia.cd_atendimento                                       ,
+      aviso_cirurgia.cd_atendimento cd_atendimento_pai                    ,
+      atendime.cd_pro_int cd_pro_fat_entrada                              ,
+      pro_fat_int.ds_pro_fat ds_pro_fat_entrada                           ,
+      atendime.cd_pro_int_procedimento_entrad cd_pro_fat_alta             ,
+      pro_fat_alta.ds_pro_fat ds_pro_fat_alta                             ,
+      atendime.dt_atendimento                                             ,
+      atendime.dt_alta                                                    ,
+      paciente.nm_paciente                                                ,
+      atendime.dt_atendimento dt_atendimento_pai                          ,
+      atendime.dt_alta dt_alta_pai                                        ,
+      paciente.nm_paciente nm_paciente_pai                                ,
+      NVL( cirurgia_aviso.cd_convenio, atendime.cd_convenio ) cd_convenio ,
+      convenio.nm_convenio                                                ,
+      empresa_aparelhos_equipto.cd_pro_Fat                                ,
+      pro_fat.ds_pro_fat                                                  ,
+      pro_fat.ds_unidade ds_unidade                                       ,
+      NVL(
+      (SELECT NVL(MAX(qt_lancamento),0)
+         FROM dbamv.itreg_fat,
+        dbamv.reg_fat
+        WHERE reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+      AND reg_fat.cd_atendimento = atendime.cd_atendimento
+      AND itreg_fat.cd_pro_fat   = empresa_aparelhos_equipto.cd_pro_fat
+      ),aviso_equipamentos.qt_utilizada) qt_prescrita ,
+      0 Qt_Horarios                                   ,
+      1 Qt_Prescrita_N_Checados                       ,
+      0 Qt_Prescrita_Checados                         ,
+      NVL(
+      (SELECT NVL(MAX(qt_lancamento),0)
+         FROM dbamv.itreg_fat,
+        dbamv.reg_fat
+        WHERE reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+      AND reg_fat.cd_atendimento = atendime.cd_atendimento
+      AND itreg_fat.cd_pro_fat   = empresa_aparelhos_equipto.cd_pro_fat
+      ),aviso_equipamentos.qt_utilizada) qt_saida ,
+      0 qt_devolvida                              ,
+      (SELECT NVL(MAX(qt_lancamento),0)
+         FROM dbamv.itreg_fat,
+        dbamv.reg_fat
+        WHERE reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+      AND reg_fat.cd_atendimento = atendime.cd_atendimento
+      AND itreg_fat.cd_pro_fat   = empresa_aparelhos_equipto.cd_pro_fat
+      ) Qt_Consumo  ,
+      0 qt_faturada ,
+      NULL regra    ,
+      pro_fat.cd_gru_pro
+       FROM dbamv.aviso_cirurgia      ,
+      dbamv.cirurgia_aviso            ,
+      dbamv.aviso_equipamentos        ,
+      dbamv.sal_cir                   ,
+      dbamv.setor                     ,
+      dbamv.aparelhos_equipto         ,
+      dbamv.empresa_aparelhos_equipto ,
+      Dbamv.Pro_Fat                   ,
+      Dbamv.Pro_Fat Pro_Fat_Int       ,
+      Dbamv.Pro_Fat Pro_Fat_Alta      ,
+      dbamv.atendime                  ,
+      dbamv.paciente                  ,
+      dbamv.convenio
+      WHERE atendime.cd_atendimento                       = aviso_cirurgia.cd_atendimento
+    AND aviso_cirurgia.cd_aviso_cirurgia                  = cirurgia_aviso.cd_aviso_cirurgia
+    AND aviso_cirurgia.cd_aviso_cirurgia                  = aviso_equipamentos.cd_aviso_cirurgia
+    AND convenio.cd_convenio                              = NVL( cirurgia_aviso.cd_convenio, atendime.cd_convenio )
+    AND atendime.cd_paciente                              = paciente.cd_paciente
+    AND aviso_equipamentos.cd_aparelho_equipamento        = aparelhos_equipto.cd_aparelho_equipamento
+    AND aviso_cirurgia.cd_sal_cir                         = sal_cir.cd_sal_cir
+    AND empresa_aparelhos_equipto.cd_pro_fat              = pro_fat.cd_pro_fat
+    AND empresa_aparelhos_equipto.cd_aparelho_equipamento = aparelhos_equipto.cd_aparelho_equipamento
+    AND empresa_aparelhos_equipto.cd_multi_empresa        = :CAMPO_CD_MULTI_EMPRESA
+    AND Atendime.Cd_Pro_Int                               = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad           = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND sal_cir.cd_setor                                  = setor.cd_setor
+    AND convenio.tp_convenio                             IN ('H', 'P', 'C')
+    AND ATENDIME.CD_MULTI_EMPRESA                         = :CAMPO_CD_MULTI_EMPRESA
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Sal_cir.cd_setor                                              ,
+      setor.nm_setor                                                      ,
+      aviso_cirurgia.cd_atendimento                                       ,
+      aviso_cirurgia.cd_atendimento cd_atendimento_pai                    ,
+      atendime.cd_pro_int cd_pro_fat_entrada                              ,
+      pro_fat_int.ds_pro_fat ds_pro_fat_entrada                           ,
+      atendime.cd_pro_int_procedimento_entrad cd_pro_fat_alta             ,
+      pro_fat_alta.ds_pro_fat ds_pro_fat_alta                             ,
+      atendime.dt_atendimento                                             ,
+      atendime.dt_alta                                                    ,
+      paciente.nm_paciente                                                ,
+      atendime.dt_atendimento dt_atendimento_pai                          ,
+      atendime.dt_alta dt_alta_pai                                        ,
+      paciente.nm_paciente nm_paciente_pai                                ,
+      NVL( cirurgia_aviso.cd_convenio, atendime.cd_convenio ) cd_convenio ,
+      convenio.nm_convenio                                                ,
+      sangue_derivados.cd_pro_Fat                                         ,
+      pro_fat.ds_pro_fat                                                  ,
+      pro_fat.ds_unidade ds_unidade                                       ,
+      sangue_aviso.qt_realizado qt_prescrita                              ,
+      0 Qt_Horarios                                                       ,
+      sangue_aviso.qt_realizado Qt_Prescrita_Checados                     ,
+      0 Qt_Prescrita_N_Checados                                           ,
+      sangue_aviso.qt_realizado qt_saida                                  ,
+      0 qt_devolvida                                                      ,
+      sangue_aviso.qt_realizado Qt_Consumo                                ,
+      (SELECT NVL(MAX(qt_lancamento),0)
+         FROM dbamv.itreg_fat,
+        dbamv.reg_fat
+        WHERE reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+      AND reg_fat.cd_atendimento = atendime.cd_atendimento
+      AND itreg_fat.cd_pro_fat   = sangue_derivados.cd_pro_fat
+      )qt_faturada ,
+      NULL regra   ,
+      pro_fat.cd_gru_pro
+       FROM dbamv.aviso_cirurgia ,
+      dbamv.cirurgia_aviso       ,
+      dbamv.sangue_aviso         ,
+      dbamv.sal_cir              ,
+      dbamv.setor                ,
+      dbamv.sangue_derivados     ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      dbamv.atendime             ,
+      dbamv.paciente             ,
+      dbamv.convenio             ,
+      dbamv.config_ffcv
+      WHERE atendime.cd_atendimento             = aviso_cirurgia.cd_atendimento
+    AND aviso_cirurgia.cd_aviso_cirurgia        = cirurgia_aviso.cd_aviso_cirurgia
+    AND aviso_cirurgia.cd_aviso_cirurgia        = sangue_aviso.cd_aviso_cirurgia
+    AND convenio.cd_convenio                    = NVL( cirurgia_aviso.cd_convenio, atendime.cd_convenio )
+    AND atendime.cd_paciente                    = paciente.cd_paciente
+    AND sangue_aviso.cd_sangue_derivados        = sangue_derivados.cd_sangue_derivados
+    AND aviso_cirurgia.cd_sal_cir               = sal_cir.cd_sal_cir
+    AND sangue_derivados.cd_pro_fat             = pro_fat.cd_pro_fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND sal_cir.cd_setor                        = setor.cd_setor
+    AND convenio.tp_convenio                   IN ('H', 'P', 'C')
+    AND config_ffcv.sn_sangue_automatico        = 'S'
+    AND config_ffcv.cd_multi_empresa            = dbamv.pkg_mv2000.le_empresa
+    AND ATENDIME.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    and (   trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Solic_sangue.cd_setor                             ,
+      setor.nm_setor                                          ,
+      solic_sangue.cd_atendimento                             ,
+      solic_sangue.cd_atendimento cd_atendimento_pai          ,
+      atendime.cd_pro_int cd_pro_fat_entrada                  ,
+      pro_fat_int.ds_pro_fat ds_pro_fat_entrada               ,
+      atendime.cd_pro_int_procedimento_entrad cd_pro_fat_alta ,
+      pro_fat_alta.ds_pro_fat ds_pro_fat_alta                 ,
+      atendime.dt_atendimento                                 ,
+      atendime.dt_alta                                        ,
+      paciente.nm_paciente                                    ,
+      atendime.dt_atendimento dt_atendimento_pai              ,
+      atendime.dt_alta dt_alta_pai                            ,
+      paciente.nm_paciente nm_paciente_pai                    ,
+      atendime.cd_convenio cd_convenio                        ,
+      convenio.nm_convenio                                    ,
+      sangue_derivados.cd_pro_Fat                             ,
+      pro_fat.ds_pro_fat                                      ,
+      pro_fat.ds_unidade ds_unidade                           ,
+      it_solic_sangue.qt_realizado qt_prescrita               ,
+      0 Qt_Horarios                                           ,
+      it_solic_sangue.qt_realizado Qt_Prescrita_Checados      ,
+      0 Qt_Prescrita_N_Checados                               ,
+      it_solic_sangue.qt_realizado qt_saida                   ,
+      0 qt_devolvida                                          ,
+      it_solic_sangue.qt_realizado Qt_Consumo                 ,
+      (SELECT NVL(MAX(qt_lancamento),0)
+         FROM dbamv.itreg_fat,
+        dbamv.reg_fat
+        WHERE reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+      AND reg_fat.cd_atendimento = atendime.cd_atendimento
+      AND itreg_fat.cd_pro_fat   = sangue_derivados.cd_pro_fat
+      )qt_faturada ,
+      NULL regra   ,
+      pro_fat.cd_gru_pro
+       FROM dbamv.solic_sangue   ,
+      dbamv.it_solic_sangue      ,
+      dbamv.setor                ,
+      dbamv.sangue_derivados     ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      dbamv.atendime             ,
+      dbamv.paciente             ,
+      dbamv.convenio             ,
+      dbamv.config_ffcv
+      WHERE atendime.cd_atendimento             = solic_sangue.cd_atendimento
+    AND solic_sangue.cd_solic_sangue            = it_solic_sangue.cd_solic_sangue
+    AND convenio.cd_convenio                    = atendime.cd_convenio
+    AND atendime.cd_paciente                    = paciente.cd_paciente
+    AND it_solic_sangue.cd_sangue_derivados     = sangue_derivados.cd_sangue_derivados
+    AND sangue_derivados.cd_pro_fat             = pro_fat.cd_pro_fat
+    AND Atendime.Cd_Pro_Int                     = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND solic_sangue.cd_setor                   = setor.cd_setor
+    AND convenio.tp_convenio                   IN ('H', 'P', 'C')
+    AND config_ffcv.sn_sangue_automatico        = 'B'
+    AND config_ffcv.cd_multi_empresa            = dbamv.pkg_mv2000.le_empresa
+    AND ATENDIME.CD_MULTI_EMPRESA               = :CAMPO_CD_MULTI_EMPRESA
+    and (trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT Solic_sangue.cd_setor                             ,
+      setor.nm_setor                                          ,
+      solic_sangue.cd_atendimento                             ,
+      solic_sangue.cd_atendimento cd_atendimento_pai          ,
+      atendime.cd_pro_int cd_pro_fat_entrada                  ,
+      pro_fat_int.ds_pro_fat ds_pro_fat_entrada               ,
+      atendime.cd_pro_int_procedimento_entrad cd_pro_fat_alta ,
+      pro_fat_alta.ds_pro_fat ds_pro_fat_alta                 ,
+      atendime.dt_atendimento                                 ,
+      atendime.dt_alta                                        ,
+      paciente.nm_paciente                                    ,
+      atendime.dt_atendimento dt_atendimento_pai              ,
+      atendime.dt_alta dt_alta_pai                            ,
+      paciente.nm_paciente nm_paciente_pai                    ,
+      atendime.cd_convenio cd_convenio                        ,
+      convenio.nm_convenio                                    ,
+      sangue_derivados.cd_pro_Fat                             ,
+      pro_fat.ds_pro_fat                                      ,
+      pro_fat.ds_unidade ds_unidade                           ,
+      it_solic_sangue_comp.qt_realizada qt_prescrita          ,
+      0 Qt_Horarios                                           ,
+      it_solic_sangue_comp.qt_realizada Qt_Prescrita_Checados ,
+      0 Qt_Prescrita_N_Checados                               ,
+      it_solic_sangue_comp.qt_realizada qt_saida              ,
+      0 qt_devolvida                                          ,
+      it_solic_sangue_comp.qt_realizada Qt_Consumo            ,
+      (SELECT NVL(MAX(qt_lancamento),0)
+         FROM dbamv.itreg_fat,
+        dbamv.reg_fat
+        WHERE reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+      AND reg_fat.cd_atendimento = atendime.cd_atendimento
+      AND itreg_fat.cd_pro_fat   = sangue_derivados.cd_pro_fat
+      )qt_faturada ,
+      NULL regra   ,
+      pro_fat.cd_gru_pro
+       FROM dbamv.solic_sangue   ,
+      dbamv.it_solic_sangue      ,
+      dbamv.it_solic_sangue_comp ,
+      dbamv.setor                ,
+      dbamv.sangue_derivados     ,
+      Dbamv.Pro_Fat              ,
+      Dbamv.Pro_Fat Pro_Fat_Int  ,
+      Dbamv.Pro_Fat Pro_Fat_Alta ,
+      dbamv.atendime             ,
+      dbamv.paciente             ,
+      dbamv.convenio             ,
+      dbamv.config_ffcv
+      WHERE atendime.cd_atendimento              = solic_sangue.cd_atendimento
+    AND solic_sangue.cd_solic_sangue             = it_solic_sangue.cd_solic_sangue
+    AND it_solic_sangue.cd_it_solic_sangue       = it_solic_sangue_comp.cd_it_solic_sangue
+    AND convenio.cd_convenio                     = atendime.cd_convenio
+    AND atendime.cd_paciente                     = paciente.cd_paciente
+    AND it_solic_sangue_comp.cd_sangue_derivados = sangue_derivados.cd_sangue_derivados
+    AND sangue_derivados.cd_pro_fat              = pro_fat.cd_pro_fat
+    AND Atendime.Cd_Pro_Int                      = Pro_Fat_Int.Cd_Pro_Fat (+)
+    AND Atendime.Cd_Pro_Int_Procedimento_Entrad  = Pro_fat_Alta.Cd_Pro_Fat (+)
+    AND solic_sangue.cd_setor                    = setor.cd_setor
+    AND convenio.tp_convenio                    IN ('H', 'P', 'C')
+    AND config_ffcv.sn_sangue_automatico         = 'B'
+    AND config_ffcv.cd_multi_empresa             = dbamv.pkg_mv2000.le_empresa
+    AND ATENDIME.CD_MULTI_EMPRESA                = :CAMPO_CD_MULTI_EMPRESA
+    and (trunc(atendime.dt_Atendimento)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or        trunc(atendime.dt_Alta)  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    AND 1 = 1
+  UNION ALL
+     SELECT v_cd_setor cd_setor              ,
+      v_nm_setor nm_setor                    ,
+      v_cd_atendimento cd_atendimento        ,
+      v_cd_atendimento Cd_Atendimento_Pai    ,
+      v_Cd_Pro_Fat_Entrada Cd_Pro_Fat_Entrada,
+      v_Ds_Pro_Fat_Entrada Ds_Pro_Fat_Entrada,
+      v_Cd_Pro_Fat_Alta Cd_Pro_Fat_Alta      ,
+      v_Ds_Pro_Fat_Alta Ds_Pro_Fat_Alta      ,
+      v_Dt_Atendimento Dt_Atendimento        ,
+      v_Dt_Alta Dt_Alta                      ,
+      v_nm_paciente nm_paciente              ,
+      v_Dt_Atendimento Dt_Atendimento_Pai    ,
+      v_Dt_Alta Dt_Alta_Pai                  ,
+      NULL Nm_Paciente_Pai                   ,
+      v_Cd_convenio Cd_convenio              ,
+      v_nm_convenio nm_convenio              ,
+      v_cd_pro_fat cd_pro_fat                ,
+      v_ds_pro_fat ds_pro_fat                ,
+      v_Ds_unidade Ds_unidade                ,
+      0 Qt_Prescrita                         ,
+      0 Qt_Horarios                          ,
+      0 Qt_Prescrita_Checados                ,
+      0 Qt_Prescrita_Checados_Nao            ,
+      v_Qt_horas qt_saida                    ,
+      0 Qt_devolvida                         ,
+      v_Qt_horas Qt_Consumo                  ,
+      v_Qt_Faturada Qt_Faturada              ,
+      NULL Regra                             ,
+      v_Cd_gru_pro Cd_gru_pro
+       FROM dbamv.v_liga_desliga_ffcv
+      WHERE 1=1
+       and (   V_dt_Atendimento  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM)
+  	                                                         or  V_dt_Alta  between trunc(:CAMPO_DT_INI)
+  	                                                  and trunc(:CAMPO_DT_FIM))
+    )
+ GROUP BY Cd_Setor                           ,
+    Nm_Setor                                 ,
+    NVL( Cd_Atendimento_Pai, Cd_Atendimento ),
+    NVL( Dt_Atendimento_Pai, Dt_Atendimento ),
+    NVL( Dt_Alta_Pai, Dt_Alta )              ,
+    NVL( Nm_Paciente_Pai, Nm_Paciente )      ,
+    Cd_convenio                              ,
+    Nm_convenio                              ,
+    Cd_Pro_Fat                               ,
+    Ds_Pro_Fat                               ,
+    Ds_unidade                               ,
+    Regra                                    ,
+    Cd_gru_pro
+  )
+  WHERE 1=1
+  AND 1=1
+  AND 1=1
+ORDER BY 10

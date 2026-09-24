@@ -1,0 +1,175 @@
+/*----------------------------------------------------------------------------*/
+--R_ENDERECO
+SELECT   cd_estoque,
+         ds_estoque,
+         ds_endereco,
+         cd_produto,
+         ds_produto,
+         cd_lote,
+         dt_validade,
+         ds_marca,
+         qt_estoque_atual / DBAMV.verif_vl_fator_prod(cd_produto) qt_estoque_atual
+FROM     (
+                         SELECT DISTINCT estoque.cd_estoque  cd_estoque ,
+                                         estoque.ds_estoque  ds_estoque ,
+                                         lot_pro.ds_endereco ds_endereco ,
+                                         produto.cd_produto  cd_produto ,
+                                         produto.ds_produto  ds_produto ,
+                                         lot_pro.cd_lote     cd_lote ,
+                                         lot_pro.dt_validade dt_validade ,
+                                         lot_pro.ds_marca    ds_marca ,
+                                         Decode ('',
+                                                 'N', lot_pro.qt_estoque_atual,
+                                                 Nvl(
+                                                       (
+                                                       SELECT est_pro.qt_estoque_atual
+                                                       FROM   est_pro
+                                                       WHERE  est_pro.cd_produto = produto.cd_produto
+                                                       AND    est_pro.cd_estoque = estoque.cd_estoque),0)) qt_estoque_atual
+                         FROM            dbamv.lot_pro lot_pro ,
+                                         dbamv.produto produto ,
+                                         dbamv.estoque estoque
+                         WHERE           produto.cd_produto = lot_pro.cd_produto
+                         AND             estoque.cd_estoque = lot_pro.cd_estoque
+                         AND             estoque.sn_enderecamento_produto = 'S'
+                         AND             lot_pro.ds_endereco IS NOT NULL
+                         UNION ALL
+                         SELECT DISTINCT end_car.cd_estoque cd_estoque ,
+                                         estoque.ds_estoque ds_estoque ,
+                                         n1.cd_endereco_nivel_1
+                                                         ||'.'
+                                                         ||n2.cd_endereco_nivel_2
+                                                         ||'.'
+                                                         ||n3.cd_endereco_nivel_3
+                                                         ||'.'
+                                                         ||n4.cd_endereco_nivel_4
+                                                         || Decode(n5.cd_endereco_nivel_5,
+                                                                   NULL, NULL,
+                                                                   '.')
+                                                         || n5.cd_endereco_nivel_5
+                                                         || Decode(n6.cd_endereco_nivel_6,
+                                                                   NULL, NULL,
+                                                                   '.')
+                                                         || n6.cd_endereco_nivel_6
+                                                         || Decode(n7.cd_endereco_nivel_7,
+                                                                   NULL, NULL,
+                                                                   '.')
+                                                         || n7.cd_endereco_nivel_7
+                                                         || Decode(n8.cd_endereco_nivel_8,
+                                                                   NULL, NULL,
+                                                                   '.')
+                                                         || n8.cd_endereco_nivel_8 ds_endereco,
+                                         NULL                                      cd_produto ,
+                                         NULL                                      ds_produto ,
+                                         NULL                                      cd_lote ,
+                                         NULL                                      dt_validade ,
+                                         NULL                                      ds_marca ,
+                                         0                                         qt_estoque_atual
+                         FROM            dbamv.endereco_nivel_1 n1,
+                                         dbamv.endereco_nivel_2 n2,
+                                         dbamv.endereco_nivel_3 n3,
+                                         dbamv.endereco_nivel_4 n4,
+                                         dbamv.endereco_nivel_5 n5,
+                                         dbamv.endereco_nivel_6 n6,
+                                         dbamv.endereco_nivel_7 n7,
+                                         dbamv.endereco_nivel_8 n8,
+                                         dbamv.endereco_caracteristica end_car,
+                                         dbamv.estoque estoque
+                         WHERE           n1.cd_endereco_nivel_1 = n2.cd_endereco_nivel_1
+                         AND             n3.cd_endereco_nivel_1 = n2.cd_endereco_nivel_1
+                         AND             n3.cd_endereco_nivel_2 = n2.cd_endereco_nivel_2
+                         AND             n4.cd_endereco_nivel_1 = n3.cd_endereco_nivel_1
+                         AND             n4.cd_endereco_nivel_2 = n3.cd_endereco_nivel_2
+                         AND             n4.cd_endereco_nivel_3 = n3.cd_endereco_nivel_3
+                         AND             n5.cd_endereco_nivel_1(+) = n4.cd_endereco_nivel_1
+                         AND             n5.cd_endereco_nivel_2(+) = n4.cd_endereco_nivel_2
+                         AND             n5.cd_endereco_nivel_3(+) = n4.cd_endereco_nivel_3
+                         AND             n5.cd_endereco_nivel_4(+) = n4.cd_endereco_nivel_4
+                         AND             n6.cd_endereco_nivel_1(+) = n5.cd_endereco_nivel_1
+                         AND             n6.cd_endereco_nivel_2(+) = n5.cd_endereco_nivel_2
+                         AND             n6.cd_endereco_nivel_3(+) = n5.cd_endereco_nivel_3
+                         AND             n6.cd_endereco_nivel_4(+) = n5.cd_endereco_nivel_4
+                         AND             n6.cd_endereco_nivel_5(+) = n5.cd_endereco_nivel_5
+                         AND             n7.cd_endereco_nivel_1(+) = n6.cd_endereco_nivel_1
+                         AND             n7.cd_endereco_nivel_2(+) = n6.cd_endereco_nivel_2
+                         AND             n7.cd_endereco_nivel_3(+) = n6.cd_endereco_nivel_3
+                         AND             n7.cd_endereco_nivel_4(+) = n6.cd_endereco_nivel_4
+                         AND             n7.cd_endereco_nivel_5(+) = n6.cd_endereco_nivel_5
+                         AND             n7.cd_endereco_nivel_6(+) = n6.cd_endereco_nivel_6
+                         AND             n8.cd_endereco_nivel_1(+) = n7.cd_endereco_nivel_1
+                         AND             n8.cd_endereco_nivel_2(+) = n7.cd_endereco_nivel_2
+                         AND             n8.cd_endereco_nivel_3(+) = n7.cd_endereco_nivel_3
+                         AND             n8.cd_endereco_nivel_4(+) = n7.cd_endereco_nivel_4
+                         AND             n8.cd_endereco_nivel_5(+) = n7.cd_endereco_nivel_5
+                         AND             n8.cd_endereco_nivel_6(+) = n7.cd_endereco_nivel_6
+                         AND             n8.cd_endereco_nivel_7(+) = n7.cd_endereco_nivel_7
+                         AND             (
+                                                         Decode(n8.sn_bloqueio_nivel_8,
+                                                                NULL, Decode(n7.sn_bloqueio_nivel_7,
+                                                                             NULL, Decode (n6.sn_bloqueio_nivel_6,
+                                                                                           NULL, Decode ( n5.sn_bloqueio_nivel_5,
+                                                                                                         NULL, sn_bloqueio_nivel_4 ,
+                                                                                                         sn_bloqueio_nivel_5),
+                                                                                           sn_bloqueio_nivel_6),
+                                                                             sn_bloqueio_nivel_7),
+                                                                sn_bloqueio_nivel_8) = 'N'
+                                         AND             Decode(n8.sn_ativo_nivel_8,
+                                                                NULL, Decode(n7.sn_ativo_nivel_7,
+                                                                             NULL, Decode(n6.sn_ativo_nivel_6,
+                                                                                          NULL, Decode( n5.sn_ativo_nivel_5,
+                                                                                                       NULL, sn_ativo_nivel_4 ,
+                                                                                                       sn_ativo_nivel_5),
+                                                                                          sn_ativo_nivel_6),
+                                                                             sn_ativo_nivel_7),
+                                                                sn_ativo_nivel_8) = 'S' )
+                         AND             end_car.cd_endereco_nivel_1 = n1.cd_endereco_nivel_1
+                         AND             Nvl(end_car.cd_endereco_nivel_2, n2.cd_endereco_nivel_2) = n2.cd_endereco_nivel_2
+                         AND             Nvl(end_car.cd_endereco_nivel_3, n3.cd_endereco_nivel_3) = n3.cd_endereco_nivel_3
+			 AND		NVL(END_CAR.CD_ENDERECO_NIVEL_4, N4.CD_ENDERECO_NIVEL_4) = N4.CD_ENDERECO_NIVEL_4
+			 AND		NVL(END_CAR.CD_ENDERECO_NIVEL_5, NVL(N5.CD_ENDERECO_NIVEL_5,'*-*')) = NVL(N5.CD_ENDERECO_NIVEL_5,'*-*')
+ 			 AND		NVL(END_CAR.CD_ENDERECO_NIVEL_6, NVL(N6.CD_ENDERECO_NIVEL_6,'*-*')) = NVL(N6.CD_ENDERECO_NIVEL_6,'*-*')
+ 			 AND		NVL(END_CAR.CD_ENDERECO_NIVEL_7, NVL(N7.CD_ENDERECO_NIVEL_7,'*-*')) = NVL(N7.CD_ENDERECO_NIVEL_7,'*-*')
+                         AND             end_car.cd_estoque = estoque.cd_estoque
+                         AND             NOT EXISTS
+                                         (
+                                                SELECT 1
+                                                FROM   dbamv.lot_pro
+                                                WHERE  lot_pro.ds_endereco = n1.cd_endereco_nivel_1
+                                                              ||'.'
+                                                              ||n2.cd_endereco_nivel_2
+                                                              ||'.'
+                                                              ||n3.cd_endereco_nivel_3
+                                                              ||'.'
+                                                              ||n4.cd_endereco_nivel_4
+                                                              || Decode(n5.cd_endereco_nivel_5,
+                                                                        NULL, NULL,
+                                                                        '.')
+                                                              || n5.cd_endereco_nivel_5
+                                                              || Decode(n6.cd_endereco_nivel_6,
+                                                                        NULL, NULL,
+                                                                        '.')
+                                                              || n6.cd_endereco_nivel_6
+                                                              || Decode(n7.cd_endereco_nivel_7,
+                                                                        NULL, NULL,
+                                                                        '.')
+                                                              || n7.cd_endereco_nivel_7
+                                                              || Decode(n8.cd_endereco_nivel_8,
+                                                                        NULL, NULL,
+                                                                        '.')
+                                                              || n8.cd_endereco_nivel_8)) endereco
+WHERE    1=1     
+GROUP BY cd_estoque,
+         ds_estoque,
+         ds_endereco,
+         cd_produto,
+         ds_produto,
+         cd_lote,
+         dt_validade,
+         ds_marca,
+         qt_estoque_atual
+ORDER BY cd_estoque ,
+         ds_endereco ,
+         cd_produto ,
+         cd_lote ,
+         dt_validade ,
+         ds_marca

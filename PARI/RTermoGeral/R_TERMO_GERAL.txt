@@ -1,0 +1,177 @@
+/*----------------------------------------------------------------------------*/
+--R_TERMO_GERAL
+SELECT PACIENTE.CD_PACIENTE,
+               PACIENTE.NM_PACIENTE,
+               PACIENTE.DT_NASCIMENTO,
+               PACIENTE.TP_SEXO,
+               PACIENTE.TP_COR,
+               DBAMV.FNC_ESTADO_CIVIL(PACIENTE.TP_ESTADO_CIVIL) TP_ESTADO_CIVIL1,
+               PACIENTE.NR_DOCUMENTO,
+               PACIENTE.NM_MAE,
+               PACIENTE.DS_ENDERECO,
+               PACIENTE.NR_ENDERECO,
+               PACIENTE.NM_BAIRRO,
+               PACIENTE.NR_CEP,
+               PACIENTE.NR_FONE,
+               PACIENTE.DT_CADASTRO,
+               PACIENTE.NR_IDENTIDADE,
+               PACIENTE.DS_OM_IDENTIDADE,
+               PACIENTE.NR_CPF,
+               ATENDIME.CD_ATENDIMENTO,
+               ATENDIME.CD_PACIENTE,
+               ATENDIME.DT_ATENDIMENTO,
+               ATENDIME.DT_ALTA,
+               ATENDIME.HR_ALTA,
+               ATENDIME.HR_ATENDIMENTO,
+               ATENDIME.CD_SERVICO,
+               ATENDIME.CD_SER_DIS,
+               ATENDIME.TP_ATENDIMENTO,
+               ATENDIME.CD_CONVENIO,
+               ORI_ATE.CD_ORI_ATE,
+               ORI_ATE.DS_ORI_ATE,
+               DECODE(CONVENIO.TP_CONVENIO, 'C',  ATENDIME.CD_PRO_INT,
+                                                                              'P',  ATENDIME.CD_PRO_INT,
+                                                                              'A',  PRO_FAT.CD_SUS,
+                                                                              'H', PRO_FAT.CD_SUS)     CD_PRO_INT,
+               PRO_FAT.DS_PRO_FAT    DS_PRO_INT,
+               PRESTADOR.NM_PRESTADOR,
+               PRESTADOR.NR_CPF_CGC,
+               PRESTADOR.DS_CODIGO_CONSELHO,
+               PRESTADOR.NR_FONE_CONTATO,
+               PRESTADOR.NR_FONE_COMERCIAL,
+               LEITO.DS_ENFERMARIA,
+               LEITO.DS_LEITO,
+               UNID_INT.CD_UNID_INT,
+               UNID_INT.DS_UNID_INT,
+               UNID_INT.DS_LOCALIZACAO,
+               CONVENIO.NM_CONVENIO,
+               CID.DS_CID,
+               SERVICO.DS_SERVICO,
+               SERVICO.TP_ANAMNESE TP_ANAM_SERVICO,
+               SER_DIS.DS_SER_DIS,
+               SER_DIS.TP_ANAMNESE TP_ANAM_SER_DIS,
+               TIP_ACOM.DS_TIP_ACOM,
+               RESPONSA.NM_RESPONSAVEL,
+               RESPONSA.NR_FONE                NR_FONE_RESPONSAVEL,
+               RESPONSA.DS_DOCUMENTO   DS_DOCUMENTO_RESPONSAVEL,
+               RESPONSA.NR_CPF                    NR_CPF_RESP,
+               RESPONSA.DS_ENDERECO      DS_ENDERECO_RESP,
+               RESPONSA.NM_BAIRRO            NM_BAIRRO_RESP,
+               RESPONSA.DS_COMPLEMENTO   DS_COMPLEMENTO_RESP,
+               RESPONSA.NR_ENDERECO        NR_ENDERECO_RESPONSA,
+               CID_RESP.NM_CIDADE              NM_CIDADE_RESP,
+               CID_RESP.CD_UF                       UF_RESP,
+               RESPONSA.DS_CONTATO_FAMILIA,
+               CARTEIRA.NR_CARTEIRA,
+               CARTEIRA.NM_EMPRESA,
+               CARTEIRA.NM_TITULAR,
+               CON_PLA.DS_CON_PLA,
+               SUBSTR( CIDADE.NM_CIDADE, 1, 100)  NM_CIDADE,
+               CIDADE.CD_UF,
+               ESPEC_SUS.DS_ESPEC_SUS,
+              TIP_PAREN.DS_TIP_PAREN,
+               DS_INFO_ATENDIMENTO,
+               TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+               SUB_PLANO.DS_SUB_PLANO
+			   ,PACIENTE.NM_PAI
+               ,PROFISSAO.NM_PROFISSAO
+               ,ATENDIME.NR_CHAMADA_PAINEL
+               ,ESPECIALID.DS_ESPECIALID
+               ,LOC_PROCED.DS_LOC_PROCED
+               ,NULL DT_ULT_ATENDE
+               ,NULL DIAG_ULT_ATENDE
+               ,NULL CD_PAC_BARRAS
+               ,SubStr((SELECT  LISTAGG(CONCAT(MOT_ENT.DS_MOT_ENT,',') ) WITHIN GROUP  (ORDER BY MOT_ENT.DS_MOT_ENT ASC)
+                  FROM DBAMV.ATE_MOTIVO ATE_MOT
+                 INNER JOIN DBAMV.MOT_ENT MOT_ENT ON MOT_ENT.CD_MOT_ENT = ATE_MOT.CD_MOT_ENT
+                 WHERE  ATE_MOT.CD_ATENDIMENTO = ATENDIME.cd_atendimento), 0 , Length ((SELECT LISTAGG(CONCAT(MOT_ENT.DS_MOT_ENT,',') ) WITHIN GROUP  (ORDER BY MOT_ENT.DS_MOT_ENT ASC)
+                  FROM DBAMV.ATE_MOTIVO ATE_MOT
+                 INNER JOIN DBAMV.MOT_ENT MOT_ENT ON MOT_ENT.CD_MOT_ENT = ATE_MOT.CD_MOT_ENT
+                 WHERE  ATE_MOT.CD_ATENDIMENTO = ATENDIME.cd_atendimento))-1) DS_MOT_ENT
+               ,DECODE(PACIENTE.SN_UTIL_IDENTIDADE_GENERO,
+                      'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,'Id. Gênero: '|| IDENTIDADE_GENERO.DS_IDENTIDADE_GENERO,
+                         NULL),
+                    NULL) AS IDENTIDADE_GENERO
+               , DECODE(PACIENTE.SN_UTIL_ORIENTACAO_SEXUAL,
+                      'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE'),
+                         1,'Orient. Sexual: '|| ORIENTACAO_SEXUAL.DS_ORIENTACAO_SEXUAL,
+                         NULL),
+                    NULL)  AS ORIENTACAO_SEXUAL	  
+      FROM DBAMV.PACIENTE,
+           DBAMV.CIDADE,
+           DBAMV.ATENDIME,
+           DBAMV.ORI_ATE,
+           DBAMV.PRO_FAT,
+           DBAMV.PRESTADOR,
+           DBAMV.LEITO,
+           DBAMV.UNID_INT,
+           DBAMV.CONVENIO,
+           DBAMV.CID,
+           DBAMV.SERVICO,
+           DBAMV.SER_DIS,
+           DBAMV.TIP_ACOM,
+           DBAMV.RESPONSA,
+           DBAMV.CIDADE            CID_RESP,
+           DBAMV.CARTEIRA,
+           DBAMV.CON_PLA,
+           DBAMV.ESPEC_SUS,
+           DBAMV.TIP_PAREN,
+           DBAMV.TIPO_INTERNACAO,
+           DBAMV.ATENDIME_INFO,
+           DBAMV.SUB_PLANO,
+		   DBAMV.MULTI_EMPRESAS
+           ,DBAMV.PROFISSAO
+           ,DBAMV.ESPECIALID
+           ,DBAMV.LOC_PROCED
+           ,DBAMV.IDENTIDADE_GENERO
+           ,DBAMV.ORIENTACAO_SEXUAL
+WHERE  ATENDIME.CD_ATENDIMENTO  =  :CAMPO_PCD_ATENDIMENTO
+AND        ATENDIME.CD_ATENDIMENTO  =  ATENDIME_INFO.CD_ATENDIMENTO (+)
+AND        ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE(+)
+AND        PACIENTE.CD_CIDADE  =  CIDADE.CD_CIDADE(+)
+AND        ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE(+)
+AND        ATENDIME.CD_PRO_INT  =  PRO_FAT.CD_PRO_FAT(+)
+AND        PRO_FAT.CD_ESPEC_SUS  =  ESPEC_SUS.CD_ESPEC_SUS(+)
+AND        ATENDIME.CD_PRESTADOR  =  PRESTADOR.CD_PRESTADOR(+)
+AND        ATENDIME.CD_LEITO  =  LEITO.CD_LEITO(+)
+AND        LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT(+)
+AND        ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO(+)
+AND        ATENDIME.CD_CID  =  CID.CD_CID (+)
+AND        ATENDIME.CD_SERVICO  =  SERVICO.CD_SERVICO (+)
+AND        ATENDIME.CD_SER_DIS  =  SER_DIS.CD_SER_DIS (+)
+AND        ATENDIME.CD_TIP_ACOM  =  TIP_ACOM.CD_TIP_ACOM (+)
+AND        ATENDIME.CD_ATENDIMENTO  =  RESPONSA.CD_ATENDIMENTO (+)
+AND        RESPONSA.CD_CIDADE  =  CID_RESP.CD_CIDADE(+)
+AND        TIP_PAREN.CD_TIP_PAREN(+) = RESPONSA.CD_TIP_PAREN
+AND        ATENDIME.CD_PACIENTE  =  CARTEIRA.CD_PACIENTE (+)
+AND        ATENDIME.CD_CONVENIO  =  CARTEIRA.CD_CONVENIO(+)
+AND        ATENDIME.CD_CON_PLA  =  CARTEIRA.CD_CON_PLA (+)
+AND        ATENDIME.CD_CON_PLA  =  CON_PLA.CD_CON_PLA
+AND        CON_PLA.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_TIPO_INTERNACAO = TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+)
+AND        ATENDIME.CD_SUB_PLANO = SUB_PLANO.CD_SUB_PLANO(+)
+AND        ATENDIME.CD_CON_PLA  = SUB_PLANO.CD_CON_PLA(+)
+AND         ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+AND        ATENDIME.CD_CONVENIO = SUB_PLANO.CD_CONVENIO(+)
+AND        MULTI_EMPRESAS.CD_MULTI_EMPRESA = ATENDIME.CD_MULTI_EMPRESA
+AND		   PROFISSAO.CD_PROFISSAO(+) = PACIENTE.CD_PROFISSAO
+AND		   ATENDIME.NR_CARTEIRA = CARTEIRA.NR_CARTEIRA(+)
+AND		   PRESTADOR.CD_ESPECIALID_RESIDENTE = ESPECIALID.CD_ESPECIALID(+)
+AND		   LOC_PROCED.CD_LOC_PROCED(+) = ATENDIME.CD_LOC_PROCED
+AND        IDENTIDADE_GENERO.CD_IDENTIDADE_GENERO(+) = PACIENTE.CD_IDENTIDADE_GENERO
+AND        ORIENTACAO_SEXUAL.CD_ORIENTACAO_SEXUAL(+) = PACIENTE.CD_ORIENTACAO_SEXUAL

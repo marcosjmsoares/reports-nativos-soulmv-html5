@@ -1,0 +1,82 @@
+/*----------------------------------------------------------------------------*/
+--R_EXAME_SOLIC_PRESTADOR
+SELECT * FROM (
+SELECT   PED_RX.CD_PRESTADOR        CD_PRESTADOR
+        ,DECODE(PED_RX.CD_PRESTADOR, NULL, PED_RX.NM_PRESTADOR, PRESTADOR.NM_PRESTADOR)  NM_PRESTADOR
+        ,CONVENIO.CD_CONVENIO       CD_CONVENIO
+        ,CONVENIO.NM_CONVENIO       NM_CONVENIO
+        ,decode( convenio.tp_convenio, 'A', exa_rx.cd_procedimento_sia
+                                     , 'H', exa_rx.cd_procedimento_sih
+                                     , 'C', exa_rx.exa_rx_cd_pro_fat
+                                     , 'P', exa_rx.exa_rx_cd_pro_fat, '' )    CD_PRO_FAT
+        ,DECODE( convenio.tp_convenio, 'A', procedimento_sus.ds_procedimento
+                                     , 'H', PRO_FAT.DS_PRO_FAT
+                                     , 'C', PRO_FAT.DS_PRO_FAT
+                                     , 'P', PRO_FAT.DS_PRO_FAT ) DS_PRO_FAT
+        ,COUNT(*)                   QTD
+        ,dbamv.calc_vl_proc_unit(  convenio.tp_convenio,
+                                   decode( convenio.tp_convenio, 'A', exa_rx.cd_procedimento_sia
+                                                               , 'H', exa_rx.cd_procedimento_sih
+                                                               , 'C', exa_rx.exa_rx_cd_pro_fat
+                                                               , 'P', exa_rx.exa_rx_cd_pro_fat
+                                                               , '' ),
+                                          ped_rx.dt_pedido,
+                                          ped_rx.hr_pedido,
+                                          convenio.cd_convenio,
+                                          con_pla.cd_con_pla,
+                                          atendime.tp_atendimento,
+                                          atendime.cd_tip_acom,
+                                          'U' )     VL_UNITARIO
+FROM    DBAMV.ATENDIME,
+        DBAMV.PED_RX,
+        DBAMV.PRESTADOR,
+        DBAMV.CONVENIO,
+        DBAMV.ITPED_RX,
+        DBAMV.EXA_RX,
+        DBAMV.PRO_FAT,
+        DBAMV.CON_PLA,
+        DBAMV.procedimento_sus
+,Dbamv.Empresa_Con_Pla
+Where Empresa_Con_Pla.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And Empresa_Con_Pla.Cd_Convenio = Con_Pla.Cd_Convenio
+And Empresa_Con_Pla.Cd_Con_Pla = Con_Pla.Cd_Con_Pla
+AND         ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+And          TRUNC(PED_RX.DT_PEDIDO)  BETWEEN  :CAMPO_DT_INICIAL  AND   
+AND         ATENDIME.CD_ATENDIMENTO  =  PED_RX.CD_ATENDIMENTO
+AND         PED_RX.CD_PRESTADOR  =  PRESTADOR.CD_PRESTADOR(+)
+AND         PED_RX.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND         PED_RX.CD_CONVENIO  =  CON_PLA.CD_CONVENIO(+)
+AND         PED_RX.CD_CON_PLA  =  CON_PLA.CD_CON_PLA(+)
+AND         PED_RX.CD_PED_RX  =  ITPED_RX.CD_PED_RX
+AND         ITPED_RX.CD_EXA_RX  =  EXA_RX.CD_EXA_RX
+AND         EXA_RX.EXA_RX_CD_PRO_FAT  =  PRO_FAT.CD_PRO_FAT(+)
+AND         EXA_RX.cd_procedimento_sia      = Procedimento_Sus.Cd_Procedimento  (+)
+GROUP BY PED_RX.CD_PRESTADOR,
+                    DECODE(PED_RX.CD_PRESTADOR, NULL, PED_RX.NM_PRESTADOR, PRESTADOR.NM_PRESTADOR),
+                    CONVENIO.CD_CONVENIO,
+                    CONVENIO.NM_CONVENIO,
+                    decode( convenio.tp_convenio, 'A', exa_rx.cd_procedimento_sia
+                                                , 'H', exa_rx.cd_procedimento_sih
+                                                , 'C', exa_rx.exa_rx_cd_pro_fat
+                                                , 'P', exa_rx.exa_rx_cd_pro_fat, '' ),
+                    decode( convenio.tp_convenio, 'A', procedimento_sus.ds_procedimento
+                                                , 'H', PRO_FAT.DS_PRO_FAT
+                                                , 'C', PRO_FAT.DS_PRO_FAT
+                                                , 'P', PRO_FAT.DS_PRO_FAT ),
+                    dbamv.calc_vl_proc_unit(  convenio.tp_convenio,
+                                              decode( convenio.tp_convenio, 'A', exa_rx.cd_procedimento_sia
+                                                                            , 'H', exa_rx.cd_procedimento_sih
+                                                                            , 'C', exa_rx.exa_rx_cd_pro_fat
+                                                                            , 'P', exa_rx.exa_rx_cd_pro_fat, '' ),
+                                              ped_rx.dt_pedido,
+                                              ped_rx.hr_pedido,
+                                              convenio.cd_convenio,
+                                              con_pla.cd_con_pla,
+                                              atendime.tp_atendimento,
+                                              atendime.cd_tip_acom,
+                                              'U' )
+ORDER BY NM_PRESTADOR,
+         CONVENIO.NM_CONVENIO
+)
+ORDER BY CD_PRESTADOR,NM_PRESTADOR,
+NM_CONVENIO,CD_CONVENIO,CD_PRO_FAT

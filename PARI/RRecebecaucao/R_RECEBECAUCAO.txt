@@ -1,0 +1,60 @@
+/*----------------------------------------------------------------------------*/
+--R_RECEBECAUCAO
+SELECT aten.CD_ATENDIMENTO  CD_ATENDIMENTO,
+       DECODE(CONV.TP_CONVENIO, 'C',  ATEN.CD_PRO_INT,
+                                'P',  ATEN.CD_PRO_INT,
+                                'A',  PRO_FAT.CD_SUS,
+                                'H', PRO_FAT.CD_SUS)     CD_PRO_INT,
+               pro_fat.DS_PRO_FAT     DS_PRO_INT,
+               paci.CD_PACIENTE       CD_PACIENTE,
+               paci.NM_PACIENTE       NM_PACIENTE,
+               paci.NR_IDENTIDADE     NR_DOCUMENTO,
+               paci.DS_OM_IDENTIDADE  DS_OM_IDENTIDADE,
+               paci.DS_ENDERECO       DS_ENDERECO,
+               paci.NR_ENDERECO       NR_ENDERECO,
+               paci.NM_BAIRRO         NM_BAIRRO,
+               paci.NR_CEP            NR_CEP,
+               paci.NR_FONE           NR_FONE,
+               paci.NR_CPF            NR_CPF_PACIENTE,
+               cida.NM_CIDADE         NM_CIDADE,
+               cida.CD_UF             CD_UF  ,
+               conv.NM_CONVENIO       NM_CONVENIO,
+               cauc.RG_PROPRIETARIO   RG_PROP_CAUC,
+               cauc.NM_PROPRIETARIO   NM_PROP_CAUC,
+               cauc.NR_CHEQUE         NR_DOC_CAUCAO,
+               cauc.CPF_PROPRIETARIO  CPF_PROP_CAUC,
+	     cauc.CD_MOEDA CD_MOEDA,
+               Nvl(cauc.VL_MOEDA, cauc.VL_CAUCAO)         VL_CAUCAO_RECIBO,
+               DECODE(CAUC.TP_PAGAMENTO, 'Q',  BANCO.NM_BANCO,
+                                                                         'C',  FINC.NM_FIN_CAR,
+                                                                         'P',  NULL,
+                                                                         'D',  NULL)  NM_BANCO_FIN_CAR,
+              mot_caucao.DS_MOT_CAUCAO  DS_MOT_CAUCAO,
+              cauc.CD_MOT_CAUCAO  CD_MOT_CAUCAO,
+              cauc.DS_OBSERVACAO_CAUCAO  DS_OBSERVACAO_CAUCAO,
+              CAUC.TP_CAUCAO TP_CAUCAO,
+              CAUC.TP_PAGAMENTO TP_PAGAMENTO
+                  ,(SELECT cidade.nm_cidade
+                   FROM dbamv.cidade,
+                               dbamv.hospital
+                WHERE cidade.cd_cidade                = hospital.cd_cidade
+                      AND hospital.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)  NM_CIDADE_HOSPITAL 
+FROM     DBAMV.ATENDIME aten,
+            DBAMV.PACIENTE paci,
+           DBAMV.PRO_FAT,
+           DBAMV.CIDADE cida,
+           DBAMV.CONVENIO conv,
+           DBAMV.CAUCAO  CAUC ,
+           DBAMV.banco  BANCO ,
+           DBAMV.FIN_CAR FINC,
+           DBAMV.MOT_CAUCAO mot_caucao
+WHERE     aten.CD_ATENDIMENTO  =  :CAMPO_ATEND
+AND       aten.CD_PACIENTE     =  paci.CD_PACIENTE
+AND       aten.CD_PRO_INT      =  PRO_FAT.CD_PRO_FAT(+)
+AND       paci.CD_CIDADE       =  cida.CD_CIDADE(+)
+AND       aten.CD_CONVENIO     =  conv.CD_CONVENIO
+AND       ATEN.CD_ATENDIMENTO  =  CAUC.CD_ATENDIMENTO
+AND       cauc.CD_FIN_CAR      =  finc.CD_FIN_CAR(+)
+AND       cauc.CD_BANCO        =  banco.CD_BANCO(+)
+and        cauc.CD_MOT_CAUCAO  = mot_caucao.CD_MOT_CAUCAO(+)
+AND       ATEN.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA

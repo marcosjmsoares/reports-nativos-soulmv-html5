@@ -1,0 +1,398 @@
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_BANC_TIP
+SELECT * FROM(
+SELECT    MOVIMENTACAO.empresa
+                ,MOVIMENTACAO.cd_multi_empresa
+                ,MOVIMENTACAO.Empresa_o
+                ,MOVIMENTACAO.CD_CON_COR
+	,MOVIMENTACAO.DS_CON_COR
+	,MOVIMENTACAO.DS_AGENCIA
+	,MOVIMENTACAO.NR_CONTA
+	,MOVIMENTACAO.DS_BANCO
+	,MOVIMENTACAO.NR_DOCUMENTO_IDENTIFICACAO
+	,MOVIMENTACAO.CD_MOV_CONCOR
+	,MOVIMENTACAO.CD_LAN_CONCOR
+	,MOVIMENTACAO.DT_MOVIMENTACAO
+	,MOVIMENTACAO.DS_MOVIMENTACAO
+	,MOVIMENTACAO.VL_MOVIMENTACAO
+	,MOVIMENTACAO.TP_OPERACAO_SALDO_CONTA
+	,MOVIMENTACAO.SN_TRANSFERENCIA
+	,MOVIMENTACAO.SN_CONCILIADO SN_CONCILIADO
+                ,MOVIMENTACAO.DS_TIP_CONTA_CORRENTE
+                ,MOVIMENTACAO.NR_ORDEM
+                ,MOVIMENTACAO.CD_MOV_CAIXA
+                ,MOVIMENTACAO.CD_MOV_DEPOSITO_AGRUP
+                ,(SELECT VL_SALDO_BANCARIO(MOVIMENTACAO.CD_CON_COR, TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24'), MOVIMENTACAO.SN_CONCILIADO, 'ANT', :CAMPO_MOV_CARTAO, :CAMPO_TP_DT_CHEQUE) FROM dual) SALDO_ANT
+FROM (
+                 SELECT   'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+                                  ,e.cd_multi_empresa  cd_multi_empresa
+                                  ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+                                  ,  V1.CD_CON_COR
+                 	,V1.DS_CON_COR
+                 	,V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA                      DS_AGENCIA
+                 	,V1.NR_CONTA
+                 	,V1.CD_BANCO || ' - ' || V1.DS_BANCO                             DS_BANCO
+                 	,V2.NR_DOCUMENTO_IDENTIFICACAO
+                 	,V2.CD_MOV_CONCOR
+                 	,V2.CD_LAN_CONCOR
+                 	, trunc(decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno)) DT_MOVIMENTACAO
+                 	,V2.DS_MOVIMENTACAO
+                 	,Decode(V2.TP_OPERACAO_SALDO_CONTA, '+', V2.VL_MOVIMENTACAO + Nvl(Tar.Vl_Movimentacao,0), '-', V2.VL_MOVIMENTACAO - Nvl(Tar.Vl_Movimentacao,0)) VL_MOVIMENTACAO
+                 	,V2.TP_OPERACAO_SALDO_CONTA
+                 	,V2.SN_TRANSFERENCIA
+                 	,V2.SN_CONCILIADO
+                                 ,Nvl(TIP_CONCOR.DS_TIP_CONTA_CORRENTE,'NÃO CLASSIFICADO')  DS_TIP_CONTA_CORRENTE
+                                 ,TIP_CONCOR.NR_ORDEM
+                                 ,V2.CD_MOV_CAIXA
+                                 ,V2.Cd_Mov_Deposito_Agrup
+                 FROM       DBAMV.V_BCO_CONTA  V1
+                                 ,dbamv.multi_empresas e
+                 	,DBAMV.V_MOV_CONCOR V2
+                                 ,DBAMV.TIP_CONTA_CORRENTE  TIP_CONCOR
+                                 ,(select  count(*) total,
+                                             count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+                                             m.cd_mov_deposito_agrup
+                                  from   dbamv.mov_concor M
+                                  where  m.cd_mov_deposito_agrup Is Not Null
+                                  AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                  group by M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+                                  ( Select Cd_Mov_Pai,
+                                               Nvl(Sum(Vl_Movimentacao),0) Vl_Movimentacao
+                                      From Dbamv.V_Mov_Concor M
+                                   Where :CAMPO_MOV_CARTAO  = 'L'
+                                       And M.Cd_Estrutural = '1.6.1.1.10.3'
+                                    AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                    Group By Cd_Mov_Pai ) Tar
+                 WHERE  V1.cd_multi_empresa = e.cd_multi_empresa
+                AND decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                            decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                          ,v2.dt_estorno)
+                    >= TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                AND decode(v2.dt_estorno,null,DECODE( V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                          decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                          ,v2.dt_estorno)
+                  <= TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                 AND    V1.CD_CON_COR       =        V2.CD_CON_COR
+                 AND    V1.CD_TIP_CONTA_CORRENTE      =       TIP_CONCOR.CD_TIP_CONTA_CORRENTE (+)
+                 And V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+                 AND NOT (EXISTS (SELECT 'X'
+                                               FROM   DBAMV.MOV_CAIXA
+                                            WHERE   TP_ORIGEM_MOV = 'DV'
+                                                  AND   CD_MOV_CAIXA = V2.CD_MOV_CAIXA
+                                                  AND   CD_MOTIVO_CANC IS NULL)
+                                  AND EXISTS(     SELECT  CD_DOC_HIST
+                                                                FROM  DBAMV.DOC_HISTORICO
+                                                              WHERE  CD_MOV_CAIXA IN (    SELECT   MAX (TO_NUMBER (CD_MOV_CAIXA))
+                                                                                                                       FROM   DBAMV.MOV_CAIXA
+                                                                                                                     WHERE   CD_MOV_CAIXA < V2.CD_MOV_CAIXA
+                                                                                                                           AND   CD_DOC_CAIXA IN (SELECT   CD_DOC_CAIXA
+                                                                                                                                                                          FROM   DBAMV.MOV_CAIXA
+                                                                                                                                                                        WHERE   CD_MOV_CAIXA = V2.CD_MOV_CAIXA))
+                                                                   AND   TP_STATUS_DOC_ATUAL IN ('R')
+                                                                   AND   NVL(MOT_CANC_CONC,'N') <> 'E')
+                               AND    NVL(V2.SN_CONCILIADO,'N') = 'N'
+                               AND    NVL(:CAMPO_SN_CONCILIADO,'A') <> 'A' )
+                 And (:CAMPO_AGRUPADO = 'N'
+                          Or
+                          ( :CAMPO_AGRUPADO = 'S'
+                             And ( V2.CD_MOV_DEPOSITO_AGRUP Is Null Or
+                                      ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null  And Tb_Conciliacao.Total <> Tb_Conciliacao.Sim  and Tb_Conciliacao.Sim <> 0  ) ) ))
+                             And V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+                             And ( ( :CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3' ) Or ( :CAMPO_MOV_CARTAO  =   'A')  )
+                 UNION
+                 SELECT  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+                                  ,e.cd_multi_empresa  cd_multi_empresa
+                                  ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+                                  ,  V1.CD_CON_COR
+                 	,V1.DS_CON_COR
+                 	,V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA                      DS_AGENCIA
+                 	,V1.NR_CONTA
+                 	,V1.CD_BANCO || ' - ' || V1.DS_BANCO                             DS_BANCO
+                 	,V2.NR_DOCUMENTO_IDENTIFICACAO
+                 	,V2.CD_MOV_CONCOR
+                 	,V2.CD_LAN_CONCOR
+                 	, trunc(decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno)) DT_MOVIMENTACAO
+                 	,V2.DS_MOVIMENTACAO
+                 	,Decode( :CAMPO_MOV_CARTAO, 'A', V2.VL_MOVIMENTACAO, V2.VL_MOVIMENTACAO - Abs(Nvl(Tar.Vl_Movimentacao,0)) )      VL_MOVIMENTACAO
+                 	,V2.TP_OPERACAO_SALDO_CONTA
+                 	,V2.SN_TRANSFERENCIA
+                 	,V2.SN_CONCILIADO
+                                 ,Nvl(TIP_CONCOR.DS_TIP_CONTA_CORRENTE,'NÃO CLASSIFICADO')  DS_TIP_CONTA_CORRENTE
+                                 ,TIP_CONCOR.NR_ORDEM
+                                 ,V2.CD_MOV_CAIXA
+                                 ,V2.Cd_Mov_Deposito_Agrup
+                 FROM       DBAMV.V_BCO_CONTA  V1
+                                 ,dbamv.multi_empresas e
+                 	,DBAMV.V_MOV_CONCOR V2
+                                 ,DBAMV.TIP_CONTA_CORRENTE  TIP_CONCOR
+                                 ,(select  count(*) total,
+                                             count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+                                             m.cd_mov_deposito_agrup
+                                  from   dbamv.mov_concor M
+                                  where  m.cd_mov_deposito_agrup Is Not Null
+                                  AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                  group by M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+                                  ( Select Cd_Mov_Pai,
+                                               Nvl(Sum(Vl_Movimentacao),0) Vl_Movimentacao
+                                      From Dbamv.V_Mov_Concor M
+                                   Where :CAMPO_MOV_CARTAO  = 'L'
+                                       And M.Cd_Estrutural = '1.6.1.1.10.3'
+                                     AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                    Group By Cd_Mov_Pai ) Tar
+                 WHERE    V1.cd_multi_empresa = e.cd_multi_empresa
+                AND decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                            decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                          ,v2.dt_estorno)
+                    >= TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                AND decode(v2.dt_estorno,null,DECODE( V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                          decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                          ,v2.dt_estorno)
+                  <= TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                 AND    V1.CD_CON_COR       =        V2.CD_CON_COR
+                 AND    V1.CD_TIP_CONTA_CORRENTE      =       TIP_CONCOR.CD_TIP_CONTA_CORRENTE (+)
+                 AND    NVL(:CAMPO_SN_CONCILIADO,'N') = 'S'
+                 AND   ( NVL(V2.SN_CONCILIADO,'N') = 'N' AND NVL(V2.MOT_CANC_CONC,'N') = 'N')
+                 AND   V2.CD_MOV_CAIXA IS NOT NULL
+                 AND   V2.CD_MOV_PAI IS NULL
+                 And V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+                 AND   (EXISTS (SELECT 'X'
+                                               FROM   DBAMV.MOV_CAIXA
+                                            WHERE   TP_ORIGEM_MOV = 'DV'
+                                                  AND   CD_MOV_CAIXA = V2.CD_MOV_CAIXA
+                                                  AND   CD_MOTIVO_CANC IS NULL)
+                                  AND EXISTS(     SELECT  CD_DOC_HIST
+                                                                FROM  DBAMV.DOC_HISTORICO
+                                                              WHERE  CD_MOV_CAIXA IN (    SELECT   MAX(TO_NUMBER(CD_MOV_CAIXA))
+                                                                                                                       FROM   DBAMV.MOV_CAIXA
+                                                                                                                     WHERE   CD_MOV_CAIXA < V2.CD_MOV_CAIXA
+                                                                                                                           AND   CD_DOC_CAIXA IN (SELECT   CD_DOC_CAIXA
+                                                                                                                                                                           FROM   DBAMV.MOV_CAIXA
+                                                                                                                                                                        WHERE   CD_MOV_CAIXA = V2.CD_MOV_CAIXA))
+                                                                   AND   TP_STATUS_DOC_ATUAL IN ('R')
+                                                                   AND   NVL(MOT_CANC_CONC,'N') <> 'E')
+                               OR (EXISTS (SELECT 'X'
+                                                    FROM   DBAMV.MOV_CAIXA
+                                                 WHERE   TP_ORIGEM_MOV = 'DV'
+                                                       AND   CD_MOTIVO_CANC IS NULL
+                                                       AND   CD_MOV_CAIXA > V2.CD_MOV_CAIXA
+                                                       AND   CD_DOC_CAIXA IN (SELECT   DISTINCT CD_DOC_CAIXA
+                                                                                                      FROM   DBAMV.MOV_CAIXA
+                                                                                                   WHERE   CD_MOV_CAIXA = V2.CD_MOV_CAIXA
+                                                                                                         AND   TP_ORIGEM_MOV = 'DE'
+                                                                                                         AND   CD_MOTIVO_CANC IS NULL ))))
+                 And (:CAMPO_AGRUPADO = 'N'
+                          Or
+                          ( :CAMPO_AGRUPADO = 'S'
+                             And ( V2.CD_MOV_DEPOSITO_AGRUP Is Null Or
+                                      ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null  And Tb_Conciliacao.Total <> Tb_Conciliacao.Sim  and Tb_Conciliacao.Sim <> 0  ) ) ))
+                             And V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+                             And ( ( :CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3' ) Or ( :CAMPO_MOV_CARTAO  =   'A')  )
+                UNION
+                 SELECT    'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+                                  ,e.cd_multi_empresa  cd_multi_empresa
+                                  ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+                                  ,V1.CD_CON_COR
+                 	,V1.DS_CON_COR
+                 	,V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA                      DS_AGENCIA
+                 	,V1.NR_CONTA
+                 	,V1.CD_BANCO || ' - ' || V1.DS_BANCO                             DS_BANCO
+                                ,Decode(Nvl(V2.Cd_Mov_Deposito_Agrup,0),0,V2.NR_DOCUMENTO_IDENTIFICACAO,'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup)) NR_DOCUMENTO_IDENTIFICACAO
+                 	,0 CD_MOV_CONCOR
+                 	,V2.CD_LAN_CONCOR
+             , trunc(min(decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno))) DT_MOVIMENTACAO
+                                ,decode(V2.TP_OPERACAO_SALDO_CONTA,'+',
+               Decode(v2.CD_MOV_CAIXA, NULL,'CRED. AGRUP. MVSAUDE','DEP. AGRUP. CAIXA'),
+                                          '-',
+               Decode(v2.cd_bordero, null,  'AGRUPADO', 'PGTO BORD. '|| To_Char(v2.cd_bordero)))  DS_MOVIMENTACAO
+                 	,Sum(Decode( :CAMPO_MOV_CARTAO, 'A', V2.VL_MOVIMENTACAO, V2.VL_MOVIMENTACAO - Abs(Nvl(Tar.Vl_Movimentacao,0)) )) VL_MOVIMENTACAO
+                 	,V2.TP_OPERACAO_SALDO_CONTA
+                 	,null SN_TRANSFERENCIA
+                 	, Decode(Tb_Conciliacao.Sim, 0, 'N', (Decode(Tb_Conciliacao.Total - Tb_Conciliacao.Sim,0,'S'))) SN_CONCILIADO
+                                 ,Nvl(TIP_CONCOR.DS_TIP_CONTA_CORRENTE,'NÃO CLASSIFICADO')  DS_TIP_CONTA_CORRENTE
+                                 ,TIP_CONCOR.NR_ORDEM
+                                 ,null CD_MOV_CAIXA
+                                 ,V2.Cd_Mov_Deposito_Agrup
+                 FROM       DBAMV.V_BCO_CONTA  V1
+                                 ,dbamv.multi_empresas e
+                 	,DBAMV.V_MOV_CONCOR V2
+                                 ,DBAMV.TIP_CONTA_CORRENTE  TIP_CONCOR
+                                 ,(select  count(*) total,
+                                             count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+                                             m.cd_mov_deposito_agrup
+                                  from   dbamv.mov_concor M
+                                  where  m.cd_mov_deposito_agrup Is Not Null
+AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                  group by M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+                                  ( Select Cd_Mov_Pai,
+                                               Nvl(Sum(Vl_Movimentacao),0) Vl_Movimentacao
+                                      From Dbamv.V_Mov_Concor M
+                                   Where :CAMPO_MOV_CARTAO   = 'L'
+                                       And M.Cd_Estrutural = '1.6.1.1.10.3'
+AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                    Group By Cd_Mov_Pai ) Tar
+                 WHERE :CAMPO_AGRUPADO = 'S'
+                AND decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                            decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                          ,v2.dt_estorno)
+                    >= TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                AND decode(v2.dt_estorno,null,DECODE( V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                          decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                          ,v2.dt_estorno)
+                  <= TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                 AND    V1.CD_CON_COR       =        V2.CD_CON_COR
+                 AND    V1.CD_TIP_CONTA_CORRENTE      =       TIP_CONCOR.CD_TIP_CONTA_CORRENTE (+)
+                 and   V1.cd_multi_empresa = e.cd_multi_empresa
+                 And V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+                 AND NOT (EXISTS (SELECT 'X'
+                                               FROM   DBAMV.MOV_CAIXA
+                                            WHERE   TP_ORIGEM_MOV = 'DV'
+                                                  AND   CD_MOV_CAIXA = V2.CD_MOV_CAIXA
+                                                  AND   CD_MOTIVO_CANC IS NULL)
+                                  AND EXISTS(     SELECT  CD_DOC_HIST
+                                                                FROM  DBAMV.DOC_HISTORICO
+                                                              WHERE  CD_MOV_CAIXA IN (    SELECT   MAX (TO_NUMBER (CD_MOV_CAIXA))
+                                                                                                                       FROM   DBAMV.MOV_CAIXA
+                                                                                                                     WHERE   CD_MOV_CAIXA < V2.CD_MOV_CAIXA
+                                                                                                                           AND   CD_DOC_CAIXA IN (SELECT   CD_DOC_CAIXA
+                                                                                                                                                                          FROM   DBAMV.MOV_CAIXA
+                                                                                                                                                                        WHERE   CD_MOV_CAIXA = V2.CD_MOV_CAIXA))
+                                                                   AND   TP_STATUS_DOC_ATUAL IN ('R')
+                                                                   AND   NVL(MOT_CANC_CONC,'N') <> 'E')
+                               AND    NVL(V2.SN_CONCILIADO,'N') = 'N'
+                               AND    NVL(:CAMPO_SN_CONCILIADO,'A') <> 'A')
+                 And  ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null
+                 And Tb_Conciliacao.Total = Tb_Conciliacao.Sim  or Tb_Conciliacao.Sim = 0  )
+                 And V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+                 And ( (:CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3') Or ( :CAMPO_MOV_CARTAO = 'A')  )
+                 group by  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+                                  ,e.cd_multi_empresa                                    ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+                                  , V2.Cd_Mov_Deposito_Agrup,
+				                           Decode(Nvl(V2.Cd_Mov_Deposito_Agrup,0),0,V2.NR_DOCUMENTO_IDENTIFICACAO,'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup)),
+				                            decode(V2.TP_OPERACAO_SALDO_CONTA,'+',
+               Decode(v2.CD_MOV_CAIXA, NULL,'CRED. AGRUP. MVSAUDE','DEP. AGRUP. CAIXA'),
+                                          '-',
+               Decode(v2.cd_bordero, null,  'AGRUPADO', 'PGTO BORD. '|| To_Char(v2.cd_bordero))) ,V1.CD_CON_COR, V1.DS_CON_COR,
+                               V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA, V1.NR_CONTA,V1.CD_BANCO || ' - ' || V1.DS_BANCO, V2.CD_LAN_CONCOR, V2.TP_OPERACAO_SALDO_CONTA,
+                               Decode(Tb_Conciliacao.Sim, 0, 'N', (Decode(Tb_Conciliacao.Total - Tb_Conciliacao.Sim,0,'S'))) ,TIP_CONCOR.DS_TIP_CONTA_CORRENTE,TIP_CONCOR.NR_ORDEM
+                 UNION
+                 SELECT    'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+                                  ,e.cd_multi_empresa  cd_multi_empresa
+                                  ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+                                  ,  V1.CD_CON_COR
+                 	,V1.DS_CON_COR
+                 	,V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA                      DS_AGENCIA
+                 	,V1.NR_CONTA
+                 	,V1.CD_BANCO || ' - ' || V1.DS_BANCO                             DS_BANCO
+                                ,Decode(Nvl(V2.Cd_Mov_Deposito_Agrup,0),0,V2.NR_DOCUMENTO_IDENTIFICACAO,'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup)) NR_DOCUMENTO_IDENTIFICACAO
+                 	,0 CD_MOV_CONCOR
+                 	,V2.CD_LAN_CONCOR
+              , trunc(min(decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+              decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+             ,v2.dt_estorno))) DT_MOVIMENTACAO
+                                ,decode(V2.TP_OPERACAO_SALDO_CONTA,'+',
+               Decode(v2.CD_MOV_CAIXA, NULL,'CRED. AGRUP. MVSAUDE','DEP. AGRUP. CAIXA'),
+                                          '-',
+               Decode(v2.cd_bordero, null,  'AGRUPADO', 'PGTO BORD. '|| To_Char(v2.cd_bordero)))  DS_MOVIMENTACAO
+                 	,Sum(Decode( :CAMPO_MOV_CARTAO, 'A', V2.VL_MOVIMENTACAO, V2.VL_MOVIMENTACAO - Abs(Nvl(Tar.Vl_Movimentacao,0)) )) VL_MOVIMENTACAO
+                 	,V2.TP_OPERACAO_SALDO_CONTA
+                 	,null SN_TRANSFERENCIA
+                 	, Decode(Tb_Conciliacao.Sim, 0, 'N', (Decode(Tb_Conciliacao.Total - Tb_Conciliacao.Sim,0,'S'))) SN_CONCILIADO
+                                ,Nvl(TIP_CONCOR.DS_TIP_CONTA_CORRENTE,'NÃO CLASSIFICADO')  DS_TIP_CONTA_CORRENTE
+                                 ,TIP_CONCOR.NR_ORDEM
+                                 ,null CD_MOV_CAIXA
+                                 ,V2.Cd_Mov_Deposito_Agrup
+                 FROM       DBAMV.V_BCO_CONTA  V1
+                 	,DBAMV.V_MOV_CONCOR V2
+                                 ,dbamv.multi_empresas e
+                                 ,DBAMV.TIP_CONTA_CORRENTE  TIP_CONCOR
+                                 ,(select  count(*) total,
+                                             count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+                                             m.cd_mov_deposito_agrup
+                                  from   dbamv.mov_concor M
+                                  where  m.cd_mov_deposito_agrup Is Not Null
+AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                  group by M.cd_mov_deposito_agrup)  Tb_Conciliacao,
+                                  ( Select Cd_Mov_Pai,
+                                               Nvl(Sum(Vl_Movimentacao),0) Vl_Movimentacao
+                                      From Dbamv.V_Mov_Concor M
+                                   Where :CAMPO_MOV_CARTAO   = 'L'
+                                       And M.Cd_Estrutural = '1.6.1.1.10.3'
+AND M.dt_movimentacao BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                                  AND TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                                    Group By Cd_Mov_Pai ) Tar
+                 WHERE  :CAMPO_AGRUPADO = 'S'
+                 and   V1.cd_multi_empresa = e.cd_multi_empresa
+                AND decode(v2.dt_estorno,null,DECODE(V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                            decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                            ,v2.dt_estorno)
+                            >= TO_DATE(TO_CHAR(:CAMPO_DT_INIC,'DD/MM/YYYY') || ' 00','DD/MM/YYYY HH24')
+                AND decode(v2.dt_estorno,null,DECODE( V2.CD_CHEQUE, NULL, V2.DT_MOVIMENTACAO,
+                            decode(:CAMPO_TP_DT_CHEQUE,'C',decode(v2.dt_compensacao,null,v2.dt_emissao,v2.dt_compensacao),v2.dt_emissao))
+                            ,v2.dt_estorno)
+                            <= TO_DATE(TO_CHAR(:CAMPO_DT_FIM,'DD/MM/YYYY') || ' 23','DD/MM/YYYY HH24')
+                 AND    V1.CD_CON_COR       =        V2.CD_CON_COR
+                 AND    V1.CD_TIP_CONTA_CORRENTE      =       TIP_CONCOR.CD_TIP_CONTA_CORRENTE (+)
+                 AND    NVL(:CAMPO_SN_CONCILIADO,'N') = 'S'
+                 AND   ( NVL(V2.SN_CONCILIADO,'N') = 'N' AND NVL(V2.MOT_CANC_CONC,'N') = 'N')
+                 AND   V2.CD_MOV_CAIXA IS NOT NULL
+                 AND   V2.CD_MOV_PAI IS NULL
+                 And V2.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+                 AND   (EXISTS (SELECT 'X'
+                                               FROM   DBAMV.MOV_CAIXA
+                                            WHERE   TP_ORIGEM_MOV = 'DV'
+                                                  AND   CD_MOV_CAIXA = V2.CD_MOV_CAIXA
+                                                  AND   CD_MOTIVO_CANC IS NULL)
+                                  AND EXISTS(     SELECT  CD_DOC_HIST
+                                                                FROM  DBAMV.DOC_HISTORICO
+                                                              WHERE  CD_MOV_CAIXA IN (    SELECT   MAX(TO_NUMBER(CD_MOV_CAIXA))
+                                                                                                                       FROM   DBAMV.MOV_CAIXA
+                                                                                                                     WHERE   CD_MOV_CAIXA < V2.CD_MOV_CAIXA
+                                                                                                                           AND   CD_DOC_CAIXA IN (SELECT   CD_DOC_CAIXA
+                                                                                                                                                                           FROM   DBAMV.MOV_CAIXA
+                                                                                                                                                                        WHERE   CD_MOV_CAIXA = V2.CD_MOV_CAIXA))
+                                                                   AND   TP_STATUS_DOC_ATUAL IN ('R')
+                                                                   AND   NVL(MOT_CANC_CONC,'N') <> 'E')
+                               OR (EXISTS (SELECT 'X'
+                                                    FROM   DBAMV.MOV_CAIXA
+                                                 WHERE   TP_ORIGEM_MOV = 'DV'
+                                                       AND   CD_MOTIVO_CANC IS NULL
+                                                       AND   CD_MOV_CAIXA > V2.CD_MOV_CAIXA
+                                                       AND   CD_DOC_CAIXA IN (SELECT   DISTINCT CD_DOC_CAIXA
+                                                                                                      FROM   DBAMV.MOV_CAIXA
+                                                                                                   WHERE   CD_MOV_CAIXA = V2.CD_MOV_CAIXA
+                                                                                                         AND   TP_ORIGEM_MOV = 'DE'
+                                                                                                         AND   CD_MOTIVO_CANC IS NULL ))))
+                 And  ( V2.CD_MOV_DEPOSITO_AGRUP Is Not Null
+                 And Tb_Conciliacao.Total = Tb_Conciliacao.Sim  or Tb_Conciliacao.Sim = 0  )
+                 And V2.Cd_Mov_ConCor = Tar.Cd_Mov_Pai(+)
+                 And ( (:CAMPO_MOV_CARTAO = 'L' And V2.CD_ESTRUTURAL <> '1.6.1.1.10.3') Or ( :CAMPO_MOV_CARTAO = 'A')  )
+                 group by  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+                                  ,e.cd_multi_empresa                                    ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+                                  , V2.Cd_Mov_Deposito_Agrup,
+                                  Decode(Nvl(V2.Cd_Mov_Deposito_Agrup,0),0,V2.NR_DOCUMENTO_IDENTIFICACAO,'AG-' || To_Char(V2.Cd_Mov_Deposito_Agrup)),
+                                  decode(V2.TP_OPERACAO_SALDO_CONTA,'+',
+               Decode(v2.CD_MOV_CAIXA, NULL,'CRED. AGRUP. MVSAUDE','DEP. AGRUP. CAIXA'),
+                                          '-',
+               Decode(v2.cd_bordero, null,  'AGRUPADO', 'PGTO BORD. '|| To_Char(v2.cd_bordero))), V1.CD_CON_COR, V1.DS_CON_COR,
+                               V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA, V1.NR_CONTA,V1.CD_BANCO || ' - ' || V1.DS_BANCO, V2.CD_LAN_CONCOR, V2.TP_OPERACAO_SALDO_CONTA,
+                               V1.CD_AGENCIA || ' - ' || V1.DS_AGENCIA, V1.NR_CONTA,V1.CD_BANCO || ' - ' || V1.DS_BANCO, V2.CD_LAN_CONCOR, V2.TP_OPERACAO_SALDO_CONTA,
+                               Decode(Tb_Conciliacao.Sim, 0, 'N', (Decode(Tb_Conciliacao.Total - Tb_Conciliacao.Sim,0,'S'))) ,TIP_CONCOR.DS_TIP_CONTA_CORRENTE,TIP_CONCOR.NR_ORDEM
+                 ) MOVIMENTACAO
+ORDER BY  TRUNC( MOVIMENTACAO.DT_MOVIMENTACAO ), MOVIMENTACAO.TP_OPERACAO_SALDO_CONTA,  MOVIMENTACAO.DS_MOVIMENTACAO, MOVIMENTACAO.NR_DOCUMENTO_IDENTIFICACAO
+)
+ORDER BY CD_MULTI_EMPRESA,EMPRESA,
+EMPRESA_O,NR_ORDEM,DS_CON_COR,DS_TIP_CONTA_CORRENTE,DS_AGENCIA,NR_CONTA,DS_BANCO,
+DT_MOVIMENTACAO

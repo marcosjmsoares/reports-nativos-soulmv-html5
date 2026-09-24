@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_ORD_COM_EST
+SELECT * FROM (
+SELECT  ORD_COM.CD_ORD_COM                  CD_ORD_COM
+              ,ORD_COM.TP_SITUACAO                   TP_SITUACAO
+              ,ESTOQUE.CD_ESTOQUE                     CD_ESTOQUE
+              ,ESTOQUE.DS_ESTOQUE                     DS_ESTOQUE
+              ,FORNECEDOR.CD_FORNECEDOR     CD_FORNECEDOR
+              ,FORNECEDOR.NM_FANTASIA            NM_FANTASIA
+              ,ORD_COM.DT_ORD_COM                    DT_ORD_COM
+              ,CONDICOES_PAGAMENTO.DS_CONDICAO_PAGAMENTO  DS_CONDICAO_PAGAMENTO
+              ,sum( nvl( itord_pro.vl_total, 0 ) + nvl( itord_pro.vl_imposto, 0 ) - nvl( itord_pro.vl_desconto, 0 ) ) vl_total
+              ,sum( nvl( itord_pro.vl_total, 0 ) ) vl_total_bruto
+FROM     DBAMV.ORD_COM                               ORD_COM
+              ,DBAMV.ITORD_PRO                            ITORD_PRO
+              ,DBAMV.FORNECEDOR                         FORNECEDOR
+              ,DBAMV.ESTOQUE                                ESTOQUE
+              ,DBAMV.CONDICOES_PAGAMENTO   CONDICOES_PAGAMENTO
+WHERE  ORD_COM.CD_FORNECEDOR    =  FORNECEDOR.CD_FORNECEDOR
+ AND ORD_COM.CD_ORD_COM                 = ITORD_PRO.CD_ORD_COM
+AND      ITORD_PRO.CD_MOT_CANCEL IS NULL
+AND        ORD_COM.CD_ESTOQUE            =  ESTOQUE.CD_ESTOQUE
+AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        ORD_COM.CD_CONDICAO_PAGAMENTO = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+AND        ORD_COM.DT_ORD_COM BETWEEN To_Date(To_Char(:CAMPO_DT_INIC,'dd/mm/yyyy')||' '||'00','dd/mm/yyyy hh24')
+                                                                       AND To_Date(To_Char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' '||'23','dd/mm/yyyy hh24')
+AND        ORD_COM.CD_ESTOQUE          like  :CAMPO_CD_ESTOQUE
+AND        NVL( ORD_COM.SN_CONSIGNADO_FATURA_DIRETA,'N' ) = 'N'
+GROUP BY    ORD_COM.CD_ORD_COM
+           ,ORD_COM.TP_SITUACAO
+           ,ESTOQUE.CD_ESTOQUE
+           ,ESTOQUE.DS_ESTOQUE
+           ,FORNECEDOR.CD_FORNECEDOR
+           ,FORNECEDOR.NM_FANTASIA
+           ,ORD_COM.DT_ORD_COM
+           ,CONDICOES_PAGAMENTO.DS_CONDICAO_PAGAMENTO
+ORDER BY  DT_ORD_COM
+                    ,CD_ORD_COM
+)
+ORDER BY DS_ESTOQUE
+        ,CD_ESTOQUE
+        ,CD_ORD_COM
+        ,DT_ORD_COM
+        ,TP_SITUACAO
+        ,CD_FORNECEDOR
+        ,NM_FANTASIA
+        ,vl_total

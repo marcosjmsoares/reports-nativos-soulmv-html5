@@ -1,0 +1,602 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_CC_RECEITA_DT_LANC
+SELECT CONVENIO.cd_CONVENIO,CONVENIO.nm_CONVENIO
+from DBAMV.CONVENIO CONVENIO
+where 1 = 1
+order by CONVENIO.nm_CONVENIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_CC_RECEITA_DT_LANC_R_DT_ATENDIMENTO1_Q_CONV_CC_SETOR
+SELECT * FROM (
+SELECT
+                CD_CONTABIL
+               ,DS_CONTA
+               ,CD_SETOR
+               ,NM_SETOR
+               ,CD_CONVENIO
+               ,NM_CONVENIO
+               ,SUM(VL_TOTAL) VL_TOTAL_CC_CONV_SETOR
+FROM  ( SELECT               PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)  NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                            ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL   
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.PLANO_CONTAS
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        PLANO_CONTAS.CD_REDUZIDO =
+                          BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               UNION ALL
+               SELECT        NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)        NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                          ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND         BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               UNION ALL
+               SELECT        PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)  NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.PLANO_CONTAS
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        PLANO_CONTAS.CD_REDUZIDO =
+                           BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                                GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                and atendime.cd_multi_empresa =   :CAMPO_CD_MULTI_EMPRESA
+              UNION ALL
+               SELECT         NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)        NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL   
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                   GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                         AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               :CAMPO_CF_CONTAS_AMB
+                )
+WHERE VL_TOTAL IS NOT NULL
+GROUP BY    CD_CONTABIL
+                        ,DS_CONTA
+                        ,CD_SETOR
+                        ,NM_SETOR
+                        ,CD_CONVENIO
+                        ,NM_CONVENIO
+ORDER BY cd_CONTAbil,ds_conta,NM_CONVENIO,nm_setor
+)
+ORDER BY NM_CONVENIO,CD_CONVENIO,DS_CONTA,CD_CONTABIL
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_CC_RECEITA_DT_LANC_R_DT_ATENDIMENTO2_Q_CONV_CC_SETOR
+SELECT * FROM (
+SELECT
+                CD_CONTABIL
+               ,DS_CONTA
+               ,CD_SETOR
+               ,NM_SETOR
+               ,CD_CONVENIO
+               ,NM_CONVENIO
+               ,SUM(VL_TOTAL) VL_TOTAL_CC_CONV_SETOR
+FROM  ( SELECT               PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)  NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                            ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.PLANO_CONTAS
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        PLANO_CONTAS.CD_REDUZIDO =
+                          BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               UNION ALL
+               SELECT        NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)        NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                          ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND         BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa =   :CAMPO_CD_MULTI_EMPRESA
+               UNION ALL
+               SELECT        PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)  NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.PLANO_CONTAS
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        PLANO_CONTAS.CD_REDUZIDO =
+                           BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                                GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+              UNION ALL
+               SELECT         NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)        NM_SETOR
+                            ,CONVENIO.CD_CONVENIO   CD_CONVENIO
+                            ,CONVENIO.NM_CONVENIO   NM_CONVENIO
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                   GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               :CAMPO_CF_CONTAS_AMB
+                )
+WHERE VL_TOTAL IS NOT NULL
+GROUP BY    CD_CONTABIL
+                        ,DS_CONTA
+                        ,CD_SETOR
+                        ,NM_SETOR
+                        ,CD_CONVENIO
+                        ,NM_CONVENIO
+ORDER BY cd_CONTAbil,ds_conta,NM_CONVENIO,nm_setor
+)
+ORDER BY NM_CONVENIO,CD_CONVENIO,DS_CONTA,CD_CONTABIL
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_CC_RECEITA_DT_LANC_R_DT_ATENDIMENTO3_Q_CC_SETOR
+SELECT * FROM (
+SELECT
+                CD_CONTABIL
+               ,DS_CONTA
+               ,CD_SETOR
+               ,NM_SETOR
+               ,SUM(VL_TOTAL) VL_TOTAL_CC_SETOR
+FROM  ( SELECT               PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)  NM_SETOR
+                            ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.PLANO_CONTAS
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        PLANO_CONTAS.CD_REDUZIDO =
+                          BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                              AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               UNION ALL
+               SELECT        NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)        NM_SETOR
+                         ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND         BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               UNION ALL
+               SELECT        PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)  NM_SETOR
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.PLANO_CONTAS
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        PLANO_CONTAS.CD_REDUZIDO =
+                           BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                                GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+              UNION ALL
+               SELECT         NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                            ,SETOR.CD_SETOR  CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR)        NM_SETOR
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                   GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa =   :CAMPO_CD_MULTI_EMPRESA
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                               AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               :CAMPO_CF_CONTAS_AMB
+       )
+WHERE VL_TOTAL IS NOT NULL
+GROUP BY    CD_CONTABIL
+                        ,DS_CONTA
+                        ,CD_SETOR
+                        ,NM_SETOR
+ORDER BY cd_CONTAbil,ds_conta,nm_setor
+)
+ORDER BY CD_CONTABIL,DS_CONTA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_CC_RECEITA_DT_LANC_R_DT_ATENDIMENTO4_Q_CC
+SELECT
+                CD_CONTABIL
+               ,DS_CONTA
+               ,SUM(VL_TOTAL) VL_TOTAL_CC
+FROM  ( SELECT               PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                            ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.PLANO_CONTAS
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        PLANO_CONTAS.CD_REDUZIDO =
+                          BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                               AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               UNION ALL
+               SELECT        NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                                                        ,ITREG_FAT.VL_TOTAL_CONTA       VL_TOTAL
+               FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.GRU_FAT
+               WHERE      REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+               AND        ITREG_FAT.CD_SETOR = SETOR.CD_SETOR(+)
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND         BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                               GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+               AND        ITREG_FAT.SN_PERTENCE_PACOTE <> 'S'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                               AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               UNION ALL
+               SELECT        PLANO_CONTAS.CD_CONTABIL CD_CONTABIL
+                            ,PLANO_CONTAS.DS_CONTA    DS_CONTA
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.PLANO_CONTAS
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        PLANO_CONTAS.CD_REDUZIDO =
+                           BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                                GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT)
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+              UNION ALL
+               SELECT         NULL CD_CONTABIL
+                            ,' Não Informado'  DS_CONTA
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.GRU_FAT
+                WHERE  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT(+)
+                AND        ITREG_AMB.CD_SETOR = SETOR.CD_SETOR(+)
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        BUSCA_CONTA_CONTABIL(:CAMPO_CD_MULTI_EMPRESA,CONVENIO.CD_CONVENIO,SETOR.CD_SETOR,
+                                   GRU_FAT.CD_GRU_FAT,GRU_PRO.CD_GRU_PRO,GRU_FAT.CD_GRU_FAT) IS NULL
+                AND        ITREG_AMB.SN_PERTENCE_PACOTE <> 'S'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                 and atendime.cd_multi_empresa =   :CAMPO_CD_MULTI_EMPRESA
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')
+                                                                                                AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               :CAMPO_CF_CONTAS_AMB
+ )
+WHERE VL_TOTAL IS NOT NULL
+GROUP BY    CD_CONTABIL
+                        ,DS_CONTA
+ORDER BY cd_CONTAbil,ds_conta

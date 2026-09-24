@@ -1,0 +1,105 @@
+/*----------------------------------------------------------------------------*/
+--R_BENS_ADQUIRIDOS_SC
+select Empresa
+     , cd_bem
+     , ds_plaqueta
+     , ds_bem
+     , EmprDet
+     , dt_compra
+     , dt_tombamento
+     , nr_notafiscal
+     , cd_ent_pro
+     , nr_documento
+     , nr_serie
+     , cd_fornecedor
+     , nm_fantasia
+     , vl_compra
+      ,tx_depre
+      ,vl_depre
+     , vl_historico
+     ,tp_aquisicao
+     ,cd_capitulo
+FROM
+(
+select  distinct me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa
+     ,bens.cd_bem cd_bem
+     , bens.ds_plaqueta ds_plaqueta
+     , bens.ds_bem ds_bem
+     , me.cd_multi_empresa || ' - ' || me.ds_multi_empresa EmprDet
+     , bens.dt_compra dt_compra
+     , bens.dt_tombamento dt_tombamento
+     , bens.nr_notafiscal nr_notafiscal
+     , bens.cd_ent_pro cd_ent_pro
+     , ent_pro.nr_documento nr_documento
+     , ent_pro.nr_serie nr_serie
+     , bens.cd_fornecedor cd_fornecedor
+     , fornecedor.nm_fantasia nm_fantasia
+     , bens.vl_compra vl_compra
+     , Decode( Nvl(bens.tx_depre,0), 0, TO_NUMBER(sub_iob.Tx_Depre,'99999999999999999999999999990D00','NLS_NUMERIC_CHARACTERS = ''.,'''),  bens.tx_depre) tx_depre
+     , bens.vl_compra * (  Decode( Nvl(bens.tx_depre,0), 0, TO_NUMBER(sub_iob.Tx_Depre,'99999999999999999999999999990D00','NLS_NUMERIC_CHARACTERS = ''.,'''), bens.tx_depre)  /100 ) vl_depre
+     , bens.vl_historico vl_historico
+     ,dbamv.FUNC_AQUISICAO(bens.cd_bem)  tp_aquisicao
+     ,bens.cd_capitulo
+  from
+	   dbamv.v_lancamento_patrimonio bens
+     , dbamv.ent_pro ent_pro
+     , dbamv.estoque estoq
+     , dbamv.fornecedor fornecedor
+     , dbamv.iob iob
+     , dbamv.sub_iob sub_iob
+     , dbamv.multi_empresas Me
+     , dbamv.Alteracao_Sub_Iob_Bem  Al
+ where bens.tp_lancamento  =  'T'
+   and bens.cd_ent_pro = ent_pro.cd_ent_pro (+)
+   and bens.cd_fornecedor = fornecedor.cd_fornecedor (+)
+   and al.cd_capitulo_atual = iob.cd_capitulo
+   AND al.cd_bem = bens.cd_bem
+   AND al.Cd_Sub_Cap_atual = sub_iob.cd_sub_cap
+   and iob.cd_capitulo = sub_iob.cd_capitulo
+   and ent_pro.cd_estoque = estoq.cd_estoque (+)
+   AND (me.cd_multi_empresa = estoq.cd_multi_empresa or me.cd_multi_empresa = bens.Cd_Multi_Empresa_Bem)
+union
+select  me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa
+     , bens.cd_bem cd_bem
+     , bens.ds_plaqueta ds_plaqueta
+     , bens.ds_bem ds_bem
+     , me.cd_multi_empresa || ' - ' || me.ds_multi_empresa EmprDet
+     , bens.dt_compra dt_compra
+     , bens.dt_tombamento dt_tombamento
+     , bens.nr_notafiscal nr_notafiscal
+     , bens.cd_ent_pro cd_ent_pro
+     , ent_pro.nr_documento nr_documento
+     , ent_pro.nr_serie nr_serie
+     , bens.cd_fornecedor cd_fornecedor
+     , fornecedor.nm_fantasia nm_fantasia
+     , bens.vl_compra vl_compra
+     , Decode( Nvl(bens.tx_depre,0), 0, TO_NUMBER(sub_iob.Tx_Depre,'99999999999999999999999999990D00','NLS_NUMERIC_CHARACTERS = ''.,'''),  bens.tx_depre)   tx_depre
+     , bens.vl_compra * (  Decode( Nvl(bens.tx_depre,0), 0, TO_NUMBER(sub_iob.Tx_Depre,'99999999999999999999999999990D00','NLS_NUMERIC_CHARACTERS = ''.,'''),  bens.tx_depre)  /100 ) vl_depre
+     , bens.vl_historico vl_historico
+     ,dbamv.FUNC_AQUISICAO(bens.cd_bem)  tp_aquisicao
+     ,bens.cd_capitulo
+  from dbamv.v_lancamento_patrimonio bens
+     , dbamv.ent_pro ent_pro
+     , dbamv.estoque estoq
+     , dbamv.fornecedor fornecedor
+     , dbamv.iob iob
+     , dbamv.sub_iob sub_iob
+     , dbamv.multi_empresas Me
+ where bens.tp_lancamento  =  'T'
+   and bens.cd_ent_pro = ent_pro.cd_ent_pro (+)
+   and bens.cd_fornecedor = fornecedor.cd_fornecedor (+)
+   and bens.cd_capitulo = iob.cd_capitulo
+   and iob.cd_capitulo = sub_iob.cd_capitulo
+   and sub_iob.cd_sub_cap = bens.cd_sub_cap
+   and ent_pro.cd_estoque = estoq.cd_estoque (+)
+   AND (me.cd_multi_empresa = estoq.cd_multi_empresa or me.cd_multi_empresa = bens.Cd_Multi_Empresa_Bem)
+   AND  NOT  EXISTS
+	(  Select 'X'
+      From   Dbamv.Alteracao_Sub_Iob_Bem  Al
+     Where Al.cd_bem = bens.cd_bem
+      AND  Al.Cd_Capitulo_nova =  bens.Cd_Capitulo
+      AND  Al.Cd_Sub_Cap_nova  =  bens.Cd_Sub_Cap
+     :CAMPO_CF_ALTERA
+    )
+  :CAMPO_CF_EMPRESA
+)

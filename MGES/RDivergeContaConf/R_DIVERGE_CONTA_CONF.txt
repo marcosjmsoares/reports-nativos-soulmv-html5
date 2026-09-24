@@ -1,0 +1,118 @@
+/*----------------------------------------------------------------------------*/
+--R_DIVERGE_CONTA_CONF
+SELECT * FROM (SELECT
+        PRODUTO.CD_ESPECIE cd_especie,
+        ESPECIE.DS_ESPECIE ds_especie,
+        CONTAGEM.CD_ESTOQUE cd_estoque
+       ,CONTAGEM.DT_CONTAGEM dt_contagem
+       ,CONTAGEM.DT_GERACAO dt_geracao
+       ,CONTAGEM.HR_CONTAGEM hr_contagem
+       ,CONTAGEM.SN_ABERTO sn_aberto
+       ,ESTOQUE.DS_ESTOQUE ds_estoque
+       ,ITCONTAGEM.CD_CONTAGEM cd_contagem
+       ,ITCONTAGEM.CD_PRODUTO cd_produto
+       ,PRODUTO.DS_PRODUTO  ds_produto
+       ,VERIF_DS_UNID_PROD( PRODUTO.CD_PRODUTO, 'G' ) DS_UNIDADE
+       ,SUM(( NVL( ITCONTAGEM.QT_Kit,0)
+            + NVL( ITCONTAGEM.QT_ESTOQUE_DOADO,0)
+            + NVL(ITCONTAGEM.QT_ESTOQUE,0)) * Uni_Pro.Vl_Fator ) / VERIF_VL_FATOR_PROD (PRODUTO.CD_PRODUTO,'G') qtd_contagem
+       ,Decode(:CAMPO_DIGITACAO_INVETARIO,'N', 
+              MAX( DECODE(dbamv.verif_vl_custo_medio( ITCONTAGEM.CD_PRODUTO,
+                                                      NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM),
+                                                      'H',
+                                                      NULL,
+                                                      NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)), 0, ITCONTAGEM.VL_CUSTO_MEDIO/ Uni_Pro.Vl_Fator* dbamv.VERIF_VL_fATOR_PROD (PRODUTO.CD_PRODUTO,'G') ,
+                          dbamv.verif_vl_custo_medio( ITCONTAGEM.CD_PRODUTO,
+                                                      NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM),
+                                                      'H',
+                                                      NULL,
+                                                      NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)) * VERIF_VL_fATOR_PROD (PRODUTO.CD_PRODUTO,'G') ) )
+              ,max(ITCONTAGEM.VL_CUSTO_MEDIO/ Uni_Pro.Vl_Fator* dbamv.VERIF_VL_fATOR_PROD (PRODUTO.CD_PRODUTO,'G') )) VL_CUSTO_CONTAGEM,
+		Max(ITCONTAGEM.VL_CUSTO_MEDIO_HIST / Uni_Pro.Vl_Fator * DBAMV.VERIF_VL_fATOR_PROD(PRODUTO.CD_PRODUTO,
+                                                                                                  'G')) As VL_CUSTO_CONTAGEM_HIST
+FROM    DBAMV.PRODUTO
+       ,DBAMV.CONTAGEM
+       ,DBAMV.ITCONTAGEM
+       ,DBAMV.UNI_PRO
+       ,DBAMV.ESTOQUE
+       ,DBAMV.ESPECIE
+	   ,DBAMV.INVENTARIO
+WHERE  ITCONTAGEM.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+  AND CONTAGEM.CD_INVENTARIO = INVENTARIO.CD_INVENTARIO(+)
+  AND  ITCONTAGEM.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+  AND CONTAGEM.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+  AND ITCONTAGEM.CD_PRODUTO = PRODUTO.CD_PRODUTO
+  AND PRODUTO.SN_MESTRE = 'N'
+  AND PRODUTO.CD_ESPECIE = ESPECIE.CD_ESPECIE
+  AND  ITCONTAGEM.CD_CONTAGEM BETWEEN NVL(REPLACE(:CAMPO_CD_CONTAGEM,'%',null),0) AND NVL(REPLACE(:CAMPO_CD_CONTAGEM,'%',null),99999999)
+  AND  ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  AND Nvl(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM) Between To_Date(to_char(:CAMPO_DTINIC, 'dd/mm/yyyy') || ' 00','dd/mm/yyyy hh24')  and To_Date(to_char(:CAMPO_DTFINAL, 'dd/mm/yyyy') || ' 23','dd/mm/yyyy hh24')
+GROUP BY CONTAGEM.CD_CONTAGEM,
+         PRODUTO.CD_ESPECIE,
+         ESPECIE.DS_ESPECIE,
+         CONTAGEM.CD_ESTOQUE,
+         CONTAGEM.SN_ABERTO,
+         ITCONTAGEM.CD_CONTAGEM,
+         ITCONTAGEM.CD_PRODUTO,
+         PRODUTO.DS_PRODUTO,
+         PRODUTO.VL_CUSTO_MEDIO,
+         CONTAGEM.DT_CONTAGEM,
+         CONTAGEM.DT_GERACAO,
+         CONTAGEM.HR_CONTAGEM,
+         ESTOQUE.DS_ESTOQUE,
+         ITCONTAGEM.CD_PRODUTO,
+         CONTAGEM.DT_GERACAO,
+         CONTAGEM.HR_GERACAO,
+         VERIF_DS_UNID_PROD( PRODUTO.CD_PRODUTO, 'G' ),
+		 VERIF_VL_fATOR_PROD (PRODUTO.CD_PRODUTO,'G')
+union all
+SELECT PRODUTO.CD_ESPECIE cd_especie
+     , ESPECIE.DS_ESPECIE ds_especie
+     , CONTAGEM.CD_ESTOQUE cd_estoque
+     , CONTAGEM.DT_CONTAGEM dt_contagem
+     ,CONTAGEM.DT_GERACAO dt_geracao
+     , CONTAGEM.HR_CONTAGEM hr_contagem
+     , CONTAGEM.SN_ABERTO sn_aberto
+     , ESTOQUE.DS_ESTOQUE ds_estoque
+     , CONTAGEM.CD_CONTAGEM cd_contagem
+     , ITCONTAGEM_DA_ABERTURA.CD_PRODUTO cd_produto
+     , PRODUTO.DS_PRODUTO  ds_produto
+     , VERIF_DS_UNID_PROD( PRODUTO.CD_PRODUTO, 'G' ) DS_UNIDADE
+     , 0 QTD_CONTAGEM
+     ,dbamv.verif_vl_custo_medio( ITCONTAGEM_DA_ABERTURA.CD_PRODUTO,
+                                  NVL(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM),
+                                  'H',
+                                  NULL,
+                                  NVL(CONTAGEM.HR_GERACAO,CONTAGEM.HR_CONTAGEM)) * dbamv.VERIF_VL_FATOR_PROD (PRODUTO.CD_PRODUTO,'G') VL_CUSTO_CONTAGEM,
+	dbamv.verif_vl_custo_medio(ITCONTAGEM_DA_ABERTURA.CD_PRODUTO,
+                                   Nvl(CONTAGEM.DT_GERACAO,
+                                       CONTAGEM.DT_CONTAGEM),
+                                   'H',
+                                   Null,
+                                   Nvl(CONTAGEM.HR_GERACAO,
+                                       CONTAGEM.HR_CONTAGEM)) * DBAMV.VERIF_VL_FATOR_PROD(PRODUTO.CD_PRODUTO,
+                                                                                          'G') As VL_CUSTO_CONTAGEM_HIST
+  FROM DBAMV.PRODUTO
+     , DBAMV.CONTAGEM
+     , DBAMV.ITCONTAGEM_DA_ABERTURA
+     , DBAMV.ESTOQUE
+     , DBAMV.ESPECIE
+     , DBAMV.INVENTARIO	 
+ WHERE ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM = CONTAGEM.CD_CONTAGEM
+   AND CONTAGEM.CD_INVENTARIO = INVENTARIO.CD_INVENTARIO(+)
+   AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND CONTAGEM.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+   AND ITCONTAGEM_DA_ABERTURA.CD_PRODUTO = PRODUTO.CD_PRODUTO
+   AND NOT EXISTS (SELECT IC.CD_PRODUTO
+                     FROM DBAMV.ITCONTAGEM IC
+                    WHERE IC.CD_CONTAGEM = ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM
+                      AND IC.CD_PRODUTO = ITCONTAGEM_DA_ABERTURA.CD_PRODUTO)
+   AND PRODUTO.SN_MESTRE = 'N'
+   AND PRODUTO.CD_ESPECIE = ESPECIE.CD_ESPECIE
+  AND  ITCONTAGEM_DA_ABERTURA.CD_CONTAGEM BETWEEN NVL(REPLACE(:CAMPO_CD_CONTAGEM,'%',null),0) AND NVL(REPLACE(:CAMPO_CD_CONTAGEM,'%',null),99999999)
+  AND NVL(CONTAGEM.SN_ABERTO,'S') = 'S'
+  AND Nvl(CONTAGEM.DT_GERACAO,CONTAGEM.DT_CONTAGEM) Between To_Date(to_char(:CAMPO_DTINIC, 'dd/mm/yyyy') || ' 00','dd/mm/yyyy hh24')  and To_Date(to_char(:CAMPO_DTFINAL, 'dd/mm/yyyy') || ' 23','dd/mm/yyyy hh24')
+:CAMPO_CF_P_DETALHES
+         )
+order by
+         cd_especie,decode('','C',cd_produto), decode('','D',ds_produto)

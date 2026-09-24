@@ -1,0 +1,67 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTAB_PROD_CONSIG
+SELECT * FROM (
+select ent.cd_ent_pro
+    ,Decode((SELECT Nvl(SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N') FROM DBAMV.CONFIGEST WHERE CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA), 'S', ent.nr_ncf, ent.nr_documento) nr_documento
+	,ent.nr_serie
+	,ent.cd_fornecedor
+	,forn.nm_fornecedor
+	,forn.cd_fornecedor || ' - '|| forn.nm_fornecedor ds_fornecedor
+	,ent.dt_emissao
+   	,ent.dt_entrada
+	,prod.cd_produto
+	,prod.ds_produto
+	,prod.cd_produto || ' - '||prod.ds_produto nm_produto
+	,uni.cd_unidade
+   	,itent.vl_unitario
+	,dbamv.verif_vl_custo_medio(itmvto.cd_produto,mvto.hr_mvto_estoque) vl_custo_mov
+   	,dbamv.verif_vl_custo_medio(itmvto.cd_produto,mvto.hr_mvto_estoque)* unim.vl_fator * log_saida.qt_movimento vl_total_mov
+	,itent.qt_entrada
+   	,(itent.vl_unitario * uni.vl_fator * itent.qt_entrada) - nvl(itent.vl_desconto,0) + nvl(itent.vl_imposto,0) vl_total_entrada
+	,mvto.cd_mvto_estoque
+	,mvto.tp_mvto_estoque
+	,itmvto.cd_itmvto_estoque
+	,mvto.dt_mvto_estoque
+	,mvto.hr_mvto_estoque
+	,mvto.cd_setor
+	,log_saida.qt_movimento qt_movimentacao
+	,atd.cd_atendimento cd_atendimento
+	,pac.cd_paciente
+	,pac.nm_paciente
+	,tip.cd_tip_doc
+	,tip.ds_tip_doc
+	,atd.cd_atendimento ||' - '||pac.nm_paciente cd_atendimento_paciente
+         from dbamv.ent_pro ent
+      	,dbamv.log_mvto_consignado  	log_mvto
+      	,dbamv.fornecedor           		forn
+      	,dbamv.itent_pro            		itent
+      	,dbamv.produto              		prod
+      	,dbamv.uni_pro              		uni
+	,dbamv.uni_pro                   		unim
+      	,dbamv.log_mvto_consignado  	log_saida
+      	,dbamv.mvto_estoque         		mvto
+      	,dbamv.itmvto_estoque       		itmvto
+      	,dbamv.atendime             		atd
+      	,dbamv.paciente             		pac
+	,dbamv.tip_doc                   		tip
+      where log_mvto.cd_ent_pro    	= ent.cd_ent_pro
+          and itent.cd_ent_pro       	= ent.cd_ent_pro
+          and log_mvto.cd_produto    	= itent.cd_produto
+          and prod.cd_produto        	= log_mvto.cd_produto
+          and mvto.cd_mvto_estoque   	= log_saida.cd_mvto_estoque
+          and itmvto.cd_produto      	= log_saida.cd_produto
+          and itmvto.cd_mvto_estoque 	= mvto.cd_mvto_estoque
+          and itmvto.cd_uni_pro        	= unim.cd_uni_pro
+          and uni.cd_uni_pro         	= itent.cd_uni_pro
+          and ent.cd_tip_doc           	= tip.cd_tip_doc
+          and forn.cd_fornecedor     	= ent.cd_fornecedor
+          and log_saida.cd_log_mvto_consignado_tem = log_mvto.cd_log_mvto_consignado
+          and atd.cd_atendimento     	= log_saida.cd_atendimento
+          and atd.cd_paciente        	= pac.cd_paciente
+	  and mvto.cd_multi_empresa     = dbamv.pkg_mv2000.le_empresa
+          and ent.dt_entrada        	>= trunc(:CAMPO_DATA_INI)
+          and ent.dt_entrada         	<   trunc(:CAMPO_DATA_FIM) +1
+	:CAMPO_CF_P_CD_SUB_CLA
+)
+ORDER BY DT_EMISSAO,CD_ENT_PRO,DT_ENTRADA,NR_DOCUMENTO,DS_FORNECEDOR,NR_SERIE,DS_TIP_DOC,CD_TIP_DOC,CD_FORNECEDOR,NM_FORNECEDOR,
+DS_PRODUTO,NM_PRODUTO,VL_UNITARIO,QT_ENTRADA,CD_UNIDADE,CD_PRODUTO,VL_TOTAL_ENTRADA

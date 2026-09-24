@@ -1,0 +1,116 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_RETORNO_UTI
+SELECT resultado.cd_unid_int,
+       resultado.ds_unid_int,
+       resultado.cd_atendimento,
+       resultado.cd_paciente,
+       resultado.nm_paciente,
+       resultado.nm_social_paciente,
+       resultado.DT_ENTRADA_UTI,
+       resultado.DT_SAIDA_UTI,
+       resultado.DT_RETORNO_UTI,
+       la.ds_resumo leito_entrada,
+       lb.ds_resumo leito_retorno,
+       lc.ds_resumo leito_saida
+FROM mov_int a,
+     mov_int b,
+     mov_int c,
+     leito la,
+     leito lb,
+     leito lc,
+  (SELECT cd_unid_int,
+          ds_unid_int,
+          cd_atendimento,
+          cd_paciente,
+          nm_paciente,
+          nm_social_paciente,
+          Min(dh_entrada_uti) DT_ENTRADA_UTI,
+          min(dh_saida_uti) DT_SAIDA_UTI,
+          Max(dh_entrada_uti) DT_RETORNO_UTI
+   FROM
+     (
+SELECT unid_int.cd_unid_int,
+       unid_int.ds_unid_int,
+       mov_int.cd_atendimento,
+       mov_int.cd_mov_int,
+       paciente.cd_paciente,
+       paciente.nm_paciente,
+        (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P
+         WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S'
+          AND PACIENTE.CD_PACIENTE = P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+       mov_int.cd_leito_anterior,
+       mov_int.cd_leito,
+       fnc_mv_recupera_data_hora(mov_int.dt_mov_int, mov_int.hr_mov_int) dh_entrada_uti,
+       NULL dh_saida_uti,
+            mov_int.tp_mov
+      FROM mov_int,
+           leito,
+           tip_acom,
+           unid_int,
+           paciente,
+           atendime
+      WHERE (mov_int.cd_leito_anterior IS NULL
+             OR mov_int.cd_leito_anterior NOT IN
+               (SELECT cd_leito FROM leito l,tip_acom t
+                WHERE l.cd_tip_acom=t.cd_tip_acom
+                AND t.tp_acomodacao='U'))
+        AND mov_int.cd_leito=leito.cd_leito
+        AND leito.cd_tip_acom = tip_acom.cd_tip_acom
+        AND tip_acom.tp_acomodacao='U'
+        AND leito.cd_unid_int = unid_int.cd_unid_int
+        AND mov_int.cd_atendimento=atendime.cd_atendimento
+        AND paciente.cd_paciente = atendime.cd_paciente 
+        AND mov_int.tp_mov IN ('I', 'O')  
+UNION ALL 
+SELECT unid_int.cd_unid_int,
+       unid_int.ds_unid_int,
+       mov_int.cd_atendimento,
+       mov_int.cd_mov_int,
+       paciente.cd_paciente,
+       paciente.nm_paciente,
+        (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P
+         WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S'
+          AND PACIENTE.CD_PACIENTE = P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+       mov_int.cd_leito_anterior,
+       mov_int.cd_leito,
+       NULL dh_entrada_uti,
+            fnc_mv_recupera_data_hora(mov_int.dt_mov_int, mov_int.hr_mov_int) dh_saida_uti,
+            mov_int.tp_mov
+      FROM mov_int,
+           leito,
+           tip_acom,
+           unid_int,
+           paciente,
+           atendime
+      WHERE mov_int.cd_leito_anterior = leito.cd_leito
+        AND mov_int.cd_leito NOT IN
+          (SELECT cd_leito FROM leito l, tip_acom t
+           WHERE l.cd_tip_acom=t.cd_tip_acom
+            AND t.tp_acomodacao = 'U')
+        AND leito.cd_tip_acom = tip_acom.cd_tip_acom
+        AND tip_acom.tp_acomodacao='U'
+        AND leito.cd_unid_int = unid_int.cd_unid_int
+        AND mov_int.cd_atendimento=atendime.cd_atendimento
+        AND paciente.cd_paciente = atendime.cd_paciente
+        AND mov_int.tp_mov IN ('I', 'O')  :CAMPO_CF_MULTI_EMPRESA )
+GROUP BY cd_unid_int,
+         ds_unid_int,
+         cd_paciente,
+         nm_paciente,
+         nm_social_paciente,
+         cd_atendimento
+   ORDER BY cd_unid_int) resultado
+WHERE dt_entrada_uti <> dt_retorno_uti
+  AND (dt_retorno_uti - dt_saida_uti)*24 < 24
+  AND dt_saida_uti IS NOT NULL
+  AND to_date(to_char(dt_retorno_uti, 'mm/yyyy'), 'mm/yyyy') = to_date(to_char(:CAMPO_COMPETENCIA,'mm/yyyy'), 'mm/yyyy')
+AND a.tp_mov IN ('I', 'O')
+  AND b.tp_mov IN ('I', 'O')
+  AND c.tp_mov IN ('I', 'O')
+  AND fnc_mv_recupera_data_hora(a.dt_mov_int, a.hr_mov_int) = resultado.dt_entrada_uti
+  AND fnc_mv_recupera_data_hora(b.dt_mov_int, b.hr_mov_int) = resultado.dt_retorno_uti
+  AND fnc_mv_recupera_data_hora(c.dt_mov_int, c.hr_mov_int) = resultado.dt_saida_uti
+  AND la.cd_leito=a.cd_leito
+  AND lb.cd_leito=b.cd_leito
+  AND lc.cd_leito=c.cd_leito
+ORDER BY cd_unid_int, dt_entrada_uti

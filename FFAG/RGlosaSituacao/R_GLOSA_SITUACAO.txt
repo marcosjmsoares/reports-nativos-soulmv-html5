@@ -1,0 +1,92 @@
+/*----------------------------------------------------------------------------*/
+--R_GLOSA_SITUACAO
+SELECT * FROM (
+select distinct convenio.cd_convenio,
+           convenio.nm_convenio,
+           reg_fat.cd_remessa,
+           rg.cd_remessa_glosa,
+           atendime.cd_atendimento,
+           reg_fat.cd_reg_fat    cd_conta,
+           paciente.cd_paciente,
+           paciente.nm_paciente,
+           Nvl( gs.tp_situacao, 'Nulo' )  tp_situacao
+from       dbamv.convenio,
+           dbamv.empresa_convenio,
+           dbamv.remessa_glosa   rg,
+           dbamv.atendime,
+           dbamv.reg_fat,
+           dbamv.paciente,
+           dbamv.glosas_situacao  gs,
+           dbamv.glosas
+where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+  And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and reg_fat.cd_remessa           =  :CAMPO_CD_REMESSA
+  AND GLOSAS.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and atendime.cd_atendimento = reg_fat.cd_atendimento
+  and glosas.cd_reg_fat              = reg_fat.cd_reg_fat
+  and glosas.cd_atendimento      = reg_fat.cd_atendimento
+  and paciente.cd_paciente        = atendime.cd_paciente
+  and convenio.cd_convenio(+)      = atendime.cd_convenio
+  and gs.cd_reg_fat(+)                 = reg_fat.cd_reg_fat
+  and rg.cd_remessa_glosa(+)     = glosas.cd_remessa_glosa
+  and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+Union All
+select distinct convenio.cd_convenio,
+        convenio.nm_convenio,
+        reg_amb.cd_remessa,
+        rg.cd_remessa_glosa,
+        atendime.cd_atendimento,
+        itreg_amb.cd_reg_amb    cd_conta,
+        paciente.cd_paciente,
+        paciente.nm_paciente,
+        Nvl( gs.tp_situacao, 'Nulo' )  tp_situacao
+from    dbamv.convenio,
+        dbamv.empresa_convenio,
+        dbamv.remessa_glosa   rg,
+        dbamv.atendime,
+        dbamv.itreg_amb,
+        dbamv.reg_amb,
+        dbamv.paciente,
+        dbamv.glosas_situacao  gs,
+        dbamv.glosas
+where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+  And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and reg_amb.cd_remessa           =  :CAMPO_CD_REMESSA
+  AND GLOSAS.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and itreg_amb.cd_reg_amb      = reg_amb.cd_reg_amb
+  and atendime.cd_atendimento = itreg_amb.cd_atendimento
+  and glosas.cd_reg_amb              = itreg_amb.cd_reg_amb
+  and glosas.cd_atendimento      = itreg_amb.cd_atendimento
+  and paciente.cd_paciente        = atendime.cd_paciente
+  and convenio.cd_convenio(+)      = atendime.cd_convenio
+  and gs.cd_reg_amb(+)             = itreg_amb.cd_reg_amb
+  and gs.cd_atendimento(+)       = itreg_amb.cd_atendimento
+  and rg.cd_remessa_glosa(+)     = glosas.cd_remessa_glosa
+  and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+union all
+select convenio.cd_convenio,
+       convenio.nm_convenio,
+       remessa.cd_remessa,
+       rg.cd_remessa_glosa,
+       to_number(null) cd_atendimento,
+       to_number(null) cd_conta,
+       to_number(null) cd_paciente,
+       null       nm_paciente,
+       Null tp_situacao
+from   dbamv.remessa_glosa rg,
+       dbamv.remessa_fatura  remessa,
+       dbamv.fatura,
+       dbamv.convenio,
+       dbamv.empresa_convenio
+where  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+  And  Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  rg.cd_remessa = remessa.cd_remessa
+  and  rg.tp_glosa = 'N'
+  and  remessa.cd_fatura         =  fatura.cd_fatura
+  and  fatura.cd_convenio = convenio.cd_convenio
+  and  fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and  convenio.tp_convenio <> 'H'
+  :CAMPO_CF_REMESSA_NAO_IDENT
+)
+ORDER BY CD_CONVENIO,NM_CONVENIO,
+CD_REMESSA,CD_REMESSA_GLOSA

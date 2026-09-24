@@ -1,0 +1,172 @@
+/*----------------------------------------------------------------------------*/
+--R_ESPELHO_SEM_LOTE
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ESPELHO_SEM_LOTE_R_1_Q_PACIENTE
+SELECT * FROM
+  (SELECT paciente.cd_paciente cd_paciente ,
+          paciente.nm_paciente nm_paciente ,
+	 (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) DSP_NM_SOCIAL_PACIENTE ,
+          paciente.nm_mae nm_mae ,
+          paciente.ds_endereco ds_endereco ,
+          To_Char(paciente.dt_nascimento, 'DD/MM/YYYY') dt_nascimento,
+          dbamv.fnc_retorna_matricula_same (atendime.cd_atendimento, atendime.cd_ori_ate, atendime.cd_paciente) NR_SAME,
+          RTRIM(PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, SysDate), ' ') idade ,
+          itped_lab.cd_exa_lab cd_exa_lab_b ,
+          exa_lab.nm_exa_lab nm_exa_lab ,
+          exa_lab.cd_versao_atual cd_versao_atual ,
+          exa_lab.ds_espelho ds_espelho ,
+          NVL(exa_lab.sn_campos_versao_espelho, 'N') sn_campos_versao_espelho ,
+          itped_lab.cd_laboratorio cd_laboratorio ,
+          laboratorio.ds_laboratorio ds_laboratorio ,
+          ped_lab.cd_prestador cd_prestador ,
+          decode(ped_lab.cd_prestador, NULL, ped_lab.nm_prestador, prestador.nm_prestador) nm_prestador ,
+          ped_lab.cd_setor cd_setor ,
+          setor.nm_setor nm_setor ,
+          ped_lab.cd_ped_lab cd_ped_lab ,
+          itped_lab.cd_itped_lab cd_itped_lab ,
+          itped_lab.cd_itped_lab cd_itped_lab_b ,
+          ped_lab.ds_observacao ds_observacao ,
+          ped_lab.dt_pedido dt_pedido ,
+          ped_lab.hr_ped_lab hr_ped_lab ,
+          amostra.cd_amostra cd_amostra ,
+          material.ds_material ds_material ,
+          atendime.cd_cid cd_cid ,
+          cid.DS_CID ds_cid ,
+          amostra.dt_coleta_setor dt_coleta_setor ,
+          bancada.cd_bancada ,
+          bancada.ds_Bancada ,
+          modelo_mapa_trabalho.cd_modelo_mapa_trabalho ,
+          modelo_mapa_trabalho.ds_mapa_trabalho ,
+          modelo_mapa_trabalho.nm_sigla nm_sigla_mapa
+   FROM dbamv.atendime ,
+        dbamv.paciente ,
+        dbamv.itped_lab ,
+        dbamv.ped_lab ,
+        dbamv.exa_lab ,
+        dbamv.laboratorio ,
+        dbamv.setor ,
+        dbamv.prestador ,
+        dbamv.lote_bancada ,
+        dbamv.modelo_mapa_trabalho ,
+        dbamv.bancada ,
+        dbamv.amostra ,
+        dbamv.amostra_exa_lab ,
+        dbamv.coleta_material ,
+        dbamv.material ,
+        dbamv.cid
+   WHERE paciente.cd_paciente = atendime.cd_paciente
+     AND atendime.cd_atendimento = ped_lab.cd_atendimento
+     AND atendime.cd_cid = cid.cd_cid(+)
+     AND ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+     AND EXISTS
+       (SELECT 1
+        FROM dbamv.usuarios_set_exa
+        WHERE itped_lab.cd_set_exa = usuarios_set_exa.cd_set_exa
+          AND usuarios_set_exa.nm_usuario = USER)
+     AND itped_lab.cd_lote_bancada = lote_bancada.cd_lote_bancada(+)
+     AND lote_bancada.cd_bancada = bancada.cd_bancada(+)
+     AND lote_bancada.CD_MODELO_MAPA_TRABALHO = modelo_mapa_trabalho.CD_MODELO_MAPA_TRABALHO(+)
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND itped_lab.cd_exa_lab = exa_lab.cd_exa_lab
+     AND itped_lab.cd_laboratorio = laboratorio.cd_laboratorio
+     AND nvl(itped_lab.sn_laudo_cadastrado, 'N') = 'N'
+     AND ped_lab.cd_setor = setor.cd_setor
+     AND ped_lab.cd_prestador = prestador.cd_prestador(+)
+     AND nvl(itped_lab.sn_emitido, 'N') <> 'S'
+     AND (exa_lab.ds_espelho IS NOT NULL
+          OR exa_lab.sn_campos_versao_espelho = 'S')
+     AND ped_lab.cd_ped_lab = coleta_material.cd_ped_lab
+     AND coleta_material.cd_coleta_material = amostra.cd_coleta_material
+     AND amostra_exa_lab.cd_itped_lab = itped_lab.cd_itped_lab
+     AND amostra_exa_lab.cd_amostra = amostra.cd_amostra
+     AND material.cd_material = amostra.cd_material 
+:CAMPO_CF_ORDENACAO )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ESPELHO_SEM_LOTE_R_BANCADA_Q_BANCADA
+SELECT * FROM
+  (SELECT paciente.cd_paciente cd_paciente_b ,
+          paciente.nm_paciente nm_paciente_b ,
+	 (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) DSP_NM_SOCIAL_PACIENTE ,
+          paciente.nm_mae nm_mae_b ,
+          paciente.ds_endereco ds_endereco_b ,
+          To_Char(paciente.dt_nascimento, 'DD/MM/YYYY') dt_nascimento_b,
+          dbamv.fnc_retorna_matricula_same (atendime.cd_atendimento, atendime.cd_ori_ate, atendime.cd_paciente) NR_SAME,
+          RTRIM(PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, SysDate), ' ') idade_b ,
+          itped_lab.cd_exa_lab cd_exa_lab_b ,
+          exa_lab.nm_exa_lab nm_exa_lab_b ,
+          exa_lab.cd_versao_atual cd_versao_atual_b ,
+          exa_lab.ds_espelho ds_espelho_b ,
+          NVL(exa_lab.sn_campos_versao_espelho, 'N') sn_campos_versao_espelho ,
+          bancada.cd_bancada cd_bancada_b ,
+          bancada.ds_bancada ds_bancada_b ,
+          ped_lab.cd_prestador cd_prestador_b ,
+          decode(ped_lab.cd_prestador, NULL, ped_lab.nm_prestador, prestador.nm_prestador) nm_prestador_b ,
+          ped_lab.cd_setor cd_setor_b ,
+          setor.nm_setor nm_setor_b ,
+          ped_lab.cd_ped_lab cd_ped_lab_b ,
+          itped_lab.cd_itped_lab cd_itped_lab ,
+          itped_lab.cd_itped_lab cd_itped_lab_b ,
+          ped_lab.ds_observacao ds_observacao_b ,
+          ped_lab.dt_pedido dt_pedido_b ,
+          ped_lab.hr_ped_lab hr_ped_lab_b ,
+          amostra.cd_amostra cd_amostra ,
+          material.ds_material ds_material ,
+          atendime.cd_cid cd_cid ,
+          cid.DS_CID ds_cid ,
+          amostra.dt_coleta_setor dt_coleta_setor ,
+          modelo_mapa_trabalho.cd_modelo_mapa_trabalho ,
+          modelo_mapa_trabalho.ds_mapa_trabalho ,
+          modelo_mapa_trabalho.nm_sigla nm_sigla_mapa
+   FROM dbamv.atendime ,
+        dbamv.paciente ,
+        dbamv.itped_lab ,
+        dbamv.ped_lab ,
+        dbamv.exa_lab ,
+        dbamv.setor ,
+        dbamv.prestador ,
+        dbamv.lote_bancada ,
+        dbamv.bancada ,
+        dbamv.laboratorio ,
+        dbamv.exa_lab_set_exa ,
+        dbamv.amostra ,
+        dbamv.amostra_exa_lab ,
+        dbamv.coleta_material ,
+        dbamv.material ,
+        dbamv.modelo_mapa_trabalho ,
+        dbamv.cid
+   WHERE paciente.cd_paciente = atendime.cd_paciente
+     AND atendime.cd_atendimento = ped_lab.cd_atendimento
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA 
+     AND ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+     AND EXISTS
+       (SELECT 1
+        FROM dbamv.usuarios_set_exa
+        WHERE itped_lab.cd_set_exa = usuarios_set_exa.cd_set_exa
+          AND usuarios_set_exa.nm_usuario = USER)
+     AND itped_lab.cd_laboratorio = laboratorio.cd_laboratorio
+     AND itped_lab.cd_exa_lab = exa_lab.cd_exa_lab
+     AND itped_lab.cd_lote_bancada = lote_bancada.cd_lote_bancada(+)
+     AND exa_lab_set_exa.cd_set_exa = itPed_lab.cd_set_exa
+     AND exa_lab_set_exa.cd_exa_lab = itPed_lab.cd_exa_lab
+     AND exa_lab_set_exa.cd_bancada = bancada.cd_bancada
+     AND nvl(itped_lab.sn_laudo_cadastrado, 'N') = 'N'
+     AND ped_lab.cd_setor = setor.cd_setor
+     AND ped_lab.cd_prestador = prestador.cd_prestador(+)
+     AND nvl(itped_lab.sn_emitido, 'N') <> 'S'
+     AND (exa_lab.ds_espelho IS NOT NULL
+          OR exa_lab.sn_campos_versao_espelho = 'S')
+     AND ped_lab.cd_ped_lab = coleta_material.cd_ped_lab
+     AND coleta_material.cd_coleta_material = amostra.cd_coleta_material
+     AND amostra_exa_lab.cd_itped_lab = itped_lab.cd_itped_lab
+     AND lote_bancada.CD_MODELO_MAPA_TRABALHO = modelo_mapa_trabalho.CD_MODELO_MAPA_TRABALHO(+)
+     AND atendime.cd_cid = cid.cd_cid(+)
+     AND amostra_exa_lab.cd_amostra = amostra.cd_amostra
+     AND material.cd_material = amostra.cd_material 
+:CAMPO_CF_ORDENACAO )

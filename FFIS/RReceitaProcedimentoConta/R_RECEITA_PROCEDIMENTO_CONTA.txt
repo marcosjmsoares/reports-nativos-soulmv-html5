@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_RECEITA_PROCEDIMENTO_CONTA
+SELECT VW.DESCRICAO DS_GRUPO
+     , RG.NR_GUIA
+     , TO_CHAR(RG.dt_inicio,'DD/MM')||' à ' ||TO_CHAR(RG.dt_final,'DD/MM') PERIODO
+     , IT.CD_PROCEDIMENTO     CD_PROCEDIMENTO
+     , PS.DS_PROCEDIMENTO     DS_PROCEDIMENTO
+     , sum(Dbamv.Pkg_FFIS_Calc_AIH.fnc_sus_max_valor_sh(it.cd_reg_fat,it.cd_lancamento)
+     + Dbamv.Pkg_FFIS_Calc_AIH.fnc_sus_max_valor_sp(it.cd_reg_fat,it.cd_lancamento)) vl_procedimento
+     , decode(IT.sn_proced_realizado,'S','Proc. Realizado',
+              decode(IT.SN_INTERCORRENCIA,'S','Intercorrencia',
+              decode(pd.sn_aih_especial,'S','Item Especial','Item Secundário'))) tp_item
+     , VW.VL_SH_PROPRIO + VW.VL_SH_TERCEIRO vl_sh_total
+     , VW.VL_SP_PROPRIO + VW.VL_SP_TERCEIRO vl_sp_total
+     , SUM(VW.QT_LANCAMENTO)  QT_LANCAMENTO
+     , SUM(VW.VL_TOTAL)       VL_TOTAL
+ FROM DBAMV.V_FFIS_PRODUCAO_AIH VW
+    , DBAMV.REMESSA_FATURA RF
+    , DBAMV.FATURA FT
+    , DBAMV.REG_FAT RG
+    , DBAMV.ITREG_FAT IT
+    , DBAMV.PROCEDIMENTO_SUS PS
+    , dbamv.procedimento_detalhe_vigencia pd
+WHERE VW.CD_REMESSA      = RF.CD_REMESSA
+  AND RF.CD_FATURA       = FT.CD_FATURA
+  AND PD.CD_PROCEDIMENTO = PS.CD_PROCEDIMENTO
+  AND RG.CD_REG_FAT      = VW.CD_REG_FAT
+  AND IT.CD_REG_FAT      = RG.CD_REG_FAT
+  AND IT.CD_LANCAMENTO   = VW.CD_LANCAMENTO
+  AND PS.CD_PROCEDIMENTO = IT.CD_PROCEDIMENTO
+  AND SUBSTR(VW.DESCRICAO,1,5) = 'GRUPO'
+  AND TRUNC(IT.DT_LANCAMENTO, 'MM')  BETWEEN PD.DT_VALIDADE_INICIAL  AND NVL(PD.DT_VALIDADE_FINAL, TRUNC(IT.DT_LANCAMENTO, 'MM'))
+  AND FT.CD_FATURA = :CAMPO_CD_FATURA
+GROUP BY ID
+       , VW.DESCRICAO
+       , RG.NR_GUIA
+       , TO_CHAR(RG.dt_inicio,'DD/MM')||' à ' ||TO_CHAR(RG.dt_final,'DD/MM')
+       , IT.CD_PROCEDIMENTO
+       , PS.DS_PROCEDIMENTO
+       , decode(IT.sn_proced_realizado,'S','Proc. Realizado',
+              decode(IT.SN_INTERCORRENCIA,'S','Intercorrencia',
+              decode(pd.sn_aih_especial,'S','Item Especial','Item Secundário')))
+       , VW.VL_SH_PROPRIO + VW.VL_SH_TERCEIRO
+       , VW.VL_SP_PROPRIO + VW.VL_SP_TERCEIRO
+ ORDER BY ID, RG.NR_GUIA, IT.CD_PROCEDIMENTO

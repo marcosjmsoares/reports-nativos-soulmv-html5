@@ -1,0 +1,51 @@
+/*----------------------------------------------------------------------------*/
+--R_C_ABC_ESTOQUE
+SELECT sub_clas.ds_sub_cla DS_SUB_CLA,
+       PRODUTO.DS_PRODUTO DS_PRODUTO,
+       PRODUTO.CD_PRODUTO CD_PRODUTO,
+       VERIF_DS_UNID_PROD(PRODUTO.CD_PRODUTO) DS_UNIDADE,
+       MEDIA.QT_ESTOQUE_ATUAL / VERIF_VL_FATOR_PROD(PRODUTO.CD_PRODUTO) QT_ESTOQUE_ATUAL,
+       MEDIA.VL_CUSTO_MEDIO * VERIF_VL_FATOR_PROD(PRODUTO.CD_PRODUTO) VL_CUSTO_MEDIO ,
+       (
+SELECT trunc(Sum((Nvl(MEDIA.QT_ESTOQUE_ATUAL / VERIF_VL_FATOR_PROD(PRODUTO.CD_PRODUTO),0)) * (Nvl(MEDIA.VL_CUSTO_MEDIO * VERIF_VL_FATOR_PROD(PRODUTO.CD_PRODUTO),0))),4)
+FROM  DBAMV.PRODUTO PRODUTO,
+      DBAMV.SUB_CLAS,
+      (Select   SUM ( EST_PRO.QT_ESTOQUE_ATUAL ) QT_ESTOQUE_ATUAL,
+                AVG ( dbamv.VERIF_VL_CUSTO_MEDIO( EST_PRO.CD_PRODUTO, SYSDATE, :CAMPO_TP_CUSTO ,
+                                                                PRODUTO.VL_CUSTO_MEDIO, Sysdate ))  VL_CUSTO_MEDIO,
+                decode('', 'S', produto.cd_produto_tem, produto.cd_produto) cd_produto
+       FROM     DBAMV.EST_PRO,
+                DBAMV.PRODUTO
+       WHERE    EST_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+       AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+	AND      PRODUTO.TP_ATIVO = 'S'
+       GROUP BY decode('', 'S', produto.cd_produto_tem, produto.cd_produto)) MEDIA
+WHERE  PRODUTO.CD_SUB_CLA  = SUB_CLAS.CD_SUB_CLA
+AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+AND    PRODUTO.CD_CLASSE   = SUB_CLAS.CD_CLASSE
+AND    PRODUTO.CD_ESPECIE  = SUB_CLAS.CD_ESPECIE
+AND    PRODUTO.CD_PRODUTO  = MEDIA.CD_PRODUTO
+AND    nvl(MEDIA.QT_ESTOQUE_ATUAL, 0 ) <> 0
+AND    PRODUTO.SN_MESTRE = :CAMPO_PROD_MESTRE
+:CAMPO_CF_P_SUB_CLASSE
+       ) VL_ACUMULADO
+FROM  DBAMV.PRODUTO PRODUTO,
+      DBAMV.SUB_CLAS,
+      (Select   SUM ( EST_PRO.QT_ESTOQUE_ATUAL ) QT_ESTOQUE_ATUAL,
+                AVG ( dbamv.VERIF_VL_CUSTO_MEDIO( EST_PRO.CD_PRODUTO, SYSDATE, :CAMPO_TP_CUSTO ,
+                                                                PRODUTO.VL_CUSTO_MEDIO, Sysdate ))  VL_CUSTO_MEDIO,
+                decode('', 'S', produto.cd_produto_tem, produto.cd_produto) cd_produto
+       FROM     DBAMV.EST_PRO,
+                DBAMV.PRODUTO
+       WHERE    EST_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+       AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+	AND      PRODUTO.TP_ATIVO = 'S'
+       GROUP BY decode('', 'S', produto.cd_produto_tem, produto.cd_produto)) MEDIA
+WHERE  PRODUTO.CD_SUB_CLA  = SUB_CLAS.CD_SUB_CLA
+AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+AND    PRODUTO.CD_CLASSE   = SUB_CLAS.CD_CLASSE
+AND    PRODUTO.CD_ESPECIE  = SUB_CLAS.CD_ESPECIE
+AND    PRODUTO.CD_PRODUTO  = MEDIA.CD_PRODUTO
+AND    nvl(MEDIA.QT_ESTOQUE_ATUAL, 0 ) <> 0
+AND    PRODUTO.SN_MESTRE = :CAMPO_PROD_MESTRE
+ORDER BY (MEDIA.VL_CUSTO_MEDIO * MEDIA.QT_ESTOQUE_ATUAL) DESC, VL_CUSTO_MEDIO ASC, DS_SUB_CLA ASC

@@ -1,0 +1,48 @@
+/*----------------------------------------------------------------------------*/
+--R_C_ABC_ESTOQUE_ORD
+SELECT
+sub_clas.ds_sub_cla  SUB_CLASSE
+      ,produto.ds_produto   DESCRICAO
+      ,produto.cd_produto   PRODUTO
+      ,VERIF_DS_UNID_PROD  (PRODUTO.CD_PRODUTO) UNIDADE
+      ,SUM(QTD_ORD)/ VERIF_VL_FATOR_PROD (PRODUTO.CD_PRODUTO) QTD_ORD
+      ,SUM(VL_ORD) VL_ORD
+FROM  dbamv.sub_clas
+     ,dbamv.produto
+     ,     ( select
+              decode('', 'S', produto.cd_produto_tem, produto.cd_produto) cd_produto
+              ,sum(itord_pro.qt_comprada * uni_pro.vl_fator) QTD_ORD
+              ,sum(itord_pro.vl_total) vl_ord
+            from dbamv.itord_pro
+                ,dbamv.produto
+                ,dbamv.ord_com
+                ,dbamv.uni_pro
+		,dbamv.estoque  
+             where
+                PRODUTO.TP_ATIVO = 'S'
+                and ITORD_PRO.CD_MOT_CANCEL IS NULL
+                and produto.cd_produto = itord_pro.cd_produto
+                and ord_com.cd_ord_com = itord_pro.cd_ord_com
+                and to_char(ord_com.dt_ord_com,'MM/YYYY') = :CAMPO_COMP
+                and estoque.cd_estoque = ord_com.cd_estoque
+		and estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+		and uni_pro.cd_uni_pro = itord_pro.cd_uni_pro
+                and  nvl(ord_com.sn_consignado_fatura_direta,'N') = 'N'
+             group by
+               decode('', 'S', produto.cd_produto_tem, produto.cd_produto)
+               ,itord_pro.vl_unitario
+               ,itord_pro.vl_total
+               ,uni_pro.vl_fator) TAB
+WHERE
+   produto.cd_sub_cla     = sub_clas.cd_sub_cla
+   AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+   and produto.cd_produto = TAB.cd_produto
+   and produto.cd_especie = sub_clas.cd_especie
+   and produto.cd_classe  = sub_clas.cd_classe
+   AND PRODUTO.SN_MESTRE  = :CAMPO_PROD_MESTRE
+GROUP BY
+      sub_clas.ds_sub_cla
+      ,produto.ds_produto
+      ,PRODUTO.cd_produto
+      ,VERIF_DS_UNID_PROD  (PRODUTO.CD_PRODUTO)
+ORDER BY VL_ORD DESC

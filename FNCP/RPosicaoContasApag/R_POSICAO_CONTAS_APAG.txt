@@ -1,0 +1,134 @@
+/*----------------------------------------------------------------------------*/
+--R_POSICAO_CONTAS_APAG
+SELECT  Nvl(cd_fonte_pagadora,NULL)                     cd_fonte_pagadora,
+        nm_fantasia                           nm_fantasia,
+        nr_documento                          nr_documento,
+		    nr_ncf                                nr_ncf,
+        sum(vl_a_vencer)                      vl_a_vencer,
+        sum(vl_vencido)                       vl_vencido,
+        (sum(vl_a_vencer) + sum(vl_vencido))  total_a_pagar,
+        sum( (P01_30 * decode(status,'VENCIDO',1,0)) )      vencido_01_30,
+        sum( (P31_60 * decode(status,'VENCIDO',1,0)) )      vencido_31_60,
+        sum( (P61_90 * decode(status,'VENCIDO',1,0)) )      vencido_61_90,
+        sum( (P91_180 * decode(status,'VENCIDO',1,0)) )     vencido_91_180,
+        sum( (P181_360 * decode(status,'VENCIDO',1,0)) )    vencido_181_360,
+        sum( (P361 * decode(status,'VENCIDO',1,0)) )        vencido_361,
+        sum( (P01_30 * decode(status,'VENCIDO',1,0)))  + sum( (P31_60 * decode(status,'VENCIDO',1,0)) ) +
+        sum( (P61_90 * decode(status,'VENCIDO',1,0)))  + sum( (P91_180 * decode(status,'VENCIDO',1,0)) ) +
+        sum( (P181_360 * decode(status,'VENCIDO',1,0)))+ sum( (P361 * decode(status,'VENCIDO',1,0)) )  total_vencido,
+        sum( (P01_30 * decode(status,'VENCIDO',0,1)) )      a_vencer_01_30,
+        sum( (P31_60 * decode(status,'VENCIDO',0,1)) )      a_vencer_31_60,
+        sum( (P61_90 * decode(status,'VENCIDO',0,1)) )      a_vencer_61_90,
+        sum( (P91_180 * decode(status,'VENCIDO',0,1)) )     a_vencer_91_180,
+        sum( (P181_360 * decode(status,'VENCIDO',0,1)) )    a_vencer_181_360,
+        sum( (P361 * decode(status,'VENCIDO',0,1)) )        a_vencer_361,
+        sum( (P01_30 * decode(status,'VENCIDO',0,1)) ) + sum( (P31_60 * decode(status,'VENCIDO',0,1)) ) +
+        sum( (P61_90 * decode(status,'VENCIDO',0,1)) ) + sum( (P91_180 * decode(status,'VENCIDO',0,1)) ) +
+        sum( (P181_360 * decode(status,'VENCIDO',0,1)))+ sum( (P361 * decode(status,'VENCIDO',0,1)) ) total_a_vencer
+  FROM( SELECT Nvl(cd_fonte_pagadora, NULL)                      cd_fonte_pagadora
+              ,Nvl(nm_fantasia, 'Fornecedor Diversos')          nm_fantasia
+              ,dt_vencimento                                    dt_vencimento
+              ,vl_duplicata - NVL(vl_soma_pago,0)               vl_previsto
+              ,cd_itcon_pag                                     cd_itcon_pag
+              ,Decode(:CAMPO_TP_RELATORIO,'S',NULL, nr_documento)               nr_documento
+				,Decode(:CAMPO_TP_RELATORIO,'S',NULL, nr_ncf)                     nr_ncf
+              ,CASE WHEN Trunc (( Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento) )) > 0 THEN 'VENCIDO' ELSE 'A_VENCER' END  AS "STATUS"
+              ,CASE WHEN Trunc (( Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento) )) > 0 THEN 0 ELSE vl_duplicata - Nvl (vl_soma_pago, 0) END AS "VL_A_VENCER"
+              ,CASE WHEN Trunc (( Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento) )) > 0 THEN vl_duplicata - Nvl (vl_soma_pago, 0) ELSE 0 END AS "VL_VENCIDO"
+              ,CASE WHEN Abs (Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento)) BETWEEN 0 AND 30 THEN vl_duplicata - Nvl (vl_soma_pago, 0) ELSE 0 END AS "P01_30"
+              ,CASE WHEN Abs (Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento)) BETWEEN 31 AND 60 THEN vl_duplicata - Nvl (vl_soma_pago, 0) ELSE 0 END AS "P31_60"
+              ,CASE WHEN Abs (Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento)) BETWEEN 61 AND 90 THEN vl_duplicata - Nvl (vl_soma_pago, 0) ELSE 0 END AS "P61_90"
+              ,CASE WHEN Abs (Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento)) BETWEEN 91 AND 180 THEN vl_duplicata - Nvl (vl_soma_pago, 0) ELSE 0 END AS "P91_180"
+              ,CASE WHEN Abs (Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento)) BETWEEN 181 AND 360 THEN vl_duplicata - Nvl (vl_soma_pago, 0) ELSE 0 END AS "P181_360"
+              ,CASE WHEN Abs (Trunc (:CAMPO_DT_BASE) - Trunc (dt_vencimento)) > 360 THEN vl_duplicata - Nvl (vl_soma_pago, 0) ELSE 0 END AS "P361"
+          FROM (  SELECT  cd_fonte_pagadora,
+                          nm_fantasia,
+                          cd_itcon_pag,
+                          nr_documento,
+						nr_ncf,
+                          dt_vencimento,
+                          Sum(vl_duplicata) vl_duplicata,
+                          Sum(vl_soma_pago) vl_soma_pago
+                    FROM ( SELECT  Nvl(c.cd_fornecedor,NULL)     cd_fonte_pagadora
+                                  ,c.ds_fornecedor     nm_fantasia
+                                  ,i.cd_itcon_pag      cd_itcon_pag
+                                  ,c.nr_documento||Decode(c.nr_serie,NULL,'','/'||c.nr_serie) nr_documento
+									,c.nr_ncf nr_ncf
+                                  ,i.dt_vencimento     dt_vencimento
+                                  ,c.cd_multi_empresa  cd_empresa
+                                  ,c.cd_con_pag        cd_con_pag
+                                  ,i.nr_parcela        nr_parcela
+                                  ,(SELECT x.ds_tip_doc FROM dbamv.tip_doc x WHERE x.cd_tip_doc = c.cd_tip_doc) ds_tipo_docm
+                                  ,Decode(i.tp_quitacao,'V','PREVISTO'
+                                                       ,'C','COMPROMETIDO'
+                                                       ,'P','iIAL.QUITADO'
+                                                       ,'Q','QUITADO '
+                                                       ,'N','CANCELADO '
+                                                       ,'T','DEVOLUCAO.TOTAL'
+                                                       ,'L','DEVOLUCAO.iIAL'
+                                                       ,'OUTRO') tp_quitacao
+                                  ,p.cd_processo       cd_processo
+                                  ,p.cd_estrutural     cd_estrutural
+                                  ,p.ds_processo       ds_processo
+                                  ,pcta.cd_contabil    cd_c_contabil
+                                  ,c.dt_lancamento     dt_lancamento
+                                  ,c.dt_emissao        dt_emissao
+                                  ,i.vl_duplicata      vl_duplicata
+                                  ,Nvl((SELECT Sum(Nvl(x.vl_pago,0) -
+                                               Nvl(x.vl_acrescimo,0) +
+                                               Nvl(x.vl_desconto,0))
+                                          FROM dbamv.pagcon_pag x
+                                         WHERE  x.cd_itcon_pag = i.cd_itcon_pag
+                                           AND  x.cd_previsao_pag IS NULL
+                                           AND  x.dt_pagamento <= :CAMPO_DT_BASE
+                                           AND  ((x.dt_estorno IS NULL) OR
+                                                ((x.dt_estorno IS NOT NULL) AND
+                                                (x.dt_estorno > :CAMPO_DT_BASE )))),0)        vl_soma_pago
+                                  ,Nvl((SELECT Sum(Nvl(x.vl_acrescimo,0))
+                                          FROM dbamv.pagcon_pag x
+                                         WHERE x.cd_itcon_pag = i.cd_itcon_pag
+                                           AND x.cd_previsao_pag IS NULL
+                                           AND x.dt_pagamento <= :CAMPO_DT_BASE
+                                           AND ((x.dt_estorno IS NULL) OR
+                                               ((x.dt_estorno IS NOT NULL) AND
+                                               (x.dt_estorno > :CAMPO_DT_BASE )))),0)        vl_acrescimo
+                                  ,Nvl((SELECT Sum(Nvl(x.vl_desconto,0))
+                                          FROM dbamv.pagcon_pag x
+                                         WHERE  x.cd_itcon_pag = i.cd_itcon_pag
+                                           AND  x.cd_previsao_pag IS NULL
+                                           AND  x.dt_pagamento <= :CAMPO_DT_BASE
+                                           AND  ((x.dt_estorno IS NULL) OR
+                                                ((x.dt_estorno IS NOT NULL) AND
+                                                (x.dt_estorno > :CAMPO_DT_BASE)))),0)        vl_desconto
+                             FROM dbamv.con_pag        c,
+                                  dbamv.itcon_pag      i,
+                                  dbamv.processo       p,
+                                  dbamv.plano_contas   pcta,
+                                  dbamv.multi_empresas empr,
+                                  dbamv.USUARIO_MULTI_EMPRESA UME
+                            WHERE c.cd_con_pag        = i.cd_con_pag
+                              AND c.cd_processo       = p.cd_processo
+                              AND c.cd_reduzido       = pcta .cd_reduzido(+)
+                              AND c.cd_multi_empresa  = empr.cd_multi_empresa
+                              AND c.dt_lancamento     <= :CAMPO_DT_BASE
+                              AND Upper(SubStr(p.ds_processo,1,6)) <> 'AGRUPA'
+                              AND c.cd_con_pag_dev    IS NULL
+                              AND c.cd_previsao       IS NULL
+                              AND C.cd_multi_empresa = UME.cd_multi_empresa
+                              AND ume.cd_id_usuario = user
+                              AND p.cd_estrutural     NOT IN ('2.1.1.1.3', '99.1')
+                        )
+                  WHERE (vl_duplicata - vl_soma_pago) > 0
+                  GROUP BY  cd_fonte_pagadora,
+                            nm_fantasia,
+                            cd_itcon_pag,
+                            nr_documento,
+							nr_ncf,
+                            dt_vencimento
+               )
+      )
+HAVING ( SUM ( vl_a_vencer ) + SUM ( vl_vencido ) ) <> 0
+ GROUP BY Nvl(cd_fonte_pagadora,NULL),
+          nm_fantasia,
+          nr_documento,
+          nr_ncf

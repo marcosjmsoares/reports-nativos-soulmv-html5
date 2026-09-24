@@ -1,0 +1,406 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_SUSPEITO
+SELECT * FROM (
+SELECT NM_PACIENTE,
+        (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND V_PAC_SUSPEITOS_INFEC.CD_PACIENTE =  CD_PACIENTE) NM_SOCIAL_PACIENTE,
+        CD_ATENDIMENTO,
+        NM_PRESTADOR,
+        DS_LEITO,
+        DT_PREVISTA_ALTA,
+        DT_ATENDIMENTO,
+        CD_PACIENTE,
+        CD_UNID_INT,
+        NM_SETOR||' / '||DS_UNID_INT DS_UNID_INT,
+        CD_SETOR,
+        NM_SETOR,
+        CD_CID,
+        DS_CID
+FROM DBAMV.V_PAC_SUSPEITOS_INFEC
+WHERE Dt_Alta Is Null
+  AND IDENT = 'I'
+  :CAMPO_CF_WHERE
+)
+ORDER BY NM_SETOR,DS_UNID_INT,CD_SETOR,CD_UNID_INT
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PAC_SUSPEITO_R_ANTIMICROBIANOS_Q_ANTIMICROBIANOS
+SELECT CD_ATENDIMENTO, DT_MVTO_ESTOQUE, DS_PRODUTO, DS_TIP_FRE, DS_FOR_APL, DS_JUSTIFICATIVA FROM (
+SELECT DISTINCT
+		ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+		    , ATENDIME.DT_ALTA
+		    , ATENDIME.HR_ALTA
+		    , Decode(PRODUTO.CD_PRODUTO,
+		             Nvl(ITSOL_ATEND.CD_PRODUTO_ATENDIDO, PRODUTO.CD_PRODUTO),
+		             Decode(Nvl(ITSOLSAI_PRO.QT_ATENDIDA,0), 0, '2', '1')
+		  , '3') TIPO
+		    , Nvl(ITSOL_ATEND.CD_PRODUTO_ATENDIDO, PRODUTO.CD_PRODUTO) CD_PRODUTO
+		    , Nvl( PRODUTO_ATEND.DS_PRODUTO, PRODUTO.DS_PRODUTO) DS_PRODUTO
+		    , 'VINCULAR' NM_ANTIMICROB
+		    , Decode( TIP_PRESC.DS_TIP_PRESC, NULL, PRODUTO.DS_PRODUTO, TIP_PRESC.DS_TIP_PRESC) DS_TIP_PRESC
+		    , ATENDIME.CD_LEITO
+		    , LEITO.CD_UNID_INT
+		    , ATENDIME.CD_CONVENIO
+		    , ATENDIME.CD_PACIENTE
+		    , Fnc_Mv_Recupera_Data_Hora( PRE_MED.DT_PRE_MED, PRE_MED.HR_PRE_MED) DT_MVTO_ESTOQUE
+		    , 'VINCULAR' CD_ANTIMICROB
+		    , SOLSAI_PRO.CD_PRESTADOR
+		    , PRESTADOR.NM_PRESTADOR
+		    , PACIENTE.NM_PACIENTE
+		    , ATENDIME.DT_PREVISTA_ALTA
+		    , ATENDIME.CD_CID
+		    , CID.DS_CID
+		    , Fnc_Mv_Recupera_Data_Hora( TO_DATE(TO_CHAR(ATENDIME.DT_ALTA,'DD-MM-YYYY'),'DD-MM-YYYY'),
+		        TO_DATE(TO_CHAR(ATENDIME.HR_ALTA,'DD-MM-YYYY HH24'),'DD-MM-YYYY HH24') ) DH_ALTA
+		    , SOLSAI_PRO.CD_SOLSAI_PRO
+		    , PRE_MED.CD_PRE_MED
+		    , ITPRE_MED.CD_ITPRE_MED
+		    , ITPRE_MED.CD_ITPRE_MED_JUSTIFICATIVA
+		    , ITPRE_MED.DS_JUSTIFICATIVA
+		    , ITPRE_MED.QT_DIAS
+		    , ITPRE_MED.NR_DIA
+		    , round(Decode ( PRE_MED.CD_PRE_MED, NULL , 0, FNC_PSIH_RETORNA_DOSE(ATENDIME.CD_ATENDIMENTO,ITPRE_MED.CD_PRE_MED,PRODUTO.CD_PRODUTO) ),3) NR_DOSE
+		    , PRE_MED.dt_pre_med
+		    , PRE_MED.hr_pre_med
+		    , TIP_PRESC.CD_TIP_PRESC
+		    , '...' CD_MVTO_ESTOQUE
+		    , '...' CD_ITMVTO_ESTOQUE
+        , DS_FOR_APL
+        , DS_TIP_FRE
+		FROM ATENDIME
+		    , LEITO
+		    , PRE_MED
+		    , ITPRE_MED
+		    , TIP_PRESC
+		    , PRESTADOR
+		    , PACIENTE
+		    , CID
+		    , PRODUTO
+		    , PRODUTO PRODUTO_ATEND
+		    , SOLSAI_PRO
+		    , ITSOLSAI_PRO
+		    , ITSOLSAI_PRO_ATENDIDO ITSOL_ATEND
+		    , ANT_PRO
+		    , ANTIMICROB
+        , DBAMV.TIP_FRE
+        , DBAMV.FOR_APL
+		 WHERE SOLSAI_PRO.CD_PRE_MED            = PRE_MED.CD_PRE_MED
+		   AND ITSOLSAI_PRO.CD_ITSOLSAI_PRO     = ITSOL_ATEND.CD_ITSOLSAI_PRO (+)
+		   AND ITSOL_ATEND.CD_PRODUTO_ATENDIDO  = PRODUTO_ATEND.CD_PRODUTO (+)
+		   AND ATENDIME.CD_CID                  = CID.CD_CID (+)
+		   AND PRE_MED.CD_PRE_MED               = ITPRE_MED.CD_PRE_MED
+		   AND ITPRE_MED.CD_TIP_PRESC           = TIP_PRESC.CD_TIP_PRESC
+			AND SOLSAI_PRO.CD_SOLSAI_PRO         = ITSOLSAI_PRO.CD_SOLSAI_PRO
+			AND SOLSAI_PRO.CD_PRESTADOR          = PRESTADOR.CD_PRESTADOR
+      AND ITPRE_MED.CD_TIP_FRE       = TIP_FRE.CD_TIP_FRE (+)
+       AND ITPRE_MED.CD_FOR_APL       = FOR_APL.CD_FOR_APL (+)
+			AND ATENDIME.CD_LEITO                = LEITO.CD_LEITO (+)
+			AND ATENDIME.CD_PACIENTE             = PACIENTE.CD_PACIENTE
+			AND ATENDIME.CD_ATENDIMENTO          = SOLSAI_PRO.CD_ATENDIMENTO
+           AND ITSOLSAI_PRO.CD_PRODUTO          = PRODUTO.CD_PRODUTO
+		   AND SOLSAI_PRO.TP_SITUACAO           in ('P','C','S')
+        	AND PRODUTO.CD_PRODUTO               = ANT_PRO.CD_PRODUTO
+			AND ANT_PRO.CD_ANTIMICROB            = ANTIMICROB.CD_ANTIMICROB
+		   AND SOLSAI_PRO.TP_SOLSAI_PRO = 'P'
+		   AND NVL(TIP_PRESC.CD_PRODUTO, 0)     > 0
+		   AND NVL(ITPRE_MED.SN_CANCELADO,'N')  <> 'S'
+		   AND ANTIMICROB.SN_REL_SUSP_INFEC     = 'S'
+		   AND ((( NVL(ITPRE_MED.NR_DIA,1) = 1) or ((NVL(ITPRE_MED.NR_DIA,2) in (1,2)) and pre_med.tp_pre_med = 'A' )) or ((NVL(ITPRE_MED.NR_DIA,1) >= 1 ) and NVL(itpre_med.sn_atm_prorrogacao,'N') = 'S' )  )
+		   AND ((ATENDIME.TP_ATENDIMENTO       IN ('I','U')) OR ((ATENDIME.TP_ATENDIMENTO = ('A')
+	    	                                                 AND ATENDIME.CD_ATENDIMENTO_PAI is not null
+	                                                  AND ATENDIME.CD_ATENDIMENTO_PAI in (select aten.CD_ATENDIMENTO
+												                                                   from dbamv.atendime aten
+												                                                  where aten.CD_ATENDIMENTO = atendime.CD_ATENDIMENTO_PAI
+													                                                and aten.TP_ATENDIMENTO = ('A')
+												                                                    and nvl(aten.QT_SESSOES,1) >= 1 ) )))
+		   AND ((PRODUTO.SN_MESTRE = 'N'  
+		   AND EXISTS ( SELECT 'X'
+		                  FROM ANT_PRO
+		                     , ANTIMICROB
+		                     , PRODUTO PROD
+		                 WHERE ANT_PRO.CD_ANTIMICROB = ANTIMICROB.CD_ANTIMICROB
+		                   AND ANT_PRO.CD_PRODUTO    = PROD.CD_PRODUTO
+		                   AND ANTIMICROB.SN_REL_SUSP_INFEC  = 'S'
+							               AND PRODUTO.CD_PRODUTO    = PROD.CD_PRODUTO)) OR
+		EXISTS ( SELECT 'X'        
+		          FROM ANT_PRO
+		             , ANTIMICROB
+		             , PRODUTO PROD
+		         WHERE ANT_PRO.CD_ANTIMICROB = ANTIMICROB.CD_ANTIMICROB
+		           AND ANT_PRO.CD_PRODUTO = PROD.CD_PRODUTO
+		           AND ANTIMICROB.SN_REL_SUSP_INFEC  = 'S'
+		           AND PRODUTO.CD_PRODUTO = PROD.CD_PRODUTO_TEM))
+		   AND ITSOLSAI_PRO.CD_ITSOLSAI_PRO = (
+		                                    SELECT Min(it.CD_ITSOLSAI_PRO)
+		                                      FROM ITSOLSAI_PRO IT,
+		                                           TIP_PRESC T ,
+		                                           solsai_pro sp
+		                                     WHERE IT.CD_ITPRE_MED  = ITPRE_MED.CD_ITPRE_MED
+		                                       AND IT.CD_TIP_PRESC  = T.CD_TIP_PRESC
+		                                       AND T.CD_PRODUTO     = ITSOLSAI_PRO.CD_PRODUTO
+		                                       AND it.cd_solsai_pro = sp.cd_solsai_pro
+		                                       AND sp.cd_pre_med    = pre_med.cd_pre_med
+		                                       AND sp.tp_situacao   IN ('P','S','C') )
+AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+		UNION ALL
+		  SELECT DISTINCT
+		ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+		    , ATENDIME.DT_ALTA
+		    , ATENDIME.HR_ALTA
+		  , '4' TIPO
+		    , Nvl(ITSOL_ATEND.CD_PRODUTO_ATENDIDO, PRODUTO.CD_PRODUTO) CD_PRODUTO
+		    , Nvl( PRODUTO_ATEND.DS_PRODUTO, PRODUTO.DS_PRODUTO) DS_PRODUTO
+		    , ANTIMICROB.NM_ANTIMICROB
+		    , PRODUTO.DS_PRODUTO DS_TIP_PRESC
+		    , ATENDIME.CD_LEITO
+		    , LEITO.CD_UNID_INT
+		    , ATENDIME.CD_CONVENIO
+		    , ATENDIME.CD_PACIENTE
+		    , Dbamv.Fnc_Mv_Recupera_Data_Hora( SOLSAI_PRO.DT_SOLSAI_PRO, SOLSAI_PRO.HR_SOLSAI_PRO) DT_HR
+		    , ANT_PRO.CD_ANTIMICROB
+		    , SOLSAI_PRO.CD_PRESTADOR
+		    , PRESTADOR.NM_PRESTADOR
+		    , PACIENTE.NM_PACIENTE
+		    , ATENDIME.DT_PREVISTA_ALTA
+		    , ATENDIME.CD_CID
+		    , CID.DS_CID
+		    , Dbamv.Fnc_Mv_Recupera_Data_Hora( TO_DATE(TO_CHAR(ATENDIME.DT_ALTA,'DD-MM-YYYY'),'DD-MM-YYYY'),
+		        TO_DATE(TO_CHAR(ATENDIME.HR_ALTA,'DD-MM-YYYY HH24'),'DD-MM-YYYY HH24') ) DH_ALTA
+		   , SOLSAI_PRO.CD_SOLSAI_PRO
+		   , To_Number(NULL) CD_PRE_MED
+		   , To_Number(NULL) CD_ITPRE_MED
+		   , To_Number(NULL) CD_ITPRE_MED_JUSTIFICATIVA
+		   , NULL DS_JUSTIFICATIVA
+		   , To_Number(NULL) QT_DIAS
+		   , To_Number(NULL) NR_DIA
+		   ,(round(nvl(itsolsai_pro.qt_atendida,itsolsai_pro.qt_solicitado) * uni_pro.vl_fator / dbamv.verif_vl_fator_prod( itsolsai_pro.cd_produto ),3)) nr_dose
+		   , To_Date(NULL) dt_pre_med
+		   , To_Date(NULL) hr_pre_med
+		   , To_Number(NULL) CD_TIP_PRESC
+		    , '...' CD_MVTO_ESTOQUE
+		    , '...' CD_ITMVTO_ESTOQUE
+        , '' DS_FOR_APL
+        , '' DS_TIP_FRE
+		   FROM DBAMV.ATENDIME
+		    , DBAMV.LEITO
+		    , DBAMV.PRESTADOR
+		    , DBAMV.PACIENTE
+		    , DBAMV.CID
+		    , DBAMV.PRODUTO
+		    , DBAMV.PRODUTO PRODUTO_ATEND
+		    , DBAMV.SOLSAI_PRO
+		    , DBAMV.ITSOLSAI_PRO
+		    , DBAMV.ITSOLSAI_PRO_ATENDIDO ITSOL_ATEND
+		    , DBAMV.ANT_PRO
+		    , DBAMV.ANTIMICROB
+		    , DBAMV.UNI_PRO
+		 WHERE  ITSOLSAI_PRO.CD_ITSOLSAI_PRO     = ITSOL_ATEND.CD_ITSOLSAI_PRO (+)
+		   AND ITSOL_ATEND.CD_PRODUTO_ATENDIDO  = PRODUTO_ATEND.CD_PRODUTO (+)
+		   AND ATENDIME.CD_CID                  = CID.CD_CID (+)
+		  AND ITSOLSAI_PRO.CD_UNI_PRO      = UNI_PRO.CD_UNI_PRO
+			  AND SOLSAI_PRO.CD_SOLSAI_PRO         = ITSOLSAI_PRO.CD_SOLSAI_PRO
+			  AND SOLSAI_PRO.CD_PRESTADOR          = PRESTADOR.CD_PRESTADOR
+			  AND ATENDIME.CD_LEITO                = LEITO.CD_LEITO (+)
+			  AND ATENDIME.CD_PACIENTE             = PACIENTE.CD_PACIENTE
+			  AND ATENDIME.CD_ATENDIMENTO          = SOLSAI_PRO.CD_ATENDIMENTO
+        	  AND ITSOLSAI_PRO.CD_PRODUTO          = PRODUTO.CD_PRODUTO
+           AND SOLSAI_PRO.TP_SITUACAO           in ('P','C','S')
+				AND PRODUTO.CD_PRODUTO        = ANT_PRO.CD_PRODUTO
+				AND ANT_PRO.CD_ANTIMICROB      = ANTIMICROB.CD_ANTIMICROB
+				AND SOLSAI_PRO.TP_SOLSAI_PRO     = 'P'
+		   AND SOLSAI_PRO.CD_PRE_MED IS NULL
+		   AND ANTIMICROB.SN_REL_SUSP_INFEC     = 'S'
+		   AND ((ATENDIME.TP_ATENDIMENTO       IN ('I','U')) OR ((ATENDIME.TP_ATENDIMENTO = ('A')
+																														      AND ATENDIME.CD_ATENDIMENTO_PAI is not null
+																														      AND ATENDIME.CD_ATENDIMENTO_PAI in (select aten.CD_ATENDIMENTO
+																														                                            from dbamv.atendime aten
+																														                                           where aten.CD_ATENDIMENTO = atendime.CD_ATENDIMENTO_PAI
+																														                                             and aten.TP_ATENDIMENTO = ('A')
+																														                                             and nvl(aten.QT_SESSOES,1) >= 1 ) )))
+		   AND ((PRODUTO.SN_MESTRE = 'N'  
+		   AND EXISTS ( SELECT 'X'
+		                  FROM DBAMV.ANT_PRO
+		                     , DBAMV.ANTIMICROB
+		                     , DBAMV.PRODUTO PROD
+		                 WHERE ANT_PRO.CD_ANTIMICROB = ANTIMICROB.CD_ANTIMICROB
+		                   AND ANT_PRO.CD_PRODUTO    = PROD.CD_PRODUTO
+		                   AND ANTIMICROB.SN_REL_SUSP_INFEC  = 'S'
+							               AND PRODUTO.CD_PRODUTO    = PROD.CD_PRODUTO)) OR
+		EXISTS ( SELECT 'X'        
+		          FROM DBAMV.ANT_PRO
+		             , DBAMV.ANTIMICROB
+		             , DBAMV.PRODUTO PROD
+		         WHERE ANT_PRO.CD_ANTIMICROB = ANTIMICROB.CD_ANTIMICROB
+		           AND ANT_PRO.CD_PRODUTO = PROD.CD_PRODUTO
+		           AND ANTIMICROB.SN_REL_SUSP_INFEC  = 'S'
+		           AND PRODUTO.CD_PRODUTO = PROD.CD_PRODUTO_TEM))
+               AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+		UNION ALL
+		SELECT DISTINCT
+		     ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+		   , ATENDIME.DT_ALTA
+		   , ATENDIME.HR_ALTA
+		   , '4' TIPO
+		   , PRODUTO.CD_PRODUTO CD_PRODUTO
+		   , PRODUTO.DS_PRODUTO DS_PRODUTO
+		   , ANTIMICROB.NM_ANTIMICROB
+		   , PRODUTO.DS_PRODUTO DS_TIP_PRESC
+		   , ATENDIME.CD_LEITO
+		   , LEITO.CD_UNID_INT
+		   , ATENDIME.CD_CONVENIO
+		   , ATENDIME.CD_PACIENTE
+		   , Fnc_Mv_Recupera_Data_Hora( TO_DATE(TO_CHAR( MVTO_ESTOQUE.DT_MVTO_ESTOQUE ,'DD-MM-YYYY'  ),'DD-MM-YYYY'),
+		     TO_DATE(TO_CHAR( MVTO_ESTOQUE.HR_MVTO_ESTOQUE ,'DD-MM-YYYY HH24'),'DD-MM-YYYY HH24') ) DT_HR
+		   , ANT_PRO.CD_ANTIMICROB
+		   , MVTO_ESTOQUE.CD_PRESTADOR
+		   , PRESTADOR.NM_PRESTADOR
+		   , PACIENTE.NM_PACIENTE
+		   , ATENDIME.DT_PREVISTA_ALTA
+		   , ATENDIME.CD_CID
+		   , CID.DS_CID
+		   , Fnc_Mv_Recupera_Data_Hora( TO_DATE(TO_CHAR(ATENDIME.DT_ALTA,'DD-MM-YYYY'),'DD-MM-YYYY'),
+		     TO_DATE(TO_CHAR(ATENDIME.HR_ALTA,'DD-MM-YYYY HH24'),'DD-MM-YYYY HH24') ) DH_ALTA
+		   , MVTO_ESTOQUE.CD_SOLSAI_PRO CD_SOLSAI_PRO
+		   , To_Number(NULL) CD_PRE_MED
+		   , To_Number(NULL) CD_ITPRE_MED
+		   , To_Number(NULL) CD_ITPRE_MED_JUSTIFICATIVA
+		   , NULL DS_JUSTIFICATIVA
+		   , To_Number(NULL) QT_DIAS
+		   , To_Number(NULL) NR_DIA
+		   , 0 NR_DOSE
+		   , To_Date(NULL) dt_pre_med
+		   , To_Date(NULL) hr_pre_med
+		   , To_Number(NULL) CD_TIP_PRESC
+		   , To_Char(ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE)   CD_MVTO_ESTOQUE
+		   , To_Char(ITMVTO_ESTOQUE.CD_ITMVTO_ESTOQUE) CD_ITMVTO_ESTOQUE
+       , '' DS_FOR_APL
+       , '' DS_TIP_FRE
+		  FROM ATENDIME
+		   , LEITO
+		   , ANT_PRO
+		   , ANTIMICROB
+		   , PACIENTE
+		   , CID
+		   , PRODUTO
+		   , MVTO_ESTOQUE
+		   , ITMVTO_ESTOQUE
+		   , UNI_PRO
+		   , ITUNIDADE
+		   , PRESTADOR
+		  WHERE ATENDIME.CD_CID            = CID.CD_CID(+)
+		  AND ATENDIME.CD_LEITO            = LEITO.CD_LEITO(+)
+		  AND MVTO_ESTOQUE.CD_PRESTADOR    = PRESTADOR.CD_PRESTADOR
+		  AND ATENDIME.CD_PACIENTE         = PACIENTE.CD_PACIENTE
+		  AND ATENDIME.CD_ATENDIMENTO      = MVTO_ESTOQUE.CD_ATENDIMENTO
+		  AND MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+		  AND ITMVTO_ESTOQUE.CD_PRODUTO    = PRODUTO.CD_PRODUTO
+		  AND PRODUTO.CD_PRODUTO           = ANT_PRO.CD_PRODUTO
+		  AND ANT_PRO.CD_ANTIMICROB        = ANTIMICROB.CD_ANTIMICROB
+		  AND ITMVTO_ESTOQUE.CD_UNI_PRO    = UNI_PRO.CD_UNI_PRO
+		  AND UNI_PRO.CD_ITUNIDADE         = ITUNIDADE.CD_ITUNIDADE
+		  and mvto_estoque.tp_mvto_estoque = 'P'
+		  AND ANTIMICROB.SN_REL_SUSP_INFEC = 'S'
+		  AND NVL(ITMVTO_ESTOQUE.QT_MOVIMENTACAO,0) > 0
+		  AND NOT EXISTS (SELECT 'X'
+		            FROM DBAMV.ITSOLSAI_PRO
+		             WHERE CD_SOLSAI_PRO = MVTO_ESTOQUE.CD_SOLSAI_PRO
+		             AND CD_ITSOLSAI_PRO = ITMVTO_ESTOQUE.CD_ITSOLSAI_PRO)
+		  AND ATENDIME.TP_ATENDIMENTO IN ('I','U')
+      AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO
+		UNION ALL
+		SELECT DISTINCT
+		    ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO
+		  , ATENDIME.DT_ALTA
+		  , ATENDIME.HR_ALTA
+		  , '2' TIPO
+		  , PRODUTO.CD_PRODUTO CD_PRODUTO
+		  , PRODUTO.DS_PRODUTO
+		  , 'VINCULAR' NM_ANTIMICROB
+		  , Decode( TIP_PRESC.DS_TIP_PRESC, NULL, PRODUTO.DS_PRODUTO, TIP_PRESC.DS_TIP_PRESC) DS_TIP_PRESC
+		  , ATENDIME.CD_LEITO
+		  , LEITO.CD_UNID_INT
+		  , ATENDIME.CD_CONVENIO
+		  , ATENDIME.CD_PACIENTE
+		  , Fnc_Mv_Recupera_Data_Hora( PRE_MED.DT_PRE_MED, PRE_MED.HR_PRE_MED) DT_HR
+		  , 'VINCULAR' CD_ANTIMICROB
+		  , PRE_MED.CD_PRESTADOR
+		  , PRESTADOR.NM_PRESTADOR
+		  , PACIENTE.NM_PACIENTE
+		  , ATENDIME.DT_PREVISTA_ALTA
+		  , ATENDIME.CD_CID
+		  , CID.DS_CID
+		  , Fnc_Mv_Recupera_Data_Hora( TO_DATE(TO_CHAR(ATENDIME.DT_ALTA,'DD-MM-YYYY'),'DD-MM-YYYY'),
+		 TO_DATE(TO_CHAR(ATENDIME.HR_ALTA,'DD-MM-YYYY HH24'),'DD-MM-YYYY HH24') ) DH_ALTA
+		  , TO_NUMBER(NULL) CD_SOLSAI_PRO
+		  , PRE_MED.CD_PRE_MED
+		  , ITPRE_MED.CD_ITPRE_MED
+		  , ITPRE_MED.CD_ITPRE_MED_JUSTIFICATIVA
+		  , ITPRE_MED.DS_JUSTIFICATIVA
+		  , ITPRE_MED.QT_DIAS
+		  , ITPRE_MED.NR_DIA
+		  , Decode ( PRE_MED.CD_PRE_MED, NULL , 0, FNC_PSIH_RETORNA_DOSE(ATENDIME.CD_ATENDIMENTO,ITPRE_MED.CD_PRE_MED,PRODUTO.CD_PRODUTO) ) NR_DOSE
+		  , PRE_MED.dt_pre_med
+		  , PRE_MED.hr_pre_med
+		  , TIP_PRESC.CD_TIP_PRESC
+		  , '...' CD_MVTO_ESTOQUE
+		  , '...' CD_ITMVTO_ESTOQUE
+      , DS_FOR_APL
+      , DS_TIP_FRE
+		FROM ATENDIME
+		  , LEITO
+		  , PRE_MED
+		  , ITPRE_MED
+		  , TIP_PRESC
+		  , PRESTADOR
+		  , PACIENTE
+		  , CID
+		  , PRODUTO
+      , DBAMV.TIP_FRE
+      , DBAMV.FOR_APL
+		  , ANT_PRO
+		  , ANTIMICROB
+		 WHERE ATENDIME.CD_CID         = CID.CD_CID (+)
+		   AND PRE_MED.CD_PRE_MED      = ITPRE_MED.CD_PRE_MED
+		   AND ITPRE_MED.CD_TIP_PRESC  = TIP_PRESC.CD_TIP_PRESC
+			AND PRE_MED.CD_PRESTADOR    = PRESTADOR.CD_PRESTADOR
+      AND ITPRE_MED.CD_TIP_FRE       = TIP_FRE.CD_TIP_FRE (+)
+       AND ITPRE_MED.CD_FOR_APL       = FOR_APL.CD_FOR_APL (+)
+			AND ATENDIME.CD_LEITO                = LEITO.CD_LEITO (+)
+			AND ATENDIME.CD_PACIENTE             = PACIENTE.CD_PACIENTE
+			AND ATENDIME.CD_ATENDIMENTO          = PRE_MED.CD_ATENDIMENTO
+			AND TIP_PRESC.CD_PRODUTO             = PRODUTO.CD_PRODUTO
+			AND PRODUTO.CD_PRODUTO               = ANT_PRO.CD_PRODUTO
+			AND ANT_PRO.CD_ANTIMICROB            = ANTIMICROB.CD_ANTIMICROB
+		   AND NVL(ITPRE_MED.SN_CANCELADO,'N')  <> 'S'
+		   AND PRE_MED.FL_IMPRESSO      = 'S'   
+		   AND ((( NVL(ITPRE_MED.NR_DIA,1) = 1) or ((NVL(ITPRE_MED.NR_DIA,2) in (1,2)) and pre_med.tp_pre_med = 'A' )) or ((NVL(ITPRE_MED.NR_DIA,1) >= 1 ) and NVL(itpre_med.sn_atm_prorrogacao,'N') = 'S' )  )
+		   AND ((ATENDIME.TP_ATENDIMENTO       IN ('I','U')) OR ((ATENDIME.TP_ATENDIMENTO = ('A')
+	    	                                                 AND ATENDIME.CD_ATENDIMENTO_PAI is not null
+	                                                  AND ATENDIME.CD_ATENDIMENTO_PAI in (select aten.CD_ATENDIMENTO
+												                                                   from dbamv.atendime aten
+												                                                  where aten.CD_ATENDIMENTO = atendime.CD_ATENDIMENTO_PAI
+													                                                and aten.TP_ATENDIMENTO = ('A')
+												                                                    and nvl(aten.QT_SESSOES,1) >= 1 ) )))
+		   AND ((PRODUTO.SN_MESTRE = 'N' 
+		   AND EXISTS ( SELECT 'X'
+		                  FROM ANT_PRO
+		                     , ANTIMICROB
+		                     , PRODUTO PROD
+		                 WHERE ANT_PRO.CD_ANTIMICROB = ANTIMICROB.CD_ANTIMICROB
+		                   AND ANT_PRO.CD_PRODUTO  = PROD.CD_PRODUTO
+		   AND ANTIMICROB.SN_REL_SUSP_INFEC = 'S'
+		   AND PRODUTO.CD_PRODUTO  = PROD.CD_PRODUTO)) OR
+		   EXISTS ( SELECT 'X'    
+		        FROM ANT_PRO
+		          , ANTIMICROB
+		          , PRODUTO PROD
+		        WHERE ANT_PRO.CD_ANTIMICROB = ANTIMICROB.CD_ANTIMICROB
+		        AND ANT_PRO.CD_PRODUTO = PROD.CD_PRODUTO
+		        AND ANTIMICROB.SN_REL_SUSP_INFEC = 'S'
+		        AND PRODUTO.CD_PRODUTO = PROD.CD_PRODUTO_TEM))
+		  AND NOT EXISTS (SELECT 'X'
+		              FROM SOLSAI_PRO
+		              WHERE CD_PRE_MED =  PRE_MED.CD_PRE_MED)
+                  AND atendime.cd_atendimento = :CAMPO_CD_ATENDIMENTO)
+ORDER BY  DT_MVTO_ESTOQUE DESC

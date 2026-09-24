@@ -1,0 +1,212 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTA_REC_CONV_GERAL
+SELECT
+ds_agrupamento
+,nm_convenio_conv
+,cd_convenio
+,dt_emissao_conv
+,dt_prevista_pagamento_conv
+,Decode(cd_rank, 1, vl_previsto_conv, 0) vl_previsto_conv
+,vl_previsto_conv vl_previsto_calculo_conv
+,Sum(vl_movimentacao_conv) vl_movimentacao_conv
+,sum(vl_rec_dif_conv)vl_rec_dif_conv
+,MAX (dt_pagamento_conv) dt_pagamento_conv
+,nr_documento_conv
+,cd_nota_fiscal_conv
+,cd_con_rec_conv
+,Decode(:CAMPO_DETALHE, 'S', Sum(vl_glosa_rec), vl_glosa_conv) vl_glosa_conv
+,Decode(:CAMPO_DETALHE, 'S', Sum(vl_recurso_rec), vl_recurso_conv) vl_recurso_conv
+,status_conv
+,status_conv_gambi
+,cd_itcon_rec
+,dt_vencimento_conv
+,SUM (vl_acrescimo) vl_acrescimo
+,SUM (vl_desconto) vl_desconto
+,Decode(cd_rank, 1, vl_glosa_aceita_conv, 0) vl_glosa_aceita_conv
+,cd_multi_empresa_conv
+,ds_multi_empresa_conv
+FROM
+(( SELECT co.nm_convenio nm_convenio_conv,
+         co.cd_convenio cd_convenio,
+         c.dt_emissao dt_emissao_conv,
+         i.dt_prevista_recebimento dt_prevista_pagamento_conv,
+		 Decode(:CAMPO_ORDEM,'Emissao',To_Char(c.dt_emissao,'DD/MM/YYYY'),'Vencimento',To_Char(i.dt_vencimento,'DD/MM/YYYY'), To_Char(co.cd_convenio||'-'||co.nm_convenio)) ds_agrupamento,
+         NVL (i.vl_duplicata, 0) vl_previsto_conv,
+		NVL (r.vl_recebido, 0) + NVL (r.vl_imposto_retido, 0) vl_movimentacao_conv,
+		Nvl(DECODE(c.cd_previsao,NULL,
+                r.vl_recebido +
+                NVL(r.vl_imposto_retido,0) +
+                NVL(r.vl_desconto,0) -
+                NVL(r.vl_acrescimo,0)
+                ,0),0)    vl_rec_dif_conv
+         ,r.dt_recebimento dt_pagamento_conv
+         ,c.nr_documento   nr_documento_conv
+         ,c.cd_nota_fiscal cd_nota_fiscal_conv
+         ,c.cd_con_rec     cd_con_rec_conv
+         ,Nvl(i.vl_glosa,0)       vl_glosa_conv
+         ,Nvl(i.vl_recurso,0)     vl_recurso_conv
+         ,i.tp_quitacao    status_conv
+         ,i.tp_quitacao    status_conv_gambi
+         ,r.cd_reccon_rec  cd_reccon_rec
+         ,i.cd_itcon_rec
+         ,i.dt_vencimento dt_vencimento_conv
+         ,NVL (r.vl_acrescimo, 0) vl_acrescimo
+         ,NVL (r.vl_desconto, 0) vl_desconto
+         ,Decode(:CAMPO_DETALHE,'S',(Rank() OVER ( PARTITION BY c.cd_con_rec ORDER BY r.cd_reccon_rec)),1) cd_rank
+         ,Nvl((SELECT SUM(vl_glosa)
+               FROM dbamv.it_recebimento
+                WHERE cd_reccon_rec = r.cd_reccon_rec),0) vl_glosa_rec
+        ,Nvl((SELECT SUM(glosa.vl_reapresentado) vl_glosa
+              FROM dbamv.it_recebimento    itrec,
+                  dbamv.itfat_nota_fiscal itfat,
+                  dbamv.glosas            glosa
+            WHERE itrec.cd_reccon_rec = r.cd_reccon_rec
+              AND itrec.cd_itfat_nf   = itfat.cd_itfat_nf
+              AND itfat.cd_itfat_nf   = glosa.cd_itfat_nf
+              AND glosa.cd_remessa_glosa IS NOT NULL
+                AND glosa.cd_glosas_pai IS NULL),0)        vl_recurso_rec
+	  ,NVL (i.vl_glosa_aceita, 0) vl_glosa_aceita_conv
+          ,c.cd_multi_empresa cd_multi_empresa_conv
+          ,e.ds_multi_empresa ds_multi_empresa_conv
+  FROM
+          DBAMV.ITCON_REC I
+          ,DBAMV.CON_REC C
+          ,DBAMV.REMESSA_FATURA
+          ,DBAMV.FATURA
+          ,DBAMV.CONVENIO CO
+          ,DBAMV.RECCON_REC r
+	  ,dbamv.multi_empresas e
+  WHERE c.tp_con_rec = 'C'
+  AND c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  AND :CAMPO_ORDEM IN ('Convenio','Emissao','Vencimento')
+  AND c.cd_remessa = remessa_fatura.cd_remessa
+  AND remessa_fatura.cd_fatura = fatura.cd_fatura
+  AND e.cd_multi_empresa = c.cd_multi_empresa
+  AND fatura.cd_convenio = co.cd_convenio
+  AND i.cd_itcon_rec = r.cd_itcon_rec(+)
+  AND i.cd_con_rec =  c.cd_con_rec
+  AND i.cd_con_rec_agrup IS NULL
+  AND c.cd_nota_fiscal IS NULL
+  AND r.dt_estorno IS NULL
+  AND r.cd_motivo_canc IS NULL
+  AND c.vl_previsto > 0
+  :CAMPO_CF_CTRL_RECEBIMENTO
+  )
+  UNION
+  (SELECT co.nm_convenio nm_convenio_conv
+         ,co.cd_convenio cd_convenio
+         ,c.dt_emissao dt_emissao_conv
+         ,i.dt_prevista_recebimento dt_prevista_pagamento_conv
+		 ,Decode(:CAMPO_ORDEM,'Emissao',To_Char(c.dt_emissao,'DD/MM/YYYY'),'Vencimento',To_Char(i.dt_vencimento,'DD/MM/YYYY'), To_Char(co.cd_convenio||'-'||co.nm_convenio)) ds_agrupamento
+         ,Nvl(i.vl_duplicata,0) vl_previsto_conv
+	 ,Nvl(r.vl_recebido + nvl(r.vl_imposto_retido,0),0) vl_movimentacao_conv
+         ,Nvl(DECODE(c.cd_previsao,NULL,
+                 r.vl_recebido +
+                 NVL(r.vl_imposto_retido,0) +
+                 NVL(r.vl_desconto,0) -
+                 NVL(r.vl_acrescimo,0)
+                 ,0),0) vl_rec_dif_conv
+         ,r.dt_recebimento dt_pagamento_conv
+         ,TO_CHAR(n.nr_id_nota_fiscal) nr_documento_conv
+         ,c.cd_nota_fiscal cd_nota_fiscal_conv
+         ,c.cd_con_rec cd_con_rec_conv
+         ,NVL(i.vl_glosa,0) vl_glosa_conv
+         ,NVL(i.vl_recurso,0) vl_recurso_conv
+         ,i.tp_quitacao status_conv
+         ,i.tp_quitacao status_conv_gambi
+         ,r.cd_reccon_rec cd_reccon_rec
+         ,r.cd_itcon_rec
+         ,i.dt_vencimento
+         ,NVL (r.vl_acrescimo, 0) vl_acrescimo
+         ,NVL (r.vl_desconto, 0) vl_desconto
+         ,Decode(:CAMPO_DETALHE,'S',(Rank() OVER ( PARTITION BY c.cd_con_rec ORDER BY r.cd_reccon_rec)),1) cd_rank
+         ,Nvl((SELECT SUM(vl_glosa)
+               FROM dbamv.it_recebimento
+                WHERE cd_reccon_rec = r.cd_reccon_rec),0) vl_glosa_rec
+        ,Nvl((SELECT SUM(glosa.vl_reapresentado) vl_glosa
+              FROM dbamv.it_recebimento    itrec,
+                  dbamv.itfat_nota_fiscal itfat,
+                  dbamv.glosas            glosa
+            WHERE itrec.cd_reccon_rec = r.cd_reccon_rec
+              AND itrec.cd_itfat_nf   = itfat.cd_itfat_nf
+              AND itfat.cd_itfat_nf   = glosa.cd_itfat_nf
+              AND glosa.cd_remessa_glosa IS NOT NULL
+                AND glosa.cd_glosas_pai IS NULL),0)        vl_recurso_rec
+	  ,NVL (i.vl_glosa_aceita, 0) vl_glosa_aceita_conv
+          ,c.cd_multi_empresa cd_multi_empresa_conv
+          ,e.ds_multi_empresa ds_multi_empresa_conv
+  FROM
+         dbamv.convenio co
+        ,dbamv.nota_fiscal n
+        ,dbamv.itfat_nota_fiscal itf
+        ,dbamv.con_rec c
+        ,dbamv.itcon_rec i
+        ,dbamv.reccon_rec r
+         ,dbamv.multi_empresas e
+  WHERE  co.cd_convenio = n.cd_convenio
+  AND n.cd_nota_fiscal = itf.cd_nota_fiscal
+  AND n.cd_nota_fiscal = c.cd_nota_fiscal
+  AND e.cd_multi_empresa = c.cd_multi_empresa
+  AND c.tp_con_rec     = 'C'
+  AND c.cd_con_rec = i.cd_con_rec
+  AND i.cd_itcon_rec = r.cd_itcon_rec(+)
+  AND :CAMPO_ORDEM IN ('Convenio','Emissao','Vencimento')
+  AND c.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA
+  AND c.cd_nota_fiscal IS NOT NULL
+  AND i.cd_con_rec_agrup is null
+  AND r.dt_estorno IS NULL
+  AND r.cd_motivo_canc is null
+  AND c.vl_previsto > 0
+    GROUP BY
+      c.cd_multi_empresa
+      ,e.ds_multi_empresa
+      ,co.nm_convenio
+      ,co.cd_convenio
+      ,c.cd_nota_fiscal
+      ,c.cd_con_rec,
+      :CAMPO_CF_DETALHAMENTO_RECEBIMENTO
+      c.dt_emissao
+      ,n.nr_id_nota_fiscal
+      ,i.dt_prevista_recebimento
+      ,nvl(i.vl_glosa,0)
+      ,nvl(i.vl_recurso,0)
+      ,i.tp_quitacao
+      ,Nvl(i.vl_duplicata,0)
+      ,Nvl(r.vl_recebido + nvl(r.vl_imposto_retido,0),0)
+      ,r.dt_recebimento
+      ,r.cd_reccon_rec
+      ,r.cd_itcon_rec
+      ,i.dt_vencimento
+      ,Nvl(DECODE(c.cd_previsao,NULL,
+              r.vl_recebido +
+              nvl(r.vl_imposto_retido,0) +
+              nvl(r.vl_desconto,0) -
+              nvl(r.vl_acrescimo,0)
+                ,0),0),
+           NVL (r.vl_acrescimo, 0),
+           NVL (r.vl_desconto, 0),
+	NVL (i.vl_glosa_aceita, 0)
+ )
+)
+GROUP BY
+         cd_multi_empresa_conv,
+         ds_multi_empresa_conv,
+	 nm_convenio_conv,
+	:CAMPO_CF_DETALHAMENTO_RECEBIMENTO
+	cd_convenio,
+         dt_emissao_conv,
+         dt_prevista_pagamento_conv,
+         vl_previsto_conv,
+         nr_documento_conv,
+	ds_agrupamento,
+         vl_glosa_conv,
+         vl_recurso_conv,
+         status_conv,
+         cd_rank,
+         cd_con_rec_conv,
+ 	 cd_itcon_rec,
+         cd_nota_fiscal_conv,
+         status_conv_gambi,
+         dt_vencimento_conv,
+	 vl_glosa_aceita_conv
+ORDER BY

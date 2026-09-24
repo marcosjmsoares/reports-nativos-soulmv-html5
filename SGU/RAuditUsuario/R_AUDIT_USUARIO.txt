@@ -1,0 +1,35 @@
+/*----------------------------------------------------------------------------*/
+--R_AUDIT_USUARIO
+Select audit_tabela.usuario
+          , audit_tabela.tp_transacao
+          , audit_tabela.cd_tabela
+          , audit_tabela.cd_audit_tabela
+          , audit_tabela.dt_transacao
+          , audit_coluna.coluna
+          , audit_coluna.dado_anterior
+          , audit_coluna.dado_atual
+          , audit_coluna.chave_primaria
+          , decode(audit_tabela.tp_transacao,'I','Inserção','D','Exclusão','U','Atualização') transacao,
+	  (select user from sys.dual) select_user_from_sys_dua,
+       (select hospital.ds_razao from dbamv.hospital where cd_multi_empresa = dbamv.pkg_mv2000.le_empresa) 	select_hospital_ds_razao,
+       (select hospital.ds_rodape_reports from dbamv.hospital where  cd_multi_empresa = dbamv.pkg_mv2000.le_empresa) select_hospital_ds_rodap
+From dbamv.audit_tabela
+        , dbamv.audit_coluna
+Where audit_tabela.cd_audit_tabela = audit_coluna.cd_audit_tabela
+And audit_tabela.cd_tabela = audit_coluna.cd_tabela
+And trunc(audit_tabela.dt_transacao) >= :CAMPO_DATA_INI
+And trunc(audit_tabela.dt_transacao) <= :CAMPO_DATA_FIM
+and exists (select 1
+        from dbamv.colunas
+       where audit_tabela.cd_tabela = colunas.cd_tabela
+         and audit_coluna.coluna = colunas.coluna
+        and
+        ( (:CAMPO_TRANSACAO = 'I' and colunas.sn_insert = 'S') or
+          (:CAMPO_TRANSACAO = 'U' and colunas.sn_update = 'S') or
+         (:CAMPO_TRANSACAO = 'D' and colunas.sn_delete= 'S') or
+         (:CAMPO_TRANSACAO = 'T' and
+           (colunas.sn_insert = 'S' or
+           colunas.sn_update = 'S' or
+          colunas.sn_delete= 'S' ) ) )
+        )
+order by usuario, transacao, cd_tabela, cd_audit_tabela

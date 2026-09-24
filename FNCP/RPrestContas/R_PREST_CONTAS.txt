@@ -1,0 +1,104 @@
+/*----------------------------------------------------------------------------*/
+--R_PREST_CONTAS
+SELECT * FROM (
+select
+  decode( con_pag.cd_fornecedor, null, con_pag.ds_fornecedor, fornecedor.nm_fornecedor ) nm_fornec_adiant
+      ,con_pag.nr_documento                                                                   nr_doc_adiant
+      ,pagcon.dt_pagamento                                                                  dt_lanc_adiant
+      ,dbamv.fnc_moeda_depara(con_pag.cd_moeda,'',CON_PAG.VL_BRUTO_CONTA,con_pag.vl_moeda) vl_bruto_adiant
+      ,rat_cp.cd_setor || ' ' || setor.nm_setor                                               ds_setor_adiant
+      ,ltrim( rtrim( hist_padrao.ds_historico_padrao ) || ' ' || con_pag.ds_con_pag )         ds_hist_adiant
+      ,con_pag.cd_con_pag_prest                                                               cd_con_pag_prest
+      ,con_pag.cd_con_rec_prest                                                               cd_con_rec_prest
+      ,pc.dt_prestacao_contas                                                                 data_prest_contas
+      ,st.cd_cen_cus || ' - ' || st.nm_setor                                                  centro_custos
+      ,pc.cd_reduzido || '  ' || plano.cd_contabil || ' ' || plano.ds_conta                   conta_despesa
+      ,ltrim( rtrim( hp.ds_historico_padrao ) || ' ' || pc.ds_prestacao_contas )              ds_hist_despesa
+      ,dbamv.fnc_moeda_depara(PC.cd_moeda,'',PC.VL_PRESTACAO,PC.vl_moeda) vl_prest_conta
+from   dbamv.con_pag            con_pag
+      ,dbamv.fornecedor         fornecedor
+      ,dbamv.historico_padrao   hist_padrao
+      ,dbamv.ratcon_pag         rat_cp
+      ,dbamv.setor              setor
+      ,dbamv.itcon_pag      itcon
+      ,dbamv.pagcon_pag  pagcon
+      ,dbamv.prestacao_de_contas  pc
+      ,dbamv.setor                st
+      ,dbamv.plano_contas         plano
+      ,dbamv.historico_padrao     hp
+where  con_pag.tp_adiantamento                    in ('P', 'F')
+and    con_pag.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+and    con_pag.cd_con_pag       = itcon.cd_con_pag
+and    itcon.cd_itcon_pag            = pagcon.cd_itcon_pag
+and    con_pag.cd_fornecedor                      =  fornecedor.cd_fornecedor(+)
+and    con_pag.cd_historico_padrao                =  hist_padrao.cd_historico_padrao(+)
+and    con_pag.cd_con_pag                         =  rat_cp.cd_con_pag(+)
+and    rat_cp.cd_setor                            =  setor.cd_setor(+)
+and    con_pag.cd_con_pag                         =  pc.cd_con_pag(+)
+and    pc.cd_setor                                =  st.cd_setor(+)
+and    pc.cd_reduzido                             =  plano.cd_reduzido(+)
+and    pc.cd_historico_padrao                     =  hp.cd_historico_padrao(+)
+:CAMPO_CF_TP_PERIODO
+)
+ORDER BY NM_FORNEC_ADIANT,NR_DOC_ADIANT,DT_LANC_ADIANT,VL_BRUTO_ADIANT,DS_SETOR_ADIANT,DS_HIST_ADIANT,CD_CON_PAG_PREST,CD_CON_REC_PREST
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PREST_CONTAS_R_1_Q_2
+select    CR.CD_MOEDA                     CR_CD_MOEDA
+       ,'A Receber.:'                                                     tp_mvto
+       ,DECODE(:CAMPO_CONVERTE,1,CR.VL_MOEDA,cr.vl_previsto)              vl_devolucao
+       ,cr.nr_documento                                                   nr_doc_favor
+       ,ltrim( rtrim( hp.ds_historico_padrao ) || ' ' || cr.ds_con_rec )  ds_hist_favor
+       ,ITCON_REC.dt_VENCIMENTO                             DT_VENCIMENTO
+       ,bc.nm_banco                                                       ds_banco
+       ,cc.nr_conta                                                       nr_conta
+       ,:CAMPO_DS_MULTI_EMPRESA                                                 nm_forn_favor
+from    dbamv.con_rec           cr
+       ,dbamv.historico_padrao  hp
+       ,dbamv.con_pag           cp
+       ,dbamv.itcon_pag         it
+       ,dbamv.mov_concor        mcc
+       ,dbamv.con_cor           cc
+       ,dbamv.banco             bc
+       ,dbamv.fornecedor        fo
+       ,DBAMV.ITCON_REC    ITCON_REC
+       ,dbamv.rec_mov_con rec_mov_con
+       ,dbamv.reccon_rec reccon_rec
+where   cr.cd_con_rec           = :CAMPO_CD_CON_REC_PREST
+ and     cr.cd_fornecedor            = fo.cd_fornecedor(+)
+ and     cr.cd_con_rec               = cp.cd_con_rec_prest
+ and     cr.cd_historico_padrao      = hp.cd_historico_padrao(+)
+ and     mcc.cd_con_cor              = cc.cd_con_cor(+)
+ and     cc.cd_banco                 = bc.cd_banco(+)
+ and     cc.cd_multi_empresa(+)         = :CAMPO_CD_MULTI_EMPRESA 
+ AND    ITCON_REC.CD_CON_REC        = CR.CD_CON_REC
+ and     mcc.cd_mov_concor(+)        = rec_mov_con.cd_mov_concor
+ and     rec_mov_con.cd_reccon_rec(+)= reccon_rec.cd_reccon_rec
+ and     reccon_rec.cd_itcon_rec     = itcon_rec.cd_itcon_rec
+union
+select   CP.CD_MOEDA                     CP_CD_MOEDA
+        , 'A Pagar...:'                                                        tp_mvto
+       ,DECODE(:CAMPO_CONVERTE,1,CP.VL_MOEDA,cp.vl_bruto_conta)                vl_devolucao
+       ,cp.nr_documento                                                      nr_doc_favor
+       ,ltrim( rtrim( hp.ds_historico_padrao ) || ' ' || cp.ds_con_pag )     ds_hist_favor
+       ,it.dt_vencimento                                                         dt_prest_contas
+       ,bc.nm_banco                                                          ds_banco
+       ,cc.nr_conta                                                          nr_conta
+       ,decode( cp.cd_fornecedor, null, cp.ds_fornecedor, fo.nm_fornecedor ) nm_forn_favor
+from    dbamv.con_pag           cp
+       ,dbamv.historico_padrao  hp
+       ,dbamv.itcon_pag         it
+       ,dbamv.pagcon_pag        pc
+       ,dbamv.con_cor           cc
+       ,dbamv.banco             bc
+       ,dbamv.fornecedor        fo
+where   cp.cd_con_pag           = :CAMPO_CD_CON_PAG_PREST
+and     cp.cd_historico_padrao  = hp.cd_historico_padrao(+)
+and     cp.cd_con_pag           = it.cd_con_pag
+and     it.cd_itcon_pag         = pc.cd_itcon_pag(+)
+and     pc.cd_con_cor           = cc.cd_con_cor(+)
+and     cc.cd_banco             = bc.cd_banco(+)
+and     cc.cd_multi_empresa(+)     = :CAMPO_CD_MULTI_EMPRESA
+and     cp.cd_fornecedor        = fo.cd_fornecedor(+)

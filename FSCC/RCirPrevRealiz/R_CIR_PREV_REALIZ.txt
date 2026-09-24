@@ -1,0 +1,25 @@
+/*----------------------------------------------------------------------------*/
+--R_CIR_PREV_REALIZ
+SELECT avi_cir.cd_aviso_cirurgia cd_aviso_cirurgia ,
+       avi_cir.nm_paciente ,
+   (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND  avi_cir.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+       cen_cir.cd_cen_cir ,
+       cen_cir.ds_cen_cir ,
+       to_char(avi_cir.vl_tempo_previsto, 'hh24') asdasd ,
+       Decode(to_char(avi_cir.vl_tempo_previsto, 'hh24'), '00', to_char(avi_cir.vl_tempo_duracao, 'hh24'), to_char(avi_cir.vl_tempo_previsto, 'hh24')) temp_prev ,
+       to_char(avi_cir.vl_tempo_duracao, 'hh24') temp_dur ,
+       avi_cir.vl_tempo_previsto ,
+       avi_cir.vl_tempo_duracao ,
+ 	   abs(Decode(to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss')), 0, to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss')), to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss')))) temp_prev_tot , 
+       abs(to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss'))) temp_dur_tot ,
+       abs(trunc(((Decode(to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss')), 0, to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss')), to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss'))) - to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss'))) / 60) / 60)) temp_dif_hr ,
+       abs(mod(((Decode(to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss')), 0, to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss')), to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss'))) - to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss'))) / 60) , 60)) temp_dif_min ,
+       abs(Decode(to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss')), 0, to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss')), to_number(to_char(avi_cir.vl_tempo_previsto, 'sssss'))) - to_number(to_char(avi_cir.vl_tempo_duracao, 'sssss'))) temp_dif
+FROM dbamv.aviso_cirurgia avi_cir ,
+     dbamv.cen_cir cen_cir
+WHERE avi_cir.tp_situacao = 'R'
+  AND avi_cir.cd_cen_cir = cen_cir.cd_cen_cir
+  AND avi_cir.cd_multi_empresa = dbamv.pkg_mv2000.Le_empresa
+  AND dt_realizacao BETWEEN To_Date(Concat(To_Char(:CAMPO_DATA_INI,'dd/mm/yyyy'), '00'), 'dd/mm/yyyy hh24') AND To_Date(Concat(to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy'), '23'), 'dd/mm/yyyy hh24') 
+ORDER BY cen_cir.cd_cen_cir,
+         avi_cir.cd_aviso_cirurgia

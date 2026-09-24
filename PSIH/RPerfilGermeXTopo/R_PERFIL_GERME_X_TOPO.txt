@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_PERFIL_GERME_X_TOPO
+SELECT * FROM (
+select cd_topografia
+      ,ds_topografia
+      ,ds_Germe
+      ,sum(conta) TOTAL_CONTA
+  from(
+select distinct
+       ped_lab.cd_ped_lab
+      ,topografia.cd_topografia
+      ,topografia.ds_topografia
+      ,Germes.ds_Germe
+      , 1 conta
+  from dbamv.itcultura
+      ,dbamv.germes
+      ,dbamv.ped_lab
+      ,dbamv.reg_inf
+      ,dbamv.topografia
+      ,dbamv.atendime
+      ,dbamv.cultura
+      ,dbamv.leito
+ where itcultura.cd_ped_lab  = ped_lab.cd_ped_lab
+   and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+   and cultura.dt_exame between :CAMPO_DT_INICIAL and 
+   and ped_lab.cd_ped_lab       = cultura.cd_ped_lab
+   and ped_lab.cd_atendimento       = atendime.cd_atendimento
+   and atendime.cd_leito        = leito.cd_leito
+   and topografia.cd_topografia = reg_inf.cd_topografia
+   and reg_inf.cd_atendimento   = ped_lab.cd_atendimento
+   and reg_inf.tp_infec         like :CAMPO_INFEC
+   and germes.cd_germes         = itcultura.cd_germes
+UNION
+ SELECT distinct
+       v_psih_cultura_cultura_manual.cd_ped_lab
+      ,topografia.cd_topografia
+      ,topografia.ds_topografia
+      ,Germes.ds_Germe
+      , 1 conta
+ FROM
+      dbamv.cultura_manual,
+      dbamv.itcultura_manual,
+      dbamv.v_psih_cultura_cultura_manual,
+      dbamv.reg_inf,
+      dbamv.topografia,
+      dbamv.atendime,
+      dbamv.germes,
+      dbamv.leito
+ WHERE
+          itcultura_manual.cd_cultura_manual = cultura_manual.cd_cultura_manual
+      AND germes.cd_germes                   = itcultura_manual.cd_germes
+      AND atendime.cd_atendimento            = cultura_manual.cd_atendimento
+      AND reg_inf.cd_atendimento             = atendime.cd_atendimento
+      AND topografia.cd_topografia           = reg_inf.cd_topografia
+      AND atendime.cd_multi_empresa          = :CAMPO_CD_MULTI_EMPRESA
+      AND atendime.cd_leito                  = leito.cd_leito
+      AND v_psih_cultura_cultura_manual.cd_atendimento = atendime.cd_atendimento
+      AND reg_inf.tp_infec                   like :CAMPO_INFEC
+      AND cultura_manual.dt_exame between :CAMPO_DT_INICIAL and 
+      :CAMPO_CF_ESPECIALIDADE    
+      )
+GROUP BY
+    cd_topografia
+   ,ds_topografia
+   ,ds_Germe
+)
+ORDER BY
+    CD_TOPOGRAFIA,
+    DS_TOPOGRAFIA,
+    DS_GERME

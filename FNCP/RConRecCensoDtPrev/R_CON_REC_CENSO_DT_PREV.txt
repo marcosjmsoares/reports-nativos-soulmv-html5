@@ -1,0 +1,48 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_REC_CENSO_DT_PREV
+SELECT * FROM (
+select con_rec.cd_con_rec cd_con_rec
+      , con_rec.cd_fornecedor                                  cd_fornecedor
+      , decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente
+                                    , fornecedor.nm_fantasia)  nm_fornecedor
+      , decode(con_rec.tp_con_rec,'C','Convênio','F','Funcionário','A','Fin. Cartão Crédito' ,'P','Paciente','Diversos','R','Farmacia','Diversos')   tp_con_rec
+      , con_rec.dt_emissao                                     dt_emissao
+      , itcon_rec.dt_prevista_recebimento                          dt_prev_pgto
+      , ltrim( rtrim( hist_p.ds_historico_padrao) || con_rec.ds_con_rec)    ds_historico_padrao
+       ,con_rec.nr_documento                                   nr_documento
+       ,itcon_rec.vl_soma_recebido                                    vl_recebido
+       ,itcon_rec.vl_duplicata                                    vl_previsto
+      ,itcon_rec.tp_quitacao                                    tp_quitacao
+,itcon_rec.cd_moeda        cd_moeda_prev
+,itcon_rec.vl_moeda             vl_moeda_prev
+,con_rec.dt_lancamento        dt_lancamento
+from    dbamv.itcon_rec
+        , dbamv.con_rec
+        , dbamv.fornecedor
+        , dbamv.historico_padrao hist_p
+where   con_rec.cd_historico_padrao         =    hist_p.cd_historico_padrao (+)
+and     con_rec.cd_multi_empresa            =  :CAMPO_CD_MULTI_EMPRESA
+and     itcon_rec.cd_con_rec =        con_rec.cd_con_rec
+and     con_rec.cd_previsao is null
+and     not exists (select REC.CD_CON_REC from dbamv.itcon_rec recp , DBAMV.CON_REC REC where
+                            REC.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA and
+                            REC.CD_CON_REC = CON_REC.CD_CON_REC and
+                            recp.cd_con_rec     = rec.cd_con_rec and
+                            recp.cd_itcon_rec   = itcon_rec.cd_itcon_rec and
+                            RECP.TP_QUITACAO = 'Q' and
+                            trunc(REC.dt_emissao) <=Trunc(:CAMPO_2) and
+                            trunc(REC.dt_emissao) >=Trunc(:CAMPO_1) )
+and (
+ itcon_rec.vl_duplicata  >= (select sum( nvl(vl_recebido ,0) - nvl(vl_acrescimo,0) + nvl(vl_desconto,0)  )
+                  from dbamv.reccon_rec
+                                            where trunc(reccon_rec.dt_recebimento)  <= Trunc(:CAMPO_DT_SITUACAO)
+                                            and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec)
+         or not exists (select  reccon_rec.cd_itcon_rec from dbamv.reccon_rec
+                                             where trunc(reccon_rec.dt_recebimento)  <= Trunc(:CAMPO_DT_SITUACAO)
+                                             and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec)     )
+and trunc(con_rec.dt_emissao) <=Trunc(:CAMPO_DT_FIM)
+and trunc(con_rec.dt_emissao)  >=Trunc(:CAMPO_DT_INIC)
+:CAMPO_CF_PF_TP_CONTA
+)
+ORDER BY DT_PREV_PGTO,
+TP_CON_REC

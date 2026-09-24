@@ -1,0 +1,59 @@
+/*----------------------------------------------------------------------------*/
+--R_CLAS_CONTAB_CONS
+SELECT * FROM (
+Select vtable.Ds_Classe                Ds_Sub_Tipo
+      ,Plano_Debito.Cd_Contabil_Sap    Conta_Debito
+      ,Plano_Credito.Cd_Contabil_Sap   Conta_Credito
+      ,vtable.cd_setor                 Cd_Setor
+      ,vtable.nm_setor                 Nm_Setor
+      ,Sum(vtable.valor)               Vl_Conta
+From Dbamv.ImvSap_Plano	                Plano_Credito  
+    ,Dbamv.ImvSap_Plano	                Plano_Debito   
+    ,Dbamv.Config_Debito_Credito_Mges   Prod_Config    
+    ,(Select itmvto_estoque.cd_produto     cd_produto
+            ,classe.ds_classe              ds_classe
+            ,imvsap_setor.cd_setor_sap     cd_setor
+            ,setor.nm_setor                nm_setor
+            ,Round( Sum( Verif_Vl_Custo_Medio( ItMvto_Estoque.Cd_Produto
+                                              ,Mvto_Estoque.Dt_Mvto_Estoque
+                                              ,'H'
+                                              ,Null
+                                              ,Mvto_Estoque.Hr_Mvto_Estoque )
+                    * Uni_Pro.Vl_Fator
+                    * ItMvto_Estoque.Qt_Movimentacao
+                    * Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'D', -1
+                                                         , 'C', -1
+                                                         , 'N', -1, 1 )  ) , 2 ) Valor
+      From  Dbamv.Mvto_Estoque
+           ,Dbamv.imvsap_setor
+           ,dbamv.setor
+           ,Dbamv.ItMvto_Estoque
+           ,Dbamv.Uni_Pro
+           ,Dbamv.Produto
+           ,Dbamv.Classe
+	   ,DBAMV.Estoque 
+      Where Mvto_Estoque.Dt_Mvto_Estoque Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and   Mvto_Estoque.Tp_Mvto_Estoque In ( 'P', 'S', 'D', 'C' )
+      AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+      AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      and   imvsap_setor.cd_setor	(+) = mvto_estoque.cd_setor
+      and   setor.cd_setor = mvto_estoque.cd_setor
+      and   itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+      and   uni_pro.cd_uni_pro = itmvto_estoque.cd_uni_pro
+      and   produto.cd_produto = itmvto_estoque.cd_produto
+      and   produto.cd_classe = classe.cd_classe
+      and   produto.cd_especie = classe.cd_especie
+      Group By itmvto_estoque.cd_produto
+              ,classe.ds_classe
+              ,imvsap_setor.cd_setor_sap
+              ,setor.nm_setor)               vtable
+ Where Prod_Config.Rowid(+) = Dbamv.Busca_Conta_Mges(vtable.cd_Produto, 'S')
+ and   Plano_Debito.Cd_Reduzido(+) = Prod_Config.Cd_Reduzido_Contabil
+ and   Plano_Credito.Cd_Reduzido(+) = Prod_Config.Cd_Reduzido_Contra_Partida
+ Group By vtable.Ds_Classe
+         ,Plano_Debito.Cd_Contabil_Sap
+         ,Plano_Credito.Cd_Contabil_Sap
+         ,vtable.cd_setor
+         ,vtable.nm_setor
+)
+ORDER BY DS_SUB_TIPO,CONTA_DEBITO,CONTA_CREDITO,NM_SETOR

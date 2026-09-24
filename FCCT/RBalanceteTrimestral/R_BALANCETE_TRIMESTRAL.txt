@@ -1,0 +1,108 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCETE_TRIMESTRAL
+select    CD_CONTABIL
+         ,DS_CONTA
+         ,CD_GRAU
+         ,TP_CONTA
+         ,VL_SALDO_ANT
+         ,SUM( VL_DEBITO )  VL_DEBITO
+         ,SUM( VL_CREDITO )VL_CREDITO
+         ,decode(substr(CD_CONTABIL,1,1), 1, (VL_SALDO_ANT +SUM( VL_DEBITO )-SUM( VL_CREDITO )),
+                                          4, (VL_SALDO_ANT +SUM( VL_DEBITO )-SUM( VL_CREDITO )),
+                                          2, (VL_SALDO_ANT +SUM( VL_CREDITO )-SUM( VL_DEBITO )),
+                                          3, (VL_SALDO_ANT +SUM( VL_CREDITO )-SUM( VL_DEBITO )),
+                                          (VL_SALDO_ANT +SUM( VL_CREDITO )-SUM( VL_DEBITO )) )   VL_SALDO_ATU
+         ,DT_SALDO_MES
+from (
+SELECT    A.CD_CONTABIL           CD_CONTABIL
+         ,A.DS_CONTA              DS_CONTA
+         ,A.CD_GRAU               CD_GRAU
+         ,A.TP_CONTA              TP_CONTA
+         ,SUM( nvl(A.VL_SALDO_ANT,0) )VL_SALDO_ANT
+         ,SUM( nvl(A.VL_DEBITO,0) )   VL_DEBITO
+         ,SUM( nvl(A.VL_CREDITO,0) )  VL_CREDITO
+         ,SUM( nvl(A.VL_SALDO_ATU,0) )VL_SALDO_ATU
+         ,A.DT_SALDO_MES              DT_SALDO_MES
+FROM (
+SELECT   pc.cd_contabil cd_contabil
+        ,pc.ds_conta ds_conta
+        ,pc.cd_grau_da_conta cd_grau
+        ,pc.tp_conta tp_conta
+        ,sm.cd_reduzido
+        ,NVL(sm_ant.vl_saldo_mes,0) vl_saldo_ant
+        ,NVL(sm.vl_debito,0)  vl_debito
+        ,NVL(sm.vl_credito,0) vl_credito
+        ,NVL(sm.vl_saldo_mes,0)vl_saldo_atu
+        ,sm.dt_saldo_mes dt_saldo_mes
+    FROM dbamv.plano_contas pc
+        ,dbamv.saldo_mensal sm
+        , (SELECT sm_aux.dt_saldo_mes dt_saldo_mes
+                 ,sm_aux.cd_reduzido cd_reduzido
+                 ,nvl(sm_aux.vl_saldo_mes,0) vl_saldo_mes
+             FROM dbamv.saldo_mensal sm_aux
+                 , (SELECT   MAX (sm_max.dt_saldo_mes) dt_saldo_mes
+                            ,cd_reduzido
+                        FROM dbamv.saldo_mensal sm_max
+                       WHERE TO_CHAR (sm_max.dt_saldo_mes, 'YYYY/MM') <= to_char(TO_DATE('', 'DD/MM/YYYY') , 'yyyy/mm')
+                    GROUP BY sm_max.cd_reduzido) ult_sm
+            WHERE TO_CHAR (sm_aux.dt_saldo_mes, 'YYYY/MM') <=  to_char(TO_DATE('', 'DD/MM/YYYY'), 'yyyy/mm')
+              AND sm_aux.dt_saldo_mes = ult_sm.dt_saldo_mes
+              AND sm_aux.cd_reduzido = ult_sm.cd_reduzido) sm_ant
+   WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND pc.cd_grau_da_conta <= ''
+     AND pc.cd_reduzido = sm.cd_reduzido(+)
+     AND sm.dt_saldo_mes(+) >= :CAMPO_DT_INICIAL
+     AND sm.dt_saldo_mes(+) <= :CAMPO_DT_FINAL
+     AND pc.cd_reduzido = sm_ant.cd_reduzido(+)
+     AND '' = 'P'
+UNION ALL
+SELECT pc.cd_contabil cd_contabil
+             ,pc.ds_conta ds_conta
+             ,pc.cd_grau_da_conta cd_grau
+             ,pc.tp_conta tp_conta
+             ,sm.cd_reduzido
+             ,NVL (sm_ant.vl_saldo_mes,0) vl_saldo_ant
+             ,NVL (sm.vl_debito,0) vl_debito
+             ,NVL (sm.vl_credito,0) vl_credito
+             ,NVL (sm.vl_saldo_mes,0) vl_saldo_atu
+             ,sm.dt_saldo_mes dt_saldo_mes
+FROM dbamv.plano_contas_GERENCIAL pc
+          ,dbamv.saldo_mensal_GERENCIAL sm
+          , (SELECT sm_aux.dt_saldo_mes dt_saldo_mes
+                          ,sm_aux.cd_reduzido cd_reduzido
+                          ,nvl(sm_aux.vl_saldo_mes,0) vl_saldo_mes
+               FROM dbamv.saldo_mensal_GERENCIAL sm_aux
+                        , (SELECT MAX (sm_max.dt_saldo_mes) dt_saldo_mes
+                                         ,cd_reduzido
+                              FROM dbamv.saldo_mensal_GERENCIAL sm_max
+                           WHERE TO_CHAR (sm_max.dt_saldo_mes, 'YYYY/MM') <= to_char(TO_DATE('', 'DD/MM/YYYY') , 'yyyy/mm')
+                           GROUP BY sm_max.cd_reduzido) ult_sm
+             WHERE TO_CHAR (sm_aux.dt_saldo_mes, 'YYYY/MM') <= to_char(TO_DATE('', 'DD/MM/YYYY') , 'yyyy/mm')
+                   AND sm_aux.dt_saldo_mes = ult_sm.dt_saldo_mes
+                   AND sm_aux.cd_reduzido = ult_sm.cd_reduzido
+                   AND to_char(sm_aux.dt_ano,'yyyy') = '') sm_ant
+WHERE pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND to_char(pc.dt_ano,'yyyy') = ''
+      AND pc.cd_grau_da_conta <= :CAMPO_CD_GRAU_CONTA
+      AND pc.cd_reduzido = sm.cd_reduzido(+)
+      AND pc.cd_reduzido = sm_ant.cd_reduzido(+)
+      AND trunc(sm.dt_saldo_mes(+)) >= :CAMPO_DT_INICIAL
+      AND trunc(sm.dt_saldo_mes(+)) <= :CAMPO_DT_FINAL
+      AND '' = 'G'
+        :CAMPO_CF_VISAO
+) A
+GROUP BY  A.CD_CONTABIL
+         ,A.DS_CONTA
+         ,A.CD_GRAU
+         ,A.TP_CONTA
+         ,A.DT_SALDO_MES
+ORDER BY  A.CD_CONTABIL
+)
+group by
+CD_CONTABIL
+         ,DS_CONTA
+         ,CD_GRAU
+         ,TP_CONTA
+         ,VL_SALDO_ANT
+         ,DT_SALDO_MES
+ORDER BY  CD_CONTABIL

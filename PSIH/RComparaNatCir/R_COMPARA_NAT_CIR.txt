@@ -1,0 +1,109 @@
+/*----------------------------------------------------------------------------*/
+--R_COMPARA_NAT_CIR
+SELECT * FROM (
+        SELECT   AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+	       , AVISO_CIRURGIA.CD_ATENDIMENTO CD_ATENDIMENTO
+               , AVISO_CIRURGIA.NM_PACIENTE
+               ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND AVISO_CIRURGIA.CD_PACIENTE =  CD_PACIENTE) NM_SOCIAL_PACIENTE
+	       , F_VERIF_PRESTADOR(AVISO_CIRURGIA.CD_AVISO_CIRURGIA , CIRURGIA_AVISO.CD_CIRURGIA) CD_PRESTADOR
+               , PRESTADOR_AVISO.NM_PRESTADOR  NM_PRESTADOR_PRINCIPAL
+               , CIRURGIA_AVISO.CD_CIRURGIA
+               , CIRURGIA.DS_CIRURGIA
+               , CIRURGIA_AVISO.CD_CIRURGIA_AVISO
+               , to_char(aviso_cirurgia.DT_REALIZACAO,'DD/MM/YYYY hh24')  DT_REALIZACAO
+               , AVISO_CIRURGIA.DT_REALIZACAO  DT_REALIZACAO_CLASSIFICA
+	       , AVISO_CIRURGIA.CD_SAL_CIR CD_SAL_CIR
+	       , SAL_CIR.DS_SAL_CIR DS_SAL_CIR
+	       , DECODE(CONVENIO.TP_CONVENIO, 'H', CIRURGIA.CD_PROCEDIMENTO_SIH, 'A', cirurgia.cd_procedimento_sia, CIRURGIA.CD_PRO_FAT) CD_PRO_FAT
+	       , Decode(convenio.tp_convenio, 'H', procedimento_sih.ds_procedimento, 'A', procedimento_sia.ds_procedimento, PRO_FAT.DS_PRO_FAT) DS_PRO_FAT
+	       , PRESTADOR.NM_PRESTADOR NM_PRESTADOR
+	       , Decode(CIRURGIA_AVISO.tp_natureza,
+                       'L', 'LIMPA',
+                       'C', 'CONTAMINADA',
+                       'I', 'INFECTADA',
+                       'P', 'POTENCIALMENTE CONTAMINADA',
+                       'NÃO CLASSIFICADA') TP_NATUREZA
+	       , Aviso_cirurgia.cd_asa CD_ASA
+	       , REG_INF.CD_REG_INF CD_REG_INF
+	       , atendime.cd_paciente
+               , tabela_natureza_psih.TP_NATUREZA_PSIH  TP_NATUREZA_PSIH_DB
+               , decode(tabela_natureza_psih.TP_NATUREZA_PSIH,
+                        'L', 'LIMPA',
+                        'C', 'CONTAMINADA',
+                        'I', 'INFECTADA',
+                        'P', 'POTENCIALMENTE CONTAMINADA',
+                        'N', 'NÃO CLASSIFICADA',
+                        'NÃO CLASSIFICADA') TP_NATUREZA_PSIH
+               , tabela_natureza_psih.CD_NATUREZA_PSIH
+               , tabela_natureza_psih.CD_USUARIO
+               , tabela_natureza_psih.DT_REG_NATUREZA
+     FROM DBAMV.AVISO_CIRURGIA
+         , dbamv.atendime
+	 , DBAMV.CIRURGIA_AVISO
+	 , DBAMV.CIRURGIA
+	 , DBAMV.AGE_CIR
+	 , DBAMV.PRO_FAT
+	 , DBAMV.CEN_CIR
+	 , DBAMV.CONVENIO
+	 , DBAMV.SAL_CIR
+	 , DBAMV.PRESTADOR
+         , DBAMV.PRESTADOR_AVISO
+	 , DBAMV.REG_INF
+	 , DBAMV.EMPRESA_CONVENIO
+	 , Dbamv.procedimento_sus PROCEDIMENTO_SIH
+	 , Dbamv.procedimento_sus PROCEDIMENTO_SIA
+         , (SELECT
+                          n.CD_NATUREZA_PSIH,
+                          n.CD_ATENDIMENTO,
+                          n.CD_AVISO_CIRURGIA,
+                          n.CD_CIRURGIA_AVISO,
+                          n.CD_REG_INF,
+                          n.TP_NATUREZA,
+                          n.TP_NATUREZA_PSIH,
+                          n.CD_USUARIO,
+                          n.DT_REG_NATUREZA
+                      FROM
+                          natureza_psih n
+                      WHERE
+                          cd_natureza_psih IN (
+                              SELECT cd_natureza_psih FROM (
+                                                    SELECT MAX(cd_natureza_psih) cd_natureza_psih ,
+                                                            CD_ATENDIMENTO    ,
+                                                            CD_AVISO_CIRURGIA ,
+                                                            CD_CIRURGIA_AVISO ,
+                                                            CD_REG_INF        ,
+                                                            TP_NATUREZA
+                                                      FROM
+                                                            natureza_psih
+                                                      GROUP BY
+                                                            CD_ATENDIMENTO    ,
+                                                            CD_AVISO_CIRURGIA ,
+                                                            CD_CIRURGIA_AVISO ,
+                                                            CD_REG_INF        ,
+                                                            TP_NATUREZA
+                              )
+                          )
+            ) tabela_natureza_psih
+	 WHERE AVISO_CIRURGIA.CD_AVISO_CIRURGIA  = CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+	   AND aviso_cirurgia.cd_atendimento     = atendime.cd_atendimento
+	   AND convenio.cd_convenio              = empresa_convenio.cd_convenio
+	   AND empresa_convenio.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+	   AND AVISO_CIRURGIA.CD_CEN_CIR         = CEN_CIR.CD_CEN_CIR
+	   AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA  = AGE_CIR.CD_AVISO_CIRURGIA(+)
+	   AND CIRURGIA_AVISO.CD_CIRURGIA        = CIRURGIA.CD_CIRURGIA
+	   AND CIRURGIA_AVISO.CD_CONVENIO        = CONVENIO.CD_CONVENIO(+)
+	   AND CIRURGIA.CD_PRO_FAT               = PRO_FAT.CD_PRO_FAT(+)
+	   AND CIRURGIA.CD_PROCEDIMENTO_SIH      = PROCEDIMENTO_SIH.CD_PROCEDIMENTO(+)
+	   AND CIRURGIA.CD_PROCEDIMENTO_SIA      = PROCEDIMENTO_SIA.CD_PROCEDIMENTO(+)
+	   AND AVISO_CIRURGIA.CD_SAL_CIR         = SAL_CIR.CD_SAL_CIR
+	   AND AVISO_CIRURGIA.TP_SITUACAO        = 'R'
+	   AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA  = REG_INF.CD_AVISO_CIRURGIA(+)
+	   AND PRESTADOR.CD_PRESTADOR            = DBAMV.F_VERIF_PRESTADOR(AVISO_CIRURGIA.CD_AVISO_CIRURGIA, CIRURGIA_AVISO.CD_CIRURGIA)
+           AND prestador_aviso.CD_CIRURGIA_AVISO = cirurgia_aviso.CD_CIRURGIA_AVISO
+           AND prestador_aviso.SN_PRINCIPAL      = 'S'
+           AND cirurgia_aviso.CD_AVISO_CIRURGIA  = tabela_natureza_psih.CD_AVISO_CIRURGIA(+)
+           AND cirurgia_aviso.CD_CIRURGIA_AVISO  = tabela_natureza_psih.CD_CIRURGIA_AVISO(+)
+)
+WHERE
+ORDER BY
+    DT_REALIZACAO_CLASSIFICA

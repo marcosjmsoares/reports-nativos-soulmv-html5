@@ -1,0 +1,210 @@
+/*----------------------------------------------------------------------------*/
+--R_DIARIO_RET
+SELECT * FROM (
+SELECT
+           TRUNC( LCTO_CONTABIL.DT_LCTO )           DATA_LCTO
+          ,LCTO_CONTABIL.CD_LCTO_CONTABIL           CODIGO_LCTO
+          ,EMPRESAS.CD_MULTI_EMPRESA                CODIGO_EMPRESA
+          ,EMPRESAS.DS_MULTI_EMPRESA                DESCRICAO_EMPRESA
+          ,DECODE(:CAMPO_AGRUPA_POR_EMPRESAS,'N',NULL,EMPRESAS.DS_MULTI_EMPRESA) DS_EMPRESA_AGRUPA
+          ,LOTE.CD_LOTE                             LOTE
+          ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO          MOVIMENTO
+          ,PL_CONTAS_CRED.CD_REDUZIDO               CODIGO_REDUZIDO_CREDITO
+          ,PL_CONTAS_CRED.CD_CONTABIL               CODIGO_CONTABIL_CREDITO
+          ,PL_CONTAS_CRED.DS_CONTA                  DESCRICAO_CONTA_CREDITO
+          ,PL_CONTAS_DEBI.CD_REDUZIDO               CODIGO_REDUZIDO_DEBITO
+          ,PL_CONTAS_DEBI.CD_CONTABIL               CODIGO_CONTABIL_DEBITO
+          ,PL_CONTAS_DEBI.DS_CONTA                  DESCRICAO_CONTA_DEBITO
+          ,DECODE( LTRIM(RTRIM(HIST_PADRAO.DS_HISTORICO_PADRAO)), LTRIM(RTRIM(LCTO_CONTABIL.DS_COMPLEMENTO) ) , HIST_PADRAO.DS_HISTORICO_PADRAO, LTRIM( HIST_PADRAO.DS_HISTORICO_PADRAO || ' ' || LCTO_CONTABIL.DS_COMPLEMENTO )  ) DESCRICAO_COMPLEMENTO
+          ,DECODE( LCTO_CONTABIL.CD_REDUZIDO_CREDITO, NULL, to_number(NULL), DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, LCTO_CONTABIL.VL_LANCADO,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO) )  VALOR_CREDIDO
+          ,DECODE( LCTO_CONTABIL.CD_REDUZIDO_DEBITO , NULL, to_number(NULL), DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, LCTO_CONTABIL.VL_LANCADO,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO) )  VALOR_DEBITO
+FROM
+           DBAMV.LOTE                LOTE
+          ,DBAMV.LCTO_CONTABIL       LCTO_CONTABIL
+          ,DBAMV.PLANO_CONTAS        PL_CONTAS_CRED
+          ,DBAMV.PLANO_CONTAS        PL_CONTAS_DEBI
+          ,DBAMV.HISTORICO_PADRAO    HIST_PADRAO
+          ,DBAMV.MULTI_EMPRESAS      EMPRESAS
+WHERE
+LCTO_CONTABIL.DT_LCTO BETWEEN TO_DATE( TO_CHAR( :CAMPO_DATA_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' ) AND TO_DATE( TO_CHAR( :CAMPO_DATA_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+          AND LCTO_CONTABIL.CD_LOTE                	  = LOTE.CD_LOTE(+)
+          AND LCTO_CONTABIL.CD_REDUZIDO_DEBITO      	= PL_CONTAS_DEBI.CD_REDUZIDO(+)
+          AND LCTO_CONTABIL.CD_REDUZIDO_CREDITO     	= PL_CONTAS_CRED.CD_REDUZIDO(+)
+          AND LCTO_CONTABIL.CD_HISTORICO_PADRAO     	= HIST_PADRAO.CD_HISTORICO_PADRAO(+)
+          AND (LCTO_CONTABIL.SN_TRANSITORIA = :CAMPO_INC_CONTA_TRANSITORIA OR LCTO_CONTABIL.SN_TRANSITORIA IS NULL)
+          AND :CAMPO_SN_AGRUPA_PROC = 'N'
+          AND   (LCTO_CONTABIL.CD_LANC_AGRUP IS NULL AND :CAMPO_SN_AGRUPA_DEP = 'S' OR :CAMPO_SN_AGRUPA_DEP = 'N')
+UNION ALL
+SELECT
+           TRUNC( LCTO_CONTABIL.DT_LCTO )           DATA_LCTO
+          ,LCTO_CONTABIL.CD_LCTO_CONTABIL           CODIGO_LCTO
+          ,EMPRESAS.CD_MULTI_EMPRESA                CODIGO_EMPRESA
+          ,EMPRESAS.DS_MULTI_EMPRESA                DESCRICAO_EMPRESA
+          ,DECODE(:CAMPO_AGRUPA_POR_EMPRESAS,'N',NULL,EMPRESAS.DS_MULTI_EMPRESA) DS_EMPRESA_AGRUPA
+          ,LOTE.CD_LOTE                             LOTE
+          ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO          MOVIMENTO
+          ,PL_CONTAS_CRED.CD_REDUZIDO               CODIGO_REDUZIDO_CREDITO
+          ,PL_CONTAS_CRED.CD_CONTABIL               CODIGO_CONTABIL_CREDITO
+          ,PL_CONTAS_CRED.DS_CONTA                  DESCRICAO_CONTA_CREDITO
+          ,PL_CONTAS_DEBI.CD_REDUZIDO               CODIGO_REDUZIDO_DEBITO
+          ,PL_CONTAS_DEBI.CD_CONTABIL               CODIGO_CONTABIL_DEBITO
+          ,PL_CONTAS_DEBI.DS_CONTA                  DESCRICAO_CONTA_DEBITO
+          ,DECODE( LTRIM(RTRIM(HIST_PADRAO.DS_HISTORICO_PADRAO)), LTRIM(RTRIM(LCTO_CONTABIL.DS_COMPLEMENTO) ) , HIST_PADRAO.DS_HISTORICO_PADRAO, LTRIM( HIST_PADRAO.DS_HISTORICO_PADRAO || ' ' || LCTO_CONTABIL.DS_COMPLEMENTO )  ) DESCRICAO_COMPLEMENTO
+          ,DECODE( LCTO_CONTABIL.CD_REDUZIDO_CREDITO, NULL, to_number(NULL), DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE,LCTO_CONTABIL.VL_LANCADO,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO) )  VALOR_CREDIDO
+          ,DECODE( LCTO_CONTABIL.CD_REDUZIDO_DEBITO , NULL, to_number(NULL), DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE,LCTO_CONTABIL.VL_LANCADO,:CAMPO_CONVERTE, :CAMPO_VL_CAMBIO) )  VALOR_DEBITO
+FROM
+           DBAMV.LOTE                LOTE
+          ,DBAMV.PLANO_CONTAS        PL_CONTAS_CRED
+          ,DBAMV.PLANO_CONTAS        PL_CONTAS_DEBI
+          ,DBAMV.HISTORICO_PADRAO    HIST_PADRAO
+          ,DBAMV.MULTI_EMPRESAS      EMPRESAS
+          ,(select lcto.dt_lcto,
+                       min(cd_lcto_movimento) cd_lcto_movimento,
+                       min(cd_lcto_contabil) cd_lcto_contabil,
+                       lcto.cd_reduzido_debito,
+                       lcto.cd_reduzido_credito,
+                       sum(vl_lancado) vl_lancado,
+                       lcto.cd_historico_padrao,
+                       'DEPOSITO AGRUPADO' ds_complemento,
+                       lcto.cd_lote,
+                       lcto.cd_lanc_agrup,
+                       lcto.sn_transitoria,
+                       lcto.cd_multi_empresa,
+                       lcto.cd_multi_empresa_origem
+                from  dbamv.lcto_contabil lcto
+                where lcto.cd_lanc_agrup is not null
+                  and lcto.cd_reduzido_debito is not null
+                  and :CAMPO_SN_AGRUPA_DEP = 'S'
+                group by lcto.dt_lcto,
+                         lcto.cd_reduzido_debito,
+                         lcto.cd_reduzido_credito,
+                         lcto.cd_historico_padrao,
+                         lcto.cd_lote,
+                         lcto.cd_lanc_agrup,
+                         lcto.sn_transitoria,
+                         lcto.cd_multi_empresa,
+                         lcto.cd_multi_empresa_origem
+                UNION
+                select lcto.dt_lcto,
+                       min(lcto.cd_lcto_movimento) cd_lcto_movimento,
+                       min(cd_lcto_contabil) cd_lcto_contabil,
+                       lcto.cd_reduzido_debito,
+                       lcto.cd_reduzido_credito,
+                       sum(lcto.vl_lancado) vl_lancado,
+                       lcto.cd_historico_padrao,
+                       'DEPOSITO AGRUPADO' ds_complemento,
+                       lcto.cd_lote,
+                       lcto.cd_lanc_agrup,
+                       lcto.sn_transitoria,
+                       lcto.cd_multi_empresa,
+                       lcto.cd_multi_empresa_origem
+                from  dbamv.lcto_contabil lcto
+                where lcto.cd_lanc_agrup is not null
+                  and  lcto.cd_reduzido_credito is not null
+                  and :CAMPO_SN_AGRUPA_DEP = 'S'
+                group by lcto.dt_lcto,
+                         lcto.cd_reduzido_debito,
+                         lcto.cd_reduzido_credito,
+                         lcto.cd_historico_padrao,
+                         lcto.cd_lote,
+                         lcto.cd_lanc_agrup,
+                         lcto.sn_transitoria,
+                         lcto.cd_multi_empresa,
+                         lcto.cd_multi_empresa_origem         ) LCTO_CONTABIL
+WHERE
+LCTO_CONTABIL.DT_LCTO BETWEEN TO_DATE( TO_CHAR( :CAMPO_DATA_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' ) AND TO_DATE( TO_CHAR( :CAMPO_DATA_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+          AND LCTO_CONTABIL.CD_LOTE                	  = LOTE.CD_LOTE(+)
+          AND LCTO_CONTABIL.CD_REDUZIDO_DEBITO      	= PL_CONTAS_DEBI.CD_REDUZIDO(+)
+          AND LCTO_CONTABIL.CD_REDUZIDO_CREDITO     	= PL_CONTAS_CRED.CD_REDUZIDO(+)
+          AND LCTO_CONTABIL.CD_HISTORICO_PADRAO     	= HIST_PADRAO.CD_HISTORICO_PADRAO(+)
+          AND (LCTO_CONTABIL.SN_TRANSITORIA = :CAMPO_INC_CONTA_TRANSITORIA OR LCTO_CONTABIL.SN_TRANSITORIA IS NULL)
+          AND :CAMPO_SN_AGRUPA_PROC = 'N'
+          AND :CAMPO_SN_AGRUPA_DEP = 'S'
+ORDER BY 3,1,6,7 
+)
+ORDER BY DATA_LCTO, CODIGO_LCTO, LOTE, MOVIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DIARIO_RET_R_EMPRESAS6_Q_PROCESSO
+SELECT * FROM (
+SELECT
+           TRUNC( LCTO_CONTABIL.DT_LCTO )           DATA_LCTO_PROC
+          ,LCTO_CONTABIL.CD_LCTO_CONTABIL         CODIGO_LCTO_PROC
+          ,EMPRESAS.CD_MULTI_EMPRESA                CODIGO_EMPRESA_PROC
+          ,EMPRESAS.DS_MULTI_EMPRESA                DESCRICAO_EMPRESA_PROC
+          ,DECODE(:CAMPO_AGRUPA_POR_EMPRESAS,'N',NULL,EMPRESAS.DS_MULTI_EMPRESA) DS_EMPRESA_AGRUPA_PROC
+          ,LOTE.CD_LOTE                             LOTE_PROC
+          ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO          MOVIMENTO_PROC
+          ,PL_CONTAS.CD_REDUZIDO               CODIGO_REDUZIDO_PROC
+          ,PL_CONTAS.CD_CONTABIL               CODIGO_CONTABIL_PROC
+          ,PL_CONTAS.DS_CONTA                  DESCRICAO_CONTA_PROC
+          ,DECODE( LTRIM(RTRIM(HIST_PADRAO.DS_HISTORICO_PADRAO)), LTRIM(RTRIM(LCTO_CONTABIL.DS_COMPLEMENTO) ) , HIST_PADRAO.DS_HISTORICO_PADRAO, LTRIM(
+HIST_PADRAO.DS_HISTORICO_PADRAO || ' ' || LCTO_CONTABIL.DS_COMPLEMENTO )  ) DESCRICAO_COMPLEMENTO_PROC
+          ,to_number(null) VALOR_DEB_PROC
+          ,DECODE( LCTO_CONTABIL.CD_REDUZIDO_CREDITO, NULL, to_number(NULL), DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, LCTO_CONTABIL.VL_LANCADO,1, :CAMPO_VL_CAMBIO) )  VALOR_CRED_PROC
+          ,LCTO_CONTABIL.CD_PROCESSO                                                            CD_PROCESSO_PROC
+          ,LCTO_CONTABIL.DS_COMPLEMENTO                                                    DS_COMPLEMENTO_PROC
+          ,PROCESSO.CD_ESTRUTURAL || ' - ' || PROCESSO.DS_PROCESSO       DS_PROCESSO_PROC
+          ,PROCESSO.CD_ESTRUTURAL                                                                 CD_ESTRUTURAL_PROC
+FROM
+           DBAMV.LOTE                LOTE
+          ,DBAMV.LCTO_CONTABIL       LCTO_CONTABIL
+          ,DBAMV.PROCESSO                 PROCESSO
+          ,DBAMV.PLANO_CONTAS        PL_CONTAS
+          ,DBAMV.HISTORICO_PADRAO    HIST_PADRAO
+          ,DBAMV.MULTI_EMPRESAS      EMPRESAS
+WHERE
+LCTO_CONTABIL.DT_LCTO BETWEEN TO_DATE( TO_CHAR( :CAMPO_DATA_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' ) AND TO_DATE( TO_CHAR( :CAMPO_DATA_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+          AND LCTO_CONTABIL.CD_PROCESSO = PROCESSO.CD_PROCESSO
+          AND LCTO_CONTABIL.CD_LOTE                	  = LOTE.CD_LOTE(+)
+          AND LCTO_CONTABIL.CD_REDUZIDO_CREDITO     	= PL_CONTAS.CD_REDUZIDO(+)
+          AND LCTO_CONTABIL.CD_HISTORICO_PADRAO     	= HIST_PADRAO.CD_HISTORICO_PADRAO(+)
+          AND EMPRESAS.CD_MULTI_EMPRESA               = LCTO_CONTABIL.CD_MULTI_EMPRESA
+          AND (LCTO_CONTABIL.SN_TRANSITORIA = :CAMPO_INC_CONTA_TRANSITORIA OR LCTO_CONTABIL.SN_TRANSITORIA IS NULL)
+          AND LCTO_CONTABIL.CD_REDUZIDO_CREDITO IS NOT NULL
+          AND :CAMPO_SN_AGRUPA_PROC = 'S'
+UNION
+SELECT
+           TRUNC( LCTO_CONTABIL.DT_LCTO )           DATA_LCTO_PROC
+          ,LCTO_CONTABIL.CD_LCTO_CONTABIL         CODIGO_LCTO_PROC
+          ,EMPRESAS.CD_MULTI_EMPRESA                CODIGO_EMPRESA_PROC
+          ,EMPRESAS.DS_MULTI_EMPRESA                DESCRICAO_EMPRESA_PROC
+          ,DECODE(:CAMPO_AGRUPA_POR_EMPRESAS,'N',NULL,EMPRESAS.DS_MULTI_EMPRESA) DS_EMPRESA_AGRUPA_PROC
+          ,LOTE.CD_LOTE                             LOTE_PROC
+          ,LCTO_CONTABIL.CD_LCTO_MOVIMENTO          MOVIMENTO_PROC
+          ,PL_CONTAS.CD_REDUZIDO                    CODIGO_REDUZIDO_PROC
+          ,PL_CONTAS.CD_CONTABIL                    CODIGO_CONTABIL_PROC
+          ,PL_CONTAS.DS_CONTA                       DESCRICAO_CONTA_PROC
+          ,DECODE( LTRIM(RTRIM(HIST_PADRAO.DS_HISTORICO_PADRAO)), LTRIM(RTRIM(LCTO_CONTABIL.DS_COMPLEMENTO) ) , HIST_PADRAO.DS_HISTORICO_PADRAO, LTRIM(
+HIST_PADRAO.DS_HISTORICO_PADRAO || ' ' || LCTO_CONTABIL.DS_COMPLEMENTO )  ) DESCRICAO_COMPLEMENTO_PROC
+          ,DECODE( LCTO_CONTABIL.CD_REDUZIDO_DEBITO , NULL, to_number(NULL), DBAMV.CONVERTE_MOEDA_VALOR(:CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_MOEDA,SYSDATE, LCTO_CONTABIL.VL_LANCADO,1, :CAMPO_VL_CAMBIO) )  VALOR_DEB_PROC
+          ,to_number(null) VALOR_CRED_PROC
+          ,LCTO_CONTABIL.CD_PROCESSO                                                            CD_PROCESSO_PROC
+          ,LCTO_CONTABIL.DS_COMPLEMENTO                                                    DS_COMPLEMENTO_PROC
+          ,PROCESSO.CD_ESTRUTURAL || ' - ' || PROCESSO.DS_PROCESSO       DS_PROCESSO_PROC
+          ,PROCESSO.CD_ESTRUTURAL                                                                 CD_ESTRUTURAL_PROC
+FROM
+           DBAMV.LOTE                LOTE
+          ,DBAMV.LCTO_CONTABIL       LCTO_CONTABIL
+          ,DBAMV.PROCESSO                 PROCESSO
+          ,DBAMV.PLANO_CONTAS        PL_CONTAS
+          ,DBAMV.HISTORICO_PADRAO    HIST_PADRAO
+          ,DBAMV.MULTI_EMPRESAS      EMPRESAS
+WHERE
+LCTO_CONTABIL.DT_LCTO BETWEEN TO_DATE( TO_CHAR( :CAMPO_DATA_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' ) AND TO_DATE( TO_CHAR( :CAMPO_DATA_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+          AND LCTO_CONTABIL.CD_PROCESSO = PROCESSO.CD_PROCESSO
+          AND LCTO_CONTABIL.CD_LOTE                	  = LOTE.CD_LOTE(+)
+          AND LCTO_CONTABIL.CD_REDUZIDO_DEBITO      	= PL_CONTAS.CD_REDUZIDO(+)
+          AND LCTO_CONTABIL.CD_HISTORICO_PADRAO     	= HIST_PADRAO.CD_HISTORICO_PADRAO(+)
+          AND EMPRESAS.CD_MULTI_EMPRESA               = LCTO_CONTABIL.CD_MULTI_EMPRESA
+          AND (LCTO_CONTABIL.SN_TRANSITORIA = :CAMPO_INC_CONTA_TRANSITORIA OR LCTO_CONTABIL.SN_TRANSITORIA IS NULL)
+          AND :CAMPO_SN_AGRUPA_PROC = 'S'
+          AND LCTO_CONTABIL.CD_REDUZIDO_DEBITO IS NOT NULL
+ORDER BY 3,1,6,7 
+)
+ORDER BY DS_EMPRESA_AGRUPA_PROC,
+CODIGO_CONTABIL_PROC,DESCRICAO_CONTA_PROC,CODIGO_REDUZIDO_PROC,
+DATA_LCTO_PROC,
+CD_ESTRUTURAL_PROC,DS_PROCESSO_PROC,CD_PROCESSO_PROC,CODIGO_EMPRESA_PROC,DESCRICAO_EMPRESA_PROC

@@ -1,0 +1,103 @@
+/*----------------------------------------------------------------------------*/
+--R_ANA_MRG_CONT_CONS
+SELECT tb.*,
+Decode(tb.qtd_diaria,0,0, (nvl( ROUND( (nvl(tb.receita,0) - nvl(ROUND((nvl(tb.receita,0) * (nvl(tb.tx_imposto,0)/100)),2),0)) - nvl(tb.matmed,0)  - nvl(tb.honorario,0) ,2),0) / decode(tb.qtd_diaria,0,1, tb.qtd_diaria))) vl_contribuicao_diaria_n,
+Decode(tb.qtd_diaria,0,0, (nvl( ROUND( (nvl(tb.receita,0) - nvl(ROUND((nvl(tb.receita,0) * (nvl(tb.tx_imposto,0)/100)),2),0)) - nvl(tb.matmed,0)  - nvl(tb.honorario,0) - nvl(tb.vl_diaria_variavel,0) - nvl(tb.vl_procedimento_var,0) - nvl(tb.vl_terceiro_var,0) ,2),0) / decode(tb.qtd_diaria,0,1, tb.qtd_diaria))) vl_contribuicao_diaria_s,
+Decode(tb.qtd_atendimento,0,0, (nvl( ROUND( (nvl(tb.receita,0) - nvl(ROUND((nvl(tb.receita,0) * (nvl(tb.tx_imposto,0)/100)),2),0)) - nvl(tb.matmed,0)  - nvl(tb.honorario,0) ,2),0) / decode(tb.qtd_atendimento,0,1, tb.qtd_atendimento))) vl_contribuicao_atend_n,
+Decode(tb.qtd_atendimento,0,0, (nvl( ROUND( (nvl(tb.receita,0) - nvl(ROUND((nvl(tb.receita,0) * (nvl(tb.tx_imposto,0)/100)),2),0)) - nvl(tb.matmed,0)  - nvl(tb.honorario,0) - nvl(tb.vl_diaria_variavel,0) - nvl(tb.vl_procedimento_var,0) - nvl(tb.vl_terceiro_var,0) ,2),0) / decode(tb.qtd_atendimento,0,1, tb.qtd_atendimento))) vl_contribuicao_atend_s,
+(nvl( ROUND( (nvl(tb.receita,0) - nvl(ROUND((nvl(tb.receita,0) * (nvl(tb.tx_imposto,0)/100)),2),0)) - nvl(tb.matmed,0)  - nvl(tb.honorario,0) ,2),0)) vl_contribuicao_n,
+(nvl( ROUND( (nvl(tb.receita,0) - nvl(ROUND((nvl(tb.receita,0) * (nvl(tb.tx_imposto,0)/100)),2),0)) - nvl(tb.matmed,0)  - nvl(tb.honorario,0) - nvl(tb.vl_diaria_variavel,0) - nvl(tb.vl_procedimento_var,0) - nvl(tb.vl_terceiro_var,0) ,2),0)) vl_contribuicao_s,
+(Round(tb.vl_resultado/(Decode(Nvl(tb.receita,0), 0, 1, tb.receita) / 100), 2) ) vl_rentabilidade_n
+ FROM (
+SELECT   a.analise
+        ,SUM ( NVL(a.receita,0) ) receita
+        ,SUM ( NVL(a.diaria,0) ) diaria
+        ,SUM ( NVL(a.qtd_diaria,0) ) qtd_diaria
+        ,SUM ( NVL(a.honorario,0) ) honorario
+        ,SUM ( NVL(a.procedimento,0) ) procedimento
+        ,SUM ( NVL(a.matmed,0) ) matmed
+        ,SUM ( NVL(a.terceiro,0) ) terceiro
+        ,MAX ( NVL(a.tx_adm,0) ) tx_adm
+        ,MAX ( NVL(a.tx_imposto,0) ) tx_imposto
+        ,SUM ( NVL(a.vl_resultado,0) ) vl_resultado
+        ,SUM ( NVL(a.vl_rentabilidade,0) ) vl_rentabilidade
+        ,a.sn_uti sn_uti
+        ,a.sn_mult_proc sn_mult_proc
+        ,'x' quebra
+        ,COUNT ( NVL(a.qtd_atendimento,0) ) qtd_atendimento
+        ,SUM ( NVL(a.vl_diaria_fixo,0) ) vl_diaria_fixo
+        ,SUM ( NVL(a.vl_diaria_variavel,0) ) vl_diaria_variavel
+        ,SUM ( NVL(a.vl_procedimento_fixo,0)  - NVL(a.vl_custo_gases ,0)) vl_procedimento_fixo
+        ,SUM ( NVL(a.vl_procedimento_var,0) ) vl_procedimento_var
+        ,SUM ( NVL(a.vl_terceiro_fixo,0) ) vl_terceiro_fixo
+        ,SUM ( NVL(a.vl_terceiro_var,0) ) vl_terceiro_var
+    FROM ( SELECT decode (
+                    :CAMPO_ANALISE
+                   ,'1', nvl ( ate.cd_pro_int, nvl ( ate.cd_ssm_sia, ate.cd_procedimento ))
+                   ,'2', ate.cd_cid
+                   ,'3', ate.cd_convenio
+                   ,'4', ate.cd_servico
+                   ,'5', ate.cd_especialid
+                   ,'6', ate.cd_prestador
+                   ,'7', ate.tp_atendimento
+                   ,'8', decode ( fa.cd_cirurgia, '', ate.cd_pro_int, fa.cd_cirurgia )
+                   ,'9', ate.cd_tipo_internacao
+                   ,'0', ate.cd_atendimento
+                   ,'10', sgru_cid.cd_gru_cid
+                   ,'11', cid.cd_sgru_cid
+                  ) analise
+                 ,fa.vl_receita receita
+                 ,fa.vl_diaria diaria
+                 ,fa.qtd_diaria qtd_diaria
+                 ,fa.vl_honorario honorario
+                 ,fa.vl_procedimento procedimento
+                 ,fa.vl_matmed matmed
+                 ,fa.vl_terceiro terceiro
+                 ,fa.tx_adm tx_adm
+                 ,fa.tx_imposto tx_imposto
+                 ,fa.vl_resultado vl_resultado
+                 ,fa.vl_rentabilidade vl_rentabilidade
+		 ,decode( :CAMPO_SN_UTI,'%','-','T',fa.sn_uti,nvl ( fa.sn_uti, 'N' )) sn_uti
+                 ,decode( :CAMPO_SN_MULT_PROC,'%','-',nvl ( fa.sn_multiplos_procedimentos, 'N' )) sn_mult_proc
+                 ,'X' dummy
+                 ,rownum qtd_atendimento
+                 ,fa.vl_diaria_fixo
+                 ,fa.vl_diaria_variavel
+                 ,fa.vl_procedimento_fixo
+                 ,fa.vl_procedimento_var
+                 ,fa.vl_terceiro_fixo
+                 ,fa.vl_terceiro_var
+                 ,fa.vl_custo_gases
+            FROM dbamv.fa_custo_atendimento fa
+                ,dbamv.atendime ate
+                ,dbamv.paciente pc
+                ,dbamv.pro_fat pf
+                ,dbamv.tab_siasus sia
+                ,dbamv.convenio cv
+                ,dbamv.prestador pr
+                ,dbamv.cid
+                ,dbamv.cirurgia
+                ,dbamv.tipo_internacao tp_int
+                ,dbamv.gru_cid
+                ,dbamv.sgru_cid
+           WHERE to_char ( fa.dt_alta, 'yyyy/mm/dd' ) >= :CAMPO_DT_INI
+             AND to_char ( fa.dt_alta, 'yyyy/mm/dd' ) <= :CAMPO_DT_FIM
+             AND to_char ( ate.dt_atendimento, 'yyyy/mm/dd' ) >= :CAMPO_DT_ATENDIMENTO
+             AND ate.cd_paciente = pc.cd_paciente
+             AND ate.cd_atendimento = fa.cd_atendimento
+             AND ate.cd_pro_int = pf.cd_pro_fat(+)
+             AND ate.cd_ssm_sia = sia.cd_ssm(+)
+             AND cid.cd_cid(+) = ate.cd_cid
+             AND cid.cd_sgru_cid = sgru_cid.cd_sgru_cid(+)
+             AND sgru_cid.cd_gru_cid = gru_cid.cd_gru_cid(+)
+             AND cirurgia.cd_cirurgia(+) = fa.cd_cirurgia
+             AND ate.cd_convenio = cv.cd_convenio
+             AND ate.cd_prestador = pr.cd_prestador(+)
+             AND ate.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND ate.cd_tipo_internacao = tp_int.cd_tipo_internacao(+)
+             :CAMPO_CF_PAC_ALTA
+         ) a
+GROUP BY a.analise
+        ,a.sn_uti
+        ,a.sn_mult_proc
+) tb

@@ -1,0 +1,26 @@
+/*----------------------------------------------------------------------------*/
+--R_VISAO_SEM_CONTA
+select distinct plano_contas.cd_reduzido                  cd_reduzido
+     , nvl(plano_contas.ds_financ, plano_contas.ds_conta) ds_conta
+  from dbamv.plano_contas
+     , (
+        select v_custo_conta.cd_conta Cd_Reduzido
+          from dbamv.v_custo_conta
+         where v_custo_conta.data between to_date(:CAMPO_CF_DATAINICIAL||' 00','dd/mm/yyyy hh24')
+                                      and to_date(:CAMPO_CF_DATAFINAL||' 23','dd/mm/yyyy hh24')
+           and v_custo_conta.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+        union all
+        select mov_concor.cd_reduzido Cd_Reduzido
+          from dbamv.mov_concor
+         where mov_concor.dt_movimentacao between to_date(:CAMPO_CF_DATAINICIAL||' 00','dd/mm/yyyy hh24')
+                                              and to_date(:CAMPO_CF_DATAFINAL||' 23','dd/mm/yyyy hh24')
+           and not exists (Select Rec_Mov_Con.Cd_Mov_ConCor
+                             From Dbamv.Rec_Mov_Con
+                            Where Rec_Mov_Con.Cd_Mov_ConCor = Mov_ConCor.Cd_Mov_ConCor)
+       ) Tabela
+ where plano_contas.cd_reduzido = Tabela.cd_reduzido
+   and not exists ( Select visao_plano_contabil.cd_reduzido
+                      from dbamv.visao_plano_contabil visao_plano_contabil
+                     Where Tabela.Cd_Reduzido = visao_plano_contabil.cd_reduzido
+                       and visao_plano_contabil.cd_visao = :CAMPO_VISAO )
+order by cd_reduzido

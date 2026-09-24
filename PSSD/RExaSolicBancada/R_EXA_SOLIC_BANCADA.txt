@@ -1,0 +1,46 @@
+/*----------------------------------------------------------------------------*/
+--R_EXA_SOLIC_BANCADA
+SELECT * FROM (
+SELECT Tb_qt_exames.DATA, Tb_qt_exames.BANCADA, Tb_qt_exames.DS_BANCADA, SUM(QT_PACIENTES) TOTAL_PACIENTES, SUM(QT_EXAMES) TOTAL_EXAMES
+FROM
+    ( 
+     SELECT DATA, BANCADA, DS_BANCADA, COUNT(*) QT_PACIENTES
+     FROM (
+                    select distinct
+                              TRUNC(dt_pedido)                DATA
+                             ,bancada.cd_bancada          BANCADA
+                             ,bancada.ds_bancada
+                             ,atendime.cd_paciente          PACIENTE
+                    from dbamv.ped_lab, dbamv.itped_lab, dbamv.amostra_exa_lab, dbamv.bancada, DBAMV.atendime
+                    where ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+                       and itped_lab.cd_itped_lab = amostra_exa_lab.cd_itped_lab
+                       and amostra_exa_lab.cd_bancada = bancada.cd_bancada
+                       and ped_lab.cd_atendimento = atendime.cd_atendimento
+                       and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                       and TRUNC(ped_lab.dt_pedido) between :CAMPO_DT_INICIAL order by DATA, BANCADA, DS_BANCADA, PACIENTE  ) Pacientes
+    GROUP BY DATA, BANCADA, DS_BANCADA
+  ) Tb_Qt_Pacientes
+ ,
+    ( 
+       SELECT DATA, BANCADA, DS_BANCADA, COUNT(*) QT_EXAMES
+       FROM (
+                      select
+                                TRUNC(dt_pedido)              DATA
+                                ,bancada.cd_bancada        BANCADA
+                               ,bancada.ds_bancada
+                               ,itped_lab.cd_exa_lab          COD_EXAME
+                      from dbamv.ped_lab, dbamv.itped_lab, dbamv.amostra_exa_lab, dbamv.exa_lab, dbamv.bancada, dbamv.atendime
+                    where ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+                       and itped_lab.cd_itped_lab = amostra_exa_lab.cd_itped_lab
+                       and itped_lab.cd_exa_lab = exa_lab.cd_exa_lab
+                       and amostra_exa_lab.cd_bancada = bancada.cd_bancada
+                       and ped_lab.cd_atendimento = atendime.cd_atendimento
+                       and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                       and TRUNC(ped_lab.dt_pedido) between :CAMPO_DT_INICIAL order by DATA, BANCADA, DS_BANCADA, COD_EXAME  ) Exames
+       GROUP BY DATA, BANCADA, DS_BANCADA
+  ) Tb_Qt_Exames
+WHERE Tb_qt_exames.DATA         = Tb_qt_pacientes.DATA
+       and Tb_qt_exames.BANCADA   = Tb_qt_pacientes.BANCADA
+GROUP BY Tb_qt_exames.DATA, Tb_qt_exames.BANCADA, Tb_qt_exames.DS_BANCADA
+ORDER BY DATA, BANCADA, DS_BANCADA
+)

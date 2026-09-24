@@ -1,0 +1,35 @@
+/*----------------------------------------------------------------------------*/
+--R_CENTRO_CUSTO_ABC
+select   SETOR.CD_SETOR CD_SETOR_PAG,
+         SETOR.NM_SETOR DS_SETOR_PAG,
+         sum( round(   (   nvl( ratcon_pag.vl_rateio, 0 )
+                         / (   nvl( con_pag.vl_bruto_conta, 0 )
+                             + nvl( con_pag.vl_desconto, 0 )
+                             - nvl( con_pag.vl_acrescimo, 0 )))
+                     * nvl( pagcon_pag.vl_pago, 0 ),
+                     2 )) vl_total,
+         sum( round(   (   nvl( ratcon_pag.vl_rateio, 0 )
+                         / (   nvl( con_pag.vl_bruto_conta, 0 )
+                             + nvl( con_pag.vl_desconto, 0 )
+                             - nvl( con_pag.vl_acrescimo, 0 )))
+                     * nvl( pagcon_pag.vl_pago, 0 ),
+                     2 )) vl_acumulado
+    from dbamv.con_pag con_pag,
+         dbamv.itcon_pag itcon_pag,
+         dbamv.pagcon_pag pagcon_pag,
+         dbamv.ratcon_pag ratcon_pag,
+         dbamv.setor setor
+   where con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and con_pag.cd_con_pag = itcon_pag.cd_con_pag
+     and itcon_pag.cd_itcon_pag = pagcon_pag.cd_itcon_pag
+     and con_pag.cd_con_pag = ratcon_pag.cd_con_pag(+)
+     and ratcon_pag.cd_setor = setor.cd_setor(+)
+     and pagcon_pag.dt_baixa is not null
+     AND NOT exists (SELECT 1 FROM dbamv.itcon_pag WHERE cd_con_pag_agrup = con_pag.cd_con_pag)
+     and nvl( con_pag.vl_bruto_conta, 0 ) > 0
+     and nvl( itcon_pag.vl_duplicata, 0 ) > 0
+     and con_pag.cd_con_pag_dev is null
+     and con_pag.cd_previsao is null
+group by setor.cd_setor,
+         setor.nm_setor
+order by VL_TOTAL desc

@@ -1,0 +1,59 @@
+/*----------------------------------------------------------------------------*/
+--R_RESULT_TRAT_ATEND
+SELECT   DECODE ('', 'A', ft.cd_fa_tratamento) cd_fa_tratamento
+       , ft.cd_atendimento cd_atendimento
+       , pc.cd_paciente cd_paciente
+       , ft.cd_pro_fat
+       , pf.ds_pro_fat
+       , ft.cd_pro_fat || ' - ' || pf.ds_pro_fat pro_fat
+       , INITCAP (pc.nm_paciente) nm_paciente
+       , SUM (NVL (ft.vl_receita, 0)) receita
+       , SUM (NVL (ft.vl_resultado, 0)) vl_resultado
+       , SUM (NVL (ft.vl_rentabilidade, 0)) vl_rentabilidade
+       , ft.cd_prestador cd_prestador
+       , ft.cd_especialid || ' - ' || especialid.ds_especialid especialid
+       , cv.nm_convenio  convenio
+       , SUM (NVL (ft.vl_cus_diaria, 0)) vl_cus_diaria
+       , SUM (NVL (ft.vl_cus_honorario, 0)) vl_cus_honorario
+       , SUM (NVL (ft.vl_cus_gases, 0)) vl_cus_gases
+       , SUM (NVL (ft.vl_cus_matmed, 0)) vl_cus_matmed
+       , SUM (NVL (ft.vl_cus_medicamento, 0)) vl_cus_medicamento
+       , SUM (NVL (ft.vl_cus_procedimento, 0)) vl_cus_procedimento
+       , SUM (NVL (ft.vl_cus_cencir, 0)) vl_cus_cencir
+       , SUM (NVL (ft.vl_cus_terceiro, 0)) vl_cus_terceiro
+       , SUM (NVL (ft.vl_deducao, 0)) vl_deducao
+       , 'X' dummy
+       , SUM (NVL (ft.qtd_diaria, 0)) qtd_diaria
+    FROM dbamv.fa_custo_tratamento ft
+       , dbamv.atendime ate
+       , dbamv.paciente pc
+       , dbamv.pro_fat pf
+       , dbamv.convenio CV
+       , dbamv.prestador pr
+       , dbamv.cid
+       , dbamv.especialid
+       , dbamv.cirurgia
+   WHERE ft.dt_alta >= TO_DATE (:CAMPO_DT_INI, 'yyyy/mm/dd')
+     AND ft.dt_alta <= TO_DATE (:CAMPO_DT_FIM, 'yyyy/mm/dd')
+     AND TO_CHAR (ate.dt_atendimento, 'yyyy/mm/dd') >= :CAMPO_DT_ATENDIMENTO
+     AND ft.cd_atendimento = ate.cd_atendimento
+     AND ate.cd_paciente = pc.cd_paciente
+     AND pf.cd_pro_fat = ft.cd_pro_fat
+     AND cid.cd_cid(+) = ate.cd_cid
+     AND cirurgia.cd_cirurgia(+) = ft.cd_cirurgia
+     AND ate.cd_convenio = CV.cd_convenio
+     AND ft.cd_prestador = pr.cd_prestador
+     AND ate.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND especialid.cd_especialid = ft.cd_especialid
+GROUP BY DECODE ('', 'A', ft.cd_fa_tratamento)
+       , ft.cd_atendimento
+       , pc.cd_paciente
+       , ft.cd_pro_fat
+       , pf.ds_pro_fat
+       , ft.cd_pro_fat || ' - ' || pf.ds_pro_fat
+       , INITCAP (pc.nm_paciente)
+       , ft.cd_prestador
+       , ft.cd_especialid || ' - ' || especialid.ds_especialid
+       , cv.nm_convenio
+ORDER BY ft.cd_atendimento
+       , cd_fa_tratamento

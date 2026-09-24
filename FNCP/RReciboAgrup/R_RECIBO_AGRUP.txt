@@ -1,0 +1,111 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_AGRUP
+SELECT   nm_responsavel,
+         nr_cpf,
+         cd_reccon_rec,
+         dt_recebimento,
+         tp_recebimento,
+         cd_fin_car,
+         vl_soma_recebido,
+         vl_recebido,
+         vl_acrescimo,
+         vl_desconto,
+         vl_saldo,
+         cd_conta,
+         cd_atendimento,
+         cd_contrato_adiant,
+         nr_documento,
+         nm_paciente,
+         nr_cpf_paciente,
+         nm_fin_car,
+         cd_caucao,
+         nm_usuario,
+         nm_cidade,
+         DECODE (nm_total_parc, 0, NULL, ('(' || nm_rank || '/' || nm_total_parc || ')')) nm_parcela
+    FROM (SELECT i.cd_con_rec,
+                 i.cd_itcon_rec,
+                 i.dt_vencimento,
+                 i.vl_duplicata,
+                 i.vl_soma_recebido,
+                 p.cd_responsavel,
+                 s.nm_responsavel,
+                 NVL (s.nr_cpf, s.nr_cnpj) nr_cpf,
+                 r.cd_reccon_rec,
+                 r.dt_recebimento,
+                 r.tp_recebimento,
+                 r.cd_fin_car,
+                 r.vl_recebido,
+                 r.vl_acrescimo,
+                 r.vl_desconto,
+                 (NVL (r.vl_recebido, 0) - NVL (r.vl_acrescimo, 0) + NVL (r.vl_desconto, 0)) vl_saldo,
+                 RANK () OVER (PARTITION BY r.tp_recebimento, r.cd_fin_car, r.dt_recebimento ORDER BY r.cd_reccon_rec) nm_rank,
+                 DECODE (NVL (r.cd_fin_car, 0), 0, 0,
+                         (SELECT COUNT (cd_reccon_rec)
+                            FROM dbamv.reccon_rec
+                           WHERE cd_itcon_rec = r.cd_itcon_rec
+                             AND cd_fin_car = r.cd_fin_car
+                             AND dt_recebimento = r.dt_recebimento)) nm_total_parc,
+                 NVL (c.cd_reg_fat, c.cd_reg_amb) cd_conta,
+                 a.cd_atendimento,
+                 r.cd_contrato_adiant,
+                 r.nr_documento,
+                 t.nm_paciente,
+                 f.nm_fin_car,
+                 r.cd_caucao,
+                 t.nr_cpf nr_cpf_paciente,
+                 u.nm_usuario,
+                 InitCap(Lower(d.nm_cidade)) nm_cidade
+            FROM dbamv.con_rec c,
+                 dbamv.itcon_rec i,
+                 (SELECT MAX (cd_resposavel) cd_responsavel,
+                         MAX (cd_itcon_rec) cd_itcon_rec
+                    FROM dbamv.reccon_rec
+                   WHERE cd_itcon_rec = :CAMPO_CD_ITCON_REC) p,
+                 dbamv.responsavel s,
+                 dbamv.reccon_rec r,
+                 dbamv.atendime a,
+                 dbamv.paciente t,
+                 dbamv.fin_car f,
+                 dbasgu.usuarios u,
+                 dbamv.hospital h,
+                 dbamv.cidade d
+           WHERE c.cd_con_rec     = i.cd_con_rec
+             AND i.cd_itcon_rec   = p.cd_itcon_rec
+             AND p.cd_responsavel = s.cd_resposavel
+             AND i.cd_itcon_rec   = r.cd_itcon_rec
+             AND c.cd_atendimento = a.cd_atendimento
+             AND a.cd_paciente    = t.cd_paciente
+             AND r.cd_fin_car     = f.cd_fin_car(+)
+             AND Nvl(r.nm_usuario, USER) = u.cd_usuario(+)
+             AND h.cd_multi_empresa = c.cd_multi_empresa
+             AND h.cd_cidade        = d.cd_cidade
+             AND i.cd_itcon_rec = :CAMPO_CD_ITCON_REC) x
+GROUP BY cd_con_rec,
+         cd_itcon_rec,
+         dt_vencimento,
+         vl_duplicata,
+         cd_responsavel,
+         nm_responsavel,
+         nr_cpf,
+         cd_reccon_rec,
+         dt_recebimento,
+         tp_recebimento,
+         cd_fin_car,
+         vl_soma_recebido,
+         vl_recebido,
+         vl_acrescimo,
+         vl_desconto,
+         vl_saldo,
+         cd_conta,
+         cd_atendimento,
+         cd_contrato_adiant,
+         nr_documento,
+         nm_paciente,
+         nr_cpf_paciente,
+         nm_fin_car,
+         cd_caucao,
+         nm_usuario,
+         nm_cidade,
+         nm_rank,
+         nm_total_parc
+ORDER BY dt_recebimento, cd_reccon_rec

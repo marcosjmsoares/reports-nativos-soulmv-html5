@@ -1,0 +1,625 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_CONTA_ATENDIME
+select * from (
+select REG_FAT.CD_REG_FAT CD_REG_FAT
+      ,ATENDIME.CD_ORI_ATE CD_ORI_ATE
+      ,ORI_ATE.DS_ORI_ATE DS_ORI_ATE
+      ,REG_FAT.CD_CONVENIO CD_CONVENIO
+      ,ATENDIME.CD_ATENDIMENTO
+      ,PACIENTE.NM_PACIENTE
+      ,ATENDIME.DT_ATENDIMENTO
+      ,ATENDIME.DT_ALTA
+      ,SUM ( NVL(NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA),0)) VL_TOTAL_CONTA
+      ,SUM (DECODE (GRU_FAT.TP_GRU_FAT,'SP', Nvl(ITLAN_MED.VL_LIQUIDO,ITREG_FAT.VL_TOTAL_CONTA),0)) VL_HONORARIO
+      ,'Internacao' TIPO_CONTA
+  from DBAMV.REG_FAT REG_FAT
+      ,DBAMV.ATENDIME ATENDIME
+      ,DBAMV.PACIENTE PACIENTE
+      ,DBAMV.ORI_ATE ORI_ATE
+      ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+      ,DBAMV.FATURA FATURA
+      ,DBAMV.ITREG_FAT ITREG_FAT
+      ,DBAMV.GRU_FAT GRU_FAT
+      ,DBAMV.CONVENIO CONVENIO
+      ,DBAMV.SERVICO SERVICO
+      ,DBAMV.EMPRESA_CONVENIO
+      ,DBAMV.ITLAN_MED
+	  ,DBAMV.PRO_FAT PRO_FAT
+where EMPRESA_CONVENIO.CD_CONVENIO      	= CONVENIO.CD_CONVENIO
+  and EMPRESA_CONVENIO.CD_MULTI_EMPRESA 	= :CAMPO_CD_MULTI_EMPRESA
+  and ATENDIME.CD_ATENDIMENTO           		= REG_FAT.CD_ATENDIMENTO
+  and PACIENTE.CD_PACIENTE              		= ATENDIME.CD_PACIENTE
+  and ATENDIME.CD_ORI_ATE               		= ORI_ATE.CD_ORI_ATE
+  and ATENDIME.CD_MULTI_EMPRESA         		= :CAMPO_CD_MULTI_EMPRESA
+  and REG_FAT.CD_REMESSA                		= REMESSA_FATURA.CD_REMESSA(+)
+  and REMESSA_FATURA.CD_FATURA          		= FATURA.CD_FATURA(+)
+  and ITREG_FAT.CD_REG_FAT              		= REG_FAT.CD_REG_FAT
+  and ITREG_FAT.CD_GRU_FAT              		= GRU_FAT.CD_GRU_FAT
+  and ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT(+)
+  and ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO(+)
+  and ITREG_FAT.CD_PRO_FAT                      = PRO_FAT.CD_PRO_FAT
+  and NVL(ITLAN_MED.TP_PAGAMENTO, nvl(ITREG_FAT.TP_PAGAMENTO,'X')) <> 'C'
+  and REG_FAT.CD_CONVENIO               		= CONVENIO.CD_CONVENIO
+  and REG_FAT.SN_FECHADA                		= DECODE (:CAMPO_CONTA,'T', REG_FAT.SN_FECHADA,:CAMPO_CONTA)
+  and CONVENIO.TP_CONVENIO             		<> 'H'
+  and ATENDIME.CD_SERVICO               		= SERVICO.CD_SERVICO(+)
+group
+   by REG_FAT.CD_REG_FAT
+     ,ATENDIME.CD_ORI_ATE
+     ,ORI_ATE.DS_ORI_ATE
+     ,REG_FAT.CD_CONVENIO
+     ,ATENDIME.CD_ATENDIMENTO
+     ,PACIENTE.NM_PACIENTE
+     ,ATENDIME.DT_ATENDIMENTO
+      ,ATENDIME.DT_ALTA
+union all
+select
+       ITREG_AMB.CD_REG_AMB CD_REG_FAT
+      ,ATENDIME.CD_ORI_ATE CD_ORI_ATE
+      ,ORI_ATE.DS_ORI_ATE DS_ORI_ATE
+      ,REG_AMB.CD_CONVENIO CD_CONVENIO
+      ,ATENDIME.CD_ATENDIMENTO
+      ,PACIENTE.NM_PACIENTE
+      ,ATENDIME.DT_ATENDIMENTO
+      ,ATENDIME.DT_ALTA
+      ,SUM(ITREG_AMB.VL_TOTAL_CONTA) VL_TOTAL_CONTA
+      ,SUM(DECODE (GRU_FAT.TP_GRU_FAT,'SP',ITREG_AMB.VL_TOTAL_CONTA,0)) VL_HONORARIO
+      ,'Ambulatorial' TIPO_CONTA
+ from DBAMV.ITREG_AMB       ITREG_AMB
+     ,DBAMV.ATENDIME        ATENDIME
+     ,DBAMV.PACIENTE        PACIENTE
+     ,DBAMV.ORI_ATE         ORI_ATE
+     ,DBAMV.FATURA          FATURA
+     ,DBAMV.REG_AMB         REG_AMB
+     ,DBAMV.REMESSA_FATURA  REMESSA_FATURA
+     ,DBAMV.GRU_FAT         GRU_FAT
+     ,DBAMV.CONVENIO        CONVENIO
+     ,DBAMV.SERVICO         SERVICO
+     ,DBAMV.EMPRESA_CONVENIO
+	 ,DBAMV.PRO_FAT PRO_FAT
+where EMPRESA_CONVENIO.CD_CONVENIO      	= CONVENIO.CD_CONVENIO
+  and EMPRESA_CONVENIO.CD_MULTI_EMPRESA 	= :CAMPO_CD_MULTI_EMPRESA
+  and ITREG_AMB.CD_ATENDIMENTO          		= ATENDIME.CD_ATENDIMENTO
+  and ATENDIME.CD_PACIENTE              		= PACIENTE.CD_PACIENTE
+  and ATENDIME.CD_ORI_ATE               		= ORI_ATE.CD_ORI_ATE
+  and ATENDIME.CD_MULTI_EMPRESA         		= :CAMPO_CD_MULTI_EMPRESA
+  and ITREG_AMB.CD_REG_AMB              		= REG_AMB.CD_REG_AMB
+  and REG_AMB.CD_REMESSA                		= REMESSA_FATURA.CD_REMESSA(+)
+  and REMESSA_FATURA.CD_FATURA          		= FATURA.CD_FATURA(+)
+  and ITREG_AMB.CD_GRU_FAT              		= GRU_FAT.CD_GRU_FAT
+  and ITREG_AMB.CD_PRO_FAT                      = PRO_FAT.CD_PRO_FAT
+  and NVL (ITREG_AMB.TP_PAGAMENTO, 'X') 		<> 'C'
+  and REG_AMB.CD_MULTI_EMPRESA          		= :CAMPO_CD_MULTI_EMPRESA
+  and ITREG_AMB.CD_CONVENIO             		= CONVENIO.CD_CONVENIO
+  and ITREG_AMB.SN_FECHADA              		= DECODE (:CAMPO_CONTA,'T', ITREG_AMB.SN_FECHADA,:CAMPO_CONTA)
+  and CONVENIO.TP_CONVENIO              		<> 'H'
+  and ATENDIME.CD_SERVICO               		= SERVICO.CD_SERVICO(+)
+group
+  by
+     ITREG_AMB.CD_REG_AMB
+    ,ATENDIME.CD_ORI_ATE
+    ,ORI_ATE.DS_ORI_ATE
+    ,REG_AMB.CD_CONVENIO
+    ,ATENDIME.CD_ATENDIMENTO
+    ,PACIENTE.NM_PACIENTE
+    ,ATENDIME.DT_ATENDIMENTO
+      ,ATENDIME.DT_ALTA
+order by 7
+)
+order by TIPO_CONTA,
+CD_ORI_ATE,DS_ORI_ATE , DT_ATENDIMENTO, CD_ATENDIMENTO, CD_REG_FAT, NM_PACIENTE, CD_CONVENIO, VL_HONORARIO, VL_TOTAL_CONTA, DT_ALTA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_CONTA_ATENDIME_R_5_Q_FATURAMENTO_DATA
+SELECT   dt_final
+        ,TO_DATE (dt_final, 'MM/YYYY') ordem
+        ,COUNT (cd_ori_ate_int) qtd_cta_int
+        ,SUM (vl_total_conta_int) vl_tot_cta_int
+        ,AVG (vl_total_conta_int) med_cta_int
+        ,COUNT (cd_ori_ate_amb) qtd_cta_amb
+        ,SUM (vl_total_conta_amb) vl_tot_cta_amb
+        ,AVG (vl_total_conta_amb) med_cta_amb
+    FROM (
+          SELECT   NVL (TO_CHAR (reg_fat.dt_final, 'MM/YYYY'), TO_CHAR (SYSDATE, 'MM/YYYY')) dt_final
+                  ,reg_fat.cd_reg_fat cd_reg_fat_int
+                  ,atendime.cd_ori_ate cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_int
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,SUM (nvl(nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta),0)) vl_total_conta_int
+                  ,TO_NUMBER (NULL) cd_ori_ate_amb
+                  ,0 vl_total_conta_amb
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.servico servico
+                  ,dbamv.empresa_convenio
+                  ,dbamv.itlan_med
+             WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_atendimento = reg_fat.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               and itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+               and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)                              
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio <> 'H'
+               AND atendime.cd_servico = servico.cd_servico(+)
+          GROUP BY dt_final
+                  ,reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   TO_CHAR (atendime.dt_atendimento, 'MM/YYYY') dt_final
+                  ,itreg_amb.cd_atendimento cd_reg_fat_amb
+                  ,TO_NUMBER (NULL) cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_amb
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,0 vl_total_conta_int
+                  ,atendime.cd_ori_ate cd_ori_ate_amb
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta_amb
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.servico servico
+                  ,dbamv.empresa_convenio
+             WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat               
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio <> 'H'
+               AND atendime.cd_servico = servico.cd_servico(+)
+          GROUP BY dt_atendimento
+                  ,itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio
+         ) convenio
+group by dt_final
+ORDER BY 2
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_CONTA_ATENDIME_R_FAT_GRU_FAT_Q_FAT_GRU_FAT
+SELECT   CD_GRU_FAT
+        ,DS_GRU_FAT
+        ,SUM (VL_TOTAL_CONTA) VL_GRU_FAT2
+    FROM ( SELECT   REG_FAT.CD_CONVENIO
+                  ,ITREG_FAT.CD_GRU_FAT
+                  ,GRU_FAT.DS_GRU_FAT
+                  ,SUM ( NVL(NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA),0)) VL_TOTAL_CONTA
+              FROM DBAMV.ITREG_FAT
+                  ,DBAMV.REG_FAT
+                  ,DBAMV.GRU_FAT
+                  ,DBAMV.REMESSA_FATURA
+                  ,DBAMV.FATURA
+                  ,DBAMV.PRO_FAT
+                  ,DBAMV.CONVENIO
+                  ,DBAMV.SERVICO
+                  ,DBAMV.ATENDIME
+                  ,DBAMV.EMPRESA_CONVENIO
+                  ,DBAMV.ITLAN_MED
+             WHERE EMPRESA_CONVENIO.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_FAT.CD_REG_FAT = REG_FAT.CD_REG_FAT
+               AND ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+               AND REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA(+)
+               AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA(+)
+               AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT(+)
+               AND ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO(+)
+               AND NVL(ITLAN_MED.TP_PAGAMENTO, NVL(ITREG_FAT.TP_PAGAMENTO,'X')) <> 'C'
+               AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND REG_FAT.SN_FECHADA = DECODE (:CAMPO_CONTA
+                                               ,'T', REG_FAT.SN_FECHADA
+                                               ,:CAMPO_CONTA
+                                               )
+               AND CONVENIO.TP_CONVENIO <> 'H'
+               AND REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+          GROUP BY REG_FAT.CD_CONVENIO
+                  ,ITREG_FAT.CD_GRU_FAT
+                  ,GRU_FAT.DS_GRU_FAT
+          UNION ALL          
+          SELECT   REG_AMB.CD_CONVENIO
+                  ,ITREG_AMB.CD_GRU_FAT
+                  ,GRU_FAT.DS_GRU_FAT
+                  ,SUM (ITREG_AMB.VL_TOTAL_CONTA) VL_TOTAL_CONTA
+              FROM DBAMV.ITREG_AMB ITREG_AMB
+                  ,DBAMV.REG_AMB REG_AMB
+                  ,DBAMV.GRU_FAT GRU_FAT
+                  ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+                  ,DBAMV.FATURA FATURA
+                  ,DBAMV.PRO_FAT PRO_FAT
+                  ,DBAMV.CONVENIO CONVENIO
+                  ,DBAMV.ATENDIME ATENDIME
+                  ,DBAMV.SERVICO SERVICO
+                  ,DBAMV.EMPRESA_CONVENIO
+             WHERE EMPRESA_CONVENIO.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+               AND ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+               AND REG_AMB.CD_REMESSA = REMESSA_FATURA.CD_REMESSA(+)
+               AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA(+)
+               AND ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND NVL (ITREG_AMB.TP_PAGAMENTO, 'X') <> 'C'
+               AND NVL (REG_AMB.SN_DIAGNO, 'N') = 'N'
+               AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND ITREG_AMB.SN_FECHADA = DECODE (:CAMPO_CONTA
+                                                 ,'T', ITREG_AMB.SN_FECHADA
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND CONVENIO.TP_CONVENIO <> 'H'
+               AND ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+          GROUP BY REG_AMB.CD_CONVENIO
+                  ,ITREG_AMB.CD_GRU_FAT
+                  ,GRU_FAT.DS_GRU_FAT       
+         ) CONVENIO
+GROUP BY CD_GRU_FAT
+        ,DS_GRU_FAT
+ORDER BY VL_GRU_FAT2 DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_CONTA_ATENDIME_R_FAT_TP_GRU_Q_FAT_TP_GRU
+SELECT   TP_GRU_FAT
+        ,SUM (VL_TOT_INTERNACAO) VL_TOT_INTERNACAO
+        ,SUM (VL_TOT_AMBULATORIAL) VL_TOT_AMBULATORIAL
+        ,SUM (VL_TOTAL_CONTA) VL_GRU_FAT
+    FROM (SELECT   REG_FAT.CD_CONVENIO CD_CONVENIO
+                  ,ITREG_FAT.CD_GRU_FAT CD_GRU_FAT
+                  ,GRU_FAT.TP_GRU_FAT TP_GRU_FAT
+                  ,SUM (NVL(NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA),0)) VL_TOT_INTERNACAO
+                  ,0 VL_TOT_AMBULATORIAL
+                  ,SUM (NVL(NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA),0)) VL_TOTAL_CONTA
+              FROM DBAMV.ITREG_FAT ITREG_FAT
+                  ,DBAMV.REG_FAT REG_FAT
+                  ,DBAMV.GRU_FAT GRU_FAT
+                  ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+                  ,DBAMV.FATURA FATURA
+                  ,DBAMV.PRO_FAT PRO_FAT
+                  ,DBAMV.CONVENIO CONVENIO
+                  ,DBAMV.SERVICO SERVICO
+                  ,DBAMV.ATENDIME ATENDIME
+                  ,DBAMV.EMPRESA_CONVENIO
+                  ,DBAMV.ITLAN_MED
+             WHERE EMPRESA_CONVENIO.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_FAT.CD_REG_FAT = REG_FAT.CD_REG_FAT
+               AND ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+               AND REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA(+)
+               AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA(+)
+               AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT(+)
+               AND ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO(+)
+               AND NVL(ITLAN_MED.TP_PAGAMENTO, NVL(ITREG_FAT.TP_PAGAMENTO,'X')) <> 'C'               
+               AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND REG_FAT.SN_FECHADA = DECODE (:CAMPO_CONTA
+                                               ,'T', REG_FAT.SN_FECHADA
+                                               ,:CAMPO_CONTA
+                                               )
+               AND CONVENIO.TP_CONVENIO <> 'H'
+               AND REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+               AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+          GROUP BY REG_FAT.CD_CONVENIO
+                  ,ITREG_FAT.CD_GRU_FAT
+                  ,GRU_FAT.TP_GRU_FAT
+          UNION ALL
+                    SELECT   REG_AMB.CD_CONVENIO CD_CONVENIO
+                  ,ITREG_AMB.CD_GRU_FAT CD_GRU_FAT
+                  ,GRU_FAT.TP_GRU_FAT TP_GRU_FAT
+                  ,0 VL_TOT_INTERNACAO
+                  ,SUM (ITREG_AMB.VL_TOTAL_CONTA) VL_TOT_AMBULATORIAL
+                  ,SUM (ITREG_AMB.VL_TOTAL_CONTA) VL_TOTAL_CONTA
+              FROM DBAMV.ITREG_AMB ITREG_AMB
+                  ,DBAMV.REG_AMB REG_AMB
+                  ,DBAMV.GRU_FAT GRU_FAT
+                  ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+                  ,DBAMV.FATURA FATURA
+                  ,DBAMV.PRO_FAT PRO_FAT
+                  ,DBAMV.CONVENIO CONVENIO
+                  ,DBAMV.SERVICO SERVICO
+                  ,DBAMV.ATENDIME ATENDIME
+                  ,DBAMV.EMPRESA_CONVENIO
+             WHERE EMPRESA_CONVENIO.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+               AND ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+               AND REG_AMB.CD_REMESSA = REMESSA_FATURA.CD_REMESSA(+)
+               AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA(+)
+               AND ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT               
+               AND NVL (ITREG_AMB.TP_PAGAMENTO, 'X') <> 'C'
+               AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND ITREG_AMB.SN_FECHADA = DECODE (:CAMPO_CONTA
+                                                 ,'T', ITREG_AMB.SN_FECHADA
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND CONVENIO.TP_CONVENIO <> 'H'
+               AND ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+               AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+          GROUP BY REG_AMB.CD_CONVENIO
+                  ,ITREG_AMB.CD_GRU_FAT
+                  ,GRU_FAT.TP_GRU_FAT
+         ) CONVENIO
+GROUP BY TP_GRU_FAT
+ORDER BY VL_GRU_FAT DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_CONTA_ATENDIME_R_MED_CTA_AMB2_Q_MED_CTA_AMB
+SELECT COUNT (cd_ori_ate) qtd_cta_amb
+      ,SUM (vl_total_conta) vl_tot_cta_amb
+      ,AVG (vl_total_conta) med_cta_amb
+  FROM (SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                ,atendime.cd_ori_ate cd_ori_ate
+                ,ori_ate.ds_ori_ate ds_ori_ate
+                ,reg_amb.cd_convenio cd_convenio
+                ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+            FROM dbamv.itreg_amb itreg_amb
+                ,dbamv.atendime atendime
+                ,dbamv.ori_ate ori_ate
+                ,dbamv.fatura fatura
+                ,dbamv.reg_amb reg_amb
+                ,dbamv.remessa_fatura remessa_fatura
+                ,dbamv.convenio convenio
+                ,dbamv.servico servico
+                ,dbamv.empresa_convenio
+           WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+             and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+             AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+             AND reg_amb.cd_remessa = remessa_fatura.cd_remessa(+)
+             AND remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+             AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+             AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+             AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+             AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND itreg_amb.cd_convenio = convenio.cd_convenio
+             AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', itreg_amb.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+             AND convenio.tp_convenio <> 'H'
+             AND atendime.cd_servico = servico.cd_servico(+)
+        GROUP BY itreg_amb.cd_atendimento
+                ,atendime.cd_ori_ate
+                ,ori_ate.ds_ori_ate
+                ,reg_amb.cd_convenio
+        UNION ALL
+        SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                ,atendime.cd_ori_ate cd_ori_ate
+                ,ori_ate.ds_ori_ate ds_ori_ate
+                ,reg_amb.cd_convenio cd_convenio
+                ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+            FROM dbamv.itreg_amb itreg_amb
+                ,dbamv.atendime atendime
+                ,dbamv.ori_ate ori_ate
+                ,dbamv.fatura fatura
+                ,dbamv.reg_amb reg_amb
+                ,dbamv.remessa_fatura remessa_fatura
+                ,dbamv.pro_fat pro_fat
+                ,dbamv.convenio convenio
+                ,dbamv.servico servico
+                ,dbamv.empresa_convenio
+           WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+             and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+             AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+             AND reg_amb.cd_remessa = remessa_fatura.cd_remessa(+)
+             AND remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+             AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+             AND pro_fat.sn_pacote = 'N'
+             AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+             AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND itreg_amb.cd_convenio = convenio.cd_convenio
+             AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', itreg_amb.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+             AND convenio.tp_convenio <> 'H'
+             AND atendime.cd_servico = servico.cd_servico(+)
+        GROUP BY itreg_amb.cd_atendimento
+                ,atendime.cd_ori_ate
+                ,ori_ate.ds_ori_ate
+                ,reg_amb.cd_convenio) convenio
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_CONTA_ATENDIME_R_MED_CTA_AMB3_Q_FATURAMENTO_DATA
+SELECT   DT_FINAL
+        ,TO_DATE (DT_FINAL, 'MM/YYYY') ORDEM
+        ,COUNT (CD_ORI_ATE_INT) QTD_CTA_INT
+        ,SUM (VL_TOTAL_CONTA_INT) VL_TOT_CTA_INT
+        ,AVG (VL_TOTAL_CONTA_INT) MED_CTA_INT
+        ,COUNT (CD_ORI_ATE_AMB) QTD_CTA_AMB
+        ,SUM (VL_TOTAL_CONTA_AMB) VL_TOT_CTA_AMB
+        ,AVG (VL_TOTAL_CONTA_AMB) MED_CTA_AMB
+    FROM (
+                SELECT   NVL (TO_CHAR (REG_FAT.DT_FINAL, 'MM/YYYY'), TO_CHAR (SYSDATE, 'MM/YYYY')) DT_FINAL
+                  ,REG_FAT.CD_REG_FAT CD_REG_FAT_INT
+                  ,ATENDIME.CD_ORI_ATE CD_ORI_ATE_INT
+                  ,ORI_ATE.DS_ORI_ATE DS_ORI_ATE_INT
+                  ,REG_FAT.CD_CONVENIO CD_CONVENIO
+                  ,SUM ( NVL(NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA),0)) VL_TOTAL_CONTA_INT
+                  ,TO_NUMBER (NULL) CD_ORI_ATE_AMB
+                  ,0 VL_TOTAL_CONTA_AMB
+              FROM DBAMV.REG_FAT REG_FAT
+                  ,DBAMV.ATENDIME ATENDIME
+                  ,DBAMV.ORI_ATE ORI_ATE
+                  ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+                  ,DBAMV.FATURA FATURA
+                  ,DBAMV.ITREG_FAT ITREG_FAT
+                  ,DBAMV.GRU_FAT GRU_FAT
+                  ,DBAMV.PRO_FAT PRO_FAT
+                  ,DBAMV.CONVENIO CONVENIO
+                  ,DBAMV.SERVICO SERVICO
+                  ,DBAMV.EMPRESA_CONVENIO
+                  ,DBAMV.ITLAN_MED
+             WHERE EMPRESA_CONVENIO.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+               AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+               AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA(+)
+               AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA(+)
+               AND ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+               AND ITREG_FAT.CD_REG_FAT = REG_FAT.CD_REG_FAT
+               AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT(+)
+               AND ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO(+)
+	       AND NVL(ITLAN_MED.TP_PAGAMENTO, NVL(ITREG_FAT.TP_PAGAMENTO,'X')) <> 'C'               
+               AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND REG_FAT.SN_FECHADA = DECODE (:CAMPO_CONTA
+                                               ,'T', REG_FAT.SN_FECHADA
+                                               ,:CAMPO_CONTA
+                                               )
+               AND CONVENIO.TP_CONVENIO <> 'H'
+               AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+          GROUP BY DT_FINAL
+                  ,REG_FAT.CD_REG_FAT
+                  ,ATENDIME.CD_ORI_ATE
+                  ,ORI_ATE.DS_ORI_ATE
+                  ,REG_FAT.CD_CONVENIO
+          UNION ALL
+          SELECT   TO_CHAR (ATENDIME.DT_ATENDIMENTO, 'MM/YYYY') DT_FINAL
+                  ,ITREG_AMB.CD_ATENDIMENTO CD_REG_FAT_AMB
+                  ,TO_NUMBER (NULL) CD_ORI_ATE_INT
+                  ,ORI_ATE.DS_ORI_ATE DS_ORI_ATE_AMB
+                  ,REG_AMB.CD_CONVENIO CD_CONVENIO
+                  ,0 VL_TOTAL_CONTA_INT
+                  ,ATENDIME.CD_ORI_ATE CD_ORI_ATE_AMB
+                  ,SUM (ITREG_AMB.VL_TOTAL_CONTA) VL_TOTAL_CONTA_AMB
+              FROM DBAMV.ITREG_AMB ITREG_AMB
+                  ,DBAMV.ATENDIME ATENDIME
+                  ,DBAMV.ORI_ATE ORI_ATE
+                  ,DBAMV.FATURA FATURA
+                  ,DBAMV.REG_AMB REG_AMB
+                  ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+                  ,DBAMV.PRO_FAT PRO_FAT
+                  ,DBAMV.CONVENIO CONVENIO
+                  ,DBAMV.SERVICO SERVICO
+                  ,DBAMV.EMPRESA_CONVENIO
+             WHERE EMPRESA_CONVENIO.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+               AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+               AND REG_AMB.CD_REMESSA = REMESSA_FATURA.CD_REMESSA
+               AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA(+)
+               AND ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+	       AND NVL (ITREG_AMB.TP_PAGAMENTO, 'X') <> 'C'              
+               AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND ITREG_AMB.SN_FECHADA = DECODE (:CAMPO_CONTA
+                                                 ,'T', ITREG_AMB.SN_FECHADA
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND CONVENIO.TP_CONVENIO <> 'H'
+               AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+          GROUP BY DT_ATENDIMENTO
+                  ,ITREG_AMB.CD_ATENDIMENTO
+                  ,ATENDIME.CD_ORI_ATE
+                  ,ORI_ATE.DS_ORI_ATE
+                  ,REG_AMB.CD_CONVENIO             
+         ) CONVENIO
+GROUP BY DT_FINAL
+ORDER BY 2
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_CONTA_ATENDIME_R_MED_CTA_INT2_Q_MED_CTA_INT
+SELECT COUNT (CD_ORI_ATE) QTD_CTA_INT
+      ,SUM (VL_TOTAL_CONTA) VL_TOT_CTA_INT
+      ,AVG (VL_TOTAL_CONTA) MED_CTA_INT
+  FROM (
+        SELECT   REG_FAT.CD_REG_FAT CD_REG_FAT
+                ,ATENDIME.CD_ORI_ATE CD_ORI_ATE
+                ,ORI_ATE.DS_ORI_ATE DS_ORI_ATE
+                ,REG_FAT.CD_CONVENIO CD_CONVENIO
+                ,SUM ( NVL(NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA),0)) VL_TOTAL_CONTA
+            FROM DBAMV.REG_FAT REG_FAT
+                ,DBAMV.ATENDIME ATENDIME
+                ,DBAMV.ORI_ATE ORI_ATE
+                ,DBAMV.REMESSA_FATURA REMESSA_FATURA
+                ,DBAMV.FATURA FATURA
+                ,DBAMV.ITREG_FAT ITREG_FAT
+                ,DBAMV.GRU_FAT GRU_FAT
+                ,DBAMV.PRO_FAT PRO_FAT
+                ,DBAMV.CONVENIO CONVENIO
+                ,DBAMV.SERVICO SERVICO
+                ,DBAMV.EMPRESA_CONVENIO
+                ,DBAMV.ITLAN_MED
+           WHERE EMPRESA_CONVENIO.CD_CONVENIO = CONVENIO.CD_CONVENIO
+             AND EMPRESA_CONVENIO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+             AND ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+             AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+             AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+             AND REG_FAT.CD_REMESSA = REMESSA_FATURA.CD_REMESSA(+)
+             AND REMESSA_FATURA.CD_FATURA = FATURA.CD_FATURA(+)
+             AND ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+             AND ITREG_FAT.CD_REG_FAT = REG_FAT.CD_REG_FAT
+             AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+             AND ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT(+)
+             AND ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO(+)
+             AND NVL(ITLAN_MED.TP_PAGAMENTO, nvl(ITREG_FAT.TP_PAGAMENTO,'X')) <> 'C'
+             AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+             AND REG_FAT.SN_FECHADA = DECODE (:CAMPO_CONTA
+                                             ,'T', REG_FAT.SN_FECHADA
+                                             ,:CAMPO_CONTA
+                                             )
+             AND CONVENIO.TP_CONVENIO <> 'H'
+             AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+        GROUP BY REG_FAT.CD_REG_FAT
+                ,ATENDIME.CD_ORI_ATE
+                ,ori_ate.ds_ori_ate
+                ,REG_FAT.CD_CONVENIO
+        ) CONVENIO

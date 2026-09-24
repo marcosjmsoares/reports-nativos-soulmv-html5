@@ -1,0 +1,148 @@
+/*----------------------------------------------------------------------------*/
+--R_AMOSTRA_POR_REMESSA
+SELECT * FROM
+  (SELECT remessa_coleta.cd_remessa_coleta ,
+          to_char(remessa_coleta.dt_cadastro, 'dd/mm/yyyy') dt_cad ,
+          to_char(remessa_coleta.hr_cadastro, 'hh24') hr_cad ,
+          Usuario_cadastro.nm_usuario nm_usuario ,
+          to_char(remessa_coleta.dt_envio, 'dd/mm/yyyy') dt_envio ,
+          to_char(remessa_coleta.hr_envio, 'hh24') hr_envio ,
+          posto_coleta.ds_posto_coleta ,
+          set_exa.nm_set_exa ,
+          amostra.cd_amostra ,
+          ped_lab.cd_ped_lab ,
+          dbamv.fnc_retorna_matricula_same(atendime.cd_atendimento, atendime.cd_ori_ate, paciente.cd_paciente) AS matricula_same ,
+          atendime.cd_atendimento ,
+          atendime.cd_convenio AS convenio_paciente ,
+          convenio.nm_convenio AS NM_CONVENIO ,
+          paciente.cd_paciente ,
+          to_char(paciente.dt_nascimento, 'DD/MM/YYYY') AS dt_nascimento ,
+          DBAMV.FNC_IDADE_ETIQUETA_LAB(paciente.dt_nascimento) AS idade ,
+          paciente.nm_paciente ,
+     (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          paciente.nm_mae AS nm_mae ,
+          Decode(Nvl(paciente.tp_cor, 'S'), 'B', :CAMPO_BRA, 'P', :CAMPO_PRE,'R', :CAMPO_PAR ,'A', :CAMPO_AMA,'I', :CAMPO_IND, 'S', :CAMPO_N) AS tp_cor ,
+          paciente.tp_sexo AS tp_sexo ,
+          material.ds_material AS ds_material ,
+          decode(remessa_coleta.tp_situacao, 'C', :CAMPO_Cancelada , 'F', :CAMPO_Fechada, :CAMPO_Gerada) tp_situacao ,
+          decode(remessa_coleta.tp_remessa, 'I', :CAMPO_Interna , :CAMPO_Externa) tp_remessa ,
+          to_char(amostra.dt_coleta, 'dd/mm/yyyy') dt_coleta ,
+          to_char(amostra.dt_coleta, 'hh24') hr_coleta ,
+          ped_lab.cd_setor AS cd_setor
+   FROM dbamv.amostra ,
+        dbamv.coleta_material ,
+        dbamv.ped_lab ,
+        dbamv.atendime ,
+        dbamv.paciente ,
+        dbasgu.usuarios Usuario_coleta ,
+        dbasgu.usuarios Usuario_cadastro ,
+        dbamv.remessa_amostra ,
+        dbamv.remessa_coleta ,
+        dbamv.posto_coleta ,
+        dbamv.set_exa ,
+        dbamv.material ,
+        dbamv.convenio
+   WHERE remessa_coleta.cd_remessa_coleta = :CAMPO_NUMERO_REMESSA
+     AND amostra.cd_material = material.cd_material
+     AND remessa_coleta.cd_remessa_coleta = remessa_amostra.cd_remessa_coleta
+     AND remessa_amostra.cd_amostra = amostra.cd_amostra
+     AND amostra.cd_coleta_material = coleta_material.cd_coleta_material
+     AND ped_lab.cd_ped_lab = coleta_material.cd_ped_lab
+     AND atendime.cd_atendimento = ped_lab.cd_atendimento
+     AND paciente.cd_paciente = atendime.cd_paciente
+     AND Usuario_coleta.cd_usuario(+) = amostra.cd_usuario_coleta
+     AND Usuario_cadastro.cd_usuario(+) = remessa_coleta.cd_usuario_cadastro
+     AND remessa_coleta.cd_set_exa = set_exa.cd_set_exa
+     AND remessa_coleta.cd_posto_coleta = posto_coleta.cd_posto_coleta(+)
+     AND convenio.cd_convenio = atendime.cd_convenio )
+ORDER BY CD_REMESSA_COLETA,
+         DT_CAD,
+         HR_CAD,
+         TP_SITUACAO,
+         TP_REMESSA,
+         NM_USUARIO,
+         DT_ENVIO,
+         HR_ENVIO,
+         DS_POSTO_COLETA,
+         NM_SET_EXA,
+         CD_AMOSTRA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_AMOSTRA_POR_REMESSA_PREST
+SELECT DISTINCT(
+Nvl( (SELECT DISTINCT( Nvl(prestador.nm_prestador, prestador_externo.nm_pres_ext)) AS PRESTADOR
+ FROM dbamv.itped_prest_setor_solic
+    INNER JOIN DBAMV.AMOSTRA_EXA_LAB    ON (DBAMV.itped_prest_setor_solic.CD_ITPED_LAB = DBAMV.AMOSTRA_EXA_LAB.CD_ITPED_LAB)
+    LEFT  JOIN dbamv.prestador          ON (dbamv.itped_prest_setor_solic.cd_prestador = dbamv.prestador.cd_prestador)
+    LEFT  JOIN dbamv.prestador_externo  ON (dbamv.itped_prest_setor_solic.cd_pres_ext  = dbamv.prestador_externo.cd_pres_ext)
+    WHERE  amostra_exa_lab.cd_amostra =  :CAMPO_AMOSTRA
+    )
+    ,
+    (SELECT ped_lab.cd_prestador AS prestador
+           from dbamv.amostra
+          ,dbamv.coleta_material
+          ,dbamv.ped_lab
+          ,dbamv.atendime
+          ,dbamv.paciente
+          ,dbamv.remessa_amostra
+          ,dbamv.remessa_coleta
+          ,dbamv.posto_coleta
+          ,dbamv.set_exa
+          ,dbamv.setor
+          ,dbamv.material
+          ,dbamv.convenio
+     where amostra.cd_material = material.cd_material
+       and remessa_coleta.cd_remessa_coleta = remessa_amostra.cd_remessa_coleta
+       and remessa_amostra.cd_amostra = amostra.cd_amostra
+       and amostra.cd_coleta_material = coleta_material.cd_coleta_material
+       and ped_lab.cd_ped_lab = coleta_material.cd_ped_lab
+       AND ped_lab.cd_setor = setor.cd_setor
+       and atendime.cd_atendimento = ped_lab.cd_atendimento
+       and paciente.cd_paciente = atendime.cd_paciente
+       and remessa_coleta.cd_set_exa = set_exa.cd_set_exa
+       and remessa_coleta.cd_posto_coleta = posto_coleta.cd_posto_coleta(+)
+       AND convenio.cd_convenio = atendime.cd_convenio
+       AND amostra.cd_amostra = :CAMPO_AMOSTRA))) prestador FROM dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_AMOSTRA_POR_REMESSA_SET
+SELECT  * FROM
+(SELECT SETOR.NM_SETOR, Nvl(prestador.nm_prestador, prestador_externo.nm_pres_ext) PRESTADOR, 1 AS TIPO_RETORNO
+   FROM dbamv.itped_prest_setor_solic
+ INNER JOIN DBAMV.SETOR ON (DBAMV.itped_prest_setor_solic.cd_setor = DBAMV.SETOR.cd_setor)
+ INNER JOIN dbamv.itped_lab ON (DBAMV.itped_prest_setor_solic.cd_itped_lab =  itped_lab.cd_itped_lab)
+ INNER JOIN DBAMV.AMOSTRA_EXA_LAB    ON (DBAMV.ITPED_LAB.CD_ITPED_LAB = DBAMV.AMOSTRA_EXA_LAB.CD_ITPED_LAB)
+ LEFT  JOIN DBAMV.PRESTADOR          ON (DBAMV.ITPED_PREST_SETOR_SOLIC.CD_PRESTADOR = DBAMV.PRESTADOR.CD_PRESTADOR)
+ LEFT  JOIN DBAMV.PRESTADOR_EXTERNO  ON (DBAMV.ITPED_PREST_SETOR_SOLIC.CD_PRES_EXT  = DBAMV.PRESTADOR_EXTERNO.CD_PRES_EXT)
+WHERE DBAMV.AMOSTRA_EXA_LAB.cd_amostra =  :CAMPO_AMOSTRA
+UNION
+SELECT setor.nm_setor, ped_lab.nm_prestador AS PRESTADOR, 2 AS TIPO_RETORNO
+           from dbamv.amostra
+          ,dbamv.coleta_material
+          ,dbamv.ped_lab
+          ,dbamv.atendime
+          ,dbamv.paciente
+          ,dbamv.remessa_amostra
+          ,dbamv.remessa_coleta
+          ,dbamv.posto_coleta
+          ,dbamv.set_exa
+          ,dbamv.setor
+          ,dbamv.material
+          ,dbamv.convenio
+     where amostra.cd_material = material.cd_material
+       and remessa_coleta.cd_remessa_coleta = remessa_amostra.cd_remessa_coleta
+       and remessa_amostra.cd_amostra = amostra.cd_amostra
+       and amostra.cd_coleta_material = coleta_material.cd_coleta_material
+       and ped_lab.cd_ped_lab = coleta_material.cd_ped_lab
+       AND ped_lab.cd_setor = setor.cd_setor
+       and atendime.cd_atendimento = ped_lab.cd_atendimento
+       and paciente.cd_paciente = atendime.cd_paciente
+       and remessa_coleta.cd_set_exa = set_exa.cd_set_exa
+       and remessa_coleta.cd_posto_coleta = posto_coleta.cd_posto_coleta(+)
+       AND convenio.cd_convenio = atendime.cd_convenio
+       AND amostra.cd_amostra = :CAMPO_AMOSTRA
+) ORDER BY tipo_retorno desc

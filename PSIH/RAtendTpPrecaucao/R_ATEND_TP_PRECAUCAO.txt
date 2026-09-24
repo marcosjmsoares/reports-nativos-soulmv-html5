@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_ATEND_TP_PRECAUCAO
+Select cd_atendimento,
+	   cd_paciente,
+	   nm_paciente,
+	   nm_social_paciente,
+	   cd_cid,
+	   ds_cid,
+	   CD_TIP_PRESC,
+	   DS_TIP_PRESC
+from (
+SELECT pre_med.cd_atendimento,
+       paciente.cd_paciente,
+       paciente.nm_paciente,
+       (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  CD_PACIENTE) NM_SOCIAL_PACIENTE,
+       cid.cd_cid,
+       cid.ds_cid,
+       TIP_PRESC.CD_TIP_PRESC,
+       TIP_PRESC.CD_TIP_PRESC || ' - ' || TIP_PRESC.DS_TIP_PRESC DS_TIP_PRESC
+  FROM dbamv.pre_med,
+       dbamv.itpre_med,
+       dbamv.tip_presc,
+       dbamv.atendime,
+       dbamv.prestador,
+       dbamv.paciente,
+       dbamv.cid,
+       dbamv.itpre_med_justificativa,
+       dbamv.unid_int
+ WHERE pre_med.cd_pre_med = itpre_med.cd_pre_med
+   AND pre_med.cd_unid_int = unid_int.cd_unid_int (+)
+   AND itpre_med.cd_tip_presc = tip_presc.cd_tip_presc
+   AND itpre_med.cd_itpre_med_justificativa = itpre_med_justificativa.cd_itpre_med_justificativa(+)
+   AND atendime.dt_alta IS NULL
+   AND pre_med.cd_atendimento = atendime.cd_atendimento
+   AND pre_med.cd_prestador = prestador.cd_prestador
+   AND atendime.cd_multi_empresa = DBAMV.PKG_MV2000.LE_EMPRESA
+   AND atendime.cd_paciente = paciente.cd_paciente
+   AND atendime.cd_cid = cid.cd_cid(+)
+   AND pre_med.fl_impresso = 'S'
+   AND Nvl(itpre_med.sn_cancelado, 'N') = 'N'
+   AND ((( NVL(NR_DIA,1) = 1) OR ((NVL(NR_DIA,2) IN (1,2)) AND (pre_med.TP_PRE_MED = 'M') :CAMPO_CONSULTA_CD_OBJETO )))
+   AND TIP_PRESC.CD_TIP_PRESC IN (SELECT ITEM_PRECAUCAO.CD_TIP_PRESC
+                                    FROM ITEM_PRECAUCAO
+                                   WHERE CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA)
+:CAMPO_CF_PERIODO
+)
+ORDER BY CD_TIP_PRESC

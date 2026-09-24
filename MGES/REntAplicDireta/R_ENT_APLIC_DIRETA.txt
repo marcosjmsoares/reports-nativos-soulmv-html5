@@ -1,0 +1,102 @@
+/*----------------------------------------------------------------------------*/
+--R_ENT_APLIC_DIRETA
+SELECT * FROM (
+   SELECT cons.data_mvto,
+           Decode(cons.tipo, 'E', null,
+                                         'S','Saída:') tipo,
+          ent.cd_estoque,
+          ent.cd_ent_pro,
+          ent.cd_fornecedor,
+          fornecedor.nm_fornecedor,
+          cons.cd_produto||' - '||cons.ds_produto DS_PRODUTO,
+          Decode(cons.tipo, 'E', to_char(cons.documento,'00000000'),
+                                        'S', 'Setor: '|| cons.cd_destino ||' - '||cons.ds_destino) documento,
+          Decode(cons.tipo, 'E', (itent_pro.qt_entrada * cons.vl_fator),
+                            'S', (cons.quantidade * cons.vl_fator)*-1) QUANTIDADE,
+          Itent_Pro.Vl_Custo_Real VL_UNITARIO,
+          (cons.quantidade * cons.vl_fator) * itent_pro.vl_custo_real VL_TOTAL,
+          cons.ds_unidade,
+          ent.cd_ord_com
+   FROM  dbamv.ent_pro ent,
+               dbamv.itent_pro,
+               dbamv.fornecedor,
+               dbamv.produto,
+              (SELECT to_date(to_char(mvto_estoque.Dt_mvto_estoque,'dd/mm/yyyy')
+                              ||to_char(mvto_estoque.hr_mvto_estoque,'hh24'),'dd/mm/yyyy hh24')  data_mvto,
+                              'S' TIPO,
+                              NVL( MVTO_ESTOQUE.CD_ENT_PRO, (select       Max(ent_pro.cd_ent_pro)
+                                                                                                 FROM     dbamv.ent_pro,
+                                                                                                                 dbamv.itent_pro,
+                                                                                                                 dbamv.estoque est
+                                                                                                 WHERE  ent_pro.cd_ent_pro        = itent_pro.cd_ent_pro
+                                                                                                       AND itent_pro.cd_produto      = ITMVTO_ESTOQUE.CD_PRODUTO
+                                                                                                       AND ent_pro.CD_ESTOQUE = EST.CD_ESTOQUE
+                                                                                                       AND ent_pro.cd_estoque       = MVTO_ESTOQUE.CD_ESTOQUE
+                                                                                                       AND est.cd_multi_empresa     = ESTOQUE.CD_MULTI_EMPRESA
+                                                                                                       AND TRUNC(ENT_PRO.DT_ENTRADA) + (ENT_PRO.HR_ENTRADA - TRUNC(ENT_PRO.HR_ENTRADA)) <                                                                                                                                                         to_date(to_char(mvto_estoque.Dt_mvto_estoque,'dd/mm/yyyy')||
+                                                                                                                to_char(mvto_estoque.hr_mvto_estoque,'hh24'),'dd/mm/yyyy hh24') ) ) CD_ENTRADA,
+                              MVTO_ESTOQUE.CD_MVTO_ESTOQUE DOCUMENTO  ,
+                              ITMVTO_ESTOQUE.CD_PRODUTO    CD_PRODUTO,
+                              PRODUTO.DS_PRODUTO           DS_PRODUTO,
+                              UNI_PRO.DS_UNIDADE           DS_UNIDADE,
+                              ITMVTO_ESTOQUE.qt_movimentacao QUANTIDADE,
+                              UNI_PRO.VL_FATOR        VL_FATOR,
+                              setor.cd_setor CD_DESTINO,
+                              SETOR.NM_SETOR DS_DESTINO,
+                              '2'                          ORDENACAO,
+                              ITMVTO_ESTOQUE.CD_ITMVTO_ESTOQUE                              PRECEDENCIA
+               FROM    dbamv.MVTO_ESTOQUE   MVTO_ESTOQUE,
+                             dbamv.ITMVTO_ESTOQUE ITMVTO_ESTOQUE,
+                             dbamv.PRODUTO        PRODUTO,
+                             dbamv.UNI_PRO        UNI_PRO,
+                             dbamv.SETOR          SETOR,
+                             dbamv.ESTOQUE        ESTOQUE
+               WHERE MVTO_ESTOQUE.DT_MVTO_ESTOQUE BETWEEN  :CAMPO_DTINIC  AND 
+                      AND TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) + (MVTO_ESTOQUE.HR_MVTO_ESTOQUE -
+                                 TRUNC(MVTO_ESTOQUE.HR_MVTO_ESTOQUE)) BETWEEN  :CAMPO_DTINIC  AND 
+                     AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                     AND ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+                     AND ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+                     AND ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                     AND MVTO_ESTOQUE.CD_SETOR = SETOR.CD_SETOR(+)
+                     AND ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+                     AND MVTO_ESTOQUE.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+                    AND produto.tp_calculo_media_ponderada = 'M'
+    UNION ALL
+    SELECT to_date(to_char(Ent_Pro.Dt_Entrada,'dd/mm/yyyy')
+               ||to_char(Ent_Pro.hr_entrada,'hh24'),'dd/mm/yyyy hh24')  data_mvto,
+           'E' TIPO,
+           ENT_PRO.CD_ENT_PRO      CD_ENTRADA,
+           ENT_PRO.CD_ENT_PRO      DOCUMENTO,
+           ITENT_PRO.CD_PRODUTO    CD_PRODUTO,
+           PRODUTO.DS_PRODUTO      DS_PRODUTO,
+           UNI_PRO.DS_UNIDADE      DS_UNIDADE,
+           ITENT_PRO.qt_entrada    QUANTIDADE  ,
+           UNI_PRO.VL_FATOR        VL_FATOR,
+           0 CD_DESTINO,
+           '0' DS_DESTINO,
+           '1'                     ORDENACAO,
+           ITENT_PRO.CD_ITENT_PRO                              PRECEDENCIA
+      FROM dbamv.ITENT_PRO ITENT_PRO,
+           dbamv.ENT_PRO ENT_PRO,
+           dbamv.PRODUTO PRODUTO,
+           dbamv.UNI_PRO UNI_PRO,
+           dbamv.ESTOQUE
+     WHERE ENT_PRO.DT_ENTRADA BETWEEN  :CAMPO_DTINIC  AND 
+           AND TRUNC(ENT_PRO.DT_ENTRADA) + (ENT_PRO.HR_ENTRADA - TRUNC(ENT_PRO.HR_ENTRADA)) BETWEEN :CAMPO_DTINIC  AND 
+           AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           AND ITENT_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+           AND ITENT_PRO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO
+           AND ITENT_PRO.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+           AND ITENT_PRO.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+           AND ENT_PRO.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+           AND produto.tp_calculo_media_ponderada = 'M'
+ORDER BY Data_mvto, DS_PRODUTO, ORDENACAO) cons
+WHERE ent.cd_ent_pro       = cons.cd_entrada
+  and itent_pro.cd_ent_pro = ent.cd_ent_pro
+  AND itent_pro.cd_produto = cons.cd_produto
+  AND produto.cd_produto   = cons.cd_produto
+  AND ent.cd_fornecedor    = fornecedor.cd_fornecedor(+)
+  :CAMPO_CF_TIP_DOC
+)
+ORDER BY CD_FORNECEDOR,NM_FORNECEDOR, Data_mvto, DS_PRODUTO

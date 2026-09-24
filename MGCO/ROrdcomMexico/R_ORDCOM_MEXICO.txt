@@ -1,0 +1,192 @@
+/*----------------------------------------------------------------------------*/
+--R_ORDCOM_MEXICO
+SELECT TP_ORD_COM
+  FROM ORD_COM
+ WHERE CD_ORD_COM = :CAMPO_CD_ORD_COM
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ORDCOM_MEXICO_R_ITORD_SER1_Q_ITORD_SER
+SELECT * FROM (
+select itord_ser.cd_ord_com   cd_ord_com_ser
+      ,manu_serv.cd_servico   cd_servico
+      ,manu_serv.nm_servico   nm_servico
+      ,itord_ser.vl_total     vl_total_ser
+      ,itord_ser.vl_desconto vl_total_desc
+      ,itsol_ser.ds_servico   ds_servico
+      ,ORD_COM.DT_ORD_COM DT_LANCAMENTO
+      , NVL(ITORD_SER.VL_PERC_DESCONTO,0) VL_PERC_DESCONTO
+      , NVL(ITORD_SER.VL_DESCONTO,0) VL_DESCONTO
+      , NVL(ITORD_SER.VL_PERC_IMPOSTO,0) VL_PERC_IMPOSTO
+      , NVL(ITORD_SER.VL_IMPOSTO,0) VL_IMPOSTO
+      , nvl(ord_com.vl_total,0)                          VL_TOTAL_ORD_COM
+      , nvl(ord_com.vl_frete,0)                           vl_frete
+      , nvl(ord_com.vl_icms,0)                            vl_icms
+      , nvl(ord_com.vl_desconto,0)                        VL_DESCONTO_ORD
+      , nvl(ord_com.vl_outros,0)                          vl_outros
+       , NVL((SELECT CONFIGEST.SN_DESC_IPI_ORD_COM_SERV
+              FROM DBAMV.CONFIGEST
+             WHERE  CONFIGEST.CD_MULTI_EMPRESA =  :CAMPO_CD_MULTI_EMPRESA ),'N') AS SN_DESC_IPI_ORD_COM_SERV
+  from dbamv.itord_ser
+      ,dbamv.manu_serv
+      ,dbamv.itsol_ser
+      ,dbamv.ord_com
+      ,dbamv.estoque
+      ,dbamv.fonte_recurso_itsol_ser
+      ,dbamv.fonte_recurso
+ where itord_ser.cd_ser_sol     =   manu_serv.cd_servico
+   and itsol_ser.cd_sol_com(+)  =   ord_com.cd_sol_com
+   and (itsol_ser.cd_sol_com is null
+        or itsol_ser.cd_ser_sol =   itord_ser.cd_ser_sol)
+   and ord_com.cd_ord_com       =   itord_ser.cd_ord_com
+   and estoque.cd_estoque       =   ord_com.cd_estoque
+   and estoque.cd_multi_empresa =   :CAMPO_CD_MULTI_EMPRESA
+   and fonte_recurso_itsol_ser.cd_sol_com(+) = itsol_ser.cd_sol_com
+   and fonte_recurso_itsol_ser.cd_ser_sol(+) = itsol_ser.cd_ser_sol
+   and fonte_recurso.cd_fonte_recurso    (+) = fonte_recurso_itsol_ser.cd_fonte_recurso
+ order by cd_ord_com_ser
+)
+WHERE CD_ORD_COM_SER = :CAMPO_CD_ORD_COM
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ORDCOM_MEXICO_R_IT_ORD_PRO1_Q_IT_ORD_PRO
+SELECT * FROM (
+select itord_pro.cd_ord_com        cd_ord_com_prod
+      ,produto.cd_produto
+      ,produto.ds_produto
+      ,uni_pro.ds_unidade
+      ,fot_rec.cd_fonte_recurso
+      ,fot_rec.ds_fonte_recurso
+      ,itord_pro.qt_comprada
+      ,nvl(itord_pro.vl_unitario,0) vl_unitario
+      ,nvl(itord_pro.vl_total,0) vl_total_prod
+      ,nvl(itord_pro.vl_total,0) vl_total_ordem_produto
+      ,nvl(itord_pro.vl_desconto,0) vl_desconto
+      ,nvl(itord_pro.vl_imposto,0) vl_imposto
+      ,nvl(itord_pro.vl_perc_desconto,0) vl_perc_desconto
+      ,itord_pro.ds_marca
+      ,itord_pro.cd_mot_cancel
+      ,itord_pro.ds_dica_da_compra
+      ,produto.cd_sican
+      ,ORD_COM.DT_ORD_COM DT_LANCAMENTO
+  from dbamv.itord_pro               itord_pro
+      ,dbamv.produto                 produto
+      ,dbamv.uni_pro                 uni_pro
+      ,dbamv.ord_com                 ord_com
+      ,dbamv.sol_com                 sol_com
+      ,dbamv.itsol_com               itsol_com
+      ,dbamv.fonte_recurso_itsol_com fritcom
+      ,dbamv.fonte_recurso           fot_rec
+ where exists ( select empresa_produto.cd_produto
+                  from dbamv.empresa_produto
+                 where cd_multi_empresa           =  :CAMPO_CD_MULTI_EMPRESA
+                   and empresa_produto.cd_produto = produto.cd_produto )
+   and itord_pro.cd_produto  = produto.cd_produto
+   and itord_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+   and ord_com.cd_ord_com    = itord_pro.cd_ord_com
+   and sol_com.cd_sol_com (+)   = ord_com.cd_sol_com
+   and itsol_com.cd_sol_com (+) = ord_com.cd_sol_com
+   and fritcom.cd_sol_com (+)= itsol_com.cd_sol_com
+   and fritcom.cd_produto (+)= itsol_com.cd_produto
+   and fot_rec.cd_fonte_recurso(+) = fritcom.cd_fonte_recurso
+   group by
+   itord_pro.cd_ord_com
+      ,produto.cd_produto
+      ,produto.ds_produto
+      ,uni_pro.ds_unidade
+      ,fot_rec.cd_fonte_recurso
+      ,fot_rec.ds_fonte_recurso
+      ,itord_pro.qt_comprada
+      ,nvl(itord_pro.vl_unitario,0)
+      ,nvl(itord_pro.vl_total,0)
+      ,nvl(itord_pro.vl_total,0)
+      ,nvl(itord_pro.vl_desconto,0)
+      ,nvl(itord_pro.vl_imposto,0)
+      ,nvl(itord_pro.vl_perc_desconto,0)
+      ,itord_pro.ds_marca
+      ,itord_pro.cd_mot_cancel
+      ,itord_pro.ds_dica_da_compra
+      ,produto.cd_sican
+      ,ORD_COM.DT_ORD_COM
+   order by cd_ord_com_prod
+   :CAMPO_CF_ORDEM_PROD
+)
+WHERE CD_ORD_COM_PROD = :CAMPO_CD_ORD_COM
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ORDCOM_MEXICO_R_ORD_COM_Q_ORD_COM
+select  sol_com.cd_conta                                 cd_conta
+       ,conta.ds_conta                                   ds_conta
+       ,sol_com.cd_rubrica                               cd_rubrica
+       ,rubrica.ds_rubrica                               ds_rubrica
+       ,sol_com.cd_fonte_recurso                         cd_fonte_recurso
+       ,fonte_recurso.ds_fonte_recurso                   ds_fonte_recurso
+       ,ord_com.cd_ord_com                               cd_ord_com
+       ,ord_com.cd_sol_com                               cd_sol_com
+       ,fornecedor.cd_fornecedor                         cd_fornecedor
+       ,fornecedor.nm_fornecedor                         nm_fornecedor
+       ,fornecedor.nm_fantasia                           nm_fantasia
+       ,fornecedor.nr_cgc_cpf                            nr_cgc_cpf
+       ,fornecedor.nr_insc_est                           nr_insc_est
+       ,nvl(fornecedor.ds_endereco,' ')                           ds_enderecO
+       ,nvl(fornecedor.nr_endereco,' ')                           nr_endereco
+       ,nvl(fornecedor.ds_complemento,' ')                        ds_complemento
+       ,nvl(fornecedor.ds_bairro,' ')                             ds_bairro
+       ,nvl(fornecedor.nr_cep,' ')                                nr_cep
+       ,fornecedor.tp_fornecedor                         tp_fornecedor
+       ,nvl(cidade.nm_cidade,' ')                                 nm_cidade
+       ,nvl(cidade.cd_uf,' ')                                     cd_uf
+       ,nvl(fornecedor.nr_conta, ' ') nr_conta
+       ,nvl(fornecedor.dv_conta_corrente, ' ') dv_conta_corrente
+       ,nvl(fornecedor.cd_agencia,  ' ') cd_agencia
+       ,nvl(fornecedor.dv_agencia, ' ') dv_agencia
+       ,nvl(to_char(fornecedor.cd_banco), ' ') cd_banco
+       ,nvl(ord_com.vl_perc_desconto,0)                  vl_perc_desconto
+       ,nvl(ord_com.vl_desconto,0)                       vl_desconto
+       ,ord_com.dt_prev_entrega_intervalo                dt_prev_entrega_intervalo
+       ,ord_com.dt_prev_entrega                          dt_prev_entrega
+       ,ord_com.tp_frete                                 tp_frete
+       ,nvl(ord_com.vl_frete,0)                           vl_frete
+       ,ord_com.sn_inclusao_nota sn_incluso_nota
+       ,ord_com.ds_ordem_de_compra                       ds_ordem_de_compra
+       ,nvl(ord_com.vl_total,0)                          VL_TOTAL_ORD_COM
+       ,nvl(ord_com.vl_outros,0)                         vl_outros
+       ,condicoes_pagamento.cd_condicao_pagamento        cd_condicao_pagamento
+       ,condicoes_pagamento.ds_condicao_pagamento        ds_condicao_pagamento
+       ,cotador.ds_cotador                               ds_cotador
+       ,setor.nm_setor                                   nm_setor
+       ,ord_com.cd_id_usuario_autorizou                  cd_id_usuario_autorizou
+       ,ord_com.dt_ord_com                               dt_ord_com
+       ,ord_com.tp_ord_com                              tp_ord_com 
+       ,nvl(ord_com.vl_icms,0)                          vl_icms 
+        ,ORD_COM.DT_ORD_COM DT_LANCAMENTO
+  from  dbamv.ord_com
+       ,dbamv.estoque
+       ,dbamv.fornecedor
+       ,dbamv.sol_com
+       ,dbamv.cidade
+       ,dbamv.condicoes_pagamento
+       ,dbamv.cotador
+       ,dbamv.setor
+       ,dbamv.conta
+       ,dbamv.rubrica
+       ,dbamv.fonte_recurso
+  where ord_com.cd_ord_com            = :CAMPO_CD_ORD_COM
+    and estoque.cd_estoque            = ord_com.cd_estoque
+    and estoque.cd_multi_empresa      = :CAMPO_CD_MULTI_EMPRESA
+    and fornecedor.cd_fornecedor      = ord_com.cd_fornecedor
+    and fornecedor.tp_cliente_forn    in ( 'F', 'A', 'R', 'T' )
+    and cidade.cd_cidade              = fornecedor.cd_cidade
+    and sol_com.cd_sol_com         (+)= ord_com.cd_sol_com
+    and setor.cd_setor             (+)= sol_com.cd_setor
+    and cotador.cd_cotador         (+)= sol_com.cd_cotador
+    and ord_com.cd_condicao_pagamento = condicoes_pagamento.cd_condicao_pagamento
+    and conta.cd_conta             (+)= sol_com.cd_conta
+    and rubrica.cd_rubrica         (+)= sol_com.cd_rubrica
+    and fonte_recurso.cd_fonte_recurso(+) = sol_com.cd_fonte_recurso
+   order by ord_com.cd_ord_com

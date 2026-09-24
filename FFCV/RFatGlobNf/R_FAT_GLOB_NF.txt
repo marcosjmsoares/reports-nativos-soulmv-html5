@@ -1,0 +1,1881 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF
+SELECT * FROM (
+SELECT   cd_ori_ate
+        ,ds_ori_ate
+        ,COUNT (cd_ori_ate) qtd_contas
+        ,SUM (NVL (vl_total_conta, 0)) vl_total_conta
+        ,SUM (vl_honorario) vl_honorario
+        ,tipo_conta
+    FROM (SELECT   reg_fat.cd_reg_fat cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,SUM (nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta)) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta)
+                               ,0
+                               )) vl_honorario
+                  ,'Internacao' tipo_conta
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+	                ,dbamv.itlan_med 
+             WHERE atendime.cd_atendimento = reg_fat.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND NVL (itreg_fat.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+              AND convenio.tp_convenio not in ( 'H', 'A' )
+              AND atendime.cd_servico = servico.cd_servico(+)
+              AND itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat 
+              AND itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+              AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', itreg_amb.vl_total_conta
+                               ,0
+                               )) vl_honorario
+                  ,'Ambulatorial' tipo_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+		       AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio
+          UNION ALL
+          SELECT   reg_fat.cd_reg_fat cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,SUM (nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta)) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta)
+                               ,0
+                               )) vl_honorario
+                  ,'Internacao' tipo_conta
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+				          ,dbamv.itlan_med 
+             WHERE  atendime.cd_atendimento = reg_fat.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               AND itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               AND itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+              AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', itreg_amb.vl_total_conta
+                               ,0
+                               )) vl_honorario
+                  ,'Ambulatorial' tipo_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+		       AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio) convenio
+GROUP BY cd_ori_ate
+        ,ds_ori_ate
+        ,tipo_conta
+ORDER BY vl_total_conta DESC
+)
+ORDER BY TIPO_CONTA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_AMB
+SELECT   ds_ori_ate
+        ,SUM (NVL (vl_total_conta, 0)) total_ambulatorial
+    FROM (SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', itreg_amb.vl_total_conta
+                               ,0
+                               )) vl_honorario
+                  ,'Ambulatorial' tipo_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND itreg_amb.sn_pertence_pacote = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+            AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio
+          UNION ALL
+          SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', itreg_amb.vl_total_conta
+                               ,0
+                               )) vl_honorario
+                  ,'Ambulatorial' tipo_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+            AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio) convenio
+GROUP BY ds_ori_ate
+ORDER BY total_ambulatorial DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_GF_GRAF
+SELECT   cd_gru_fat
+        ,ds_gru_fat
+        ,SUM (vl_total_conta) vl_gru_fat2
+    FROM (SELECT   reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat
+                  ,dbamv.reg_fat
+                  ,dbamv.gru_fat
+                  ,dbamv.remessa_fatura
+                  ,dbamv.fatura
+                  ,dbamv.convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.atendime
+                  ,dbamv.servico
+	                ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_fat.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.atendime atendime
+                  ,dbamv.servico servico
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+          UNION ALL
+          SELECT   reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat
+                  ,dbamv.reg_fat
+                  ,dbamv.gru_fat
+                  ,dbamv.remessa_fatura
+                  ,dbamv.fatura
+                  ,dbamv.pro_fat
+                  ,dbamv.convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico
+                  ,dbamv.atendime
+	                ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+	             and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.atendime atendime
+                  ,dbamv.servico servico
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+         ) convenio
+GROUP BY cd_gru_fat
+        ,ds_gru_fat
+ORDER BY vl_gru_fat2 DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_INT_GRAF
+SELECT   ds_ori_ate
+        ,SUM (NVL (vl_total_conta, 0)) total_internacao
+    FROM (SELECT   reg_fat.cd_reg_fat cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', itreg_fat.vl_total_conta
+                               ,0
+                               )) vl_honorario
+                  ,'Internacao' tipo_conta
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+	                ,dbamv.itlan_med
+             WHERE atendime.cd_atendimento = reg_fat.cd_atendimento
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND itreg_fat.sn_pertence_pacote = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   reg_fat.cd_reg_fat cd_reg_fat
+                  ,atendime.cd_ori_ate cd_ori_ate
+                  ,ori_ate.ds_ori_ate ds_ori_ate
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,SUM (itreg_fat.vl_total_conta) vl_total_conta
+                  ,SUM (DECODE (gru_fat.tp_gru_fat
+                               ,'SP', itreg_fat.vl_total_conta
+                               ,0
+                               )) vl_honorario
+                  ,'Internacao' tipo_conta
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+	                ,dbamv.itlan_med
+             WHERE atendime.cd_atendimento = reg_fat.cd_atendimento
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio) convenio
+GROUP BY ds_ori_ate
+ORDER BY total_internacao DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_R_5_Q_FATURAMENTO_DATA
+SELECT   dt_final
+        ,TO_DATE (dt_final, 'MM/YYYY') ordem
+        ,COUNT (cd_ori_ate_int) qtd_cta_int
+        ,SUM (vl_total_conta_int) vl_tot_cta_int
+        ,AVG (vl_total_conta_int) med_cta_int
+        ,COUNT (cd_ori_ate_amb) qtd_cta_amb
+        ,SUM (vl_total_conta_amb) vl_tot_cta_amb
+        ,AVG (vl_total_conta_amb) med_cta_amb
+    FROM (
+          SELECT   NVL (TO_CHAR (reg_fat.dt_final, 'MM/YYYY'), TO_CHAR (SYSDATE, 'MM/YYYY')) dt_final
+                  ,reg_fat.cd_reg_fat cd_reg_fat_int
+                  ,atendime.cd_ori_ate cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_int
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta_int
+                  ,TO_NUMBER (NULL) cd_ori_ate_amb
+                  ,0 vl_total_conta_amb
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.empresa_convenio
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.servico servico
+	  ,dbamv.itlan_med
+             WHERE atendime.cd_atendimento = reg_fat.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.sn_pertence_pacote = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_final
+                  ,reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   NVL (TO_CHAR (reg_fat.dt_final, 'MM/YYYY'), TO_CHAR (SYSDATE, 'MM/YYYY')) dt_final
+                  ,reg_fat.cd_reg_fat cd_reg_fat_int
+                  ,atendime.cd_ori_ate cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_int
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta_int
+                  ,TO_NUMBER (NULL) cd_ori_ate_amb
+                  ,0 vl_total_conta_amb
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+	  ,dbamv.itlan_med
+             WHERE atendime.cd_atendimento = reg_fat.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_final
+                  ,reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   TO_CHAR (atendime.dt_atendimento, 'MM/YYYY') dt_final
+                  ,itreg_amb.cd_atendimento cd_reg_fat_amb
+                  ,TO_NUMBER (NULL) cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_amb
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,0 vl_total_conta_int
+                  ,atendime.cd_ori_ate cd_ori_ate_amb
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta_amb
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.sn_pertence_pacote = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_atendimento
+                  ,itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio
+          UNION ALL
+          SELECT   TO_CHAR (atendime.dt_atendimento, 'MM/YYYY') dt_final
+                  ,itreg_amb.cd_atendimento cd_reg_fat_amb
+                  ,TO_NUMBER (NULL) cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_amb
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,0 vl_total_conta_int
+                  ,atendime.cd_ori_ate cd_ori_ate_amb
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta_amb
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_atendimento
+                  ,itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio
+         ) convenio
+GROUP BY dt_final
+ORDER BY 2
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_R_FAT_GRU_FAT_Q_FAT_GRU_FAT
+SELECT   cd_gru_fat
+        ,ds_gru_fat
+        ,SUM (vl_total_conta) vl_gru_fat2
+    FROM (SELECT   reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat
+                  ,dbamv.reg_fat
+                  ,dbamv.gru_fat
+                  ,dbamv.remessa_fatura
+                  ,dbamv.fatura
+                  ,dbamv.convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.atendime
+                  ,dbamv.servico
+	                ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_fat.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.atendime atendime
+                  ,dbamv.servico servico
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+          UNION ALL
+          SELECT   reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat
+                  ,dbamv.reg_fat
+                  ,dbamv.gru_fat
+                  ,dbamv.remessa_fatura
+                  ,dbamv.fatura
+                  ,dbamv.pro_fat
+                  ,dbamv.convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico
+                  ,dbamv.atendime
+	  ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+	and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.atendime atendime
+                  ,dbamv.servico servico
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+          AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.ds_gru_fat
+         ) convenio
+GROUP BY cd_gru_fat
+        ,ds_gru_fat
+ORDER BY vl_gru_fat2 DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_R_FAT_TP_GRU_Q_FAT_TP_GRU
+SELECT   tp_gru_fat
+        ,SUM (vl_tot_internacao) vl_tot_internacao
+        ,SUM (vl_tot_ambulatorial) vl_tot_ambulatorial
+        ,SUM (vl_total_conta) vl_gru_fat
+    FROM (SELECT   reg_fat.cd_convenio cd_convenio
+                  ,itreg_fat.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_tot_internacao
+                  ,0 vl_tot_ambulatorial
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat itreg_fat
+                  ,dbamv.reg_fat reg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+	                ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_fat.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+	and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio cd_convenio
+                  ,itreg_amb.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,0 vl_tot_internacao
+                  ,SUM (itreg_amb.vl_total_conta) vl_tot_ambulatorial
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+		  AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+          UNION ALL
+          SELECT   reg_fat.cd_convenio cd_convenio
+                  ,itreg_fat.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_tot_internacao
+                  ,0 vl_tot_ambulatorial
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat itreg_fat
+                  ,dbamv.reg_fat reg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+                  ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio cd_convenio
+                  ,itreg_amb.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,0 vl_tot_internacao
+                  ,SUM (itreg_amb.vl_total_conta) vl_tot_ambulatorial
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+         ) convenio
+GROUP BY tp_gru_fat
+ORDER BY vl_gru_fat DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_R_MED_CTA_AMB2_Q_MED_CTA_AMB
+SELECT COUNT (cd_ori_ate) qtd_cta_amb
+      ,SUM (vl_total_conta) vl_tot_cta_amb
+      ,AVG (vl_total_conta) med_cta_amb
+  FROM (SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                ,atendime.cd_ori_ate cd_ori_ate
+                ,ori_ate.ds_ori_ate ds_ori_ate
+                ,reg_amb.cd_convenio cd_convenio
+                ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+            FROM dbamv.itreg_amb itreg_amb
+                ,dbamv.atendime atendime
+                ,dbamv.ori_ate ori_ate
+                ,dbamv.fatura fatura
+                ,dbamv.reg_amb reg_amb
+                ,dbamv.remessa_fatura remessa_fatura
+                ,dbamv.convenio convenio
+                ,dbamv.empresa_convenio
+                ,dbamv.servico servico
+           WHERE atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND  itreg_amb.cd_atendimento = atendime.cd_atendimento
+             and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND empresa_convenio.cd_convenio = convenio.cd_convenio
+             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+             AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+             AND remessa_fatura.cd_fatura = fatura.cd_fatura
+             AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+             AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+             AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+             AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+             AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND itreg_amb.cd_convenio = convenio.cd_convenio
+             AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', itreg_amb.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+             AND convenio.tp_convenio not in ( 'H', 'A' )
+             AND atendime.cd_servico = servico.cd_servico(+)
+        AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+        GROUP BY itreg_amb.cd_atendimento
+                ,atendime.cd_ori_ate
+                ,ori_ate.ds_ori_ate
+                ,reg_amb.cd_convenio
+        UNION ALL
+        SELECT   itreg_amb.cd_atendimento cd_reg_fat
+                ,atendime.cd_ori_ate cd_ori_ate
+                ,ori_ate.ds_ori_ate ds_ori_ate
+                ,reg_amb.cd_convenio cd_convenio
+                ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+            FROM dbamv.itreg_amb itreg_amb
+                ,dbamv.atendime atendime
+                ,dbamv.ori_ate ori_ate
+                ,dbamv.fatura fatura
+                ,dbamv.reg_amb reg_amb
+                ,dbamv.remessa_fatura remessa_fatura
+                ,dbamv.pro_fat pro_fat
+                ,dbamv.convenio convenio
+                ,dbamv.empresa_convenio
+                ,dbamv.servico servico
+           WHERE  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND  itreg_amb.cd_atendimento = atendime.cd_atendimento
+             and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND empresa_convenio.cd_convenio = convenio.cd_convenio
+             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+             AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+             AND remessa_fatura.cd_fatura = fatura.cd_fatura
+             AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+             AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+             AND pro_fat.sn_pacote = 'N'
+             AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+             AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND itreg_amb.cd_convenio = convenio.cd_convenio
+             AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', itreg_amb.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+             AND convenio.tp_convenio not in ( 'H', 'A' )
+             AND atendime.cd_servico = servico.cd_servico(+)
+        AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+        GROUP BY itreg_amb.cd_atendimento
+                ,atendime.cd_ori_ate
+                ,ori_ate.ds_ori_ate
+                ,reg_amb.cd_convenio) convenio
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_R_MED_CTA_AMB3_Q_FATURAMENTO_DATA
+SELECT   dt_final
+        ,TO_DATE (dt_final, 'MM/YYYY') ordem
+        ,COUNT (cd_ori_ate_int) qtd_cta_int
+        ,SUM (vl_total_conta_int) vl_tot_cta_int
+        ,AVG (vl_total_conta_int) med_cta_int
+        ,COUNT (cd_ori_ate_amb) qtd_cta_amb
+        ,SUM (vl_total_conta_amb) vl_tot_cta_amb
+        ,AVG (vl_total_conta_amb) med_cta_amb
+    FROM (
+          SELECT   NVL (TO_CHAR (reg_fat.dt_final, 'MM/YYYY'), TO_CHAR (SYSDATE, 'MM/YYYY')) dt_final
+                  ,reg_fat.cd_reg_fat cd_reg_fat_int
+                  ,atendime.cd_ori_ate cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_int
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta_int
+                  ,TO_NUMBER (NULL) cd_ori_ate_amb
+                  ,0 vl_total_conta_amb
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+	                ,dbamv.itlan_med
+             WHERE atendime.cd_atendimento = reg_fat.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.sn_pertence_pacote = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_final
+                  ,reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   NVL (TO_CHAR (reg_fat.dt_final, 'MM/YYYY'), TO_CHAR (SYSDATE, 'MM/YYYY')) dt_final
+                  ,reg_fat.cd_reg_fat cd_reg_fat_int
+                  ,atendime.cd_ori_ate cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_int
+                  ,reg_fat.cd_convenio cd_convenio
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta_int
+                  ,TO_NUMBER (NULL) cd_ori_ate_amb
+                  ,0 vl_total_conta_amb
+              FROM dbamv.reg_fat reg_fat
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.itreg_fat itreg_fat
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+	                ,dbamv.itlan_med
+             WHERE atendime.cd_atendimento = reg_fat.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_final
+                  ,reg_fat.cd_reg_fat
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_fat.cd_convenio
+          UNION ALL
+          SELECT   TO_CHAR (atendime.dt_atendimento, 'MM/YYYY') dt_final
+                  ,itreg_amb.cd_atendimento cd_reg_fat_amb
+                  ,TO_NUMBER (NULL) cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_amb
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,0 vl_total_conta_int
+                  ,atendime.cd_ori_ate cd_ori_ate_amb
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta_amb
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.sn_pertence_pacote = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_atendimento
+                  ,itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio
+          UNION ALL
+          SELECT   TO_CHAR (atendime.dt_atendimento, 'MM/YYYY') dt_final
+                  ,itreg_amb.cd_atendimento cd_reg_fat_amb
+                  ,TO_NUMBER (NULL) cd_ori_ate_int
+                  ,ori_ate.ds_ori_ate ds_ori_ate_amb
+                  ,reg_amb.cd_convenio cd_convenio
+                  ,0 vl_total_conta_int
+                  ,atendime.cd_ori_ate cd_ori_ate_amb
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta_amb
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.atendime atendime
+                  ,dbamv.ori_ate ori_ate
+                  ,dbamv.fatura fatura
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+             WHERE itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND atendime.cd_servico = servico.cd_servico(+)
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY dt_atendimento
+                  ,itreg_amb.cd_atendimento
+                  ,atendime.cd_ori_ate
+                  ,ori_ate.ds_ori_ate
+                  ,reg_amb.cd_convenio
+         ) convenio
+GROUP BY dt_final
+ORDER BY 2
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_R_MED_CTA_INT2_Q_MED_CTA_INT
+SELECT COUNT (cd_ori_ate) qtd_cta_int
+      ,SUM (vl_total_conta) vl_tot_cta_int
+      ,AVG (vl_total_conta) med_cta_int
+  FROM (SELECT   reg_fat.cd_reg_fat cd_reg_fat
+                ,atendime.cd_ori_ate cd_ori_ate
+                ,ori_ate.ds_ori_ate ds_ori_ate
+                ,reg_fat.cd_convenio cd_convenio
+                ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+            FROM dbamv.reg_fat reg_fat
+                ,dbamv.atendime atendime
+                ,dbamv.ori_ate ori_ate
+                ,dbamv.remessa_fatura remessa_fatura
+                ,dbamv.fatura fatura
+                ,dbamv.itreg_fat itreg_fat
+                ,dbamv.convenio convenio
+                ,dbamv.empresa_convenio
+                ,dbamv.servico servico
+              , dbamv.itlan_med
+           WHERE  atendime.cd_atendimento = reg_fat.cd_atendimento
+             and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+             AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+             AND empresa_convenio.cd_convenio = convenio.cd_convenio
+             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND remessa_fatura.cd_fatura = fatura.cd_fatura
+             AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+             AND NVL (itreg_fat.sn_pertence_pacote, 'N') = 'N'
+             AND nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+             AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+             and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+             and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+             AND reg_fat.cd_convenio = convenio.cd_convenio
+             AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                             ,'T', reg_fat.sn_fechada
+                                             ,:CAMPO_CONTA
+                                             )
+             AND convenio.tp_convenio not in ( 'H', 'A' )
+             AND atendime.cd_servico = servico.cd_servico(+)
+        AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+        GROUP BY reg_fat.cd_reg_fat
+                ,atendime.cd_ori_ate
+                ,ori_ate.ds_ori_ate
+                ,reg_fat.cd_convenio
+        UNION ALL
+        SELECT   reg_fat.cd_reg_fat cd_reg_fat
+                ,atendime.cd_ori_ate cd_ori_ate
+                ,ori_ate.ds_ori_ate ds_ori_ate
+                ,reg_fat.cd_convenio cd_convenio
+                ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+            FROM dbamv.reg_fat reg_fat
+                ,dbamv.atendime atendime
+                ,dbamv.ori_ate ori_ate
+                ,dbamv.remessa_fatura remessa_fatura
+                ,dbamv.fatura fatura
+                ,dbamv.itreg_fat itreg_fat
+                ,dbamv.pro_fat pro_fat
+                ,dbamv.convenio convenio
+                ,dbamv.empresa_convenio
+                ,dbamv.servico servico
+                ,dbamv.itlan_med
+           WHERE  atendime.cd_atendimento = reg_fat.cd_atendimento
+             and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND atendime.cd_ori_ate = ori_ate.cd_ori_ate
+             AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+             AND empresa_convenio.cd_convenio = convenio.cd_convenio
+             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND remessa_fatura.cd_fatura = fatura.cd_fatura
+             AND itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+             AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+             AND pro_fat.sn_pacote = 'N'
+             and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+             AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+             and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+             and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+             AND reg_fat.cd_convenio = convenio.cd_convenio
+             AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                             ,'T', reg_fat.sn_fechada
+                                             ,:CAMPO_CONTA
+                                             )
+             AND convenio.tp_convenio not in ( 'H', 'A' )
+             AND atendime.cd_servico = servico.cd_servico(+)
+        AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+        GROUP BY reg_fat.cd_reg_fat
+                ,atendime.cd_ori_ate
+                ,ori_ate.ds_ori_ate
+                ,reg_fat.cd_convenio) convenio
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GLOB_NF_TP_GRAF
+SELECT   tp_gru_fat
+        ,SUM (vl_tot_internacao) vl_tot_internacao
+        ,SUM (vl_tot_ambulatorial) vl_tot_ambulatorial
+        ,SUM (vl_total_conta) vl_gru_fat
+    FROM (SELECT   reg_fat.cd_convenio cd_convenio
+                  ,itreg_fat.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_tot_internacao
+                  ,0 vl_tot_ambulatorial
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat itreg_fat
+                  ,dbamv.reg_fat reg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+	                ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_fat.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+	             and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio cd_convenio
+                  ,itreg_amb.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,0 vl_tot_internacao
+                  ,SUM (itreg_amb.vl_total_conta) vl_tot_ambulatorial
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND NVL (itreg_amb.sn_pertence_pacote, 'N') = 'N'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+          UNION ALL
+          SELECT   reg_fat.cd_convenio cd_convenio
+                  ,itreg_fat.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_tot_internacao
+                  ,0 vl_tot_ambulatorial
+                  ,sum( nvl(itlan_med.vl_liquido, itreg_fat.vl_total_conta)) vl_total_conta
+              FROM dbamv.itreg_fat itreg_fat
+                  ,dbamv.reg_fat reg_fat
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+                  ,dbamv.itlan_med
+             WHERE  itreg_fat.cd_reg_fat = reg_fat.cd_reg_fat
+               AND itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND reg_fat.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND itreg_fat.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               and itlan_med.cd_reg_fat(+) = itreg_fat.cd_reg_fat
+               and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+               and nvl( itlan_med.tp_pagamento, nvl( itreg_fat.tp_pagamento, 'P' ) ) <> 'C'
+               AND NVL (reg_fat.sn_diagno, 'N') = 'N'
+               AND reg_fat.cd_convenio = convenio.cd_convenio
+               AND reg_fat.sn_fechada = DECODE (:CAMPO_CONTA
+                                               ,'T', reg_fat.sn_fechada
+                                               ,:CAMPO_CONTA
+                                               )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND reg_fat.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND (itreg_fat.cd_reg_fat, itreg_fat.cd_lancamento) IN 
+                      (SELECT cd_reg_fat, cd_lancamento_fat
+			             FROM dbamv.itfat_nota_fiscal
+						 WHERE cd_reg_amb IS null
+					       AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+						                            FROM dbamv.nota_fiscal
+							   					   WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_fat.cd_convenio
+                  ,itreg_fat.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+          UNION ALL
+          SELECT   reg_amb.cd_convenio cd_convenio
+                  ,itreg_amb.cd_gru_fat cd_gru_fat
+                  ,gru_fat.tp_gru_fat tp_gru_fat
+                  ,0 vl_tot_internacao
+                  ,SUM (itreg_amb.vl_total_conta) vl_tot_ambulatorial
+                  ,SUM (itreg_amb.vl_total_conta) vl_total_conta
+              FROM dbamv.itreg_amb itreg_amb
+                  ,dbamv.reg_amb reg_amb
+                  ,dbamv.gru_fat gru_fat
+                  ,dbamv.remessa_fatura remessa_fatura
+                  ,dbamv.fatura fatura
+                  ,dbamv.pro_fat pro_fat
+                  ,dbamv.convenio convenio
+                  ,dbamv.empresa_convenio
+                  ,dbamv.servico servico
+                  ,dbamv.atendime atendime
+             WHERE  itreg_amb.cd_reg_amb = reg_amb.cd_reg_amb
+               AND itreg_amb.cd_gru_fat = gru_fat.cd_gru_fat
+               AND reg_amb.cd_remessa = remessa_fatura.cd_remessa
+               AND remessa_fatura.cd_fatura = fatura.cd_fatura
+               AND empresa_convenio.cd_convenio = convenio.cd_convenio
+               AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_pro_fat = pro_fat.cd_pro_fat
+               AND pro_fat.sn_pacote = 'N'
+               AND NVL (itreg_amb.tp_pagamento, 'X') <> 'C'
+               AND NVL (reg_amb.sn_diagno, 'N') = 'N'
+               AND reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND itreg_amb.cd_convenio = convenio.cd_convenio
+               AND itreg_amb.sn_fechada = DECODE (:CAMPO_CONTA
+                                                 ,'T', itreg_amb.sn_fechada
+                                                 ,:CAMPO_CONTA
+                                                 )
+               AND convenio.tp_convenio not in ( 'H', 'A' )
+               AND itreg_amb.cd_atendimento = atendime.cd_atendimento
+               AND atendime.cd_servico = servico.cd_servico(+)
+               and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          AND (itreg_amb.cd_reg_amb, itreg_amb.cd_lancamento) IN 
+		                  (SELECT cd_reg_amb, cd_lancamento_amb
+			                 FROM dbamv.itfat_nota_fiscal
+							WHERE cd_reg_fat IS null
+							  AND cd_nota_fiscal IN (SELECT cd_nota_fiscal
+							                           FROM dbamv.nota_fiscal
+							  						  WHERE 1=1 :CAMPO_CF_COND_DATA ))
+          GROUP BY reg_amb.cd_convenio
+                  ,itreg_amb.cd_gru_fat
+                  ,gru_fat.tp_gru_fat
+         ) convenio
+GROUP BY tp_gru_fat
+ORDER BY vl_gru_fat DESC

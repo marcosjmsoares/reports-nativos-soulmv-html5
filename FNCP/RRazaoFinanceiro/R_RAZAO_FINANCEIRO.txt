@@ -1,0 +1,305 @@
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_FINANCEIRO
+SELECT * FROM(
+             SELECT  to_char(null)                             tipo ,
+                     trunc(c.dt_lancamento)                              dt_emissao_pag_rec ,
+                     c.cd_con_pag                                   cd_con_pag_rec ,
+                     to_number(null)                                           cd_pag_rec,
+                     c.cd_fornecedor                                         cd_fornecedor,
+                     nvl(f.nm_fornecedor, c.ds_fornecedor)       nm_fornecedor,
+                     c.ds_con_pag                                            ds_conta,
+                     c.nr_documento                                         nr_documento,
+                     Decode(pc.tp_natureza,'D',Nvl (i . vl_duplicata, 0),0)  vl_credito,
+                     Decode(pc.tp_natureza,'D',0, Nvl (i . vl_duplicata, 0))  vl_debito,
+                     pc.cd_reduzido                                          cd_reduzido,
+                     pc.cd_contabil                                           cd_contabil
+               FROM  dbamv.con_pag         c
+                    ,dbamv.itcon_pag  i
+                    ,dbamv.plano_contas  pc
+                    ,dbamv.fornecedor  f
+              WHERE  c.cd_con_pag = i.cd_con_pag
+                AND  c.cd_reduzido = pc.cd_reduzido
+                AND  c.cd_previsao is null
+                AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'P',  :CAMPO_TP_MOVIMENTACAO)  = 'P'
+                AND  c.tp_adiantamento is null AND  c.cd_con_pag_dev is null
+                AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              UNION ALL 
+             SELECT  to_char(null) tipo
+                    ,trunc(c.dt_lancamento) dt_emissao_pag_rec
+                    ,c.cd_con_pag  cd_con_pag_rec
+                    ,to_number(null)  cd_pag_rec ,c.cd_fornecedor  cd_fornecedor
+                    ,nvl(f.nm_fornecedor, c.ds_fornecedor)       nm_fornecedor
+                    ,c.ds_con_pag  ds_conta ,c.nr_documento  nr_documento
+                    ,Decode(pc.tp_natureza,'D',0,Nvl (i . vl_duplicata, 0))  vl_credito
+                    ,Decode(pc.tp_natureza,'D',Nvl (i . vl_duplicata, 0),0)  vl_debito
+                    ,pc.cd_reduzido cd_reduzido ,pc.cd_contabil cd_contabil
+              FROM  dbamv.con_pag  c ,
+                    dbamv.itcon_pag i ,
+                    dbamv.plano_contas pc,
+           			dbamv.fornecedor f
+             WHERE  c.cd_con_pag  = i.cd_con_pag
+               AND  c.cd_reduzido = pc.cd_reduzido
+               AND  c.cd_previsao is null
+               AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'P',  :CAMPO_TP_MOVIMENTACAO)  = 'P'
+               AND  c.tp_adiantamento is null
+               AND  c.cd_con_pag_dev is not null
+               AND  :CAMPO_SN_DEVOLUCAO = 'S'
+               AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            UNION ALL
+           SELECT  to_char(null)  tipo
+                  ,trunc(p.dt_pagamento) dt_emissao_pag_rec
+                  ,to_number(null) cd_con_pag_rec ,p.cd_pagcon_pag cd_pag_rec
+                  ,c.cd_fornecedor cd_fornecedor
+                  ,nvl(f.nm_fornecedor, c.ds_fornecedor)   nm_fornecedor
+                  ,c.ds_con_pag   ds_conta
+                  ,c.nr_documento nr_documento
+                  ,Decode(pc.tp_natureza,'D',0,nvl(p.vl_pago,0) - nvl(p.vl_acrescimo,0) + nvl(p.vl_desconto,0))  vl_credito
+                  ,Decode(pc.tp_natureza,'D',nvl(p.vl_pago,0) - nvl(p.vl_acrescimo,0) + nvl(p.vl_desconto,0),0)  vl_debito
+                  ,pc.cd_reduzido cd_reduzido ,pc.cd_contabil cd_contabil
+            FROM  dbamv.con_pag  c
+                 ,dbamv.itcon_pag i
+                 ,dbamv.pagcon_pag p
+                 ,dbamv.plano_contas  pc
+                 ,dbamv.fornecedor  f
+                 ,DBAMV.PROCESSO PR
+           WHERE  c.cd_con_pag    = i.cd_con_pag
+             AND  i.cd_itcon_pag  = p.cd_itcon_pag
+             AND  c.cd_reduzido   = pc.cd_reduzido
+             AND  c.cd_previsao is null
+             AND ((:CAMPO_CONTPAG_ESTOR = 'N'
+             AND  p.dt_estorno is NULL) OR :CAMPO_CONTPAG_ESTOR = 'S')
+             AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'P',  :CAMPO_TP_MOVIMENTACAO)  = 'P'
+             AND  c.tp_adiantamento is null
+             AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND  c.cd_processo = pr.cd_processo
+             AND  pr.cd_estrutural not in ('1.2.6.1','1.2.6.2')
+             AND  p.cd_itcon_pag_dev is NULL
+           UNION ALL
+          SELECT  to_char(null)  tipo
+                 ,trunc(c.dt_emissao)  dt_emissao_pag_rec
+                 ,c.cd_con_rec  cd_con_rec ,to_number(null) cd_reccon_rec
+                 ,c.cd_fornecedor cd_fornecedor ,nvl(f.nm_fornecedor, c.nm_cliente)       nm_fornecedor
+                 ,c.ds_con_rec ds_conta ,c.nr_documento nr_documento
+                 ,Decode(pc.tp_natureza,'D',0,Nvl (i . vl_duplicata, 0))  vl_credito
+                 ,Decode(pc.tp_natureza,'D',Nvl (i . vl_duplicata, 0),0)  vl_debito
+                 ,pc.cd_reduzido cd_reduzido ,pc.cd_contabil cd_contabil
+           FROM  dbamv.con_rec   c ,dbamv.itcon_rec i ,dbamv.plano_contas pc ,dbamv.fornecedor f
+          WHERE  c.cd_con_rec = i.cd_con_rec
+            AND  c.cd_reduzido = pc.cd_reduzido
+        	AND  c.cd_previsao is null
+            AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+            AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          UNION ALL
+         SELECT  to_char(null)   tipo
+                ,trunc(r.dt_recebimento) dt_emissao_pag_rec
+                ,to_number(null) cd_con_rec
+                ,r.cd_reccon_rec cd_reccon_rec
+                ,c.cd_fornecedor cd_fornecedor
+                ,nvl(f.nm_fornecedor, c.nm_cliente) nm_fornecedor
+                ,r.ds_reccon_rec   ds_conta
+                ,r.nr_documento    nr_documento
+                ,Decode(pc.tp_natureza,'D',nvl(r.vl_recebido,0) - nvl(r.vl_acrescimo,0) + nvl(r.vl_desconto,0),0)  vl_credito
+                ,Decode(pc.tp_natureza,'D',0,nvl(r.vl_recebido,0) - nvl(r.vl_acrescimo,0) + nvl(r.vl_desconto,0))  vl_debito
+                ,pc.cd_reduzido cd_reduzido
+                ,pc.cd_contabil cd_contabil
+          FROM  dbamv.con_rec     c ,dbamv.itcon_rec  i
+               ,dbamv.reccon_rec r,dbamv.plano_contas  pc
+               ,dbamv.fornecedor    f
+         WHERE  c.cd_con_rec = i.cd_con_rec
+           AND  i.cd_itcon_rec = r.cd_itcon_rec
+           AND  c.cd_reduzido = pc.cd_reduzido
+           AND  c.cd_previsao is null
+           AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+           AND  ((:CAMPO_CONT_ESTOR = 'N'
+           AND  r.dt_estorno is NULL) OR :CAMPO_CONT_ESTOR = 'S')
+           AND  nvl(r.vl_recebido,0) - nvl(r.vl_acrescimo,0) + nvl(r.vl_desconto,0)  > 0
+           AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+         UNION ALL  
+        SELECT  'Recebimentos Estornados' tipo
+                ,trunc(r.dt_estorno)      dt_emissao_pag_rec
+                ,to_number(null)          cd_con_rec
+                ,r.cd_reccon_rec          cd_reccon_rec
+                ,c.cd_fornecedor          cd_fornecedor
+                ,nvl(f.nm_fornecedor, c.nm_cliente)     nm_fornecedor
+                ,r.ds_estorno             ds_conta
+                ,r.nr_documento           nr_documento
+                ,Decode(pc.tp_natureza,'D',0,nvl(r.vl_estorno,0))  vl_credito
+                ,Decode(pc.tp_natureza,'D',nvl(r.vl_estorno,0),0)  vl_debito
+                ,pc.cd_reduzido       cd_reduzido
+                ,pc.cd_contabil       cd_contabil
+          FROM  dbamv.con_rec c ,dbamv.itcon_rec  i
+               ,dbamv.reccon_rec r ,dbamv.plano_contas  pc
+               ,dbamv.fornecedor    f
+         WHERE  c.cd_con_rec = i.cd_con_rec
+           AND  i.cd_itcon_rec = r.cd_itcon_rec
+           AND  c.cd_reduzido = pc.cd_reduzido
+           AND  c.cd_previsao is null
+           AND  r.dt_estorno is not null
+           AND  decode(:CAMPO_CONT_ESTOR, 'S',  :CAMPO_CONT_ESTOR)  = 'S'
+           AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+           AND nvl(r.vl_estorno,0) > 0
+           AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+         UNION ALL 
+        SELECT 'Nota Canceladas'  tipo
+               ,trunc(c.dt_cancelamento)  dt_emissao_pag_rec
+               ,c.cd_con_rec              cd_con_rec
+               ,to_number(null)           cd_reccon_rec
+               ,nvl(c.cd_fornecedor,0)    cd_fornecedor
+               ,nvl(f.nm_fornecedor, c.nm_cliente)  nm_fornecedor
+               ,c.ds_cancelamento         ds_conta
+               ,c.nr_documento||' NF: '||to_char(c.cd_nota_fiscal)   nr_documento
+               ,Decode(pc.tp_natureza,'D',nvl(i.vl_duplicata,0) ,0)  vl_credito
+               ,Decode(pc.tp_natureza,'D',0,nvl(i.vl_duplicata,0) )  vl_debito
+               ,pc.cd_reduzido  cd_reduzido
+               ,pc.cd_contabil  cd_contabil
+         FROM  dbamv.con_rec    c
+              ,dbamv.itcon_rec i
+              ,dbamv.plano_contas  pc
+              ,dbamv.fornecedor    f
+        WHERE  c.cd_con_rec = i.cd_con_rec
+          AND  c.cd_reduzido = pc.cd_reduzido
+          AND  c.cd_previsao is null
+          AND  nvl(c.cd_nota_fiscal,0) <> 0
+          AND  c.dt_cancelamento is not null
+          AND  decode(:CAMPO_CONT_CANC, 'S', :CAMPO_CONT_CANC)  = 'S'
+          AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+          AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              )ORDER BY DT_EMISSAO_PAG_REC, CD_CONTABIL, CD_REDUZIDO, NM_FORNECEDOR, TIPO DESC,CD_FORNECEDOR
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_DISTRI_CONTA
+SELECT CD_CONTABIL,
+       CD_REDUZIDO,
+       Sum(VL_CREDITO) VL_CREDITO,
+       Sum(VL_DEBITO) VL_DEBITO,
+       DS_CONTA DS_CONTA_CONTABIL
+        FROM(
+             SELECT
+                     Decode(pc.tp_natureza,'D',Nvl (i . vl_duplicata, 0),0)  vl_credito,
+                     Decode(pc.tp_natureza,'D',0, Nvl (i . vl_duplicata, 0))  vl_debito,
+                     pc.cd_reduzido                                          cd_reduzido,
+                     pc.cd_contabil                                           cd_contabil,
+                     pc.ds_conta
+               FROM  dbamv.con_pag         c
+                    ,dbamv.itcon_pag  i
+                    ,dbamv.plano_contas  pc
+                    ,dbamv.fornecedor  f
+              WHERE  c.cd_con_pag = i.cd_con_pag
+                AND  c.cd_reduzido = pc.cd_reduzido
+                AND  c.cd_previsao is null
+                AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'P',  :CAMPO_TP_MOVIMENTACAO)  = 'P'
+                AND  c.tp_adiantamento is null AND  c.cd_con_pag_dev is null
+                AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              UNION ALL 
+             SELECT
+                    Decode(pc.tp_natureza,'D',0,Nvl (i . vl_duplicata, 0))  vl_credito
+                    ,Decode(pc.tp_natureza,'D',Nvl (i . vl_duplicata, 0),0)  vl_debito
+                    ,pc.cd_reduzido                                          cd_reduzido
+                    ,pc.cd_contabil cd_contabil
+                    ,pc.ds_conta
+              FROM  dbamv.con_pag  c ,
+                    dbamv.itcon_pag i ,
+                    dbamv.plano_contas pc,
+                    dbamv.fornecedor f
+             WHERE  c.cd_con_pag  = i.cd_con_pag
+               AND  c.cd_reduzido = pc.cd_reduzido
+               AND  c.cd_previsao is null
+               AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'P',  :CAMPO_TP_MOVIMENTACAO)  = 'P'
+               AND  c.tp_adiantamento is null
+               AND  c.cd_con_pag_dev is not null
+               AND  :CAMPO_SN_DEVOLUCAO = 'S'
+               AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            UNION ALL
+           SELECT Decode(pc.tp_natureza,'D',0,nvl(p.vl_pago,0) - nvl(p.vl_acrescimo,0) + nvl(p.vl_desconto,0))  vl_credito
+                  ,Decode(pc.tp_natureza,'D',nvl(p.vl_pago,0) - nvl(p.vl_acrescimo,0) + nvl(p.vl_desconto,0),0)  vl_debito
+                  ,pc.cd_reduzido cd_reduzido
+                  ,pc.cd_contabil cd_contabil
+                  ,pc.ds_conta
+            FROM  dbamv.con_pag  c
+                 ,dbamv.itcon_pag i
+                 ,dbamv.pagcon_pag p
+                 ,dbamv.plano_contas  pc
+                 ,dbamv.fornecedor  f
+                 ,DBAMV.PROCESSO PR
+           WHERE  c.cd_con_pag    = i.cd_con_pag
+             AND  i.cd_itcon_pag  = p.cd_itcon_pag
+             AND  c.cd_reduzido   = pc.cd_reduzido
+             AND  c.cd_previsao is null
+             AND ((:CAMPO_CONTPAG_ESTOR = 'N'
+             AND  p.dt_estorno is NULL) OR :CAMPO_CONTPAG_ESTOR = 'S')
+             AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'P',  :CAMPO_TP_MOVIMENTACAO)  = 'P'
+             AND  c.tp_adiantamento is null
+             AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND  c.cd_processo = pr.cd_processo
+             AND  pr.cd_estrutural not in ('1.2.6.1','1.2.6.2')
+             AND  p.cd_itcon_pag_dev is NULL
+           UNION ALL
+          SELECT Decode(pc.tp_natureza,'D',0,Nvl (i . vl_duplicata, 0))  vl_credito
+                 ,Decode(pc.tp_natureza,'D',Nvl (i . vl_duplicata, 0),0)  vl_debito
+                 ,pc.cd_reduzido cd_reduzido
+                 ,pc.cd_contabil cd_contabil
+                 ,pc.ds_conta
+           FROM  dbamv.con_rec   c ,dbamv.itcon_rec i ,dbamv.plano_contas pc ,dbamv.fornecedor f
+          WHERE  c.cd_con_rec = i.cd_con_rec
+            AND  c.cd_reduzido = pc.cd_reduzido
+            AND  c.cd_previsao is null
+            AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+            AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          UNION ALL
+         SELECT Decode(pc.tp_natureza,'D',nvl(r.vl_recebido,0) - nvl(r.vl_acrescimo,0) + nvl(r.vl_desconto,0),0)  vl_credito
+                ,Decode(pc.tp_natureza,'D',0,nvl(r.vl_recebido,0) - nvl(r.vl_acrescimo,0) + nvl(r.vl_desconto,0))  vl_debito
+                ,pc.cd_reduzido cd_reduzido
+                ,pc.cd_contabil cd_contabil
+                ,pc.ds_conta
+          FROM  dbamv.con_rec     c ,dbamv.itcon_rec  i
+               ,dbamv.reccon_rec r,dbamv.plano_contas  pc
+               , dbamv.fornecedor    f
+         WHERE  c.cd_con_rec = i.cd_con_rec
+           AND  i.cd_itcon_rec = r.cd_itcon_rec
+           AND  c.cd_reduzido = pc.cd_reduzido
+           AND  c.cd_previsao is null
+           AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+           AND  ((:CAMPO_CONT_ESTOR = 'N'
+           AND  r.dt_estorno is NULL) OR :CAMPO_CONT_ESTOR = 'S')
+           AND  nvl(r.vl_recebido,0) - nvl(r.vl_acrescimo,0) + nvl(r.vl_desconto,0)  > 0
+           AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+         UNION ALL  
+        SELECT  Decode(pc.tp_natureza,'D',0,nvl(r.vl_estorno,0))  vl_credito
+                ,Decode(pc.tp_natureza,'D',nvl(r.vl_estorno,0),0)  vl_debito
+                ,pc.cd_reduzido       cd_reduzido
+                ,pc.cd_contabil       cd_contabil
+                ,pc.ds_conta
+          FROM  dbamv.con_rec c ,dbamv.itcon_rec  i
+               ,dbamv.reccon_rec r ,dbamv.plano_contas  pc
+               ,dbamv.fornecedor    f
+         WHERE  c.cd_con_rec = i.cd_con_rec
+           AND  i.cd_itcon_rec = r.cd_itcon_rec
+           AND  c.cd_reduzido = pc.cd_reduzido
+           AND  c.cd_previsao is null
+           AND  r.dt_estorno is not null
+           AND  decode(:CAMPO_CONT_ESTOR, 'S',  :CAMPO_CONT_ESTOR)  = 'S'
+           AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+           AND nvl(r.vl_estorno,0) > 0
+           AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+         UNION ALL 
+        SELECT Decode(pc.tp_natureza,'D',nvl(i.vl_duplicata,0) ,0)  vl_credito
+               ,Decode(pc.tp_natureza,'D',0,nvl(i.vl_duplicata,0) )  vl_debito
+               ,pc.cd_reduzido  cd_reduzido
+               ,pc.cd_contabil  cd_contabil
+               ,pc.ds_conta
+         FROM  dbamv.con_rec    c
+              ,dbamv.itcon_rec i
+              ,dbamv.plano_contas  pc
+              ,dbamv.fornecedor    f
+        WHERE  c.cd_con_rec = i.cd_con_rec
+          AND  c.cd_reduzido = pc.cd_reduzido
+          AND  c.cd_previsao is null
+          AND  nvl(c.cd_nota_fiscal,0) <> 0
+          AND  c.dt_cancelamento is not null
+          AND  decode(:CAMPO_CONT_CANC, 'S', :CAMPO_CONT_CANC)  = 'S'
+          AND  decode(:CAMPO_TP_MOVIMENTACAO, 'T', 'R',  :CAMPO_TP_MOVIMENTACAO)  = 'R'
+          AND  c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              ) GROUP BY CD_CONTABIL, CD_REDUZIDO, DS_CONTA
+              ORDER BY CD_CONTABIL, CD_REDUZIDO, DS_CONTA

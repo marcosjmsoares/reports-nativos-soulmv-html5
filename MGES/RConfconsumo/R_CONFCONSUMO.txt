@@ -1,0 +1,108 @@
+/*----------------------------------------------------------------------------*/
+--R_CONFCONSUMO
+SELECT ip.cd_consumo_paciente
+     , m.dt_mvto_estoque
+     , m.cd_estoque
+     , es.ds_estoque
+     , m.cd_setor
+     , se.nm_setor
+     , m.cd_unid_int
+     , u.ds_unid_int
+     , m.cd_atendimento
+     , m.cd_aviso_cirurgia
+     , pa.cd_paciente
+     , pa.nm_paciente
+     , a.cd_convenio
+     , co.nm_convenio
+     , i.cd_produto
+     , p.ds_produto
+     , Sum(nvl(i.qt_movimentacao,0))  qt_movimentacao
+     , uni.ds_unidade
+     , e.cd_especie
+     , e.ds_especie
+     , c.cd_classe
+     , c.ds_classe
+     , s.cd_sub_cla
+     , s.ds_sub_cla
+     , i.cd_fornecedor
+     , f.nm_fornecedor
+     , Decode(ip.tp_desconto_opme, 'F', 'Financeiro','C','Comercial')  tp_desconto_opme
+     , nvl(ip.vl_desconto_opme,0) vl_desconto_opme
+     , i.cd_lote
+     , i.dt_validade
+  FROM dbamv.mvto_estoque m
+     , dbamv.estoque es
+     , dbamv.itmvto_estoque i
+     , dbamv.setor se
+     , dbamv.unid_int u
+     , dbamv.produto p
+     , dbamv.especie e
+     , dbamv.classe  c
+     , dbamv.sub_clas s
+     , dbamv.fornecedor f
+     , dbamv.atendime a
+     , dbamv.paciente pa
+     , dbamv.convenio co
+     , dbamv.itconsumo_paciente ip
+     , dbamv.uni_pro uni
+ WHERE m.cd_mvto_estoque                          = i.cd_mvto_estoque
+   AND m.cd_estoque                               = es.cd_estoque
+   AND es.cd_estoque                              = Decode (:CAMPO_CD_ESTOQUE, '%', es.cd_estoque , :CAMPO_CD_ESTOQUE )
+   AND i.cd_produto                               = p.cd_produto
+   AND p.cd_produto                               = Decode (:CAMPO_CD_PRODUTO, '%', p.cd_produto , :CAMPO_CD_PRODUTO )
+   AND m.cd_setor                                 = se.cd_setor (+)
+   AND Nvl(se.cd_setor,9999999999999999)          = Decode (:CAMPO_CD_SETOR, '%', Nvl(se.cd_setor,9999999999999999) , :CAMPO_CD_SETOR )
+   AND m.cd_unid_int                              = u.cd_unid_int (+)
+   AND Nvl(u.cd_unid_int,9999999999999999)        = Decode (:CAMPO_CD_UNI_INT, '%', Nvl(u.cd_unid_int,9999999999999999) , :CAMPO_CD_UNI_INT )
+   AND p.cd_especie                               = e.cd_especie
+   AND p.cd_especie                               = c.cd_especie
+   AND e.cd_especie                               = Decode (:CAMPO_CD_ESPECIE, '%', e.cd_especie , :CAMPO_CD_ESPECIE )
+   AND p.cd_classe                                = c.cd_classe
+   AND p.cd_especie                               = s.cd_especie
+   AND p.cd_classe                                = s.cd_classe
+   AND c.cd_classe                                = Decode (:CAMPO_CD_CLASSE, '%', c.cd_classe , :CAMPO_CD_CLASSE )
+   AND p.cd_sub_cla                               = s.cd_sub_cla
+   AND s.cd_sub_cla                               = Decode (:CAMPO_CD_SUB_CLASSE, '%', s.cd_sub_cla , :CAMPO_CD_SUB_CLASSE )
+   AND i.cd_uni_pro                               = uni.cd_uni_pro
+   AND i.cd_fornecedor                            = f.cd_fornecedor(+)
+   AND Nvl(f.cd_fornecedor,9999999999999999)      = Decode (:CAMPO_CD_FORNECEDOR, '%', Nvl(f.cd_fornecedor,9999999999999999) , :CAMPO_CD_FORNECEDOR )
+   AND m.cd_atendimento                           = a.cd_atendimento
+   AND a.cd_atendimento                           = Decode (:CAMPO_CD_ATENDIMENTO, '%', a.cd_atendimento , :CAMPO_CD_ATENDIMENTO )
+   AND a.cd_paciente                              = pa.cd_paciente
+   AND a.cd_convenio                              = co.cd_convenio
+   AND co.cd_convenio                             = Decode (:CAMPO_CD_CONVENIO, '%', co.cd_convenio , :CAMPO_CD_CONVENIO )
+   AND p.sn_consignado                            = 'S'
+   AND Nvl(m.cd_aviso_cirurgia,9999999999999999)  = Decode (:CAMPO_CD_AVISO_CIRURGIA, '%', Nvl(m.cd_aviso_cirurgia,9999999999999999), :CAMPO_CD_AVISO_CIRURGIA )
+   AND NVL(ip.tp_desconto_opme,'A')               = Decode(:CAMPO_TP_DESCONTO_OPME, 'F', 'F','C','C', NVL(ip.tp_desconto_opme,'A') )
+   AND  Trunc(m.dt_mvto_estoque) BETWEEN Trunc(:CAMPO_DT_INICIAL) AND Trunc(:CAMPO_DT_FINAL)
+    AND i.cd_itmvto_estoque = ip.cd_itmvto_estoque(+)
+AND Nvl(ip.cd_consumo_paciente,0) = Decode(:CAMPO_SN_CONSUMO_CONFIRMADO,'S', ip.cd_consumo_paciente , Nvl(ip.cd_consumo_paciente,0) )
+GROUP BY ip.cd_consumo_paciente
+     , i.cd_produto
+     , m.dt_mvto_estoque
+     , m.cd_estoque
+     , es.ds_estoque
+     , m.cd_setor
+     , se.nm_setor
+     , m.cd_unid_int
+     , u.ds_unid_int
+     , m.cd_atendimento
+     , m.cd_aviso_cirurgia
+     , pa.cd_paciente
+     , pa.nm_paciente
+     , a.cd_convenio
+     , co.nm_convenio
+     , p.ds_produto
+     , uni.ds_unidade
+     , e.cd_especie
+     , e.ds_especie
+     , c.cd_classe
+     , c.ds_classe
+     , s.cd_sub_cla
+     , s.ds_sub_cla
+     , i.cd_fornecedor
+     , f.nm_fornecedor
+     , ip.tp_desconto_opme
+     , ip.vl_desconto_opme
+     , i.cd_lote
+     , i.dt_validade

@@ -1,0 +1,62 @@
+/*----------------------------------------------------------------------------*/
+--R_CURVA_ABC_FARM
+SELECT * FROM (
+Select Est_pro.cd_produto						cd_produto,
+       Produto.ds_produto						ds_produto,
+       Produto.cd_especie					cd_espec_auxi,
+       especie.ds_especie					ds_espec_auxi,
+       Verif_ds_unid_prod( produto.cd_produto, 'G' ) ds_unidade,
+	   sum( c_conest.qt_estoque_inicial / verif_vl_fator_prod( produto.cd_produto ) ) qt_estoque_incial,
+	   sum( ( nvl( c_conest.qt_entrada            , 0 ) +
+	          nvl( c_conest.qt_doacao             , 0 ) +
+			  nvl( c_conest.qt_manipulada_entrada, 0 ) +
+		   	  nvl( c_conest.qt_emprestimo_entrada, 0 ) ) / verif_vl_fator_prod( produto.cd_produto ) ) qt_entrada,
+	   sum( ( nvl( c_conest.qt_saida_paciente     , 0 ) +
+	          nvl( c_conest.qt_saida_setor        , 0 ) +
+			  nvl( c_conest.qt_transferencia_saida, 0 ) +
+			  nvl( c_conest.qt_baixa              , 0 ) +
+			  nvl( c_conest.qt_venda              , 0 ) +
+			  nvl(c_conest.qt_devolvida_fornec  , 0 ) ) / verif_vl_fator_prod( produto.cd_produto ) ) qt_saida,
+	   sum( ( nvl( c_conest.qt_devolucao_setor      , 0 ) +
+	          nvl( c_conest.qt_devolucao_paciente   , 0 ) +
+			  nvl( c_conest.qt_entrada_transferido, 0 ) +
+			  nvl( c_conest.qt_manipulada_saida    , 0 ) ) / verif_vl_fator_prod( produto.cd_produto ) ) qt_devolucao,
+	   sum( ( nvl( c_conest.qt_contagem_entrada     , 0 ) -
+	          nvl( c_conest.qt_contagem_saida       , 0 ) ) / verif_vl_fator_prod( produto.cd_produto ) ) qt_contagem,
+       Decode( produto.cd_pro_fat, null, 'N', 'S' )                                   Sn_rn,
+       SUM( Est_pro.qt_ponto_de_pedido / verif_vl_Fator_prod( produto.cd_produto ) )  qt_ponto_de_pedido,
+       SUM( Est_pro.qt_estoque_atual / verif_vl_Fator_prod( produto.cd_produto )   )  qt_estoque_Atual,
+       Produto.vl_custo_medio * verif_vl_fator_prod( produto.cd_produto )             vl_custo_medio,
+       Produto.vl_ultima_custo_real * verif_vl_Fator_prod( produto.cd_produto )       vl_ultima_entrada,
+       Sum( Est_pro.qt_ordem_de_compra / verif_vl_Fator_prod( produto.cd_produto ) )        qt_ordem_de_compras,
+       Verif_vl_fator_prod(produto.cd_produto) 									      vl_fator
+   from Dbamv.est_pro,
+        Dbamv.produto,
+        Dbamv.especie,
+        Dbamv.c_conest,
+        Dbamv.estoque
+where   C_Conest.Cd_Mes	= To_Number( To_Char( :CAMPO_DT_INICIAL, 'MM' ) )
+    And C_Conest.Cd_Ano	= To_Number( To_Char( :CAMPO_DT_INICIAL, 'YYYY' ) )
+    And Produto.sn_mestre       = 'N'
+    And Est_pro.cd_produto      = Produto.cd_produto
+    And Produto.sn_movimentacao = 'S' 
+    And Produto.cd_especie   = especie.cd_especie
+    And Produto.cd_produto      = c_conest.cd_produto
+    And Produto.cd_produto      = Est_Pro.cd_Produto
+   And C_conest.cd_Estoque     = Est_Pro.cd_Estoque
+   And produto.tp_ativo = 'S'
+   And est_pro.cd_estoque = estoque.cd_estoque
+   And estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA     
+Group by Est_pro.cd_produto,
+         Produto.ds_produto,
+         Produto.cd_especie,
+         especie.ds_especie,
+         Verif_ds_unid_prod( produto.cd_produto, 'G' ),
+         Decode( produto.cd_pro_fat, null, 'N', 'S' ),
+		 Produto.vl_custo_medio * verif_vl_fator_prod( produto.cd_produto ),
+		 Produto.vl_ultima_custo_real * verif_vl_Fator_prod( produto.cd_produto ),
+		 Verif_vl_fator_prod(produto.cd_produto)
+Order by  especie.ds_especie,
+          Produto.ds_produto
+)
+ORDER BY CD_ESPEC_AUXI,DS_ESPEC_AUXI

@@ -1,0 +1,46 @@
+/*----------------------------------------------------------------------------*/
+--R_ENT_LAUDO
+SELECT * FROM (
+SELECT  SETOR.CD_SETOR
+               ,SETOR.NM_SETOR
+               ,ENT_PSDI.CD_ENT_PSDI
+               ,ENT_PSDI.NM_RESPONSAVEL
+               ,ENT_PSDI.DT_ENTREGA
+               ,ENT_PSDI.HR_ENTREGA
+               ,ITENT_PSDI.CD_LAUDO
+               ,LAUDO_RX.DT_LAUDO
+               ,ITPED_RX.CD_EXA_RX
+               ,PED_RX.CD_PED_RX
+               ,PED_RX.CD_ATENDIMENTO
+               ,PACIENTE.CD_PACIENTE
+               ,PACIENTE.NM_PACIENTE
+               ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND Atendime.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE 
+               ,decode(:CAMPO_ORDEM_RELATORIO, 1, to_char(setor.cd_setor || ped_rx.cd_ped_rx || itent_psdi.cd_laudo), 2, nm_paciente, ent_psdi.dt_entrega) ordem
+               ,EXA_RX.DS_EXA_RX
+FROM    DBAMV.ENT_PSDI
+             ,DBAMV.ITENT_PSDI
+             ,DBAMV.LAUDO_RX
+             ,DBAMV.ITPED_RX
+             ,DBAMV.PED_RX
+             ,DBAMV.EXA_RX
+             ,DBAMV.SETOR
+             ,DBAMV.ATENDIME
+             ,DBAMV.PACIENTE
+WHERE  ENT_PSDI.CD_ENT_PSDI  =  :CAMPO_ENTREGA
+AND        ITENT_PSDI.CD_ENT_PSDI  =  ENT_PSDI.CD_ENT_PSDI
+AND        ENT_PSDI.CD_SET_EXA IN (SELECT PSDI_SET_EXA.CD_SET_EXA
+                                                               FROM DBAMV.PSDI_SET_EXA
+                                                               WHERE NM_USUARIO = USER)
+AND        LAUDO_RX.CD_LAUDO  =  ITENT_PSDI.CD_LAUDO
+AND        ITPED_RX.CD_LAUDO  =  LAUDO_RX.CD_LAUDO
+AND        PED_RX.CD_PED_RX  =  ITPED_RX.CD_PED_RX
+AND        PED_RX.CD_SETOR  =  SETOR.CD_SETOR
+AND        ATENDIME.CD_ATENDIMENTO  =  PED_RX.CD_ATENDIMENTO
+AND        PACIENTE.CD_PACIENTE  =  ATENDIME.CD_PACIENTE
+AND        EXA_RX.CD_EXA_RX  =  ITPED_RX.CD_EXA_RX
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY ORDEM  
+)
+ORDER BY NM_SETOR,CD_SETOR,
+CD_ENT_PSDI,NM_RESPONSAVEL,DT_ENTREGA,HR_ENTREGA,
+ORDEM,CD_PED_RX,CD_ATENDIMENTO,CD_PACIENTE,NM_PACIENTE

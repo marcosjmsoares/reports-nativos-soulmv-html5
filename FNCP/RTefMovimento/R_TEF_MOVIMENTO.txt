@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_TEF_MOVIMENTO
+SELECT
+       (SELECT Nvl(Nvl(Nvl(Nvl(Nvl(Decode(tp_status ,'OK',
+       Decode((SELECT cd_estorno FROM dbamv.tef_movimento WHERE cd_estorno = mvto.cd_tef_movimento), NULL,'FINALIZADO','ESTORNADO')),
+       Decode(tp_status ,'00','INSERIDO')),
+       Decode(tp_status ,'01','RETORNADO')),
+       Decode(tp_status ,'02','CONFIRMADO')),
+       Decode(tp_status ,'03','FINALIZANDO')),
+       Decode(tp_status ,'DS','DESFEITO'))
+  FROM dbamv.tef_movimento 
+  WHERE cd_tef_movimento = mvto.cd_tef_movimento) ds_status,		
+  mvto.cd_tef_movimento ID,
+  mvto.DS_movimento NR_MOVIMENTO,
+  mvto.DS_comprovante NR_COMPROVANTE,
+  TO_CHAR(mvto.dt_movimento, 'dd/mm/yyyy hh24') DT_MOVIMENTO,
+  mvto.tp_cartao TP_MOVIMENTO,
+  mvto.vl_movimento VL_MOVIMENTO,
+  mvto.qt_parcelas QTD_PARCELAS,
+  mvto.cd_modulo MODULO,
+  Parc.Ds_Tef_Parceiro PARCEIRO,
+  mvto.cd_usuario USUARIO,
+  (select ds_bandeira from dbamv.tef_fincar t where t.cd_fin_car = mvto.cd_fin_car and t.cd_fin_car is not null) ds_bandeira
+FROM dbamv.tef_movimento mvto,
+  dbamv.multi_empresas empr,
+  dbamv.fin_car admn,
+  dbasgu.usuarios usua,
+  dbamv.Tef_Tipomvto tpmvto,
+  dbamv.tef_parceiro parc
+WHERE mvto.cd_multi_empresa = empr.cd_multi_empresa
+AND mvto.cd_usuario         = usua.cd_usuario
+AND mvto.cd_fin_car         = admn.cd_fin_car
+AND mvto.Cd_Tef_Tipomvto    = tpmvto.Cd_Tef_Tipomvto
+AND mvto.cd_tef_parceiro    = parc.Cd_Tef_Parceiro
+and mvto.cd_estorno is null
+AND TRUNC(mvto.DT_MOVIMENTO) >= TRUNC(:CAMPO_DATA_INICIAL)
+AND TRUNC(mvto.DT_MOVIMENTO) <= TRUNC(:CAMPO_DATA_FINAL)
+order by 2 desc

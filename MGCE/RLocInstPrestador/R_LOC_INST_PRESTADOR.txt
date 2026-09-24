@@ -1,0 +1,29 @@
+/*----------------------------------------------------------------------------*/
+--R_LOC_INST_PRESTADOR
+Select distinct
+       Prestador.Nm_Prestador Prestador
+      ,Cx_Kit.Cd_Kit
+      ,Cx_Kit.Ds_Kit CaixaKit
+      ,Arsenal.Ds_Corredor Corredor
+      ,Arsenal.Ds_Prateleira
+      ,Arsenal.Ds_Armario ArmarioBox
+From Dbamv.Prestador
+    ,Dbamv.Cx_Kit
+    ,Dbamv.Arsenal
+    ,Dbamv.Config_Cme
+    ,Dbamv.It_Mvto_cme
+Where Prestador.Cd_Prestador= cx_kit.cd_prestador
+  and Cx_Kit.Cd_Kit = It_Mvto_Cme.Cd_Kit
+  and Config_Cme.Cd_Setor_Arsenal = It_Mvto_Cme.Cd_Setor
+  and Config_Cme.Cd_Localidade_Arsenal = It_Mvto_Cme.Cd_Localidade
+  and Arsenal.Cd_Arsenal = It_Mvto_Cme.Cd_Arsenal
+  and cx_kit.cd_kit not in (select distinct it_mvto_cme.cd_kit
+                                           from dbamv.it_mvto_cme, dbamv.Arsenal
+                                        where it_mvto_cme.sn_final_fase = 'N'
+                                            and it_mvto_cme.cd_prestador_retirante is not null)
+  and (cx_kit.cd_kit, it_mvto_cme.cd_itmvto_cme) in (select cx_kit.cd_kit, max(it_mvto_cme.cd_itmvto_cme)
+                                                                                      from dbamv.it_mvto_cme, dbamv.cx_kit
+                                                                                   where it_mvto_cme.cd_kit = cx_kit.cd_kit
+                                                                                       and it_mvto_cme.cd_cancelamento is null
+                                                                                       and it_mvto_cme.sn_final_fase = 'N'
+                                                                                       group by cx_kit.cd_kit)

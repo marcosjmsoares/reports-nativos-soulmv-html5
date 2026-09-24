@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_ESPEC_PREST
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_ESPEC_PREST_R_ESPECIALIDADE_Q_CIR_ESPECIALID
+SELECT * FROM (
+SELECT  A.CD_CEN_CIR
+              ,A.DS_CEN_CIR
+              ,A.CD_PRESTADOR
+              ,NVL(P.NM_PRESTADOR,'NAO INFORMADO')    NM_PRESTADOR
+              ,A.DS_ESPECIALID
+              ,SUM(A.TOT_REALIZ)
+              ,SUM(A.TOT_CANCE)
+              ,SUM(A.TOT_AGEND)
+FROM (
+   SELECT  CEN_CIR.CD_CEN_CIR                                                                     CD_CEN_CIR
+          ,CEN_CIR.DS_CEN_CIR                                                                             DS_CEN_CIR
+          ,DBAMV.F_VERIF_PRESTADOR(CIRURGIA_AVISO.CD_AVISO_CIRURGIA, CIRURGIA_AVISO.CD_CIRURGIA)   CD_PRESTADOR
+          ,DBAMV.F_VERIF_DATA(AVISO_CIRURGIA.CD_AVISO_CIRURGIA)      DATA
+          ,NVL(ESPECIALID.DS_ESPECIALID, 'NAO INFORMADA')                        DS_ESPECIALID
+          ,DECODE( AVISO_CIRURGIA.TP_SITUACAO, 'R', 1, 0)                            TOT_REALIZ
+          ,DECODE( AVISO_CIRURGIA.TP_SITUACAO, 'C', 1, 0)                            TOT_CANCE
+          ,DECODE( AVISO_CIRURGIA.TP_SITUACAO, 'G', 1, 0)                            TOT_AGEND
+   FROM  DBAMV.AVISO_CIRURGIA
+              ,DBAMV.ESPECIALID
+              ,DBAMV.CEN_CIR
+              ,DBAMV.CIRURGIA_AVISO
+WHERE  AVISO_CIRURGIA.CD_AVISO_CIRURGIA = CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+AND    AVISO_CIRURGIA.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+AND    AVISO_CIRURGIA.CD_CEN_CIR                    = CEN_CIR.CD_CEN_CIR
+AND    CIRURGIA_AVISO.CD_ESPECIALID               = ESPECIALID.CD_ESPECIALID(+)
+:CAMPO_COND_CD_CEN_CIR
+)  A
+  ,DBAMV.PRESTADOR P
+WHERE     A.DATA  BETWEEN To_Date(Concat(To_Char(:CAMPO_DT_INICIO,'dd/mm/yyyy'),'00'),'dd/mm/yyyy hh24') and  To_Date(Concat(To_Char(:CAMPO_DT_FIM,'dd/mm/yyyy'),'23'),'dd/mm/yyyy hh24')
+AND       A.CD_PRESTADOR  = P.CD_PRESTADOR(+)
+GROUP BY  A.CD_CEN_CIR
+         ,A.DS_CEN_CIR
+         ,A.DS_ESPECIALID
+         ,P.NM_PRESTADOR
+         ,A.CD_PRESTADOR
+)
+ORDER BY DS_CEN_CIR,CD_CEN_CIR,
+DS_ESPECIALID,NM_PRESTADOR

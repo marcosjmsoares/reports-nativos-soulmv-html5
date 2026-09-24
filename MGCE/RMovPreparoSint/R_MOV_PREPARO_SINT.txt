@@ -1,0 +1,56 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_PREPARO_SINT
+SELECT 
+   cd_solicitacao_cme
+  ,cd_cancelamento
+  ,recebidoporsim
+  ,recebidopornao
+  ,DataRecebimento
+  ,cd_aviso_cirurgia
+  ,cd_atendimento
+  ,qt_kit
+  ,qt_bem
+  ,qt_bem_terceiro
+  ,qt_prod_repro
+  ,nm_paciente
+  ,(SELECT Config_Cme.Sn_Identi_Geral FROM dbamv.Config_Cme WHERE cd_multi_empresa = 5  AND cd_setor_preparo = (SELECT Max(sol.cd_setor_principal) FROM solicitacao_cme sol WHERE sol.cd_solicitacao_cme = cd_solicitacao_cme)) Sn_Identi_Geral
+         FROM (
+select distinct
+         solicitacao_cme.cd_solicitacao_cme
+        ,solicitacao_cme.cd_cancelamento
+        ,solicitacao_cme.cd_usuario_entrada RecebidoPorSim
+        ,solicitacao_cme.cd_usuario_cadastro RecebidoPorNao
+        ,to_char(solicitacao_cme.dh_cadastro,'DD/MM/YYYY') DataRecebimento
+        ,solicitacao_cme.cd_aviso_cirurgia
+        ,solicitacao_cme.cd_atendimento
+        ,Nvl((SELECT Sum(Nvl(qt_kit_caixa,0)) FROM dbamv.composicao_solicitacao_cme x WHERE x.cd_solicitacao_cme = solicitacao_cme.cd_solicitacao_cme),0) qt_kit
+        ,Nvl((SELECT Sum(Nvl(qt_item_avulso,0)) FROM dbamv.item_avulso_solicitacao_cme x WHERE x.cd_bem IS NOT NULL AND x.cd_solicitacao_cme = solicitacao_cme.cd_solicitacao_cme),0) qt_bem
+        ,Nvl((SELECT Sum(Nvl(qt_item_avulso,0)) FROM dbamv.item_avulso_solicitacao_cme x WHERE x.cd_bem_terceiro IS NOT NULL AND x.cd_solicitacao_cme = solicitacao_cme.cd_solicitacao_cme),0) qt_bem_terceiro
+        ,Nvl((SELECT Sum(Nvl(qt_item_avulso,0)) FROM dbamv.item_avulso_solicitacao_cme x WHERE x.cd_produto_reprocessado IS NOT NULL AND x.cd_solicitacao_cme = solicitacao_cme.cd_solicitacao_cme),0) qt_prod_repro
+        ,nvl(aviso_cirurgia.nm_paciente, paciente.nm_paciente) nm_paciente
+from dbamv.solicitacao_cme
+	 ,dbamv.composicao_solicitacao_cme
+	 ,dbamv.item_avulso_solicitacao_cme
+    ,dbamv.aviso_cirurgia
+    ,dbamv.paciente
+    ,dbamv.setor
+WHERE                                                   
+   solicitacao_cme.cd_setor_principal = setor.cd_setor
+   AND solicitacao_cme.cd_aviso_cirurgia = aviso_cirurgia.cd_aviso_cirurgia (+)
+   AND aviso_cirurgia.cd_paciente = paciente.cd_paciente(+)
+   AND solicitacao_cme.cd_solicitacao_cme = item_avulso_solicitacao_cme.cd_solicitacao_cme(+)
+   AND solicitacao_cme.cd_solicitacao_cme = composicao_solicitacao_cme.cd_solicitacao_cme(+)
+   AND trunc(solicitacao_cme.dh_cadastro) BETWEEN :CAMPO_DATA_INI AND 
+   AND setor.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+   AND solicitacao_cme.tp_situacao >= 4
+GROUP BY
+    solicitacao_cme.cd_solicitacao_cme
+   ,solicitacao_cme.cd_cancelamento
+   ,solicitacao_cme.cd_usuario_entrada 
+   ,solicitacao_cme.cd_usuario_cadastro
+   ,to_char(solicitacao_cme.dh_cadastro,'DD/MM/YYYY')
+   ,solicitacao_cme.cd_aviso_cirurgia
+   ,solicitacao_cme.cd_atendimento
+   ,nvl(aviso_cirurgia.nm_paciente, paciente.nm_paciente)
+Order by solicitacao_cme.cd_solicitacao_cme
+)

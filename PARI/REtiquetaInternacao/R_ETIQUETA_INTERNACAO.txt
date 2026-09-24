@@ -1,0 +1,71 @@
+/*----------------------------------------------------------------------------*/
+--R_ETIQUETA_INTERNACAO
+SELECT CD_CIDADE,
+       '1' A
+FROM DBAMV.CIDADE WHERE ROWNUM <= :CAMPO_ETIQ
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ETIQUETA_INTERNACAO_RF_ETIQ1_Q_ATENDIMENTO
+SELECT * FROM (
+SELECT '1' A1,
+              PACIENTE.CD_PACIENTE
+             ,PACIENTE.NM_PACIENTE
+             ,PACIENTE.DT_NASCIMENTO
+             ,PACIENTE.DT_CADASTRO
+             ,DECODE(PACIENTE.TP_SEXO, 'M', 'MASCULINO', 'F', 'FEMININO', 'AMBOS')  DS_SEXO
+             ,(PACIENTE.DS_ENDERECO || ' '  ||  PACIENTE.NR_ENDERECO || ' ' || PACIENTE.DS_COMPLEMENTO)   DS_ENDERECO
+             ,PACIENTE.NM_BAIRRO
+             ,(CIDADE.NM_CIDADE ||  '-'  ||  CIDADE.CD_UF)  NM_CIDADE
+             ,PACIENTE.NR_CEP
+             ,ATENDIME.CD_ATENDIMENTO
+             ,CONVENIO.NM_CONVENIO
+             ,LEITO.DS_RESUMO
+             ,UNID_INT.DS_UNID_INT
+             ,DECODE(PACIENTE.SN_UTIL_IDENTIDADE_GENERO,
+              'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_IDENTIDADE_GENERO'
+                          AND    CD_BLOCO = 'PACIENTE') ,
+                         1,IDENTIDADE_GENERO.DS_IDENTIDADE_GENERO,
+                         NULL),
+              NULL) AS IDENTIDADE_GENERO
+            ,DECODE(PACIENTE.SN_UTIL_ORIENTACAO_SEXUAL,
+              'S',DECODE(
+                          (
+                          SELECT MAX(1)
+                          FROM   DBASGU.CONFIG_ITEM_MODULO
+                          WHERE  CD_MODULO = 'CAD_PAC'
+                          AND    SN_VISIBLE = 'S'
+                          AND    CD_ITEM = 'DSP_DS_ORIENTACAO_SEXUAL'
+                          AND    CD_BLOCO = 'PACIENTE' ),
+                         1,ORIENTACAO_SEXUAL.DS_ORIENTACAO_SEXUAL,
+                         NULL),
+              NULL) AS ORIENTACAO_SEXUAL
+FROM     DBAMV.ATENDIME
+              ,DBAMV.CONVENIO
+              ,DBAMV.LEITO
+              ,DBAMV.UNID_INT
+              ,DBAMV.PACIENTE
+              ,DBAMV.CIDADE
+              ,DBAMV.IDENTIDADE_GENERO
+              ,DBAMV.ORIENTACAO_SEXUAL
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+And PACIENTE.CD_CIDADE = CIDADE.CD_CIDADE(+)
+AND        ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_LEITO  =  LEITO.CD_LEITO(+)
+AND        LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT(+)
+AND        PACIENTE.CD_IDENTIDADE_GENERO = IDENTIDADE_GENERO.CD_IDENTIDADE_GENERO(+)
+AND        PACIENTE.CD_ORIENTACAO_SEXUAL = ORIENTACAO_SEXUAL.CD_ORIENTACAO_SEXUAL(+)
+:CAMPO_COND_ATENDIME
+)
+WHERE A1 = :CAMPO_A

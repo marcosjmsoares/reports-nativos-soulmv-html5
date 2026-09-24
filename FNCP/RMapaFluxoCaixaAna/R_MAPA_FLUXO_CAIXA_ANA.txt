@@ -1,0 +1,157 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_FLUXO_CAIXA_ANA
+SELECT * FROM (
+SELECT  CD_CONTA
+       ,DS_CONTA
+       ,DIA
+       ,DS_DOC
+       ,NR_DOC
+       ,SUM( VL_REC_A_REALIZAR )    VL_REC_A_REALIZAR
+       ,SUM( VL_REC_REALIZADO   )    VL_REC_REALIZADO
+       ,SUM( VL_REC_RATEIO          )    VL_REC_RATEIO
+       ,SUM( VL_REC_ACRESCIMO  )    VL_REC_ACRESCIMO
+       ,SUM( VL_REC_DESCONTO   )    VL_REC_DESCONTO
+       ,SUM( VL_REC_PREVISTO     )    VL_REC_PREVISTO
+       ,SUM( VL_DES_A_REALIZAR )    VL_DES_A_REALIZAR
+       ,SUM( VL_DES_REALIZADO   )    VL_DES_REALIZADO
+       ,SUM( VL_DES_RATEIO          )    VL_DES_RATEIO
+       ,SUM( VL_DES_ACRESCIMO  )    VL_DES_ACRESCIMO
+       ,SUM( VL_DES_DESCONTO   )    VL_DES_DESCONTO
+       ,SUM( VL_DES_DUPLICATA   )    VL_DES_DUPLICATA
+  FROM (
+SELECT IR.CD_ITEM_RES   CD_CONTA
+      ,IR.DS_ITEM_RES   DS_CONTA
+      ,IT.DT_PREVISTA_RECEBIMENTO   DIA
+      ,CR.DS_CON_REC    DS_DOC
+      ,CR.NR_DOCUMENTO  NR_DOC
+      ,RCR.VL_RATEIO    VL_REC_A_REALIZAR
+      ,0                VL_REC_REALIZADO
+      ,0                VL_REC_RATEIO
+      ,0                VL_REC_ACRESCIMO
+      ,0                VL_REC_DESCONTO
+      ,0                VL_REC_PREVISTO
+      ,0                VL_DES_A_REALIZAR
+      ,0                VL_DES_REALIZADO
+      ,0                VL_DES_RATEIO
+      ,0                VL_DES_ACRESCIMO
+      ,0                VL_DES_DESCONTO
+      ,0                VL_DES_DUPLICATA
+ FROM dbamv.CON_REC     CR
+     ,dbamv.RAT_CONREC  RCR
+     ,dbamv.ITEM_RES    IR
+     ,dbamv.ITCON_REC IT
+WHERE CR.CD_MULTI_EMPRESA      =  :CAMPO_CD_MULTI_EMPRESA
+  AND IT.TP_QUITACAO           <> 'Q'
+  AND CR.CD_CON_REC            =  RCR.CD_CON_REC
+  AND IR.CD_ITEM_RES           =  RCR.CD_ITEM_RES
+  AND CR.CD_CON_REC = IT.CD_CON_REC
+  AND IT.DT_PREVISTA_RECEBIMENTO >= to_date( to_char( :CAMPO_DT_INICIAL, 'dd/MM/yyyy' ) || ' 00', 'dd/MM/yyyy HH24' )
+  AND IT.DT_PREVISTA_RECEBIMENTO <= to_date( to_char( :CAMPO_DT_FINAL , 'dd/MM/yyyy' ) || ' 23', 'dd/MM/yyyy HH24' )
+UNION
+SELECT IR.CD_ITEM_RES   CD_CONTA
+      ,IR.DS_ITEM_RES   DS_CONTA
+      ,MCC.DT_MOVIMENTACAO              DIA
+      ,CR.DS_CON_REC   || ' - ' || MCC.DS_MOVIMENTACAO   DS_DOC
+      ,CR.NR_DOCUMENTO  NR_DOC
+      ,0                VL_REC_A_REALIZAR
+      ,0                VL_REC_REALIZADO
+      ,RCR.VL_RATEIO    VL_REC_RATEIO
+      ,CR.VL_ACRESCIMO  VL_REC_ACRESCIMO
+      ,CR.VL_DESCONTO   VL_REC_DESCONTO
+      ,CR.VL_PREVISTO   VL_REC_PREVISTO
+      ,0                VL_DES_A_REALIZAR
+      ,0                VL_DES_REALIZADO
+      ,0                VL_DES_RATEIO
+      ,0                VL_DES_ACRESCIMO
+      ,0                VL_DES_DESCONTO
+      ,0                VL_DES_DUPLICATA
+ FROM dbamv.CON_REC     CR
+     ,dbamv.MOV_CONCOR  MCC
+     ,dbamv.RAT_CONREC  RCR
+     ,dbamv.ITEM_RES    IR
+     ,dbamv.ITCON_REC   IT
+     ,dbamv.RECCON_REC  RC
+     ,dbamv.REC_MOV_CON RMC
+WHERE CR.CD_MULTI_EMPRESA =  :CAMPO_CD_MULTI_EMPRESA
+  AND IT.TP_QUITACAO      IN ( 'Q', 'T' )
+  AND MCC.DT_MOVIMENTACAO >=  to_date( to_char( :CAMPO_DT_INICIAL, 'dd/MM/yyyy' ) || ' 00', 'dd/MM/yyyy HH24' )
+  AND MCC.DT_MOVIMENTACAO <= to_date( to_char( :CAMPO_DT_FINAL , 'dd/MM/yyyy' ) || ' 23', 'dd/MM/yyyy HH24' )
+  AND CR.CD_CON_REC = IT.CD_CON_REC
+  AND IT.CD_ITCON_REC = RC.CD_ITCON_REC
+  AND RC.CD_RECCON_REC = RMC.CD_RECCON_REC
+  AND RMC.CD_MOV_CONCOR = MCC.CD_MOV_CONCOR
+  AND CR.CD_CON_REC       =  RCR.CD_CON_REC
+  AND RCR.CD_ITEM_RES     =  IR.CD_ITEM_RES
+UNION
+SELECT UNIQUE
+       IR.CD_ITEM_RES   CD_CONTA
+      ,IR.DS_ITEM_RES   DS_CONTA
+      ,ICP.DT_VENCIMENTO   DIA
+      ,CP.DS_CON_PAG    DS_DOC
+      ,CP.NR_DOCUMENTO  NR_DOC
+      ,0                VL_REC_A_REALIZAR
+      ,0                VL_REC_REALIZADO
+      ,0                VL_REC_RATEIO
+      ,0                VL_REC_ACRESCIMO
+      ,0                VL_REC_DESCONTO
+      ,0                VL_REC_PREVISTO
+      ,ICP.VL_DUPLICATA VL_DES_A_REALIZAR
+      ,0                VL_DES_REALIZADO
+      ,0                VL_DES_RATEIO
+      ,0                VL_DES_ACRESCIMO
+      ,0                VL_DES_DESCONTO
+      ,0                VL_DES_DUPLICATA
+ FROM dbamv.CON_PAG     CP
+     ,dbamv.ITCON_PAG   ICP
+     ,dbamv.RATCON_PAG  RCP
+     ,dbamv.ITEM_RES    IR
+WHERE IR.CD_ITEM_RES         =  RCP.CD_ITEM_RES
+  AND RCP.CD_CON_PAG         =  CP.CD_CON_PAG
+  AND CP.CD_CON_PAG          =  ICP.CD_CON_PAG
+  AND ICP.TP_QUITACAO        NOT IN ( 'Q', 'A', 'T' )
+  AND CP.CD_MULTI_EMPRESA    =  :CAMPO_CD_MULTI_EMPRESA
+  AND ICP.DT_VENCIMENTO      >= to_date( to_char( :CAMPO_DT_INICIAL, 'dd/MM/yyyy' ) || ' 00', 'dd/MM/yyyy HH24' )
+  AND ICP.DT_VENCIMENTO      <= to_date( to_char( :CAMPO_DT_FINAL , 'dd/MM/yyyy' ) || ' 23', 'dd/MM/yyyy HH24' )
+  AND ICP.CD_CON_PAG_AGRUP IS NULL
+UNION
+SELECT  UNIQUE
+       IR.CD_ITEM_RES   CD_CONTA
+      ,IR.DS_ITEM_RES   DS_CONTA
+      ,PCP.DT_PAGAMENTO       DIA
+      ,CP.DS_CON_PAG    DS_DOC
+      ,CP.NR_DOCUMENTO  NR_DOC
+      ,0                VL_REC_A_REALIZAR
+      ,0                VL_REC_REALIZADO
+      ,0                VL_REC_RATEIO
+      ,0                VL_REC_ACRESCIMO
+      ,0                VL_REC_DESCONTO
+      ,0                VL_REC_PREVISTO
+      ,0                VL_DES_A_REALIZAR
+      ,0                VL_DES_REALIZADO
+      ,RCP.VL_RATEIO    VL_DES_RATEIO
+      ,PCP.VL_ACRESCIMO VL_DES_ACRESCIMO
+      ,PCP.VL_DESCONTO  VL_DES_DESCONTO
+      ,ICP.VL_DUPLICATA VL_DES_DUPLICATA
+  FROM dbamv.PAGCON_PAG PCP
+      ,dbamv.ITCON_PAG  ICP
+      ,dbamv.CON_PAG    CP
+      ,dbamv.RATCON_PAG RCP
+      ,dbamv.ITEM_RES   IR
+ WHERE CP.CD_MULTI_EMPRESA     = :CAMPO_CD_MULTI_EMPRESA
+   AND IR.CD_ITEM_RES          = RCP.CD_ITEM_RES
+   AND RCP.CD_CON_PAG          = CP.CD_CON_PAG
+   AND CP.CD_CON_PAG           = ICP.CD_CON_PAG
+   AND ICP.CD_ITCON_PAG        = PCP.CD_ITCON_PAG
+   AND ICP.cd_con_pag_agrup  IS NULL
+   AND PCP.DT_PAGAMENTO        >= to_date( to_char( :CAMPO_DT_INICIAL, 'dd/MM/yyyy' ) || ' 00', 'dd/MM/yyyy HH24' )
+   AND PCP.DT_PAGAMENTO        <= to_date( to_char( :CAMPO_DT_FINAL , 'dd/MM/yyyy' ) || ' 23', 'dd/MM/yyyy HH24' )
+)
+GROUP BY  CD_CONTA
+                    ,DS_CONTA
+                    ,DIA
+                    ,DS_DOC
+                   ,NR_DOC
+ORDER BY DIA
+                   , DS_CONTA
+)
+ORDER BY DIA

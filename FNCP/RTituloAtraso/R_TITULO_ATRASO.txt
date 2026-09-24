@@ -1,0 +1,36 @@
+/*----------------------------------------------------------------------------*/
+--R_TITULO_ATRASO
+SELECT * FROM (
+select
+      ltrim(hist_p.ds_historico_padrao||' '||con_rec.ds_con_rec)     ds_hist_p
+      ,itcon_rec.dt_prevista_recebimento    dt_prevista_pag
+      , con_rec.cd_con_rec     cd_con_rec
+      ,con_rec.nr_documento    doc
+      ,fornecedor.cd_fornecedor    cd_cliente
+      ,decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente,fornecedor.nm_fantasia) cliente
+      ,decode(con_rec.cd_previsao,null,
+                    itcon_rec.vl_duplicata,
+                    itcon_rec.vl_duplicata - nvl(itcon_rec.vl_soma_recebido,0) )   vl_previsto
+      ,decode(con_rec.cd_previsao,null,
+                    itcon_rec.vl_soma_recebido,0)     valor
+      ,tp_con_rec      tp_con_rec
+      ,itcon_rec.tp_quitacao     tp_quitacao
+      ,itcon_rec.cd_moeda cd_moeda_prev
+      ,decode(con_rec.cd_previsao,null,
+                    itcon_rec.vl_moeda,
+                    itcon_rec.vl_moeda - nvl(itcon_rec.vl_soma_recebido,0) ) vl_moeda_prev
+     ,con_rec.dt_lancamento dt_lancamento
+from  dbamv.itcon_rec
+       , dbamv.con_rec
+        ,dbamv.fornecedor
+        ,dbamv.historico_padrao hist_p
+where  trunc(itcon_rec.dt_prevista_recebimento) between trunc(:CAMPO_DT_INICIO) and trunc(:CAMPO_DT_FIM)
+      and con_rec.cd_multi_empresa                =  :CAMPO_CD_MULTI_EMPRESA
+      and itcon_rec.tp_quitacao                     NOT IN ( 'Q', 'L','G')
+      and con_rec.cd_historico_padrao             = hist_p.cd_historico_padrao(+)
+      and con_rec.cd_fornecedor = fornecedor.cd_fornecedor(+)
+      and itcon_rec.cd_con_rec  =   con_rec.cd_con_rec
+      and trunc(itcon_rec.dt_prevista_recebimento) < trunc(sysdate)
+:CAMPO_CF_MOEDA
+)
+ORDER BY DT_PREVISTA_PAG

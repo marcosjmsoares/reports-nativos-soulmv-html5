@@ -1,0 +1,179 @@
+/*----------------------------------------------------------------------------*/
+--R_CTRL_FAT_CONTAS_SUS
+SELECT * FROM (
+select dt_apresentacao
+     , nr_apresentacao
+     , dt_competencia
+     , nr_competencia
+     , qt_contas_1
+     , vl_contas_1
+     , qt_contas_2
+     , vl_contas_2
+     , qt_contas_3
+     , vl_contas_3
+     , qt_contas_perda
+     , vl_contas_perda
+     , rownum linha
+  from (select tb_apres.dt_apresentacao dt_apresentacao
+             , tb_apres.nr_apresentacao  nr_apresentacao
+             , tb_producao.dt_competencia dt_competencia
+             , trunc((trunc(tb_apres.dt_apresentacao,'MONTH') - trunc(tb_producao.dt_competencia,'MONTH'))/30) nr_competencia
+             , sum(nvl(tb_producao.qt_contas_1,0)) qt_contas_1
+             , sum(nvl(tb_producao.vl_contas_1,0)) vl_contas_1
+             , sum(nvl(tb_producao.qt_contas_2,0)) qt_contas_2
+             , sum(nvl(tb_producao.vl_contas_2,0)) vl_contas_2
+             , sum(nvl(tb_producao.qt_contas_3,0)) qt_contas_3
+             , sum(nvl(tb_producao.vl_contas_3,0)) vl_contas_3
+             , sum(decode(trunc((trunc(tb_apres.dt_apresentacao,'MONTH')-trunc(tb_producao.dt_competencia,'MONTH'))/30), 6, nvl(tb_producao.qt_contas_2,0)+nvl(tb_producao.qt_contas_3,0),0)) qt_contas_perda
+             , sum(decode(trunc((trunc(tb_apres.dt_apresentacao,'MONTH')-trunc(tb_producao.dt_competencia,'MONTH'))/30), 6, nvl(tb_producao.vl_contas_2,0)+nvl(tb_producao.vl_contas_3,0),0)) vl_contas_perda
+          from ( select dt_apresentacao, nr_apresentacao
+                   from ( select TRUNC(:CAMPO_COMPET,'MONTH')                 dt_apresentacao, 01 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-1) dt_apresentacao, 02 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-2) dt_apresentacao, 03 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-3) dt_apresentacao, 04 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-4) dt_apresentacao, 05 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-5) dt_apresentacao, 06 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-6) dt_apresentacao, 08 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-7) dt_apresentacao, 09 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-8) dt_apresentacao, 09 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-9) dt_apresentacao, 10 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-10) dt_apresentacao, 11 nr_apresentacao  from dual
+                          union all
+                          select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-11) dt_apresentacao, 12 nr_apresentacao  from dual
+                        )
+                   where rownum <= :CAMPO_QT_CMP_APRES
+                ) tb_apres
+             , ( select dt_competencia
+                    , sum( Decode(sn_fechada, 'S', 0, 1)) qt_contas_1
+                    , sum( Decode(sn_fechada, 'S', 0, vl_linha)) vl_contas_1
+                    , sum( Decode(nvl(sn_fechada, 'N'), 'S', Decode(dt_exportacao, NULL, 1, 0), 0) ) qt_contas_2
+                    , sum( Decode(nvl(sn_fechada, 'N'), 'S', Decode(dt_exportacao, NULL, vl_linha, 0), 0) ) vl_contas_2
+                    , sum( Decode(nvl(sn_fechada, 'N'), 'S', Decode(dt_exportacao, NULL, 0, 1), 0) ) qt_contas_3
+                    , sum( Decode(nvl(sn_fechada, 'N'), 'S', Decode(dt_exportacao, NULL, 0, vl_linha), 0) ) vl_contas_3
+                  FROM (
+                         SELECT trunc(f.dt_competencia,'MONTH') dt_competencia
+                            , c.cd_reg_fat
+                            , c.sn_fechada
+                            , r.dt_exportacao
+                            , Sum(v.vl_linha ) vl_linha
+                         from dbamv.fatura      f
+                            , dbamv.remessa_fatura r
+                            , dbamv.reg_fat        c
+                            , dbamv.atendime       a
+                            , dbamv.v_ffis_valor_conta_aih v
+                         where r.cd_fatura            = f.cd_fatura
+                           and c.cd_remessa           = r.cd_remessa
+                           and c.cd_multi_empresa     = dbamv.pkg_mv2000.le_empresa
+                           and c.cd_convenio          = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+                           and a.cd_atendimento       = c.cd_atendimento
+                           AND (r.sn_suspensas <> 'S' OR c.cd_reg_fat_pai  is null)
+                           AND trunc(f.dt_competencia,'MONTH') BETWEEN ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'), (:CAMPO_QT_CMP_APRES + 5) * -1 ) AND ADD_MONTHS(trunc(:CAMPO_COMPET,'MONTH'), -1 ) 
+						   and c.cd_reg_fat       = v.cd_reg_fat
+					       group by trunc(f.dt_competencia,'MONTH')
+                                , c.cd_reg_fat
+                                , c.sn_fechada
+                                , r.dt_exportacao
+						   )
+                  group by dt_competencia
+             ) tb_producao
+         where tb_producao.dt_competencia between ADD_MONTHS(tb_apres.dt_apresentacao,-5) and ADD_MONTHS(tb_apres.dt_apresentacao,-1)
+         group by dt_apresentacao, nr_apresentacao, dt_competencia
+         order by dt_apresentacao desc, dt_competencia desc
+)
+order by rownum, dt_apresentacao, dt_competencia
+)
+ORDER BY NR_APRESENTACAO,DT_APRESENTACAO DESC, dt_competencia DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CTRL_FAT_CONTAS_SUS_R_DET_TIPO_CONTAS_Q_DETALHAR_CONTAS
+SELECT * FROM (
+select tb_producao.tp_conta
+     , to_char(tb_producao.dt_competencia, 'MM/YYYY') dt_compet
+     , tb_producao.cd_atendimento
+     , tb_producao.cd_reg_fat
+     , tb_producao.cd_paciente
+     , tb_producao.nm_paciente
+     , tb_producao.vl_contas
+  from ( select dt_apresentacao, nr_apresentacao
+           from ( select TRUNC(:CAMPO_COMPET,'MONTH')                 dt_apresentacao, 01 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-1) dt_apresentacao, 02 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-2) dt_apresentacao, 03 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-3) dt_apresentacao, 04 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-4) dt_apresentacao, 05 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-5) dt_apresentacao, 06 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-6) dt_apresentacao, 08 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-7) dt_apresentacao, 09 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-8) dt_apresentacao, 09 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-9) dt_apresentacao, 10 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-10) dt_apresentacao, 11 nr_apresentacao  from dual
+                  union all
+                  select ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'),-11) dt_apresentacao, 12 nr_apresentacao  from dual
+                )
+           where rownum <= :CAMPO_QT_CMP_APRES
+        ) tb_apres
+     , ( select Decode(nvl(c.sn_fechada, 'N'), 'N', '(1) Contas Abertas', Decode(r.dt_exportacao, NULL, '(2) Contas Não Cobradas', '(3) Contas Cobradas')) tp_conta
+              , trunc(f.dt_competencia,'MONTH') dt_competencia
+              , c.cd_atendimento
+              , c.cd_reg_fat
+              , p.cd_paciente
+              , p.nm_paciente
+              , sum(v.vl_linha)  vl_contas
+           from dbamv.fatura          f
+              , dbamv.remessa_fatura  r
+              , dbamv.reg_fat         c
+              , dbamv.atendime        a
+              , dbamv.paciente        p
+			  , dbamv.v_ffis_valor_conta_aih v
+          where r.cd_fatura     = f.cd_fatura
+            and c.cd_remessa           = r.cd_remessa
+			and c.cd_reg_fat           = v.cd_reg_fat
+            AND c.cd_multi_empresa     = dbamv.pkg_mv2000.le_empresa
+            and c.cd_convenio          = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+            and a.cd_atendimento      = c.cd_atendimento
+            and p.cd_paciente         = a.cd_paciente
+            AND (r.sn_suspensas <> 'S' OR c.cd_reg_fat_pai  is null)
+            AND trunc(f.dt_competencia,'MONTH') BETWEEN ADD_MONTHS(TRUNC(:CAMPO_COMPET,'MONTH'), (:CAMPO_QT_CMP_APRES + 5) * -1 ) AND ADD_MONTHS(trunc(:CAMPO_COMPET,'MONTH'), -1)
+			group by Decode(nvl(c.sn_fechada, 'N'), 'N', '(1) Contas Abertas', Decode(r.dt_exportacao, NULL, '(2) Contas Não Cobradas', '(3) Contas Cobradas')) 
+                   , trunc(f.dt_competencia,'MONTH') 
+                   , c.cd_atendimento
+                   , c.cd_reg_fat
+                   , p.cd_paciente
+                   , p.nm_paciente
+        ) tb_producao
+ where tb_producao.dt_competencia between ADD_MONTHS(tb_apres.dt_apresentacao,-5) and ADD_MONTHS(tb_apres.dt_apresentacao,-1)
+ group by tb_producao.tp_conta
+        , to_char(tb_producao.dt_competencia, 'MM/YYYY')
+        , tb_producao.cd_atendimento
+        , tb_producao.cd_reg_fat
+        , tb_producao.cd_paciente
+        , tb_producao.nm_paciente
+        , tb_producao.vl_contas
+ order by tb_producao.tp_conta
+        , to_char(tb_producao.dt_competencia, 'MM/YYYY')
+        , tb_producao.cd_atendimento
+        , tb_producao.cd_reg_fat
+        , tb_producao.cd_paciente
+)
+ORDER BY TP_CONTA, DT_COMPET, cd_atendimento, cd_reg_fat

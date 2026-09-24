@@ -1,0 +1,633 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_OCUPACAO
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_OCUPACAO_R_ATENDIMENTO1_Q_ORIGEM
+SELECT CD_ORI_ATE
+             ,DS_ORI_ATE
+             ,SUM(QT_INTERNACAO)   QT_INTERNACAO_O
+             ,SUM(QT_ALTA)                 QT_ALTA_O
+             ,SUM(QT_EXTERNO)         QT_EXTERNO_O
+             ,SUM(QT_OBITO)               QT_OBITO_O
+FROM  (   
+                SELECT ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,COUNT(*)     QT_INTERNACAO
+                              ,0                   QT_ALTA
+                              ,0                   QT_EXTERNO
+                              ,0                   QT_OBITO
+                  FROM DBAMV.ATENDIME
+                      ,DBAMV.CONVENIO
+                      ,DBAMV.MOV_INT
+                      ,DBAMV.UNID_INT
+                      ,DBAMV.LEITO
+                      ,DBAMV.ORI_ATE
+                     ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                          FROM DBAMV.CID
+                         WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                WHERE LEITO.CD_UNID_INT        = UNID_INT.CD_UNID_INT
+                  And  LEITO.CD_LEITO          = MOV_INT.CD_LEITO
+                  And  TRUNC(DT_MOV_INT)       = TRUNC(  CONTADOR.DATA )
+                  And  MOV_INT.TP_MOV          = 'I'
+                  And  ATENDIME.CD_ATENDIMENTO = MOV_INT.CD_ATENDIMENTO
+                  And  ATENDIME.TP_ATENDIMENTO = 'I'
+                  And  ATENDIME.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+                  AND        ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+                  and Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                GROUP BY  ORI_ATE.CD_ORI_ATE
+                                    ,ORI_ATE.DS_ORI_ATE
+                UNION ALL
+                SELECT ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,0                     QT_INTERNACAO
+                              ,COUNT(*)       QT_ALTA
+                              ,0                     QT_EXTERNO
+                              ,0                     QT_OBITO
+                  From   DBAMV.ATENDIME
+                            ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.ORI_ATE
+                             ,DBAMV.CONVENIO
+                             ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                                   FROM DBAMV.CID
+                                WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                 WHERE  LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                        And  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                        And  UNID_INT.CD_UNID_INT  =  LEITO.CD_UNID_INT
+                        And  Trunc(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                        And  MOT_ALT.TP_MOT_ALTA  <>  'O'
+                        And  ATENDIME.TP_ATENDIMENTO  =  'I'
+                        And ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+                        And  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                        And Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                GROUP BY ORI_ATE.CD_ORI_ATE
+                                   ,ORI_ATE.DS_ORI_ATE
+                UNION ALL
+                SELECT ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,COUNT(*)   QT_EXTERNO
+                              ,0                 QT_OBITO
+                FROM   DBAMV.ATENDIME
+                            ,DBAMV.ORI_ATE
+                WHERE  ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL + 0.99999
+                AND        ATENDIME.TP_ATENDIMENTO IN ('U','A')
+                AND        ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+                GROUP BY ORI_ATE.CD_ORI_ATE
+                                   ,ORI_ATE.DS_ORI_ATE
+                UNION ALL
+                SELECT ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,0                     QT_INTERNACAO
+                              ,0                     QT_ALTA
+                              ,0                     QT_EXTERNO
+                              ,COUNT(*)       QT_OBITO
+                FROM    DBAMV.ATENDIME
+                             ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ORI_ATE
+                             ,( SELECT (  :CAMPO_DT_INICIO -1 ) + ROWNUM  DATA
+                                   FROM DBAMV.CID
+                               WHERE (  :CAMPO_DT_INICIO -1 ) + ROWNUM   <= :CAMPO_DT_FINAL  ) CONTADOR
+                        Where LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                            AND MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                            AND LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+                            AND TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                            AND MOT_ALT.TP_MOT_ALTA   =  'O'
+                            AND ATENDIME.TP_ATENDIMENTO  =  'I'
+                            AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                            And ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+                            AND Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                GROUP BY ORI_ATE.CD_ORI_ATE
+                                   ,ORI_ATE.DS_ORI_ATE
+                 UNION ALL
+                SELECT  ORI_ATE.CD_ORI_ATE
+                               ,ORI_ATE.DS_ORI_ATE
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,0                 QT_EXTERNO
+                              ,0                 QT_OBITO
+                FROM    DBAMV.ATENDIME
+                             ,DBAMV.ORI_ATE
+                             ,DBAMV.REG_FAT
+                             ,DBAMV.ITREG_FAT
+                WHERE   ITREG_FAT.DT_LANCAMENTO BETWEEN  :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL   + 0.99999
+                AND         ATENDIME.TP_ATENDIMENTO  IN ('I','H')
+                AND         ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+                AND         ATENDIME.CD_ORI_ATE =  ORI_ATE.CD_ORI_ATE
+                AND         REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                AND         ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+                AND         NVL(ITREG_FAT.TP_PAGAMENTO, 'F') <> 'C'
+                AND         NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+                AND         REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               UNION ALL
+                SELECT  ORI_ATE.CD_ORI_ATE
+                               ,ORI_ATE.DS_ORI_ATE
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,0                 QT_EXTERNO
+                              ,0                 QT_OBITO
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.ORI_ATE
+                             ,DBAMV.CONVENIO
+               WHERE  ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL  + 0.99999
+               AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND        REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+               AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ATENDIME.CD_ORI_ATE =  ORI_ATE.CD_ORI_ATE
+               AND        ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+               AND        NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+               AND        NVL(ITREG_AMB.TP_PAGAMENTO, 'F') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               :CAMPO_CF_ATEND_FILHO2  )
+GROUP BY CD_ORI_ATE
+                   ,DS_ORI_ATE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_OCUPACAO_R_ATENDIMENTO_Q_CONVENIO
+SELECT CD_CONVENIO
+      ,NM_CONVENIO
+      ,SUM(QT_INTERNACAO)   QT_INTERNACAO
+      ,SUM(QT_ALTA)         QT_ALTA
+      ,SUM(QT_EXTERNO)      QT_EXTERNO
+      ,SUM(QT_OBITO)      QT_OBITO
+FROM  (           
+                SELECT CONVENIO.CD_CONVENIO
+                      ,CONVENIO.NM_CONVENIO
+                      ,COUNT(*)     QT_INTERNACAO
+                      ,0            QT_ALTA
+                      ,0            QT_EXTERNO
+                      ,0            QT_OBITO
+                  FROM DBAMV.ATENDIME
+                      ,DBAMV.CONVENIO
+                      ,DBAMV.MOV_INT
+                      ,DBAMV.UNID_INT
+                      ,DBAMV.LEITO
+                     ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                          FROM DBAMV.CID
+                         WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                WHERE LEITO.CD_UNID_INT        = UNID_INT.CD_UNID_INT
+                  And  LEITO.CD_LEITO          = MOV_INT.CD_LEITO
+                  And  TRUNC(DT_MOV_INT)       = TRUNC(  CONTADOR.DATA )
+                  And  MOV_INT.TP_MOV          = 'I'
+                  And  ATENDIME.CD_ATENDIMENTO = MOV_INT.CD_ATENDIMENTO
+                  And  ATENDIME.TP_ATENDIMENTO = 'I'
+                  And  ATENDIME.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+                  and Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+            GROUP BY  CONVENIO.CD_CONVENIO
+                     ,CONVENIO.NM_CONVENIO
+            UNION ALL
+                SELECT CONVENIO.CD_CONVENIO
+                      ,CONVENIO.NM_CONVENIO
+                      ,0            QT_INTERNACAO
+                      ,COUNT(*)     QT_ALTA
+                      ,0            QT_EXTERNO
+                      ,0            QT_OBITO
+                  From   DBAMV.ATENDIME
+                            ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.CONVENIO
+                             ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                                   FROM DBAMV.CID
+                                WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                 WHERE  LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                        And  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                        And  UNID_INT.CD_UNID_INT  =  LEITO.CD_UNID_INT
+                        And  Trunc(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                        And  MOT_ALT.TP_MOT_ALTA  <>  'O'
+                        And  ATENDIME.TP_ATENDIMENTO  =  'I'
+                        And  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                        And Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+           GROUP BY CONVENIO.CD_CONVENIO
+                     ,CONVENIO.NM_CONVENIO
+           UNION ALL
+               SELECT CONVENIO.CD_CONVENIO
+                     ,CONVENIO.NM_CONVENIO
+                     ,0        QT_INTERNACAO
+                     ,0        QT_ALTA
+                     ,COUNT(*) QT_EXTERNO
+                     ,0       QT_OBITO
+                 FROM DBAMV.ATENDIME
+                     ,DBAMV.CONVENIO
+                WHERE ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL + 0.99999
+                  AND ATENDIME.TP_ATENDIMENTO IN ('U','A')
+                  AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+            GROUP BY CONVENIO.CD_CONVENIO
+                    ,CONVENIO.NM_CONVENIO
+         UNION ALL
+               SELECT CONVENIO.CD_CONVENIO
+                              ,CONVENIO.NM_CONVENIO
+                              ,0        QT_INTERNACAO
+                              ,0        QT_ALTA
+                              ,0        QT_EXTERNO
+                              ,COUNT(*)       QT_OBITO
+                FROM    DBAMV.ATENDIME
+                             ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.CONVENIO
+                             ,( SELECT (  :CAMPO_DT_INICIO -1 ) + ROWNUM  DATA
+                                   FROM DBAMV.CID
+                               WHERE (  :CAMPO_DT_INICIO -1 ) + ROWNUM   <= :CAMPO_DT_FINAL  ) CONTADOR
+                        Where LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                            AND MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                            AND LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+                            AND TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                            AND MOT_ALT.TP_MOT_ALTA   =  'O'
+                            AND ATENDIME.TP_ATENDIMENTO  =  'I'
+                            AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                            AND Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+            GROUP BY CONVENIO.CD_CONVENIO
+                    ,CONVENIO.NM_CONVENIO
+         UNION ALL
+               SELECT CONVENIO.CD_CONVENIO
+                     ,CONVENIO.NM_CONVENIO
+                     ,0         QT_INTERNACAO
+                     ,0         QT_ALTA
+                     ,0         QT_EXTERNO
+                     ,0         QT_OBITO
+                FROM DBAMV.ATENDIME
+                    ,DBAMV.REG_FAT
+                    ,DBAMV.CONVENIO
+                    ,DBAMV.ITREG_FAT
+                WHERE ITREG_FAT.DT_LANCAMENTO BETWEEN  :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL    + 0.99999
+                  AND ATENDIME.TP_ATENDIMENTO IN ('I', 'H')
+                  AND ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+                  AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                  AND REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                  AND ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+                  AND NVL(ITREG_FAT.TP_PAGAMENTO, 'F') <> 'C'
+                  AND NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+                  AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+         UNION ALL
+               SELECT CONVENIO.CD_CONVENIO
+                     ,CONVENIO.NM_CONVENIO
+                     ,0        QT_INTERNACAO
+                     ,0        QT_ALTA
+                     ,0        QT_EXTERNO
+                     ,0       QT_OBITO
+                FROM DBAMV.REG_AMB
+                    ,DBAMV.ITREG_AMB
+                    ,DBAMV.ATENDIME
+                    ,DBAMV.CONVENIO
+               WHERE ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL  + 0.99999
+                 AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                 AND REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                 AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                 AND ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                 AND ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+                 AND NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+                 AND NVL(ITREG_AMB.TP_PAGAMENTO, 'F') <> 'C'
+                 AND CONVENIO.TP_CONVENIO <> 'H'
+                 :CAMPO_CF_MULTI_EMPRESA )
+GROUP BY CD_CONVENIO
+        ,NM_CONVENIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_OCUPACAO_R_CONVENIO_1_Q_CONV_ORIGEM
+SELECT CD_CONVENIO         CD_CONVENIO2
+             ,NM_CONVENIO         NM_CONVENIO2
+             ,CD_ORI_ATE             CD_ORI_ATE2
+             ,DS_ORI_ATE             DS_ORI_ATE2
+             ,SUM(QT_INTERNACAO)   QT_INTERNACAO_CO
+             ,SUM(QT_ALTA)                 QT_ALTA_CO
+             ,SUM(QT_EXTERNO)         QT_EXTERNO_CO
+             ,SUM(QT_OBITO)               QT_OBITO_CO
+FROM  (   
+                SELECT CONVENIO.CD_CONVENIO
+                              ,CONVENIO.NM_CONVENIO
+                              ,ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,COUNT(*)     QT_INTERNACAO
+                              ,0                   QT_ALTA
+                              ,0                   QT_EXTERNO
+                              ,0                   QT_OBITO
+                  FROM DBAMV.ATENDIME
+                      ,DBAMV.CONVENIO
+                      ,DBAMV.MOV_INT
+                      ,DBAMV.UNID_INT
+                      ,DBAMV.LEITO
+                      ,DBAMV.ORI_ATE
+                     ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                          FROM DBAMV.CID
+                         WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                WHERE LEITO.CD_UNID_INT        = UNID_INT.CD_UNID_INT
+                  And  LEITO.CD_LEITO          = MOV_INT.CD_LEITO
+                  And  TRUNC(DT_MOV_INT)       = TRUNC(  CONTADOR.DATA )
+                  And  MOV_INT.TP_MOV          = 'I'
+                  And  ATENDIME.CD_ATENDIMENTO = MOV_INT.CD_ATENDIMENTO
+                  And  ATENDIME.TP_ATENDIMENTO = 'I'
+                  And  ATENDIME.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+                  AND        ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+                  and Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                GROUP BY  CONVENIO.CD_CONVENIO
+                                    ,CONVENIO.NM_CONVENIO
+                                    ,ORI_ATE.CD_ORI_ATE
+                                    ,ORI_ATE.DS_ORI_ATE
+                UNION ALL
+                SELECT CONVENIO.CD_CONVENIO
+                              ,CONVENIO.NM_CONVENIO
+                              ,ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,0                     QT_INTERNACAO
+                              ,COUNT(*)       QT_ALTA
+                              ,0                     QT_EXTERNO
+                              ,0                   QT_OBITO
+                  From   DBAMV.ATENDIME
+                            ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ORI_ATE
+                             ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                                   FROM DBAMV.CID
+                                WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                 WHERE  LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                        And  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                        And  UNID_INT.CD_UNID_INT  =  LEITO.CD_UNID_INT
+                        And  Trunc(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                        And  MOT_ALT.TP_MOT_ALTA  <>  'O'
+                        And  ATENDIME.TP_ATENDIMENTO  =  'I'
+                        And  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                       AND        ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+                        And Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                GROUP BY CONVENIO.CD_CONVENIO
+                                   ,CONVENIO.NM_CONVENIO
+                                   ,ORI_ATE.CD_ORI_ATE
+                                   ,ORI_ATE.DS_ORI_ATE
+                UNION ALL
+                SELECT CONVENIO.CD_CONVENIO
+                              ,CONVENIO.NM_CONVENIO
+                              ,ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,COUNT(*)   QT_EXTERNO
+                              ,0                   QT_OBITO
+                FROM   DBAMV.ATENDIME
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ORI_ATE
+                WHERE  ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL  + 0.99999
+                AND        ATENDIME.TP_ATENDIMENTO IN ('U','A')
+                AND        ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+                GROUP BY CONVENIO.CD_CONVENIO
+                                   ,CONVENIO.NM_CONVENIO
+                                   ,ORI_ATE.CD_ORI_ATE
+                                   ,ORI_ATE.DS_ORI_ATE
+                UNION ALL
+                SELECT CONVENIO.CD_CONVENIO
+                              ,CONVENIO.NM_CONVENIO
+                              ,ORI_ATE.CD_ORI_ATE
+                              ,ORI_ATE.DS_ORI_ATE
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,0                 QT_EXTERNO
+                              ,COUNT(*)   QT_OBITO
+                FROM    DBAMV.ATENDIME
+                             ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ORI_ATE
+                             ,( SELECT (  :CAMPO_DT_INICIO -1 ) + ROWNUM  DATA
+                                   FROM DBAMV.CID
+                               WHERE (  :CAMPO_DT_INICIO -1 ) + ROWNUM   <= :CAMPO_DT_FINAL  ) CONTADOR
+                        Where LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                            AND MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                            AND LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+                            AND TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                            AND MOT_ALT.TP_MOT_ALTA   =  'O'
+                            AND ATENDIME.TP_ATENDIMENTO  =  'I'
+                            AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                            And ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+                            AND Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+          GROUP BY CONVENIO.CD_CONVENIO
+                                   ,CONVENIO.NM_CONVENIO
+                                   ,ORI_ATE.CD_ORI_ATE
+                                   ,ORI_ATE.DS_ORI_ATE
+        UNION ALL
+                SELECT  CONVENIO.CD_CONVENIO
+                               ,CONVENIO.NM_CONVENIO
+                               ,ORI_ATE.CD_ORI_ATE
+                               ,ORI_ATE.DS_ORI_ATE
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,0                 QT_EXTERNO
+                              ,0                   QT_OBITO
+                FROM    DBAMV.ATENDIME
+                             ,DBAMV.ORI_ATE
+                             ,DBAMV.REG_FAT
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ITREG_FAT
+                WHERE  ITREG_FAT.DT_LANCAMENTO BETWEEN  :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL    + 0.99999
+                AND        ATENDIME.TP_ATENDIMENTO IN ('I', 'H')
+                AND        ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+                AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+                AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                AND        ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+                AND        NVL(ITREG_FAT.TP_PAGAMENTO, 'F') <> 'C'
+                AND        NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+                AND        REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               UNION ALL
+                SELECT  CONVENIO.CD_CONVENIO
+                               ,CONVENIO.NM_CONVENIO
+                               ,ORI_ATE.CD_ORI_ATE
+                               ,ORI_ATE.DS_ORI_ATE
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,0                 QT_EXTERNO
+                              ,0                   QT_OBITO
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.ORI_ATE
+                             ,DBAMV.CONVENIO
+               WHERE  ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL   + 0.99999
+               AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND        REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+               AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ATENDIME.CD_ORI_ATE =  ORI_ATE.CD_ORI_ATE
+               AND        ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+               AND        NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+               AND        NVL(ITREG_AMB.TP_PAGAMENTO, 'F') <> 'C'
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               :CAMPO_CF_COND_CONV_AMB    )
+GROUP BY CD_CONVENIO
+                   ,NM_CONVENIO
+                   ,CD_ORI_ATE
+                   ,DS_ORI_ATE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_OCUPACAO_R_SERVICO_Q_SERVICO
+SELECT CD_SERVICO
+             ,DS_SERVICO
+             ,SUM(QT_INTERNACAO)   QT_INTERNACAO_S
+             ,SUM(QT_ALTA)                 QT_ALTA_S
+             ,SUM(QT_EXTERNO)         QT_EXTERNO_S
+             ,SUM(QT_OBITO)               QT_OBITO_S
+FROM  (   
+                SELECT SERVICO.CD_SERVICO
+                              ,SERVICO.DS_SERVICO
+                              ,COUNT(*)     QT_INTERNACAO
+                              ,0                   QT_ALTA
+                              ,0                   QT_EXTERNO
+                              ,0                   QT_OBITO
+                  FROM DBAMV.ATENDIME
+                      ,DBAMV.CONVENIO
+                      ,DBAMV.MOV_INT
+                      ,DBAMV.UNID_INT
+                      ,DBAMV.LEITO
+                      ,DBAMV.SERVICO
+                     ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                          FROM DBAMV.CID
+                         WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                WHERE LEITO.CD_UNID_INT        = UNID_INT.CD_UNID_INT
+                  And  LEITO.CD_LEITO          = MOV_INT.CD_LEITO
+                  And  TRUNC(DT_MOV_INT)       = TRUNC(  CONTADOR.DATA )
+                  And  MOV_INT.TP_MOV          = 'I'
+                  And  ATENDIME.CD_ATENDIMENTO = MOV_INT.CD_ATENDIMENTO
+                  And  ATENDIME.TP_ATENDIMENTO = 'I'
+                  And  ATENDIME.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+                  And ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO
+                  and Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                  AND       ATENDIME.CD_SERVICO IS NOT null
+                GROUP BY  SERVICO.CD_SERVICO
+                                    ,SERVICO.DS_SERVICO
+                UNION ALL
+                SELECT SERVICO.CD_SERVICO
+                              ,SERVICO.DS_SERVICO
+                              ,0                     QT_INTERNACAO
+                              ,COUNT(*)       QT_ALTA
+                              ,0                     QT_EXTERNO
+                              ,0                     QT_OBITO
+                  From   DBAMV.ATENDIME
+                            ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.SERVICO
+                             ,( SELECT ( :CAMPO_DT_INICIO  -1 ) + ROWNUM DATA
+                                   FROM DBAMV.CID
+                                WHERE ( :CAMPO_DT_INICIO  -1 ) + ROWNUM <= :CAMPO_DT_FINAL ) CONTADOR
+                 WHERE  LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                        And  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                        And  UNID_INT.CD_UNID_INT  =  LEITO.CD_UNID_INT
+                        And  Trunc(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                        And  MOT_ALT.TP_MOT_ALTA  <>  'O'
+                        And  ATENDIME.TP_ATENDIMENTO  =  'I'
+                        And  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                        And  ATENDIME.CD_SERVICO  = SERVICO.CD_SERVICO
+                        And Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                        AND       ATENDIME.CD_SERVICO IS NOT null
+                GROUP BY SERVICO.CD_SERVICO
+                                   ,SERVICO.DS_SERVICO
+                UNION ALL
+                SELECT SERVICO.CD_SERVICO
+                              ,SERVICO.DS_SERVICO
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,COUNT(*)   QT_EXTERNO
+                              ,0                 QT_OBITO
+                FROM   DBAMV.ATENDIME
+                            ,DBAMV.SERVICO
+                WHERE  ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL + 0.99999
+                AND        ATENDIME.TP_ATENDIMENTO IN ('U','A')
+                AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO
+                AND       ATENDIME.CD_SERVICO IS NOT null
+                GROUP BY SERVICO.CD_SERVICO
+                                   ,SERVICO.DS_SERVICO
+                UNION ALL
+                SELECT SERVICO.CD_SERVICO
+                              ,SERVICO.DS_SERVICO
+                              ,0                     QT_INTERNACAO
+                              ,0                     QT_ALTA
+                              ,0                     QT_EXTERNO
+                              ,COUNT(*)       QT_OBITO
+                FROM    DBAMV.ATENDIME
+                             ,DBAMV.UNID_INT
+                             ,DBAMV.LEITO
+                             ,DBAMV.MOT_ALT
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.SERVICO
+                             ,( SELECT (  :CAMPO_DT_INICIO -1 ) + ROWNUM  DATA
+                                   FROM DBAMV.CID
+                               WHERE (  :CAMPO_DT_INICIO -1 ) + ROWNUM   <= :CAMPO_DT_FINAL  ) CONTADOR
+                        Where LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+                            AND MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+                            AND LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+                            AND TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+                            AND MOT_ALT.TP_MOT_ALTA   =  'O'
+                            AND ATENDIME.TP_ATENDIMENTO  =  'I'
+                            AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                            And  ATENDIME.CD_SERVICO  = SERVICO.CD_SERVICO
+                            AND Nvl(Dbamv.F_Valida_Data_Hospital_Dia(:CAMPO_SN_HOSP_DIA_FERIADO,Contador.Data),'N') = 'S'
+                            AND       ATENDIME.CD_SERVICO IS NOT null
+                GROUP BY SERVICO.CD_SERVICO
+                                   ,SERVICO.DS_SERVICO
+                 UNION ALL
+                SELECT  SERVICO.CD_SERVICO
+                               ,SERVICO.DS_SERVICO
+                              ,0                 QT_INTERNACAO
+                              ,0                 QT_ALTA
+                              ,0                 QT_EXTERNO
+                              ,0                 QT_OBITO
+                FROM    DBAMV.ATENDIME
+                             ,DBAMV.SERVICO
+                             ,DBAMV.REG_FAT
+                             ,DBAMV.ITREG_FAT
+                WHERE ITREG_FAT.DT_LANCAMENTO BETWEEN  :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL    + 0.99999
+                AND       ATENDIME.TP_ATENDIMENTO IN  ('I', 'H')
+                AND       ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+                AND       ATENDIME.CD_SERVICO  =  SERVICO.CD_SERVICO
+                AND       REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                AND       ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+                AND       NVL(ITREG_FAT.TP_PAGAMENTO, 'F') <> 'C'
+                AND       NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+                AND       REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND       ATENDIME.CD_SERVICO IS NOT null
+               UNION ALL
+                SELECT  SERVICO.CD_SERVICO
+                               ,SERVICO.DS_SERVICO
+                               ,0                 QT_INTERNACAO
+                               ,0                 QT_ALTA
+                               ,0                 QT_EXTERNO
+                               ,0                 QT_OBITO
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.SERVICO
+               WHERE  ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FINAL     + 0.99999
+               AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND        REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+               AND        ITREG_AMB.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+               AND        ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND       ATENDIME.CD_SERVICO  =  SERVICO.CD_SERVICO(+)
+               AND       ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+               AND       NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+               AND       NVL(ITREG_AMB.TP_PAGAMENTO, 'F') <> 'C'
+               AND       CONVENIO.TP_CONVENIO <> 'H'
+               AND       ATENDIME.CD_SERVICO IS NOT null
+               :CAMPO_CF_COND_CONV_AMB   )
+GROUP BY CD_SERVICO
+                   ,DS_SERVICO

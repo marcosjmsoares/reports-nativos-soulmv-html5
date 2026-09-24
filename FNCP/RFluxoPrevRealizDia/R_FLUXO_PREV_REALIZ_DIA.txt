@@ -1,0 +1,109 @@
+/*----------------------------------------------------------------------------*/
+--R_FLUXO_PREV_REALIZ_DIA
+SELECT * FROM (
+SELECT CD_FONTE_PAGADORA CD_FONTE_PAGADORA,
+       NM_FANTASIA NM_FANTASIA,
+       DT_VENCIMENTO,
+       SUM(VL_PREVISTO) VL_PREVISTO,
+       SUM(VL_REALIZADO) VL_REALIZADO,
+       SUM(VL_PREVISTO) - SUM(VL_REALIZADO) VL_SALDO,
+       SUM(VL_A_VENCER) VL_A_VENCER,
+       SUM(VL_VENCIDO) VL_VENCIDO,
+       (SUM(VL_A_VENCER) + SUM(VL_VENCIDO)) TOTAL_A_RECEBER,
+       SUM(VL_GLOSA) VL_GLOSA,
+       SUM(VL_RECURSO_RECEBIDO) VL_RECURSO_RECEBIDO
+  FROM (
+        SELECT C.CD_FORNECEDOR CD_FONTE_PAGADORA,
+                F.NM_FANTASIA NM_FANTASIA,
+                I.DT_VENCIMENTO DT_VENCIMENTO,
+                I.VL_DUPLICATA VL_PREVISTO,
+                NVL(R.VL_SOMA_RECEBIDO, 0) VL_REALIZADO,
+                C.CD_CON_REC CD_CON_REC,
+                DECODE('A', 'S', NULL, C.NR_DOCUMENTO) NR_DOCUMENTO,
+                CASE    WHEN TRUNC(:CAMPO_DT_BASE) - TRUNC(I.DT_VENCIMENTO) > 0 THEN    'VENCIDO'    ELSE   'A_VENCER'  END AS "STATUS",
+                CASE WHEN TRUNC(:CAMPO_DT_BASE) - TRUNC(I.DT_VENCIMENTO) > 0 THEN   0   ELSE  I.VL_DUPLICATA - NVL(R.VL_SOMA_RECEBIDO, 0)   END AS "VL_A_VENCER",
+                CASE  WHEN TRUNC(:CAMPO_DT_BASE) - TRUNC(I.DT_VENCIMENTO) > 0 THEN I.VL_DUPLICATA - NVL(R.VL_SOMA_RECEBIDO, 0)  - NVL(R.VL_GLOSA,0)  ELSE  0    END AS "VL_VENCIDO",
+                R.VL_GLOSA VL_GLOSA,
+                R.VL_RECURSO_RECEBIDO VL_RECURSO_RECEBIDO
+          FROM (
+                 SELECT RECEBIMENTO.CD_ITCON_REC CD_ITCON_REC,
+                         SUM(NVL(RECEBIMENTO.VL_RECEBIDO, 0)) - SUM(NVL(RECEBIMENTO.VL_GLOSA, 0)) VL_SOMA_RECEBIDO, 
+                         SUM(NVL(RECEBIMENTO.VL_GLOSA, 0)) VL_GLOSA,
+                         SUM(NVL(RECEBIMENTO.VL_RECURSO_RECEBIDO,0)) VL_RECURSO_RECEBIDO
+                   FROM (
+                          SELECT RECCON_REC.CD_ITCON_REC,
+                                  NVL(RECCON_REC.VL_RECEBIDO, 0) +
+                                  NVL(RECCON_REC.VL_DESCONTO, 0) -
+                                  NVL(RECCON_REC.VL_IMPOSTO_RETIDO, 0) VL_RECEBIDO,
+                                  SUM(NVL(IT_RECEBIMENTO.VL_GLOSA, 0)) VL_GLOSA,
+                                  0 VL_RECURSO_RECEBIDO
+                            FROM DBAMV.RECCON_REC, DBAMV.IT_RECEBIMENTO
+                           WHERE TRUNC(RECCON_REC.DT_RECEBIMENTO) <= :CAMPO_DT_BASE
+                             AND TRUNC(RECCON_REC.DT_RECEBIMENTO,'MM') = TRUNC(:CAMPO_DT_INICIAL,'MM')
+                             AND RECCON_REC.CD_RECCON_REC = IT_RECEBIMENTO.CD_RECCON_REC(+)
+                             AND RECCON_REC.CD_REMESSA_GLOSA IS NULL
+                             AND ((RECCON_REC.DT_ESTORNO IS NULL) OR
+                                  ((RECCON_REC.DT_ESTORNO IS NOT NULL)
+                                  AND (RECCON_REC.DT_ESTORNO > :CAMPO_DT_BASE)
+                                  AND (TRUNC(RECCON_REC.DT_ESTORNO,'MM') >  = TRUNC(:CAMPO_DT_INICIAL,'MM'))
+                                  ))
+                           GROUP BY RECCON_REC.CD_ITCON_REC,
+                                     RECCON_REC.DT_RECEBIMENTO,
+                                     RECCON_REC.VL_RECEBIDO,
+                                     RECCON_REC.VL_DESCONTO,
+                                     RECCON_REC.VL_ACRESCIMO,
+                                     RECCON_REC.VL_IMPOSTO_RETIDO,
+                                     RECCON_REC.CD_RECCON_REC
+                          UNION ALL
+                          SELECT RECCON_REC.CD_ITCON_REC,
+                                 NVL(RECCON_REC.VL_RECEBIDO, 0) +
+                                 NVL(RECCON_REC.VL_DESCONTO, 0) -
+                                 NVL(RECCON_REC.VL_IMPOSTO_RETIDO, 0) VL_RECEBIDO,
+                                 (NVL(RECCON_REC.VL_RECEBIDO, 0) +
+                                 NVL(RECCON_REC.VL_IMPOSTO_RETIDO, 0)) * (-1) VL_GLOSA,
+                                 NVL(RECCON_REC.VL_RECEBIDO, 0) +
+                                 NVL(RECCON_REC.VL_DESCONTO, 0) -
+                                 NVL(RECCON_REC.VL_IMPOSTO_RETIDO, 0)  VL_RECURSO_RECEBIDO
+                            FROM DBAMV.RECCON_REC
+                           WHERE TRUNC(RECCON_REC.DT_RECEBIMENTO) <= :CAMPO_DT_BASE
+                             AND TRUNC(RECCON_REC.DT_RECEBIMENTO,'MM') = TRUNC(:CAMPO_DT_INICIAL,'MM')
+                             AND RECCON_REC.CD_REMESSA_GLOSA IS NOT NULL
+                             AND ((RECCON_REC.DT_ESTORNO IS NULL) OR
+                                  ((RECCON_REC.DT_ESTORNO IS NOT NULL) AND
+                                  (RECCON_REC.DT_ESTORNO > :CAMPO_DT_BASE) AND (TRUNC(RECCON_REC.DT_ESTORNO,'MM') >  = TRUNC(:CAMPO_DT_INICIAL,'MM'))
+                                 ))
+                           GROUP BY
+                                    RECCON_REC.CD_ITCON_REC,
+                                    RECCON_REC.DT_RECEBIMENTO,
+                                    RECCON_REC.VL_RECEBIDO,
+                                    RECCON_REC.VL_DESCONTO,
+                                    RECCON_REC.VL_ACRESCIMO,
+                                    RECCON_REC.VL_IMPOSTO_RETIDO,
+                                    RECCON_REC.CD_RECCON_REC
+                          ) RECEBIMENTO
+                  GROUP BY RECEBIMENTO.CD_ITCON_REC) R,
+                DBAMV.CON_REC C,
+                DBAMV.ITCON_REC I,
+                DBAMV.FORNECEDOR F
+         WHERE C.CD_CON_REC = I.CD_CON_REC
+           AND C.CD_FORNECEDOR = F.CD_FORNECEDOR
+           AND C.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           AND C.VL_PREVISTO > 0
+           AND I.CD_ITCON_REC = R.CD_ITCON_REC(+)
+           AND (C.CD_CON_REC NOT IN
+               (SELECT AGRUP.CD_CON_REC_AGRUP
+                   FROM DBAMV.ITCON_REC AGRUP
+                  WHERE AGRUP.CD_CON_REC_AGRUP IS NOT NULL))
+         GROUP BY C.CD_FORNECEDOR,
+                   F.NM_FANTASIA,
+                   I.DT_VENCIMENTO,
+                   I.VL_DUPLICATA,
+                   NVL(R.VL_SOMA_RECEBIDO, 0),
+                   C.CD_CON_REC,
+                   DECODE('A', 'S', NULL, C.NR_DOCUMENTO),
+                   R.VL_GLOSA,
+                   R.VL_RECURSO_RECEBIDO)
+ GROUP BY CD_FONTE_PAGADORA, NM_FANTASIA, DT_VENCIMENTO
+)
+ORDER BY NM_FANTASIA,CD_FONTE_PAGADORA,
+DT_VENCIMENTO

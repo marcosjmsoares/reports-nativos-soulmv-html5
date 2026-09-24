@@ -1,0 +1,33 @@
+/*----------------------------------------------------------------------------*/
+--R_QTD_KIT_POR_ESTOQUE
+SELECT cd_estoque,
+        ds_estoque,
+        cd_kit,
+        ds_produto,
+        Count(qt_kit) qt_kit
+  FROM (
+        SELECT mvto_kit_produzido.cd_mvto_estoque
+            , estoque.cd_estoque
+            , estoque.ds_estoque
+            , mvto_kit_produzido.cd_kit
+            , produto.ds_produto
+            , mvto_kit_produzido.cd_kit qt_kit
+            , mvto_kit_produzido.sn_kit_armazenado
+            , mvto_kit_produzido.tp_mvto_estoque
+          FROM dbamv.estoque
+              ,dbamv.produto
+              ,dbamv.mvto_kit_produzido
+            , dbamv.identificador_etiqueta
+        WHERE estoque.cd_estoque = Decode(mvto_kit_produzido.tp_mvto_estoque, 'T', mvto_kit_produzido.cd_estoque_destino, mvto_kit_produzido.cd_estoque)
+          AND produto.cd_produto = mvto_kit_produzido.cd_kit
+          AND identificador_etiqueta.cd_identificador = dbamv.fnc_mges_valida_cod_barra(mvto_kit_produzido.dsp_cd_barras)
+          AND identificador_etiqueta.sn_ativo = 'S'
+          AND identificador_etiqueta.cd_produto = mvto_kit_produzido.cd_kit
+          AND estoque.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+          AND estoque.cd_multi_empresa = identificador_etiqueta.cd_multi_empresa
+          AND mvto_kit_produzido.sn_kit_armazenado = 'S' )
+GROUP BY cd_estoque,
+         ds_estoque,
+         cd_kit,
+         ds_produto
+ORDER BY cd_estoque, :CAMPO_CF_ORDEM

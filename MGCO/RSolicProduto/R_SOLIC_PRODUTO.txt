@@ -1,0 +1,51 @@
+/*----------------------------------------------------------------------------*/
+--R_SOLIC_PRODUTO
+Select   cd_estoque
+        ,ds_estoque
+        ,sum(nvl(vl_total,0)) vl_total
+        ,sum(nvl(qtd_sol,0)) qtd_sol
+From    (Select   Estoque.cd_estoque cd_estoque
+                 ,Estoque.ds_estoque ds_estoque
+                 ,sum(nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),itord_pro.vl_total,itord_pro.vl_total_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_imposto,itord_pro.vl_imposto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),itord_pro.vl_desconto,itord_pro.vl_desconto_moeda,:CAMPO_CD_MOEDA,ord_com_moeda.cd_moeda_indice,ORD_COM_MOEDA.SN_CAMBIO_SUGERIDO,Nvl(ord_com_moeda.dt_indice_moeda,ord_com.dt_ord_com),ORD_COM_MOEDA.VL_INDICE_ORD_COM), 0 ) ) vl_total
+                 ,count(NVL( ord_com.cd_ord_com,0)) Qtd_sol
+         From     Dbamv.Estoque
+                 ,Dbamv.Ord_Com
+                 ,Dbamv.ITOrd_Pro
+                 ,Dbamv.Produto
+                 ,Dbamv.ORD_COM_MOEDA
+         Where    Estoque.cd_estoque      = Ord_com.cd_estoque
+         And      Ord_com.cd_ord_com      = Itord_pro.cd_ord_com
+         And      itord_pro.cd_produto    = Produto.cd_produto
+         And      Nvl(Ord_com.tp_contrato, 'O' )     =  'O'
+         And      Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+         And Ord_Com.cd_ord_com = ORD_COM_MOEDA.CD_ORD_COM(+)
+         And      to_date(to_char(Ord_com.dt_ord_com, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                                  to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+         Group by Estoque.cd_estoque
+                 ,Estoque.ds_estoque
+         union all
+         Select   Estoque.cd_estoque cd_estoque
+                 ,Estoque.ds_estoque ds_estoque
+                 ,sum(nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),ITENT_PRO.VL_TOTAL,ITENT_PRO.VL_TOTAL_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) + nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_IMPOSTO,ITENT_PRO.VL_IMPOSTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) - nvl( dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,0),ITENT_PRO.VL_DESCONTO,ITENT_PRO.VL_DESCONTO_MOEDA,:CAMPO_CD_MOEDA,ent_pro_moeda.cd_moeda_indice,ent_pro_moeda.SN_CAMBIO_SUGERIDO,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_entrada),ENT_PRO_MOEDA.VL_INDICE_ENT_PRO), 0 ) ) vl_total
+                 ,count(NVL( ent_pro.cd_ent_pro,0)) Qtd_sol
+         From     Dbamv.Estoque
+                 ,Dbamv.Ord_Com
+                 ,Dbamv.ent_pro
+                 ,Dbamv.Itent_Pro
+                 ,Dbamv.Produto
+                 ,DBAMV.ENT_PRO_MOEDA
+         Where    Estoque.cd_estoque   = ent_pro.cd_estoque
+         And      Estoque.cd_estoque   = ord_com.cd_estoque 
+         And      ent_pro.cd_ent_pro   = Itent_pro.cd_ent_pro
+         And      itent_pro.cd_produto = Produto.cd_produto
+         And      ent_pro.cd_ord_com   = ord_com.cd_ord_com
+         And      nvl(Ord_com.tp_contrato, 'O')  <>  'O'
+         AND ent_pro.cd_ent_pro = ent_pro_moeda.cd_ent_pro(+)
+         And      Estoque.cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+         And      to_date(to_char(ent_pro.dt_entrada, 'dd/mm/yyyy'), 'dd/mm/yyyy') between
+                                  to_date(:CAMPO_DT_INI, 'dd/mm/yyyy')  And  to_date(:CAMPO_DT_FIM, 'dd/mm/yyyy')
+         Group by Estoque.cd_estoque
+                 ,Estoque.ds_estoque)
+ Group by cd_estoque
+         ,ds_estoque
+Order by 3 desc

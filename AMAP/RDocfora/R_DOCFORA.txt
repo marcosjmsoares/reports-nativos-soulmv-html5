@@ -1,0 +1,224 @@
+/*----------------------------------------------------------------------------*/
+--R_DOCFORA
+SELECT * FROM (
+select        cd_cad_same                          CD_CAD_SAME
+             ,ds_portador                          DS_PORTADOR
+             ,cd_portador                     CD_PORTADOR
+            ,cd_portador_destino         cd_portador_destino
+             ,cd_protocolo                         CD_PROTOCOLO
+             ,To_Char(dt_saida,'dd/mm/yyyy')       DT_SAIDA
+             ,To_Char(hr_saida,'hh24')          HR_SAIDA
+             ,ds_motivo                            DS_MOTIVO
+             ,dt_prev_retorno                      DT_PREV_RETORNO
+             ,cd_atendimento                       CD_ATENDIMENTO
+             ,nr_matricula_same                    NR_MATRICULA_SAME
+             ,nr_volume                            NR_VOLUME
+             ,nm_paciente                          NM_PACIENTE
+             ,ds_linha                             DS_LINHA
+             ,ds_coluna                            DS_COLUNA
+             ,ds_armario_same                      DS_ARMARIO_SAME
+             ,( select ds_portador
+                from dbamv.portadores
+                where cd_portador_destino = cd_portador
+                  )DS_PORTADOR_DESTINO
+          From
+         (Select distinct ultimo_mov.nr_matricula_same
+               ,ultimo_mov.nr_volume
+               ,SAME.CD_CAD_SAME
+               ,armario_same .ds_armario_same
+               ,same.ds_linha
+               ,same.ds_coluna
+               ,paciente.cd_paciente
+               ,paciente.nm_paciente
+               ,ultimo_mov.cd_protocolo
+               ,protocolos.cd_portador_destino CD_PORTADOR_DESTINO
+               ,protocolos.cd_portador CD_PORTADOR
+               ,portadores.ds_portador
+               ,protocolos.dt_saida
+               ,protocolos.hr_saida
+               ,protocolos.ds_motivo
+               ,protocolos.dt_prev_retorno
+               ,It_Same_Protocolos.dt_recebimento
+               ,It_Same_Protocolos.hr_recebimento
+               ,it_same_protocolos.cd_atendimento
+                   from (SELECT max(It_Same_Protocolos.Cd_Protocolo) cd_protocolo
+                    ,It_Same_Protocolos.nr_matricula_same
+                    ,It_Same_Protocolos.nr_volume
+                FROM Dbamv.It_Same_Protocolos
+               WHERE   1=1
+               group by It_Same_Protocolos.nr_matricula_same,It_Same_Protocolos.nr_volume) ultimo_mov
+            ,Dbamv.Protocolos
+            ,dbamv.portadores
+            ,Dbamv.It_Same_Protocolos
+            ,dbamv.same
+            ,dbamv.paciente
+            ,dbamv.armario_same
+       where protocolos.cd_protocolo = ultimo_mov.cd_protocolo
+         and portadores.cd_portador = protocolos.cd_portador
+         and ultimo_mov.Cd_Protocolo = It_Same_Protocolos.Cd_Protocolo
+         and It_Same_Protocolos.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+         and It_Same_Protocolos.Nr_volume = ultimo_mov.nr_volume
+         and Same.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+         and Same.Nr_volume = ultimo_mov.nr_volume
+         and Same.Cd_Paciente = Paciente.Cd_Paciente
+        and It_Same_Protocolos.dt_recebimento is NULL
+         AND same.cd_armario_same = armario_same.cd_armario_same(+)
+      UNION ALL
+          select distinct ultimo_mov.nr_matricula_same
+                ,ultimo_mov.nr_volume
+                ,SAME.CD_CAD_SAME
+                ,armario_same .ds_armario_same
+                ,same.ds_linha
+                ,same.ds_coluna
+                ,paciente.cd_paciente
+                ,paciente.nm_paciente
+                ,ultimo_mov.cd_protocolo
+                ,protocolos.cd_portador_destino CD_PORTADOR_DESTINO
+                ,protocolos.cd_portador CD_PORTADOR
+                ,portadores.ds_portador
+                ,protocolos.dt_saida
+                ,protocolos.hr_saida
+                ,protocolos.ds_motivo
+                ,protocolos.dt_prev_retorno
+                ,It_Same_Protocolos.dt_recebimento
+                ,It_Same_Protocolos.hr_recebimento
+                ,it_same_protocolos.cd_atendimento
+           from (SELECT max(It_Same_Protocolos.Cd_Protocolo) cd_protocolo
+                       ,It_Same_Protocolos.nr_matricula_same
+                       ,It_Same_Protocolos.nr_volume
+                   FROM Dbamv.It_Same_Protocolos
+                   WHERE  1=1
+                   group by It_Same_Protocolos.nr_matricula_same,It_Same_Protocolos.nr_volume) ultimo_mov
+               ,Dbamv.Protocolos
+               ,dbamv.portadores
+               ,Dbamv.It_Same_Protocolos
+               ,dbamv.same
+               ,dbamv.paciente
+               ,dbamv.armario_same
+          where protocolos.cd_protocolo = ultimo_mov.cd_protocolo
+          and ultimo_mov.Cd_Protocolo = It_Same_Protocolos.Cd_Protocolo
+          and It_Same_Protocolos.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+          and It_Same_Protocolos.Nr_volume = ultimo_mov.nr_volume
+          and Same.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+          and Same.Nr_volume = ultimo_mov.nr_volume
+          and Same.Cd_Paciente = Paciente.Cd_Paciente
+          and It_Same_Protocolos.dt_recebimento is not NULL
+          AND same.cd_armario_same = armario_same.cd_armario_same(+)
+        :CAMPO_PROTOCOLOPORTADOR
+ )
+)
+ORDER BY CD_PORTADOR,CD_PROTOCOLO,DT_PREV_RETORNO,DS_PORTADOR,HR_SAIDA,DT_SAIDA,NR_MATRICULA_SAME,DS_PORTADOR_DESTINO,DS_MOTIVO,CD_PORTADOR_DESTINO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DOCFORA_R_PROTOCOLO_Q_QUEBRA_PORTADOR
+SELECT * FROM (
+select        cd_cad_same                          CD_CAD_SAME_P
+             ,cd_portador                          CD_PORTADOR_P
+             ,cd_portador_destino         cd_portador_destino_p
+             ,ds_portador                          DS_PORTADOR_P
+             ,cd_protocolo                         CD_PROTOCOLO_P
+             ,To_Char(dt_saida,'dd/mm/yyyy')       DT_SAIDA_P
+             ,To_Char(hr_saida,'hh24')          HR_SAIDA_P
+             ,ds_motivo                            DS_MOTIVO_P
+             ,dt_prev_retorno                      DT_PREV_RETORNO_P
+             ,cd_atendimento                       CD_ATENDIMENTO_P
+             ,nr_matricula_same                    NR_MATRICULA_SAME_P
+             ,nr_volume                            NR_VOLUME_P
+             ,nm_paciente                          NM_PACIENTE_P
+             ,ds_linha                             DS_LINHA_P
+             ,ds_coluna                            DS_COLUNA_P
+             ,ds_armario_same                      DS_ARMARIO_SAME_P
+             ,( select ds_portador
+                from dbamv.portadores
+                where cd_portador_destino = cd_portador
+                  )DS_PORTADOR_DESTINO
+          From
+         (Select distinct ultimo_mov.nr_matricula_same
+               ,ultimo_mov.nr_volume
+               ,SAME.CD_CAD_SAME
+               ,armario_same .ds_armario_same
+               ,same.ds_linha
+               ,same.ds_coluna
+               ,paciente.cd_paciente
+               ,paciente.nm_paciente
+               ,ultimo_mov.cd_protocolo
+               ,protocolos.cd_portador_destino CD_PORTADOR_DESTINO
+               ,protocolos.cd_portador CD_PORTADOR
+               ,portadores.ds_portador
+               ,protocolos.dt_saida
+               ,protocolos.hr_saida
+               ,protocolos.ds_motivo
+               ,protocolos.dt_prev_retorno
+               ,It_Same_Protocolos.dt_recebimento
+               ,It_Same_Protocolos.hr_recebimento
+               ,it_same_protocolos.cd_atendimento
+                   from (SELECT max(It_Same_Protocolos.Cd_Protocolo) cd_protocolo
+                    ,It_Same_Protocolos.nr_matricula_same
+                    ,It_Same_Protocolos.nr_volume
+                FROM Dbamv.It_Same_Protocolos
+               WHERE   1=1
+               group by It_Same_Protocolos.nr_matricula_same,It_Same_Protocolos.nr_volume) ultimo_mov
+            ,Dbamv.Protocolos
+            ,dbamv.portadores
+            ,Dbamv.It_Same_Protocolos
+            ,dbamv.same
+            ,dbamv.paciente
+            ,dbamv.armario_same
+       where protocolos.cd_protocolo = ultimo_mov.cd_protocolo
+         and portadores.cd_portador = protocolos.cd_portador
+         and ultimo_mov.Cd_Protocolo = It_Same_Protocolos.Cd_Protocolo
+         and It_Same_Protocolos.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+         and It_Same_Protocolos.Nr_volume = ultimo_mov.nr_volume
+         and Same.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+         and Same.Nr_volume = ultimo_mov.nr_volume
+         and Same.Cd_Paciente = Paciente.Cd_Paciente
+          and It_Same_Protocolos.dt_recebimento is NULL
+             AND same.cd_armario_same = armario_same.cd_armario_same(+)
+      UNION ALL
+          select distinct ultimo_mov.nr_matricula_same
+                ,ultimo_mov.nr_volume
+                ,SAME.CD_CAD_SAME
+                ,armario_same .ds_armario_same
+                ,same.ds_linha
+                ,same.ds_coluna
+                ,paciente.cd_paciente
+                ,paciente.nm_paciente
+                ,ultimo_mov.cd_protocolo
+                ,protocolos.cd_portador_destino CD_PORTADOR_DESTINO
+                ,protocolos.cd_portador CD_PORTADOR
+                ,portadores.ds_portador
+                ,protocolos.dt_saida
+                ,protocolos.hr_saida
+                ,protocolos.ds_motivo
+                ,protocolos.dt_prev_retorno
+                ,It_Same_Protocolos.dt_recebimento
+                ,It_Same_Protocolos.hr_recebimento
+                ,it_same_protocolos.cd_atendimento
+           from (SELECT max(It_Same_Protocolos.Cd_Protocolo) cd_protocolo
+                       ,It_Same_Protocolos.nr_matricula_same
+                       ,It_Same_Protocolos.nr_volume
+                   FROM Dbamv.It_Same_Protocolos
+                   WHERE  1=1
+                   group by It_Same_Protocolos.nr_matricula_same,It_Same_Protocolos.nr_volume) ultimo_mov
+               ,Dbamv.Protocolos
+               ,dbamv.portadores
+               ,Dbamv.It_Same_Protocolos
+               ,dbamv.same
+               ,dbamv.paciente
+               ,dbamv.armario_same
+          where protocolos.cd_protocolo = ultimo_mov.cd_protocolo
+          and portadores.cd_portador = protocolos.cd_portador
+          and ultimo_mov.Cd_Protocolo = It_Same_Protocolos.Cd_Protocolo
+          and It_Same_Protocolos.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+          and It_Same_Protocolos.Nr_volume = ultimo_mov.nr_volume
+          and Same.Nr_Matricula_Same = ultimo_mov.nr_matricula_same
+          and Same.Nr_volume = ultimo_mov.nr_volume
+          and Same.Cd_Paciente = Paciente.Cd_Paciente
+          and It_Same_Protocolos.dt_recebimento is not NULL
+          AND same.cd_armario_same = armario_same.cd_armario_same(+)
+         :CAMPO_PROTOCOLOPORTADOR  )
+)
+ORDER BY CD_PORTADOR_DESTINO_P,CD_PORTADOR_P,DS_PORTADOR_P,DS_PORTADOR_DESTINO,
+CD_PROTOCOLO_P,DT_PREV_RETORNO_P,DT_SAIDA_P,HR_SAIDA_P,DS_MOTIVO_P

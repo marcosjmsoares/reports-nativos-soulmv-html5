@@ -1,0 +1,96 @@
+/*----------------------------------------------------------------------------*/
+--R_BALFIN
+SELECT   cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         SUM(VL_RATEIO) VL_RATEIO,
+         NVL (SUM (DECODE (tp_quitacao, 'DESPESA',vl_rateio , 0)), 0) vl_despesa,
+         NVL (SUM (DECODE (tp_quitacao, 'RECEITA', vl_rateio, 0)), 0) vl_receita,
+         TP_QUITACAO
+    FROM (
+select nvl(g.cd_gru_res,0) cd_gru_res
+      ,nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , dbamv.calcula_valor_rateio ( c.cd_con_rec , r.rowid , Rec.Vl_Recebido , r.vl_Rateio)   VL_rateio
+     , 'RECEITA' tp_quitacao
+from dbamv.con_rec c
+      ,dbamv.itcon_rec it
+     ,dbamv.rat_conrec r
+     ,dbamv.item_res i
+     ,dbamv.gru_res g
+     ,dbamv.reccon_rec rec
+where ((c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA ) or
+       (Dbamv.Pkg_Transacao_Entre_Empresas.IsFilial(c.cd_multi_empresa, :CAMPO_CD_MULTI_EMPRESA ) = 1 and
+        Dbamv.Pkg_Transacao_Entre_Empresas.CompartilhaPlContas(c.cd_multi_empresa) = 'S' and
+        Dbamv.Pkg_Transacao_Entre_Empresas.UtilizaCtTransitoria(c.cd_multi_empresa) = 'N'))
+  and it.tp_quitacao in ('Q','P','G')
+  and c.cd_con_rec = r.cd_con_rec
+  and rec.cd_itcon_rec = it.cd_itcon_rec
+  and to_char(rec.dt_recebimento,'MM/YYYY') = to_char(:CAMPO_COMPET, 'MM/YYYY')
+  and r.cd_item_res = i.cd_item_res
+  and c.cd_con_rec = it.cd_con_rec
+  and i.cd_gru_res  = g.cd_gru_res
+  and vl_rateio > 0
+union all
+select nvl(g.cd_gru_res,0) cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(it.cd_item_res,0) cd_item_res
+     , nvl(it.ds_item_res,'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , sum(round((( nvl(r.vl_rateio,0)/nvl(c.vl_bruto_conta,1))* nvl(p.vl_pago,0)),2)) vl_rateio
+     ,'DESPESA'  tp_quitacao
+from dbamv.pagcon_pag p
+    , dbamv.itcon_pag i
+    , dbamv.ratcon_pag r
+    , dbamv.con_pag c
+    , dbamv.item_res it
+    , dbamv.gru_res g
+where to_char(p.dt_pagamento,'MM/YYYY') = to_char(:CAMPO_COMPET, 'MM/YYYY')
+  and p.cd_itcon_pag = i.cd_itcon_pag
+  and i.cd_con_pag = c.cd_con_pag
+  and c.cd_con_pag = r.cd_con_pag
+  and ((r.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) or
+       (Dbamv.Pkg_Transacao_Entre_Empresas.IsFilial(r.cd_multi_empresa, :CAMPO_CD_MULTI_EMPRESA ) = 1 and
+        Dbamv.Pkg_Transacao_Entre_Empresas.CompartilhaPlContas(r.cd_multi_empresa) = 'S' and
+        Dbamv.Pkg_Transacao_Entre_Empresas.UtilizaCtTransitoria(r.cd_multi_empresa) = 'N'))
+  and i.tp_quitacao in ('Q','P')
+  and r.cd_item_res = it.cd_item_res
+  and it.cd_gru_res = g.cd_gru_res
+  and vl_rateio > 0
+group by g.cd_gru_res, g.ds_gru_res, it.cd_item_res, it.ds_item_res
+union all
+select nvl(g.cd_gru_res,0) cd_gru_res
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO') ds_gru_res
+     , nvl(i.cd_item_res, 0) cd_item_res
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO') ds_item_res
+     , sum(m.vl_movimentacao - nvl(vl_conciliado,0))  VL_rateio
+     , decode(l.tp_operacao_saldo_conta, '+', 'RECEITA', 'DESPESA') tp_quitacao
+from dbamv.mov_concor m
+     ,dbamv.lan_concor l
+     ,dbamv.item_res i
+     ,dbamv.gru_res g
+where m.cd_lan_concor = l.cd_lan_concor
+  and l.cd_item_res = i.cd_item_res
+  and i.cd_gru_res  = g.cd_gru_res
+  and to_char(m.dt_movimentacao,'MM/YYYY') = to_char(:CAMPO_COMPET, 'MM/YYYY')
+  and ((l.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) or
+       (Dbamv.Pkg_Transacao_Entre_Empresas.IsFilial(l.cd_multi_empresa, :CAMPO_CD_MULTI_EMPRESA ) = 1 and
+        Dbamv.Pkg_Transacao_Entre_Empresas.CompartilhaPlContas(l.cd_multi_empresa) = 'S' and
+        Dbamv.Pkg_Transacao_Entre_Empresas.UtilizaCtTransitoria(l.cd_multi_empresa) = 'N'))
+  and :CAMPO_SN_LAN_BAN = 'S'
+  and l.tp_aparece_no_extrato = 'S'
+  and m.cd_cheque is null
+  and m.cd_bordero is null
+  and cd_mov_concor_transferencia is null
+    and m.vl_movimentacao - nvl(vl_conciliado,0) > 0
+    and (not exists (select cd_mov_concor from dbamv.rec_mov_con r where r.cd_mov_concor = m.cd_mov_concor) or
+         exists (select 'x' from dbamv.config_financ where cd_lanca_credito_convenio = l.cd_lan_concor and cd_multi_empresa = l.cd_multi_empresa))
+group by nvl(g.cd_gru_res,0)
+     , nvl(g.ds_gru_res,'GRUPO NÃO INFORMADO')
+     , nvl(i.cd_item_res, 0)
+     , nvl(i.ds_item_res, 'ITEM DE RESULTADO NÃO INFORMADO')
+     , decode(l.tp_operacao_saldo_conta, '+', 'RECEITA', 'DESPESA')
+)
+GROUP BY TP_QUITACAO,cd_gru_res, ds_gru_res, cd_item_res, ds_item_res
+ORDER BY ds_gru_res DESC

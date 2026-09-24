@@ -1,0 +1,32 @@
+/*----------------------------------------------------------------------------*/
+--R_CONF_NOTAS
+SELECT * FROM (
+select rt.cd_con_pag
+      ,cp.ds_fornecedor
+      ,cp.nr_documento
+      ,cp.dt_lancamento
+      ,rt.cd_reduzido
+      ,rt.vl_rateio
+      ,e.cd_especie
+      ,e.ds_especie
+      ,pc.ds_conta
+  from dbamv.ratcon_pag rt
+      ,dbamv.con_pag cp
+      ,dbamv.plano_contas pc
+              ,(select distinct es.cd_especie, es.ds_especie, ep.cd_reduzido
+                from   dbamv.especie es
+                         ,dbamv.estoque_pl_contas ep
+                where  es.cd_especie = ep.cd_especie
+		And EP.Cd_estoque In (Select Cd_estoque From Dbamv.Estoque Where Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA )) e
+ where pc.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and e.cd_reduzido = rt.cd_reduzido
+   and cp.cd_con_pag  = rt.cd_con_pag
+   and pc.cd_reduzido = rt.cd_reduzido
+  and cp.dt_lancamento between TO_DATE(:CAMPO_DATA_INIC,'DD/MM/YYYY') and  TO_DATE(:CAMPO_DATA_FIM,'DD/MM/YYYY')
+   and cp.cd_con_pag in (select cd_con_pag from dbamv.con_pag where cd_con_pag_dev is null)
+   and rt.cd_con_pag not in ( select distinct ent_pro.cd_con_pag
+                                        from dbamv.ent_pro
+                                        where ent_pro.cd_con_pag is not null)
+  and rt.vl_rateio >0
+)
+ORDER BY CD_ESPECIE, CD_REDUZIDO, DT_LANCAMENTO

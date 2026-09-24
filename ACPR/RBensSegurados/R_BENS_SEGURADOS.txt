@@ -1,0 +1,72 @@
+/*----------------------------------------------------------------------------*/
+--R_BENS_SEGURADOS
+SELECT ' Empresa ' || me.cd_multi_empresa || ' - ' || me.ds_multi_empresa Empresa,
+      me.cd_multi_empresa Emp
+      ,BS.NR_APOLICE
+      ,BS.DS_COBERTURA
+      ,BS.DT_INICIO
+      ,BS.DT_FIM
+      ,BS.SN_ATIVO
+      ,BS.VL_BENS_SEGURADO
+      ,NVL(BS.CD_BEM,0) Codigo
+      ,BS.CD_SEGURADORA
+      ,BS.VL_PAGO_SEGURO
+      ,BS.TP_SEGURO
+      ,B.DS_MARCA
+      ,DECODE(B.CD_BEM,NULL,'BENS AGRUPADOS',B.DS_BEM) Descricao
+      ,B.DS_MODELO
+      ,DECODE(S.DS_SEGURADORA,NULL,fo.nm_fornecedor)	ds_seguradora
+FROM Dbamv.BENS_SEGURADOS BS,
+           dbamv.BENS                           B,
+           dbamv.SEGUROS                   S,
+           Dbamv.fornecedor	Fo ,
+           Dbamv.con_pag	Cp,
+           dbamv.multi_empresas            me
+WHERE Bs.cd_con_pag = cp.cd_con_pag
+And	Cp.Cd_Fornecedor	=	Fo.Cd_Fornecedor
+AND BS.SN_ATIVO = 'S'
+AND BS.CD_BEM = B.CD_BEM(+)
+AND BS.CD_SEGURADORA = S.CD_SEGURADORA (+) 
+AND B.HR_BAIXA IS NULL
+AND BS.DT_FIM BETWEEN :CAMPO_DT_INICIAL  AND 
+and  bs.cd_multi_empresa_bem = me.cd_multi_empresa
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_BENS_SEGURADOS_R_1_Q_2
+SELECT * FROM (
+SELECT * FROM (
+SELECT  me.cd_multi_empresa Emp_agrup
+              ,BS.CD_BEM Codigo_agrup
+FROM dbamv.BENS_SEGURADOS BS
+         , dbamv.BENS B
+         , dbamv.SEGUROS S
+         , dbamv.multi_empresas me
+WHERE BS.SN_ATIVO = 'S'
+     AND BS.CD_BEM = B.CD_BEM
+     AND BS.CD_SEGURADORA = S.CD_SEGURADORA(+)
+     AND B.HR_BAIXA IS NULL
+     AND BS.DT_FIM BETWEEN :CAMPO_DT_INICIAL AND 
+     and   me.cd_multi_empresa = b.cd_multi_empresa
+UNION ALL
+SELECT me.cd_multi_empresa
+              ,IOB.CD_BENS_SEGURADOS_IOB Codigo
+FROM dbamv.BENS_SEGURADOS BS
+   , dbamv.BENS_SEGURADOS_IOB IOB
+   , dbamv.BENS B
+   , dbamv.SEGUROS S
+   , dbamv.multi_empresas me
+WHERE BS.CD_BENS_SEGURADOS = IOB.CD_BENS_SEGURADOS
+     AND BS.SN_ATIVO = 'S'
+     AND IOB.CD_BENS_SEGURADOS_IOB = B.CD_BEM
+     AND IOB.SN_SEGURADO = 'S'
+     AND BS.CD_SEGURADORA = S.CD_SEGURADORA(+)
+     AND B.HR_BAIXA IS NULL
+     AND BS.DT_FIM BETWEEN :CAMPO_DT_INICIAL AND 
+     and   me.cd_multi_empresa = b.cd_multi_empresa
+:CAMPO_CF_EMPRESA
+)
+WHERE EMP_AGRUP = :CAMPO_EMP
+)
+ORDER BY EMP_AGRUP

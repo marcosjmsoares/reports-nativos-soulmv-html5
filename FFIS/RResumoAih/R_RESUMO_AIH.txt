@@ -1,0 +1,242 @@
+/*----------------------------------------------------------------------------*/
+--R_RESUMO_AIH
+select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RESUMO_AIH_R_2_Q_RES_SIN_FIN_COMPLEX
+select sum(decode( 'A-AB', tp_fin_complex, vl_total, 0 )) vl_a_ab
+     , sum(decode( 'A-AC', tp_fin_complex, vl_total, 0 )) vl_a_ac
+     , sum(decode( 'A-MC', tp_fin_complex, vl_total, 0 )) vl_a_mc
+     , sum(decode( 'B-AB', tp_fin_complex, vl_total, 0 )) vl_b_ab
+     , sum(decode( 'B-AC', tp_fin_complex, vl_total, 0 )) vl_b_ac
+     , sum(decode( 'B-MC', tp_fin_complex, vl_total, 0 )) vl_b_mc
+     , sum(decode( 'F-AB', tp_fin_complex, vl_total, 0 )) vl_f_ab
+     , sum(decode( 'F-AC', tp_fin_complex, vl_total, 0 )) vl_f_ac
+     , sum(decode( 'F-MC', tp_fin_complex, vl_total, 0 )) vl_f_mc
+     , sum(decode( 'I-AB', tp_fin_complex, vl_total, 0 )) vl_i_ab
+     , sum(decode( 'I-AC', tp_fin_complex, vl_total, 0 )) vl_i_ac
+     , sum(decode( 'I-MC', tp_fin_complex, vl_total, 0 )) vl_i_mc
+     , sum(decode( 'M-AB', tp_fin_complex, vl_total, 0 )) vl_m_ab
+     , sum(decode( 'M-AC', tp_fin_complex, vl_total, 0 )) vl_m_ac
+     , sum(decode( 'M-MC', tp_fin_complex, vl_total, 0 )) vl_m_mc
+     , sum(decode( 'N-AB', tp_fin_complex, vl_total, 0 )) vl_n_ab
+     , sum(decode( 'N-AC', tp_fin_complex, vl_total, 0 )) vl_n_ac
+     , sum(decode( 'N-MC', tp_fin_complex, vl_total, 0 )) vl_n_mc
+     , sum(decode( 'V-AB', tp_fin_complex, vl_total, 0 )) vl_v_ab
+     , sum(decode( 'V-AC', tp_fin_complex, vl_total, 0 )) vl_v_ac
+     , sum(decode( 'V-MC', tp_fin_complex, vl_total, 0 )) vl_v_mc
+ from (
+  select resumo_aih.tp_financiamento ||'-'|| resumo_aih.tp_complexidade tp_fin_complex
+       , sum(resumo_aih.vl_linha) vl_total
+  from (select conta_aih.cd_reg_fat
+             , conta_aih.cd_lancamento
+             , dbamv.FNC_FFIS_RETORNA_COMPLEXIDADE( conta_aih.cd_reg_fat, conta_aih.cd_lancamento ) tp_complexidade
+             , dbamv.FNC_FFIS_RETORNA_FINANCIAMENTO( conta_aih.cd_reg_fat, conta_aih.cd_lancamento ) tp_financiamento
+             , nvl(valor_aih.vl_linha,0)              vl_linha
+          from ( select reg_fat.cd_reg_fat
+                      , reg_fat.cd_procedimento_realizado
+                      , nvl(procedimento_sus_detalhe.sn_cirurgia_multipla, 'N') sn_cirurgia_multipla
+                      , reg_fat.nr_guia
+                      , itreg_fat.cd_lancamento
+                      , itreg_fat.cd_procedimento
+                   from dbamv.fatura
+                      , dbamv.remessa_fatura
+                      , dbamv.reg_fat
+                      , dbamv.itreg_fat
+                      , dbamv.procedimento_sus_detalhe
+                  where to_char(fatura.dt_competencia, 'MM/YYYY' ) = to_char( :CAMPO_COMPET,'MM/YYYY' )
+                    and remessa_fatura.cd_fatura          = fatura.cd_fatura
+                    and reg_fat.cd_remessa                = remessa_fatura.cd_remessa
+                    and itreg_fat.cd_reg_fat              = reg_fat.cd_reg_fat
+                    and itreg_fat.sn_pertence_pacote      = 'N'
+                    and reg_fat.cd_procedimento_realizado = procedimento_sus_detalhe.cd_procedimento (+)
+                    and reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                    and reg_fat.cd_convenio      = dbamv.Pkt_CONFIG_FFIS.retorna_campo('CD_CONVENIO')
+                    :CAMPO_CF_REAPRESENTADAS
+             ) conta_aih
+             , dbamv.v_ffis_valor_conta_aih valor_aih
+             , dbamv.procedimento_sus
+         where valor_aih.cd_reg_fat                = conta_aih.cd_reg_fat
+           and valor_aih.cd_lancamento             = conta_aih.cd_lancamento
+           and procedimento_sus.cd_procedimento    = conta_aih.cd_procedimento
+      ) resumo_aih
+group by resumo_aih.tp_financiamento ||'-'|| resumo_aih.tp_complexidade )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RESUMO_AIH_R_ANA_ESPECIALIDADE_Q_RES_ANA_FIN_COMPLEX
+SELECT * FROM (
+select resumo_aih.cd_espec_sus
+     , resumo_aih.ds_espec_sus
+     , resumo_aih.cd_atendimento
+     , resumo_aih.cd_reg_fat
+     , resumo_aih.nr_guia
+     , resumo_aih.nr_seqaih5
+     , resumo_aih.cd_procedimento
+     , resumo_aih.tp_complexidade
+     , complexidade_procedimento.ds_complexidade_procedimento
+     , resumo_aih.tp_financiamento
+     , tipo_financiamento.ds_financiamento
+     , resumo_aih.tp_procedimento
+     , decode( resumo_aih.tp_procedimento,'OUTROS',sum(resumo_aih.vl_sh),0) vl_sh
+     , decode( resumo_aih.tp_procedimento,'OPM',sum(resumo_aih.vl_total),0) vl_opm
+     , decode( resumo_aih.tp_procedimento,'NUTRICAO',sum(resumo_aih.vl_total),0) vl_nutricao
+     , decode( resumo_aih.tp_procedimento,'SANGUE',sum(resumo_aih.vl_total),0) vl_sangue
+     , decode( resumo_aih.tp_procedimento,'PRE_NATAL',sum(resumo_aih.vl_total),0) vl_pre_natal
+     , decode( resumo_aih.tp_procedimento,'OUTROS',sum(resumo_aih.vl_sp),0) vl_sp
+     , sum(resumo_aih.vl_total) vl_total
+from dbamv.tipo_financiamento
+   , dbamv.complexidade_procedimento
+   , (select conta_aih.cd_espec_sus
+           , conta_aih.ds_espec_sus
+           , conta_aih.cd_atendimento
+           , conta_aih.cd_reg_fat
+           , conta_aih.nr_guia
+           , conta_aih.nr_seqaih5
+           , conta_aih.cd_procedimento_realizado
+           , conta_aih.sn_cirurgia_multipla
+           , conta_aih.cd_lancamento
+           , conta_aih.cd_procedimento
+           , decode(procedimento_sus_detalhe.sn_ortese_protese  , 'S', 'OPM'      ,
+             decode(procedimento_sus_detalhe.sn_nutricao_enteral, 'S', 'NUTRICAO' ,
+             decode(procedimento_sus_detalhe.sn_componente_i    , 'S', 'PRE_NATAL',
+             decode(procedimento_sus_detalhe.sn_sangue          , 'S', 'SANGUE'   , 'OUTROS')))) tp_procedimento
+           , dbamv.FNC_FFIS_RETORNA_COMPLEXIDADE( conta_aih.cd_reg_fat, conta_aih.cd_lancamento ) tp_complexidade
+           , dbamv.FNC_FFIS_RETORNA_FINANCIAMENTO( conta_aih.cd_reg_fat, conta_aih.cd_lancamento ) tp_financiamento
+           , nvl(valor_aih.vl_sh,0) vl_sh
+           , nvl(valor_aih.vl_sp,0) vl_sp
+           , nvl(valor_aih.vl_linha,0) vl_total
+        from ( select reg_fat.cd_espec_sus
+                    , espec_sus.ds_espec_sus
+                    , reg_fat.cd_atendimento
+                    , reg_fat.cd_reg_fat
+                    , reg_fat.cd_procedimento_realizado
+                    , nvl(procedimento_sus_detalhe.sn_cirurgia_multipla, 'N') sn_cirurgia_multipla
+                    , reg_fat.nr_guia
+                    , reg_fat.nr_seqaih5
+                    , itreg_fat.cd_lancamento
+                    , itreg_fat.cd_procedimento
+                 from dbamv.fatura
+                    , dbamv.remessa_fatura
+                    , dbamv.reg_fat
+                    , dbamv.itreg_fat
+                    , dbamv.procedimento_sus_detalhe
+                    , dbamv.espec_sus
+                where to_char(fatura.dt_competencia, 'MM/YYYY' ) = to_char(:CAMPO_COMPET,'MM/YYYY')
+                  and remessa_fatura.cd_fatura          = fatura.cd_fatura
+                  and reg_fat.cd_remessa                = remessa_fatura.cd_remessa
+                  and itreg_fat.cd_reg_fat              = reg_fat.cd_reg_fat
+                  and itreg_fat.sn_pertence_pacote            = 'N'
+                  and reg_fat.cd_procedimento_realizado = procedimento_sus_detalhe.cd_procedimento (+)
+                  and reg_fat.cd_multi_empresa          = :CAMPO_CD_MULTI_EMPRESA
+                  and reg_fat.cd_convenio               = dbamv.Pkt_CONFIG_FFIS.retorna_campo('CD_CONVENIO')
+                  and espec_sus.cd_espec_sus            = reg_fat.cd_espec_sus
+                  :CAMPO_CF_REAPRESENTADAS
+           ) conta_aih
+           , dbamv.v_ffis_valor_conta_aih valor_aih
+           , dbamv.procedimento_sus
+           , dbamv.procedimento_sus_detalhe
+       where valor_aih.cd_reg_fat                     = conta_aih.cd_reg_fat
+         and valor_aih.cd_lancamento                  = conta_aih.cd_lancamento
+         and procedimento_sus.cd_procedimento         = conta_aih.cd_procedimento
+         and procedimento_sus_detalhe.cd_procedimento = procedimento_sus.cd_procedimento
+       order by cd_atendimento, cd_reg_fat
+    ) resumo_aih
+ where tipo_financiamento.tp_financiamento = resumo_aih.tp_financiamento
+   and complexidade_procedimento.tp_complexidade_procedimento = resumo_aih.tp_complexidade
+   and resumo_aih.vl_total > 0
+ group by resumo_aih.cd_espec_sus
+        , resumo_aih.ds_espec_sus
+        , resumo_aih.cd_atendimento
+        , resumo_aih.cd_reg_fat
+        , resumo_aih.nr_guia
+        , resumo_aih.nr_seqaih5
+        , resumo_aih.cd_procedimento
+        , resumo_aih.tp_complexidade
+        , complexidade_procedimento.ds_complexidade_procedimento
+        , resumo_aih.tp_financiamento
+        , tipo_financiamento.ds_financiamento
+        , resumo_aih.tp_procedimento
+ order by resumo_aih.cd_espec_sus
+        , resumo_aih.cd_atendimento
+        , resumo_aih.cd_reg_fat
+        , resumo_aih.cd_procedimento
+        , resumo_aih.tp_complexidade
+        , resumo_aih.tp_financiamento
+)
+ORDER BY CD_ESPEC_SUS,DS_ESPEC_SUS,
+CD_ATENDIMENTO,CD_REG_FAT,NR_GUIA,NR_SEQAIH5
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RESUMO_AIH_R_G_TP_COMPLEXIDADE1_Q_RESUMO_AIH_S
+select resumo_aih.tp_complexidade tp_complexidade_sin
+     , complexidade_procedimento.ds_complexidade_procedimento ds_complexidade_sin
+     , resumo_aih.tp_financiamento tp_financiamento_sin
+     , tipo_financiamento.ds_financiamento ds_financiamento_sin
+     , sum(resumo_aih.vl_sh_proprio) vl_sh_proprio_sin
+     , sum(resumo_aih.vl_sh_terceiro) vl_sh_terceiro_sin
+     , sum(resumo_aih.vl_sp_d_proprio) vl_sp_d_proprio_sin
+     , sum(resumo_aih.vl_sp_d_terceiro) vl_sp_d_terceiro_sin
+     , sum(resumo_aih.vl_sp_r_proprio) vl_sp_r_proprio_sin
+     , sum(resumo_aih.vl_sp_r_terceiro) vl_sp_r_terceiro_sin
+     , sum(resumo_aih.vl_linha ) vl_total_sin
+from dbamv.tipo_financiamento
+   , dbamv.complexidade_procedimento
+   , (select conta_aih.cd_atendimento
+           , conta_aih.cd_reg_fat
+           , conta_aih.nr_guia
+           , conta_aih.cd_procedimento_realizado
+           , conta_aih.sn_cirurgia_multipla
+           , conta_aih.cd_lancamento
+           , conta_aih.cd_procedimento
+           , dbamv.FNC_FFIS_RETORNA_COMPLEXIDADE( conta_aih.cd_reg_fat, conta_aih.cd_lancamento ) tp_complexidade
+           , dbamv.FNC_FFIS_RETORNA_FINANCIAMENTO( conta_aih.cd_reg_fat, conta_aih.cd_lancamento ) tp_financiamento
+           , nvl(valor_aih.vl_sh_proprio   ,0)      vl_sh_proprio
+           , nvl(valor_aih.vl_sh_terceiro  ,0)      vl_sh_terceiro
+           , nvl(valor_aih.vl_sp_direto_proprio ,0) vl_sp_d_proprio
+           , nvl(valor_aih.vl_sp_direto_terceiro,0) vl_sp_d_terceiro
+           , nvl(valor_aih.vl_sp_rateio_proprio ,0) vl_sp_r_proprio
+           , nvl(valor_aih.vl_sp_rateio_terceiro,0) vl_sp_r_terceiro
+           , nvl(valor_aih.vl_linha,0)              vl_linha
+        from ( select reg_fat.cd_atendimento
+                    , reg_fat.cd_reg_fat
+                    , reg_fat.cd_procedimento_realizado
+                    , nvl(procedimento_sus_detalhe.sn_cirurgia_multipla, 'N') sn_cirurgia_multipla
+                    , reg_fat.nr_guia
+                    , itreg_fat.cd_lancamento
+                    , itreg_fat.cd_procedimento
+                 from dbamv.fatura
+                    , dbamv.remessa_fatura
+                    , dbamv.reg_fat
+                    , dbamv.itreg_fat
+                    , dbamv.procedimento_sus_detalhe
+                where to_char(fatura.dt_competencia, 'MM/YYYY' ) = to_char(:CAMPO_COMPET,'MM/YYYY')
+                  and remessa_fatura.cd_fatura          = fatura.cd_fatura
+                  and reg_fat.cd_remessa                = remessa_fatura.cd_remessa
+                  and itreg_fat.cd_reg_fat              = reg_fat.cd_reg_fat
+                  and itreg_fat.sn_pertence_pacote = 'N'
+                  and reg_fat.cd_procedimento_realizado = procedimento_sus_detalhe.cd_procedimento (+)
+                  and reg_fat.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+                  and reg_fat.cd_convenio      = dbamv.Pkt_CONFIG_FFIS.retorna_campo('CD_CONVENIO')
+                  :CAMPO_CF_REAPRESENTADAS
+           ) conta_aih
+           , dbamv.v_ffis_valor_conta_aih valor_aih
+           , dbamv.procedimento_sus
+       where valor_aih.cd_reg_fat                = conta_aih.cd_reg_fat
+         and valor_aih.cd_lancamento             = conta_aih.cd_lancamento
+         and procedimento_sus.cd_procedimento    = conta_aih.cd_procedimento
+       order by cd_atendimento, cd_reg_fat
+    ) resumo_aih
+ where tipo_financiamento.tp_financiamento = resumo_aih.tp_financiamento
+   and complexidade_procedimento.tp_complexidade_procedimento = resumo_aih.tp_complexidade
+ group by resumo_aih.tp_complexidade
+        , complexidade_procedimento.ds_complexidade_procedimento
+        , resumo_aih.tp_financiamento
+        , tipo_financiamento.ds_financiamento
+ order by resumo_aih.tp_complexidade
+        , resumo_aih.tp_financiamento

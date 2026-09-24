@@ -1,0 +1,149 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBOS_EMITIDOS
+select recibo.cd_recibo,
+       recibo.cd_usuario,
+       recibo.tp_status,
+       recibo.tp_recibo,
+       recibo.tp_origem,
+       recibo.dt_emissao,
+       caucao.dt_caucao dt_vencimento,
+       to_number( null ) setor,
+       caucao.cd_atendimento atendimento,
+       decode( caucao.tp_pagamento, 'C', 'Cartão',
+                                                           'Q', 'Cheque',
+                                                           'D', 'Dinheiro',
+                                                           'P', 'Duplicata' ) tp_recebimento,
+	   dbamv.fnc_fnfi_calcula_moeda(:CAMPO_DTFIM, PKG_MV2000.LE_EMPRESA,dbamv.moeda_padrao(PKG_MV2000.LE_EMPRESA),:CAMPO_CD_MOEDA,(recibo.vl_recibo)) vl_recibo,
+	recibo.ds_observacao
+  from dbamv.recibo,
+       dbamv.caucao
+ where recibo.vl_recibo > 0
+     and recibo.cd_caucao = caucao.cd_caucao
+     and caucao.cd_caucao is not null
+union
+select recibo.cd_recibo,
+       recibo.cd_usuario,
+       recibo.tp_status,
+       recibo.tp_recibo,
+       recibo.tp_origem,
+       recibo.dt_emissao,
+       itcon_rec.dt_vencimento dt_vencimento,
+       itreg_fat.cd_setor setor,
+       con_rec.cd_atendimento atendimento,
+       decode( reccon_rec.tp_recebimento, '1', 'Cheque',
+                                                                  '2', 'Cartão',
+                                                                  '3', 'Dinheiro',
+                                                                  '4', 'Crédido C/C',
+                                                                  '5', 'Borderô',
+                                                                  '6', 'Boleto',
+                                                                  '7', 'DOC',
+                                                                  '8', 'Duplicata',
+                                                                  '9', 'Nota Promissória',
+                                                                  'E', 'Encontro de Contas',
+                                                                  'B', 'Baixa Contábil',
+                                                                  '11', 'Vale a Vista' ) tp_recebimento,
+       dbamv.fnc_fnfi_calcula_moeda(:CAMPO_DTFIM, PKG_MV2000.LE_EMPRESA,dbamv.moeda_padrao(PKG_MV2000.LE_EMPRESA),:CAMPO_CD_MOEDA,(recibo.vl_recibo)) vl_recibo,
+       recibo.ds_observacao
+  from dbamv.recibo,
+          dbamv.con_rec,
+          dbamv.itcon_rec,
+          dbamv.reccon_rec,
+          dbamv.reg_fat,
+          dbamv.itreg_fat
+ where recibo.vl_recibo > 0
+     and recibo.cd_reccon_rec is not null
+     and recibo.cd_reccon_rec = reccon_rec.cd_reccon_rec
+     and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+     and itcon_rec.cd_con_rec = con_rec.cd_con_rec
+     and con_rec.cd_reg_fat = reg_fat.cd_reg_fat
+     and reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+union
+select recibo.cd_recibo,
+       recibo.cd_usuario,
+       recibo.tp_status,
+       recibo.tp_recibo,
+       recibo.tp_origem,
+       recibo.dt_emissao,
+       itcon_rec.dt_vencimento dt_vencimento,
+       itreg_amb.cd_setor setor,
+       con_rec.cd_atendimento atendimento,
+       decode( reccon_rec.tp_recebimento, '1', 'Cheque',
+                                                                  '2', 'Cartão',
+                                                                  '3', 'Dinheiro',
+                                                                  '4', 'Crédido C/C',
+                                                                  '5', 'Borderô',
+                                                                  '6', 'Boleto',
+                                                                  '7', 'DOC',
+                                                                  '8', 'Duplicata',
+                                                                  '9', 'Nota Promissória',
+                                                                  'E', 'Encontro de Contas',
+                                                                  'B', 'Baixa Contábil',
+                                                                  '11', 'Vale a Vista' ) tp_recebimento,
+       	   dbamv.fnc_fnfi_calcula_moeda(:CAMPO_DTFIM, PKG_MV2000.LE_EMPRESA,dbamv.moeda_padrao(PKG_MV2000.LE_EMPRESA),:CAMPO_CD_MOEDA,(recibo.vl_recibo)) vl_recibo,
+       recibo.ds_observacao
+  from dbamv.recibo,
+          dbamv.con_rec,
+          dbamv.itcon_rec,
+          dbamv.reccon_rec,
+          dbamv.reg_amb,
+          dbamv.itreg_amb
+ where recibo.vl_recibo > 0
+     and recibo.cd_reccon_rec is not null
+     and recibo.cd_reccon_rec = reccon_rec.cd_reccon_rec
+     and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+     and itcon_rec.cd_con_rec = con_rec.cd_con_rec
+     and con_rec.cd_reg_amb = reg_amb.cd_reg_amb
+     and reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+union
+select recibo.cd_recibo,
+          recibo.cd_usuario,
+          recibo.tp_status,
+          recibo.tp_recibo,
+          recibo.tp_origem,
+          recibo.dt_emissao,
+          mov_caixa.dt_movimentacao dt_vencimento,
+          mov_caixa.cd_setor setor,
+          to_number( null ) atendimento,
+          decode(doc_caixa.tp_doc_caixa, null, 'Dinheiro', 1,    'Dinheiro', 2,    'Cheque',
+                        3,    'Cartão', 4,    'TEF', 5,    'Promissória', 6,    'Duplicata', 7,    'Vale a Vista') tp_recebimento,
+           dbamv.fnc_fnfi_calcula_moeda(:CAMPO_DTFIM, PKG_MV2000.LE_EMPRESA,dbamv.moeda_padrao(PKG_MV2000.LE_EMPRESA),:CAMPO_CD_MOEDA,(recibo.vl_recibo)) vl_recibo,
+          recibo.ds_observacao
+  from dbamv.recibo,
+          dbamv.mov_caixa,
+          dbamv.doc_caixa
+ where recibo.vl_recibo > 0
+     and recibo.cd_mov_caixa = mov_caixa.cd_mov_caixa
+     and recibo.cd_mov_caixa is not null
+     and mov_caixa.cd_doc_caixa = doc_caixa.cd_doc_caixa(+)
+union
+select recibo.cd_recibo,
+          recibo.cd_usuario,
+          recibo.tp_status,
+          recibo.tp_recibo,
+          recibo.tp_origem,
+          recibo.dt_emissao,
+          itcon_pag.dt_vencimento dt_vencimento,
+          to_number( null ) setor,
+          to_number( null ) atendimento,
+          decode( pagcon_pag.tp_pagamento, '1', 'Borderô Boleto',
+                                                                      '2', 'Borderô DOC',
+                                                                      '3', 'Cheque',
+                                                                      '4', 'Dinheiro',
+                                                                      '5', 'Débito C/C',
+                                                                      '6', 'Prestação',
+                                                                      '7', 'Quitado Devolução',
+                                                                      '8', 'TED - Transferência Eletrônica Disponível',
+                                                                      'E', 'Encontro de Contas',
+                                                                      'B', 'Baixa Contábil',
+                                                                      'Q', 'Quitado com Desconto' ) tp_recebimento,
+         dbamv.fnc_fnfi_calcula_moeda(:CAMPO_DTFIM, PKG_MV2000.LE_EMPRESA,dbamv.moeda_padrao(PKG_MV2000.LE_EMPRESA),:CAMPO_CD_MOEDA,(recibo.vl_recibo)) vl_recibo,
+          recibo.ds_observacao
+  from dbamv.recibo,
+          dbamv.pagcon_pag,
+          dbamv.con_pag,
+          dbamv.itcon_pag
+ where recibo.vl_recibo > 0
+     and recibo.cd_pagcon_pag is not null
+     and recibo.cd_pagcon_pag = pagcon_pag.cd_pagcon_pag
+     and pagcon_pag.cd_itcon_pag = itcon_pag.cd_itcon_pag
+     and itcon_pag.cd_con_pag = con_pag.cd_con_pag

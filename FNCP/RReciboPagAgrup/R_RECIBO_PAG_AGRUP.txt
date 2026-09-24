@@ -1,0 +1,54 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_PAG_AGRUP
+SELECT NR_RECIBO,
+       VL_RECEBIDO,
+       NM_RESPONSAVEL,
+       TP_PAGAMENTO,
+       CD_BANCO,
+       CD_AGENCIA,
+       NM_CONTA,
+       NR_DOCUMENTO,
+       NR_CGC_CPF,
+       Decode(Nvl(VL_RECEBIDO,0),0,'ZERO',DBAMV.PACK_FNCP.EXTENSOS(Nvl(VL_RECEBIDO,0))) EXTENSO,
+       VL_RECEBIDO - VL_ACRESCIMO + VL_DESCONTO VL_TITULO,
+       VL_DESCONTO,
+       VL_ACRESCIMO
+FROM (SELECT P.CD_AGRUP_IMPRESSAO_RECIBO NR_RECIBO,
+             NVL(SUM(NVL(P.VL_PAGO,0)),0) VL_RECEBIDO,
+             F.NM_FORNECEDOR NM_RESPONSAVEL,
+             P.TP_PAGAMENTO,
+             TCC.CD_BANCO,
+             TCC.CD_AGENCIA,
+             NVL(TCC.NR_CONTA, TCX.DS_CAIXA) NM_CONTA,
+             NVL(To_Char(CH.NR_CHEQUE),BO.NR_IDENTIFICACAO) NR_DOCUMENTO,
+             Decode(F.NR_CGC_CPF, NULL, NULL, DBAMV.FNC_FORMATA_CPF_CNPJ(F.NR_CGC_CPF)) NR_CGC_CPF,
+             NVL(SUM(NVL(P.VL_DESCONTO,0)),0) VL_DESCONTO,
+             NVL(SUM(NVL(P.VL_ACRESCIMO,0)),0) VL_ACRESCIMO
+        FROM DBAMV.CON_PAG C,
+             DBAMV.ITCON_PAG I,
+             DBAMV.PAGCON_PAG P,
+             DBAMV.FORNECEDOR F,
+             DBAMV.CAIXA TCX,
+             DBAMV.CON_COR TCC,
+             DBAMV.CHEQUE CH,
+             DBAMV.BORDERO BO
+       WHERE C.CD_CON_PAG = I.CD_CON_PAG
+         AND I.CD_ITCON_PAG = P.CD_ITCON_PAG
+         AND C.CD_FORNECEDOR = F.CD_FORNECEDOR (+)
+         AND P.CD_CAIXA = TCX.CD_CAIXA (+)
+         AND P.CD_CON_COR = TCC.CD_CON_COR (+)
+         AND P.CD_CHEQUE = CH.CD_CHEQUE (+)
+         AND P.CD_BORDERO = BO.CD_BORDERO (+)
+         AND P.CD_AGRUP_IMPRESSAO_RECIBO IN (SELECT CD_AGRUP_IMPRESSAO_RECIBO
+                                             FROM DBAMV.PAGCON_PAG
+                                            WHERE CD_PAGCON_PAG = :CAMPO_CD_PAGCON_PAG)
+       GROUP BY P.CD_AGRUP_IMPRESSAO_RECIBO,
+                F.NM_FORNECEDOR,
+                P.TP_PAGAMENTO,
+                TCC.CD_BANCO,
+                TCC.CD_AGENCIA,
+                TCC.NR_CONTA,
+                TCX.DS_CAIXA,
+                F.NR_CGC_CPF,
+                CH.NR_CHEQUE,
+                BO.NR_IDENTIFICACAO)

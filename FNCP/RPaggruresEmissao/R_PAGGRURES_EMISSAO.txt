@@ -1,0 +1,141 @@
+/*----------------------------------------------------------------------------*/
+--R_PAGGRURES_EMISSAO
+SELECT * FROM (
+SELECT GRU_RES.CD_GRU_RES                                                       CD_GRU_RES
+      ,GRU_RES.DS_GRU_RES                                                       DS_GRU_RES
+      ,ITEM_RES.CD_ITEM_RES                                                     CD_ITEM_RES
+      ,ITEM_RES.DS_ITEM_RES                                                     DS_ITEM_RES
+      ,DECODE( CON_PAG.CD_FORNECEDOR, '', CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA ) NM_FANTASIA
+      ,CON_PAG.NR_DOCUMENTO  || ' / ' || TO_CHAR( ITCON_PAG.NR_PARCELA,'000' )  NR_DOC_PARC
+      ,LTRIM(HIST_P.DS_HISTORICO_PADRAO  || ' ' || CON_PAG.DS_CON_PAG)          HISTORICO
+      ,Trunc(PAGCON_PAG.DT_PAGAMENTO)                                           DT_PAGTO
+      ,CON_PAG.DT_EMISSAO                                                       DT_EMISSAO
+      ,ITCON_PAG.DT_VENCIMENTO                                                  DT_VENCIMENTO
+      ,PAGCON_PAG.DT_BAIXA                                                      DT_BAIXA
+      ,ITCON_PAG.VL_DUPLICATA                                                   VL_DUPLICATA
+      ,RATCON_PAG.VL_RATEIO                                                     VL_RATEIO
+      ,CON_PAG.CD_CON_PAG                                                       CD_CON_PAG
+      ,ITCON_PAG.NR_PARCELA                                                     NR_PARCELA
+      ,RATCON_PAG.CD_SETOR                                                      CD_SETOR
+      ,SETOR.NM_SETOR                                                           NM_SETOR
+      ,Sum(PAGCON_PAG.VL_PAGO)                                                  VL_PAGO
+FROM     dbamv.PAGCON_PAG                    PAGCON_PAG
+        ,dbamv.ITCON_PAG                     ITCON_PAG
+        ,dbamv.CON_PAG                       CON_PAG
+        ,dbamv.RATCON_PAG                    RATCON_PAG
+        ,dbamv.ITEM_RES                      ITEM_RES
+        ,dbamv.FORNECEDOR                    FORNECEDOR
+        ,dbamv.HISTORICO_PADRAO              HIST_P
+        ,dbamv.GRU_RES                       GRU_RES
+        ,dbamv.SETOR                         SETOR
+        ,dbamv.tip_doc
+WHERE   CON_PAG.CD_MULTI_EMPRESA                  = :CAMPO_CD_MULTI_EMPRESA
+AND     CON_PAG.CD_CON_PAG                        = ITCON_PAG.CD_CON_PAG
+AND     RATCON_PAG.CD_ITEM_RES                    = ITEM_RES.CD_ITEM_RES(+)
+AND     ITEM_RES.CD_GRU_RES                       = GRU_RES.CD_GRU_RES(+)
+AND     RATCON_PAG.CD_CON_PAG                     = CON_PAG.CD_CON_PAG
+AND     CON_PAG.CD_TIP_DOC                        = TIP_DOC.CD_TIP_DOC
+AND     ITCON_PAG.CD_CON_PAG_AGRUP  IS NULL
+AND     ITCON_PAG.CD_ITCON_PAG                    = PAGCON_PAG.CD_ITCON_PAG
+AND     CON_PAG.CD_FORNECEDOR                     = FORNECEDOR.CD_FORNECEDOR(+)
+AND     CON_PAG.CD_HISTORICO_PADRAO               = HIST_P.CD_HISTORICO_PADRAO(+)
+GROUP BY GRU_RES.CD_GRU_RES
+        ,GRU_RES.DS_GRU_RES
+        ,ITEM_RES.CD_ITEM_RES
+        ,ITEM_RES.DS_ITEM_RES
+        ,DECODE( CON_PAG.CD_FORNECEDOR, '', CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA )
+        ,CON_PAG.NR_DOCUMENTO  || ' / ' || TO_CHAR( ITCON_PAG.NR_PARCELA,'000' )
+        ,LTRIM(HIST_P.DS_HISTORICO_PADRAO  || ' ' || CON_PAG.DS_CON_PAG)
+        ,Trunc(PAGCON_PAG.DT_PAGAMENTO)
+        ,CON_PAG.DT_EMISSAO
+        ,ITCON_PAG.DT_VENCIMENTO
+        ,PAGCON_PAG.DT_BAIXA
+        ,ITCON_PAG.VL_DUPLICATA
+        ,RATCON_PAG.VL_RATEIO
+        ,CON_PAG.CD_CON_PAG
+        ,ITCON_PAG.NR_PARCELA
+        ,RATCON_PAG.CD_SETOR
+        ,SETOR.NM_SETOR
+)
+ORDER BY NM_SETOR,CD_SETOR,
+DT_EMISSAO,
+DS_ITEM_RES,CD_ITEM_RES,CD_GRU_RES,
+DS_GRU_RES
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PAGGRURES_EMISSAO_R_1_Q_LANC_EXTRATO
+SELECT sum( ( mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado, 0 ) ) ) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PAGGRURES_EMISSAO_R_2_Q_LANC_EXTRATO
+SELECT sum( ( mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado, 0 ) ) ) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) )

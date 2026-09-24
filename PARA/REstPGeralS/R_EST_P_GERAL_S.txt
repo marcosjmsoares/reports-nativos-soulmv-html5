@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_P_GERAL_S
+SELECT TEMP.DS_TIP_MAR  DS_TIP_MAR,
+               TEMP.CD_TIP_MAR  CD_TIP_MAR,
+               SUM(TOT_CONS) TOTCONS,
+               SUM(TOT_MARC) TOTMARC,
+               SUM(TOT_ENC)    ENCAIXES,
+               SUM(TOT_ATEND) ATENDIDOS
+FROM  (  SELECT tip_mar.DS_TIP_MAR                   DS_TIP_MAR,
+                              tip_mar.CD_TIP_MAR                  CD_TIP_MAR,
+                              SUM(itma.NR_CONSULTAS)       TOT_CONS,
+                              SUM(itma.NR_MARCADOS)        TOT_MARC,
+                              SUM(Itma.Nr_Encaixes)                TOT_ENC,
+                              0 TOT_ATEND
+                FROM   DBAMV.MARCACAO,
+                             DBAMV.TIP_MAR,
+                             DBAMV.MARCACAO_SER_TIPO ITMA 
+              WHERE marcacao.DT_MARCACAO between to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+              							   		 to_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+                    AND       nvl(marcacao.SN_ATIVO,'S')  =  'S'
+                    AND       itma.CD_TIP_MAR  = tip_mar.CD_TIP_MAR
+                    AND       itma.CD_MARCACAO = marcacao.CD_MARCACAO
+         GROUP BY    tip_mar.DS_TIP_MAR,
+                               tip_mar.CD_TIP_MAR
+         UNION ALL
+         select           tip_mar.ds_tip_mar   DS_TIP_MAR,
+                             tip_mar.cd_tip_mar   CD_TIP_MAR,
+                             0                              TOT_CONS,
+                             0                              TOT_MARC,
+                             0                              TOT_ENC,
+                              count(*)                  TOT_ATEND
+           from   dbamv.atendime,
+                    dbamv.it_marcacao,
+                    dbamv.marcacao,
+                    dbamv.tip_mar
+       where  marcacao.DT_MARCACAO between to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+              							   to_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+          and   atendime.tp_atendimento = 'A'
+          and   it_marcacao.cd_atendimento  = atendime.cd_atendimento
+          and   it_marcacao.cd_marcacao      = marcacao.cd_marcacao
+          and   it_marcacao.cd_tip_mar          = tip_mar.cd_tip_mar
+          and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+       group by tip_mar.cd_tip_mar,
+                     tip_mar.ds_tip_mar,
+                     0,
+                     0,
+                     0                              ) TEMP
+GROUP BY TEMP.DS_TIP_MAR,
+                    TEMP.CD_TIP_MAR

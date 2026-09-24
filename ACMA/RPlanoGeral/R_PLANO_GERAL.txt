@@ -1,0 +1,27 @@
+/*----------------------------------------------------------------------------*/
+--R_PLANO_GERAL
+SELECT DISTINCT(Pla.cd_plano)
+     , Pla.cd_plano_alterno
+     , Pla.sn_ativo
+     , Pla.Ds_Plano
+     , Pla.cd_tipo_os
+     , tip.ds_tipo_os
+     , Decode(Pla.Tp_Periodicidade,'P', 'Periodica', 'D', 'Data Especifica', 'S', 'Sem Periodicidade', 'Outros') Tipo_Plano
+     , Pla.ds_Observacao
+FROM dbamv.plano_manutencao Pla
+   , dbamv.tipo_os tip
+   , dbamv.programacao_plano prg
+   , dbamv.bens bem
+WHERE pla.cd_tipo_os = tip.cd_tipo_os
+  AND pla.cd_plano = prg.cd_plano
+  AND prg.cd_bem = bem.cd_bem
+  AND (         ( :CAMPO_OPCAO_PERIODO = 'S' )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'U'  AND Prg.dt_Ultima_Manutencao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'P'  AND Prg.dt_Ultima_Geracao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+           )
+  AND (       ( :CAMPO_TIPO_PLANO <> 'P' )
+            OR (Prg.Qt_Dias = :CAMPO_PERIODICIDADE )
+           )
+ORDER BY Pla.cd_plano_alterno

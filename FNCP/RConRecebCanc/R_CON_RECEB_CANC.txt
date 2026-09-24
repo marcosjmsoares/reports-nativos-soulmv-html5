@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_RECEB_CANC
+SELECT * FROM (
+SELECT con_rec.dt_emissao dt_emissao_cli,
+       itcon_rec.dt_prevista_recebimento dt_vencimento_cli,
+       fornecedor.cd_fornecedor cd_cliente_cli,
+       DECODE (con_rec.cd_fornecedor,
+               '', con_rec.nm_cliente,
+               fornecedor.nm_fantasia
+              ) nm_cliente_cli,
+       'ESTORNO '|| LTRIM (   RTRIM (hist_padrao.ds_historico_padrao)
+              || ' '
+              || con_rec.ds_con_rec
+             )        ds_con_rec_cli,
+       DECODE (con_rec.tp_con_rec,
+               'C', 'CONVENIO',
+               'P', 'PACIENTE',
+               'F', 'FUNCIONARIO',
+               'R', 'FARMACIA',
+               'A', 'FIN. CARTAO CREDITO',
+               'R', 'FARMACIA',
+               'DIVERSOS'
+              ) tp_con_rec_cli,
+       con_rec.nr_documento nr_documento_cli,
+       itcon_rec.vl_duplicata vl_previsto_cli,
+       itcon_rec.vl_moeda vl_moeda_prev,
+       DECODE (:CAMPO_CONVERTE, 1, :CAMPO_CD_MOEDA, itcon_rec.cd_moeda) cd_moeda_prev,
+       con_rec.dt_lancamento dt_lancamento
+  FROM dbamv.itcon_rec itcon_rec,
+       dbamv.con_rec con_rec,
+       dbamv.fornecedor fornecedor,
+       dbamv.historico_padrao hist_padrao,
+       dbamv.reccon_rec reccon_rec                             
+ WHERE reccon_rec.dt_estorno IS NOT NULL          
+   AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+   AND itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec
+   AND con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND con_rec.cd_previsao IS NULL
+   AND con_rec.cd_fornecedor = fornecedor.cd_fornecedor(+)
+   AND con_rec.cd_historico_padrao = hist_padrao.cd_historico_padrao(+)
+   AND TO_CHAR (con_rec.dt_emissao, 'YYYYMMDD') BETWEEN TO_CHAR (:CAMPO_DT_INICIAL, 'YYYYMMDD')
+                                                                                                   AND TO_CHAR (:CAMPO_DT_FINAL, 'YYYYMMDD' )
+   :CAMPO_CF_MOEDA
+)
+ORDER BY CD_MOEDA_PREV,
+NM_CLIENTE_CLI,CD_CLIENTE_CLI,
+TP_CON_REC_CLI

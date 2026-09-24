@@ -1,0 +1,25 @@
+/*----------------------------------------------------------------------------*/
+--R_LIST_CLIENTE
+SELECT to_date(DIA,'dd/mm/yyyy') AS DATA,
+	   COUNT(CLIENTES) CLIENTES,
+	   SUM(ITENS) AS ITENS,
+	   SUM(ITENS)/COUNT(CLIENTES) AS MEDIA_ITENS,
+	   SUM(TOTAL_MOV) AS VL_VENDA,
+	   SUM(TOTAL_MOV)/COUNT(CLIENTES) AS MEDIA_CLIENTE,
+	   SUM(TOTAL_MOV)/SUM(ITENS) AS MEDIA_PRODUTO
+FROM ( select  m.DT_MVTO_ESTOQUE as dia,
+       		   nvl(m.CD_FORNECEDOR,0) as clientes,
+       		   m.CD_MVTO_ESTOQUE,
+       		   sum(i.QT_MOVIMENTACAO) itens,
+       		   sum(i.QT_MOVIMENTACAO*i.VL_UNITARIO) total_mov
+       from  dbamv.mvto_estoque m,
+	     dbamv.itmvto_estoque i,
+	     DBAMV.ESTOQUE E 
+       where m.CD_MVTO_ESTOQUE = i.CD_MVTO_ESTOQUE
+             AND m.CD_ESTOQUE  = E.CD_ESTOQUE
+             AND E.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      	     and m.TP_MVTO_ESTOQUE = 'V'
+       	     and dt_mvto_estoque between :CAMPO_DT_INI group by  m.DT_MVTO_ESTOQUE,nvl(m.CD_FORNECEDOR,0), m.CD_MVTO_ESTOQUE
+	 )
+GROUP BY to_date(DIA,'dd/mm/yyyy')
+ORDER BY to_date(DIA,'dd/mm/yyyy')

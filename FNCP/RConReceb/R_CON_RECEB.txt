@@ -1,0 +1,428 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_RECEB
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_RECEB_R_4_Q_IMPOSTOS
+SELECT * FROM (
+SELECT * FROM (
+select  fornecedor.cd_fornecedor
+        ,decode(con_rec.cd_fornecedor,'', con_rec.nm_cliente, fornecedor.nm_fantasia)	nm_fornec
+        ,tpr.cd_detalhamento||' - '||tp.ds_detalhamento descricao_imp
+        ,sum(tpr.vl_tributo_total) vl_detalhamento
+  from  dbamv.tip_detalhe   tp,
+        dbamv.tip_det_reccon_rec tpr,
+        dbamv.reccon_rec mvto,
+        dbamv.itcon_rec itcon_rec,
+        dbamv.con_rec con_rec,
+        dbamv.fornecedor fornecedor,
+        dbamv.processo p
+ where  tpr.cd_detalhamento = tp.cd_detalhamento
+   and  tpr.cd_reccon_rec = mvto.cd_reccon_rec
+   and  itcon_rec.cd_itcon_rec = mvto.cd_itcon_rec
+   and  itcon_rec.tp_quitacao       <> 'L'
+   and  itcon_rec.cd_con_rec = con_rec.cd_con_rec
+   and  p.cd_processo = mvto.cd_processo
+   and  con_rec.cd_fornecedor = fornecedor.cd_fornecedor(+)
+   and                            = 1
+   and  :CAMPO_SN_IMPOSTO = 'S'
+   and  con_rec.cd_previsao IS NULL
+   and  con_rec.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+   and  mvto.dt_estorno is null
+    AND  (ITCON_REC.CD_CON_REC_AGRUP IS NULL OR p.cd_estrutural <> '1.4.2.1.12')
+group by fornecedor.cd_fornecedor
+         ,decode(con_rec.cd_fornecedor,'', con_rec.nm_cliente, fornecedor.nm_fantasia)
+         ,tpr.cd_detalhamento||' - '||tp.ds_detalhamento
+)
+WHERE NM_FORNEC = :CAMPO_NM_CLIENTE_CLI
+)
+ORDER BY CD_FORNECEDOR,NM_FORNEC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_RECEB_R_9_Q_LANC_EXTRATO
+select sum( ( mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado, 0 ) )  ) vl_total_extrato
+ from dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+ where mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+   and mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+   and con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and mov_concor.cd_con_cor = con_cor.cd_con_cor
+   and lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+   and lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+   and item_res.cd_gru_res = gru_res.cd_gru_res(+) 
+   and empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+   and empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   and ( (  mov_concor.cd_aplicacao is not null and nvl( lan_concor.tp_operacao_saldo_conta, '0' )  = '0'
+               and nvl( lan_concor.tp_operacao_saldo_aplicacao, '0' )  <> '-' )
+               or  (mov_concor.cd_aplicacao is null and lan_concor.tp_operacao_saldo_conta = '+') )
+   and mov_concor.cd_bordero is null
+   and mov_concor.cd_con_cor_transferencia is null
+   and Mov_concor.cd_mov_concor_transferencia is null 
+   and Mov_concor.cd_mov_caixa is null 
+   and Mov_concor.cd_pagcon_pag is null 
+   and Mov_concor.cd_cheque is null
+   and Mov_concor.vl_movimentacao  - nvl( Mov_concor.vl_conciliado, 0 ) > 0
+             and (not exists( select cd_mov_concor
+                               from dbamv.rec_mov_con r
+                              where r.cd_mov_concor = Mov_concor.cd_mov_concor )
+                  or exists( select cd_mov_concor
+                               from dbamv.rec_mov_con r
+                              where r.cd_mov_concor = Mov_concor.cd_mov_concor
+                            and mov_concor.cd_fornecedor is not null
+                            and mov_concor.cd_lan_concor  in ( select conf.cd_lanca_credito_convenio
+                                                                 from dbamv.config_financ conf
+                                                                where conf.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)))
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_RECEB_R_MOEDA1_Q_CLIENTE
+select
+ dt_mvto
+,cd_cliente
+,nm_cliente
+,ds_con_rec
+,tp_con_rec
+,ds_conta_resultado
+,ds_conta_contabil
+,nr_documento
+,Decode(cd_rank, 1, vl_previsto, null) vl_previsto
+,vl_recebido
+,vl_acrescimo
+,vl_desconto
+,cd_moeda_rec
+,vl_moeda_rec
+,dt_vencimento
+,dt_emissao
+,cd_con_rec
+,CD_RECCON_REC
+,decode(:CAMPO_ORDEM,
+                '1',to_char(nm_cliente),
+                '2',to_char(trunc(dt_mvto ) ,'DD/MM/YYYY'),
+                '3',to_char(trunc( dt_vencimento ) ,'DD/MM/YYYY'),
+                to_char(trunc( dt_vencimento ),'DD/MM/YYYY')) ds_agrupamento
+ from (
+SELECT   Trunc( mvto.dt_recebimento ) dt_mvto,
+         fornecedor.cd_fornecedor     cd_cliente,
+         Decode( con_rec.cd_fornecedor,
+                '', con_rec.nm_cliente,
+                fornecedor.nm_fantasia )            nm_cliente ,
+         Ltrim( Rtrim( hist_padrao.ds_historico_padrao )
+                  || ' '
+                  || con_rec.ds_con_rec ) ds_con_rec ,
+         Decode( con_rec.tp_con_rec,
+                'C', 'CONVENIO',
+                'P', 'PACIENTE',
+                'F', 'FUNCIONARIO',
+                'R', 'FARMACIA',
+                'A', 'FIN. CARTAO CREDITO',
+                'DIVERSOS' ) tp_con_rec ,
+         cta_result.ds_conta ds_conta_resultado ,
+         pc.ds_conta         ds_conta_contabil ,
+         Decode(con_rec.tp_con_rec,
+                'C', con_rec.nr_documento ,
+                mvto.nr_documento)                      nr_documento ,
+         Nvl(itcon_rec.vl_moeda,itcon_rec.vl_duplicata) vl_previsto ,
+ Decode('S','S',(Rank() OVER ( PARTITION BY itcon_rec.cd_itcon_rec ORDER BY mvto.cd_reccon_rec)),1) cd_rank,
+        SUM(Nvl(mvto.vl_moeda,mvto.vl_recebido))        vl_recebido ,
+	SUM(Nvl(mvto.vl_moeda_acrescimo,mvto.vl_acrescimo))                         vl_acrescimo ,
+        SUM(Nvl(mvto.vl_moeda_desconto,mvto.vl_desconto))                          vl_desconto ,
+         Decode ('1',
+                 1, 'R$' ,
+                 mvto.cd_moeda) cd_moeda_rec ,
+         SUM(mvto.vl_moeda)     vl_moeda_rec,
+         Trunc( itcon_rec.dt_prevista_recebimento ) dt_vencimento,
+         Trunc( con_rec.dt_emissao )                dt_emissao,
+         con_rec.cd_con_rec                         cd_con_rec,
+	 MVTO.CD_RECCON_REC                        CD_RECCON_REC
+FROM     dbamv.itcon_rec ,
+         dbamv.con_rec con_rec ,
+         dbamv.fornecedor ,
+         dbamv.historico_padrao hist_padrao ,
+         dbamv.reccon_rec mvto ,
+         dbamv.plano_contas pc ,
+         dbamv.plano_contas cta_result ,
+         dbamv.processo p
+WHERE    itcon_rec.cd_con_rec = con_rec.cd_con_rec
+AND      con_rec.cd_previsao IS NULL
+AND      con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      itcon_rec.cd_itcon_rec = mvto.cd_itcon_rec
+AND      p.cd_processo = mvto.cd_processo
+AND      con_rec.cd_fornecedor = fornecedor.cd_fornecedor(+)
+AND      con_rec.cd_historico_padrao = hist_padrao.cd_historico_padrao(+)
+AND      con_rec.cd_reduzido = pc.cd_reduzido(+)
+AND      pc.cd_reduzido_resultado = cta_result.cd_reduzido(+)
+AND      itcon_rec .tp_quitacao <> 'L'
+AND      mvto.dt_estorno IS NULL
+AND      (
+                  :CAMPO_CONSIDERAR_CHEQUES_COMPENSA = 'N'
+         OR       (
+                           mvto.tp_recebimento <> '1'
+                  OR       mvto.cd_caixa IS NULL ) )
+AND   (ITCON_REC.CD_CON_REC_AGRUP IS NULL OR p.cd_estrutural <> '1.4.2.1.12')
+GROUP BY trunc( mvto.dt_recebimento ) ,
+         fornecedor.cd_fornecedor ,
+         decode( con_rec.cd_fornecedor,
+                '', con_rec.nm_cliente,
+                fornecedor.nm_fantasia ) ,
+         ltrim( rtrim( hist_padrao.ds_historico_padrao )
+                  || ' '
+                  || con_rec.ds_con_rec ) ,
+         decode( con_rec.tp_con_rec,
+                'C', 'CONVENIO',
+                'P', 'PACIENTE',
+                'F', 'FUNCIONARIO',
+                'R', 'FARMACIA',
+                'A', 'FIN. CARTAO CREDITO',
+                'DIVERSOS' ) ,
+         cta_result.ds_conta ,
+         pc.ds_conta ,
+         con_rec.cd_con_rec ,
+         decode(con_rec.tp_con_rec,
+                'C', con_rec.nr_documento,
+                mvto.nr_documento) ,
+         itcon_rec.cd_itcon_rec ,
+         itcon_rec.vl_duplicata ,
+         decode ('1',
+                 1, 'R$' ,
+                 mvto.cd_moeda) ,
+         nvl(itcon_rec.vl_moeda,itcon_rec.vl_duplicata),
+         trunc( itcon_rec.dt_prevista_recebimento ),
+         trunc( con_rec.dt_emissao ),
+         con_rec.cd_con_rec,
+	mvto.cd_reccon_rec
+UNION
+SELECT   trunc(cc.dt_movimentacao) dt_mvto ,
+         fornecedor.cd_fornecedor  cd_cliente ,
+         decode( con_rec.cd_fornecedor,
+                '', con_rec.nm_cliente,
+                fornecedor.nm_fantasia ) nm_cliente ,
+         ltrim( rtrim( hist_padrao.ds_historico_padrao )
+                  || ' '
+                  || con_rec.ds_con_rec ) ds_con_rec ,
+         decode( con_rec.tp_con_rec,
+                'C', 'CONVENIO',
+                'P', 'PACIENTE',
+                'F', 'FUNCIONARIO',
+                'R', 'FARMACIA',
+                'A', 'FIN. CARTAO CREDITO',
+                'DIVERSOS' ) tp_con_rec ,
+         cta_result.ds_conta ds_conta_resultado ,
+         pc.ds_conta         ds_conta_contabil ,
+         decode(con_rec.tp_con_rec,
+                'C', con_rec.nr_documento ,
+                mvto.nr_documento)                      nr_documento ,
+         nvl(itcon_rec.vl_moeda,itcon_rec.vl_duplicata) vl_previsto ,
+ Decode('S','S',(Rank() OVER ( PARTITION BY itcon_rec.cd_itcon_rec ORDER BY mvto.cd_reccon_rec)),1) cd_rank,
+        SUM(Nvl(mvto.vl_moeda,mvto.vl_recebido))        vl_recebido ,
+	SUM(Nvl(mvto.vl_moeda_acrescimo,mvto.vl_acrescimo))                         vl_acrescimo ,
+        SUM(Nvl(mvto.vl_moeda_desconto,mvto.vl_desconto))                          vl_desconto ,
+         decode ('1',
+                 1, 'R$' ,
+                 mvto.cd_moeda) cd_moeda_rec ,
+         SUM(mvto.vl_moeda)     vl_moeda_rec,
+         trunc( itcon_rec.dt_prevista_recebimento ) dt_vencimento,
+         trunc( con_rec.dt_emissao )                dt_emissao,
+         con_rec.cd_con_rec                         cd_con_rec,
+         MVTO.CD_RECCON_REC                         CD_RECCON_REC
+FROM     dbamv.con_rec con_rec ,
+         dbamv.itcon_rec itcon_rec ,
+         dbamv.reccon_rec mvto ,
+         dbamv.doc_caixa doc ,
+         dbamv.mov_concor cc ,
+         dbamv.fornecedor ,
+         dbamv.historico_padrao hist_padrao ,
+         dbamv.plano_contas pc ,
+         dbamv.plano_contas cta_result ,
+         dbamv.mov_caixa ,
+         dbamv.processo p
+WHERE    :CAMPO_CONSIDERAR_CHEQUES_COMPENSA = 'S'
+AND      con_rec.cd_fornecedor = fornecedor.cd_fornecedor (+)
+AND      con_rec.cd_historico_padrao = hist_padrao.cd_historico_padrao (+)
+AND      con_rec.cd_reduzido = pc.cd_reduzido(+)
+AND      pc.cd_reduzido_resultado = cta_result.cd_reduzido(+)
+AND      con_rec.cd_con_rec = itcon_rec.cd_con_rec
+AND      con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND      mvto.cd_itcon_rec = itcon_rec.cd_itcon_rec
+AND      p.cd_processo = mvto.cd_processo
+AND      mvto.tp_recebimento = '1'
+AND      mvto.cd_caixa IS NOT NULL
+AND      mvto.cd_doc_caixa = doc.cd_doc_caixa
+AND      doc.cd_doc_caixa = mov_caixa.cd_doc_caixa
+AND      cc.cd_mov_caixa = mov_caixa.cd_mov_caixa
+AND      cc.cd_mov_caixa =
+         (
+                SELECT max( to_number(mc.cd_mov_caixa) )
+                FROM   dbamv.mov_caixa mc
+                WHERE  mc.cd_doc_caixa = doc.cd_doc_caixa
+                AND    cd_motivo_canc IS NULL )
+AND      doc.tp_status_doc = 'R'
+AND      doc.cd_con_cor IS NOT NULL
+AND      cc.sn_conciliado = 'S'
+AND      cc.dt_movimentacao BETWEEN :CAMPO_DT_INIC
+AND      :CAMPO_DT_FIM + 0.99999
+AND      itcon_rec.tp_quitacao IN ('Q',
+                                   'P',
+                                   'G')
+AND  (ITCON_REC.CD_CON_REC_AGRUP IS NULL OR p.cd_estrutural <> '1.4.2.1.12') 
+GROUP BY trunc(cc.dt_movimentacao) ,
+         fornecedor.cd_fornecedor ,
+         decode( con_rec.cd_fornecedor,
+                '', con_rec.nm_cliente,
+                fornecedor.nm_fantasia ) ,
+         con_rec.cd_con_rec ,
+         ltrim( rtrim( hist_padrao.ds_historico_padrao )
+                  || ' '
+                  || con_rec.ds_con_rec ) ,
+         decode( con_rec.tp_con_rec,
+                'C', 'CONVENIO',
+                'P', 'PACIENTE',
+                'F', 'FUNCIONARIO',
+                'R', 'FARMACIA',
+                'A', 'FIN. CARTAO CREDITO',
+                'DIVERSOS' ) ,
+         cta_result.ds_conta ,
+         pc.ds_conta ,
+         decode(con_rec.tp_con_rec,
+                'C', con_rec.nr_documento,
+                mvto.nr_documento) ,
+		itcon_rec.cd_itcon_rec,
+         itcon_rec.vl_duplicata ,
+         decode ('1',
+                 1, 'R$' ,
+                 mvto.cd_moeda) ,
+         nvl(itcon_rec.vl_moeda,itcon_rec.vl_duplicata),
+         trunc( itcon_rec.dt_prevista_recebimento ),
+         trunc( con_rec.dt_emissao ),
+         con_rec.cd_con_rec,
+	 mvto.cd_reccon_rec
+ORDER BY :CAMPO_ORDER_BY)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_RECEB_R_RESUMO1_Q_CLIENTE
+SELECT * FROM (
+SELECT  TRUNC( MVTO.DT_RECEBIMENTO )                                                           DT_MVTO_CLI
+        ,FORNECEDOR.CD_FORNECEDOR                                                        CD_CLIENTE_CLI
+        ,DECODE( CON_REC.CD_FORNECEDOR, '', CON_REC.NM_CLIENTE, FORNECEDOR.NM_FANTASIA ) NM_CLIENTE_CLI
+        ,LTRIM( RTRIM( HIST_PADRAO.DS_HISTORICO_PADRAO ) || ' ' || CON_REC.DS_CON_REC )  DS_CON_REC_CLI
+        ,DECODE( CON_REC.TP_CON_REC, 'C', 'CONVENIO', 'P', 'PACIENTE', 'F', 'FUNCIONARIO', 'R', 'FARMACIA',  'A', 'FIN. CARTAO CREDITO', 'DIVERSOS' )            TP_CON_REC_CLI
+        ,CTA_RESULT.DS_CONTA                                                             DS_CONTA_RESULTADO_CLI
+        ,PC.DS_CONTA                                                                     DS_CONTA_CONTABIL_CLI
+        ,decode(con_rec.tp_con_rec, 'C', con_rec.nr_documento , mvto.nr_documento)   NR_DOCUMENTO_CLI
+        ,ITCON_REC.VL_DUPLICATA                                                             VL_PREVISTO_CLI
+        ,sum(MVTO.VL_RECEBIDO)                                                                        VL_RECEBIDO_CLI
+        ,sum(MVTO.VL_ACRESCIMO)                                                            VL_ACRESCIMO_CLI
+        ,sum(MVTO.VL_DESCONTO)                                                             VL_DESCONTO_CLI
+        ,DECODE ('',1, '' , MVTO.CD_MOEDA)             CD_MOEDA_REC1
+        ,sum(MVTO.vl_moeda) vl_moeda_rec1
+FROM   DBAMV.ITCON_REC
+            ,DBAMV.CON_REC           CON_REC
+            ,DBAMV.FORNECEDOR
+            ,DBAMV.HISTORICO_PADRAO  HIST_PADRAO
+            ,DBAMV.RECCON_REC        MVTO
+            ,DBAMV.PLANO_CONTAS      PC
+            ,DBAMV.PLANO_CONTAS      CTA_RESULT
+            ,DBAMV.PROCESSO          P
+WHERE                                                        = 1
+AND      ITCON_REC.CD_CON_REC                             = CON_REC.CD_CON_REC
+AND      CON_REC.CD_PREVISAO IS NULL
+AND      CON_REC.CD_MULTI_EMPRESA                   = :CAMPO_CD_MULTI_EMPRESA
+AND      ITCON_REC.CD_ITCON_REC                          = MVTO.CD_ITCON_REC
+AND      p.cd_processo = mvto.cd_processo
+AND      CON_REC.CD_FORNECEDOR                         = FORNECEDOR.CD_FORNECEDOR(+)
+AND      CON_REC.CD_HISTORICO_PADRAO             = HIST_PADRAO.CD_HISTORICO_PADRAO(+)
+AND      CON_REC.CD_REDUZIDO                               = PC.CD_REDUZIDO(+)
+AND      PC.CD_REDUZIDO_RESULTADO                   = CTA_RESULT.CD_REDUZIDO(+)
+AND      ITCON_REC .TP_QUITACAO                           <> 'L'
+and        mvto.dt_estorno is null
+And        ( :CAMPO_CONSIDERAR_CHEQUES_COMPENSA = 'N'  Or
+                  ( mvto.tp_recebimento <> '1'  Or  mvto.cd_caixa IS NULL )  )
+AND (ITCON_REC.CD_CON_REC_AGRUP IS NULL OR p.cd_estrutural <> '1.4.2.1.12')
+group by   TRUNC( MVTO.DT_RECEBIMENTO )
+        ,FORNECEDOR.CD_FORNECEDOR
+        ,DECODE( CON_REC.CD_FORNECEDOR, '', CON_REC.NM_CLIENTE, FORNECEDOR.NM_FANTASIA )
+        ,LTRIM( RTRIM( HIST_PADRAO.DS_HISTORICO_PADRAO ) || ' ' || CON_REC.DS_CON_REC )
+        ,DECODE( CON_REC.TP_CON_REC, 'C', 'CONVENIO', 'P', 'PACIENTE', 'F', 'FUNCIONARIO', 'R', 'FARMACIA',  'A', 'FIN. CARTAO CREDITO', 'DIVERSOS' )
+        ,CTA_RESULT.DS_CONTA
+        ,PC.DS_CONTA
+        ,decode(con_rec.tp_con_rec, 'C', con_rec.nr_documento,mvto.nr_documento)
+        ,ITCON_REC.VL_DUPLICATA
+        ,DECODE ('',1, '' , MVTO.CD_MOEDA)
+Union
+SELECT  Trunc(cc.Dt_Movimentacao) Dt_Mvto_Cli
+        ,Fornecedor.Cd_Fornecedor Cd_Cliente_Cli
+        ,DECODE( CON_REC.CD_FORNECEDOR, '', CON_REC.NM_CLIENTE, Fornecedor.NM_FANTASIA ) NM_CLIENTE_CLI
+        ,LTRIM( RTRIM( Hist_Padrao.DS_HISTORICO_PADRAO ) || ' ' || CON_REC.DS_CON_REC )  DS_CON_REC_CLI
+        ,DECODE( CON_REC.TP_CON_REC, 'C', 'CONVENIO', 'P', 'PACIENTE', 'F', 'FUNCIONARIO', 'R', 'FARMACIA',  'A', 'FIN. CARTAO CREDITO', 'DIVERSOS' )  TP_CON_REC_CLI
+        ,CTA_RESULT.DS_CONTA   DS_CONTA_RESULTADO_CLI
+        ,PC.DS_CONTA           DS_CONTA_CONTABIL_CLI
+        ,decode(con_rec.tp_con_rec, 'C', con_rec.nr_documento , mvto.nr_documento)   NR_DOCUMENTO_CLI
+        ,ITCON_REC.VL_DUPLICATA                                                             VL_PREVISTO_CLI
+        ,Sum( mvto.Vl_Recebido ) VL_Recebido_Cli
+        ,sum(mvto.VL_ACRESCIMO)  VL_ACRESCIMO_CLI
+        ,sum(mvto.VL_DESCONTO)                                                             VL_DESCONTO_CLI
+        ,DECODE ('',1, '' , mvto.CD_MOEDA)             CD_MOEDA_REC1
+        ,sum(mvto.vl_moeda) vl_moeda_rec1
+  FROM dbamv.con_rec con_rec
+      ,dbamv.itcon_rec itcon_rec
+      ,dbamv.reccon_rec mvto
+      ,dbamv.doc_caixa doc
+      ,dbamv.mov_concor cc
+      ,dbamv.fornecedor
+      ,dbamv.Historico_Padrao Hist_Padrao
+      ,DBAMV.PLANO_CONTAS      PC
+      ,DBAMV.PLANO_CONTAS      CTA_RESULT
+      ,dbamv.mov_caixa
+      ,dbamv.processo          p
+  WHERE  :CAMPO_ORDEM  = 1
+    And :CAMPO_CONSIDERAR_CHEQUES_COMPENSA = 'S'
+    And con_rec.cd_fornecedor = fornecedor.cd_fornecedor (+)
+    And con_rec.cd_historico_padrao = Hist_Padrao.Cd_Historico_Padrao (+)
+    AND CON_REC.CD_REDUZIDO       = PC.CD_REDUZIDO(+)
+    AND PC.CD_REDUZIDO_RESULTADO  = CTA_RESULT.CD_REDUZIDO(+)
+   And con_rec.cd_con_rec = itcon_rec.cd_con_rec
+    AND con_rec.cd_multi_empresa    = :CAMPO_CD_MULTI_EMPRESA
+    AND mvto.cd_itcon_rec     = itcon_rec.cd_itcon_rec
+    AND p.cd_processo = mvto.cd_processo
+    AND mvto.tp_recebimento   = '1'
+    AND mvto.cd_caixa IS NOT NULL
+    AND mvto.cd_doc_caixa = doc.cd_doc_caixa
+    AND doc.cd_doc_caixa        = mov_caixa.cd_doc_caixa
+    AND cc.cd_mov_caixa = mov_caixa.cd_mov_caixa
+    AND cc.cd_mov_caixa = ( select max( to_number(mc.cd_mov_caixa) )
+                              from dbamv.mov_caixa mc
+                              where mc.cd_doc_caixa = doc.cd_doc_caixa
+                                and cd_motivo_canc is null )
+    AND doc.tp_status_doc = 'R'
+    AND doc.cd_con_cor IS NOT NULL
+    AND cc.sn_conciliado  = 'S'
+    AND cc.dt_movimentacao
+        BETWEEN to_date( to_char( :CAMPO_DT_INIC, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+            AND to_date( to_char( :CAMPO_DT_FIM, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+    AND itcon_rec.tp_quitacao IN ('Q', 'P', 'G')
+    AND  (ITCON_REC.CD_CON_REC_AGRUP IS NULL OR p.cd_estrutural <> '1.4.2.1.12')
+group by  Trunc(cc.Dt_Movimentacao)
+        ,FORNECEDOR.CD_FORNECEDOR
+        ,DECODE( CON_REC.CD_FORNECEDOR, '', CON_REC.NM_CLIENTE, FORNECEDOR.NM_FANTASIA )
+        ,LTRIM( RTRIM( HIST_PADRAO.DS_HISTORICO_PADRAO ) || ' ' || CON_REC.DS_CON_REC )
+        ,DECODE( CON_REC.TP_CON_REC, 'C', 'CONVENIO', 'P', 'PACIENTE', 'F', 'FUNCIONARIO', 'R', 'FARMACIA',  'A', 'FIN. CARTAO CREDITO', 'DIVERSOS' )
+        ,CTA_RESULT.DS_CONTA
+        ,PC.DS_CONTA
+        ,decode(con_rec.tp_con_rec, 'C', con_rec.nr_documento,mvto.nr_documento)
+        ,ITCON_REC.VL_DUPLICATA
+        ,DECODE ('',1, '' , MVTO.CD_MOEDA)
+)
+ORDER BY CD_MOEDA_REC1,
+NM_CLIENTE_CLI,CD_CLIENTE_CLI,
+TP_CON_REC_CLI,
+DT_MVTO_CLI

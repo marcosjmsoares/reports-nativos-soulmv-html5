@@ -1,0 +1,221 @@
+/*----------------------------------------------------------------------------*/
+--R_PAGATR
+Select Trunc(DT_PAGAMENTO)              DT_PAGAMENTO
+          ,Trunc(DT_VENCIMENTO)             DT_VENCIMENTO
+          ,CD_CON_PAG
+          ,VL_DUPLICATA
+          ,NR_DOCUMENTO
+          ,DS_CON_PAG
+          ,DS_HIST_P
+          ,NM_FANTASIA
+         ,Sum(VL_PAGO)                               VL_PAGO
+From (
+SELECT  PAGCON_PAG.DT_PAGAMENTO   DT_PAGAMENTO
+       ,ITCON_PAG.DT_VENCIMENTO   DT_VENCIMENTO
+       ,ITCON_PAG.CD_CON_PAG      CD_CON_PAG
+       ,ITCON_PAG.VL_MOEDA           VL_DUPLICATA
+       ,CON_PAG.NR_DOCUMENTO || '/' ||  to_char(  ITCON_PAG.NR_PARCELA, '000' )   NR_DOCUMENTO
+       ,CON_PAG.DS_CON_PAG        DS_CON_PAG
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO    DS_HIST_P
+       ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR,FORNECEDOR.NM_FANTASIA)    NM_FANTASIA
+       ,CHEQUE.NR_CHEQUE          CHE_BORD
+       ,TALAO.CD_CON_COR          CD_CON_COR
+         ,PAGCON_PAG.VL_MOEDA     VL_PAGO
+FROM    dbamv.PAGCON_PAG
+       ,dbamv.ITCON_PAG
+       ,dbamv.CON_PAG
+       ,dbamv.FORNECEDOR
+       ,dbamv.CHEQUE
+       ,dbamv.TALAO
+       ,dbamv.HISTORICO_PADRAO
+       ,dbamv.tip_doc
+       ,dbamv.mov_concor
+WHERE PAGCON_PAG.DT_PAGAMENTO            >   ITCON_PAG.DT_VENCIMENTO
+AND   PAGCON_PAG.CD_ITCON_PAG                  =   ITCON_PAG.CD_ITCON_PAG
+AND   MOV_CONCOR.CD_CHEQUE(+)                  =   PAGCON_PAG.CD_CHEQUE
+AND   ITCON_PAG.CD_CON_PAG                         =   CON_PAG.CD_CON_PAG
+AND   PAGCON_PAG.CD_CHEQUE                       =   CHEQUE.CD_CHEQUE
+AND   CHEQUE.CD_TALAO                                    =  TALAO.CD_TALAO
+AND   CON_PAG.CD_FORNECEDOR                =  FORNECEDOR.CD_FORNECEDOR(+)
+AND   CON_PAG.CD_HISTORICO_PADRAO         =  HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND   CON_PAG.CD_MULTI_EMPRESA            =  :CAMPO_CD_MULTI_EMPRESA 
+AND   CON_PAG.CD_TIP_DOC                              =  TIP_DOC.CD_TIP_DOC
+AND   ITCON_PAG.CD_CON_PAG_AGRUP       IS NULL
+UNION
+SELECT  PAGCON_PAG.DT_PAGAMENTO    DT_PAGAMENTO
+       ,ITCON_PAG.DT_VENCIMENTO    DT_VENCIMENTO
+       ,ITCON_PAG.CD_CON_PAG       CD_CON_PAG
+        ,ITCON_PAG.VL_MOEDA             VL_DUPLICATA
+       ,CON_PAG.NR_DOCUMENTO || '/' ||  to_char(  ITCON_PAG.NR_PARCELA, '000' )   NR_DOCUMENTO
+       ,CON_PAG.DS_CON_PAG         DS_CON_PAG
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO    DS_HIST_P
+       ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR,FORNECEDOR.NM_FANTASIA)    NM_FANTASIA
+       ,TO_NUMBER(NULL)         CHE_BORD
+       ,TO_NUMBER(NULL)            CD_CON_COR
+       ,PAGCON_PAG.VL_MOEDA        VL_PAGO
+FROM    dbamv.PAGCON_PAG
+       ,dbamv.ITCON_PAG
+       ,dbamv.CON_PAG
+       ,dbamv.FORNECEDOR
+       ,dbamv.HISTORICO_PADRAO
+       ,dbamv.tip_doc
+WHERE
+      PAGCON_PAG.DT_PAGAMENTO              >  ITCON_PAG.DT_VENCIMENTO
+AND   PAGCON_PAG.CD_ITCON_PAG              =  ITCON_PAG.CD_ITCON_PAG
+AND   ITCON_PAG.CD_CON_PAG                 =  CON_PAG.CD_CON_PAG
+AND   con_pag.cd_multi_empresa             = :CAMPO_CD_MULTI_EMPRESA 
+AND   CON_PAG.CD_FORNECEDOR                =  FORNECEDOR.CD_FORNECEDOR(+)
+AND   PAGCON_PAG.TP_PAGAMENTO               IN('B','Q')
+AND   CON_PAG.CD_HISTORICO_PADRAO          = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND   CON_PAG.CD_TIP_DOC                   = TIP_DOC.CD_TIP_DOC
+AND   ITCON_PAG.CD_CON_PAG_AGRUP        IS NULL
+UNION
+SELECT  PAGCON_PAG.DT_PAGAMENTO   DT_PAGAMENTO
+       ,ITCON_PAG.DT_VENCIMENTO   DT_VENCIMENTO
+       ,ITCON_PAG.CD_CON_PAG      CD_CON_PAG
+        ,ITCON_PAG.VL_MOEDA            VL_DUPLICATA
+       ,CON_PAG.NR_DOCUMENTO || '/' ||  to_char(  ITCON_PAG.NR_PARCELA, '000' )   NR_DOCUMENTO
+       ,CON_PAG.DS_CON_PAG        DS_CON_PAG
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO    DS_HIST_P
+      ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR,FORNECEDOR.NM_FANTASIA)    NM_FANTASIA
+       ,BORDERO.CD_BORDERO        CHE_BORD
+       ,MOV_CONCOR.CD_CON_COR     CD_CON_COR
+         ,PAGCON_PAG.VL_MOEDA     VL_PAGO
+FROM    dbamv.PAGCON_PAG
+       ,dbamv.ITCON_PAG
+       ,dbamv.CON_PAG
+       ,dbamv.FORNECEDOR
+       ,dbamv.BORDERO
+       ,dbamv.MOV_CONCOR
+       ,dbamv.HISTORICO_PADRAO
+       ,dbamv.tip_doc
+WHERE PAGCON_PAG.DT_PAGAMENTO           > ITCON_PAG.DT_VENCIMENTO
+AND   PAGCON_PAG.CD_ITCON_PAG                 = ITCON_PAG.CD_ITCON_PAG
+AND   ITCON_PAG.CD_CON_PAG                        = CON_PAG.CD_CON_PAG
+AND   CON_PAG.CD_FORNECEDOR                   = FORNECEDOR.CD_FORNECEDOR(+)
+AND   PAGCON_PAG.CD_BORDERO                   = BORDERO.CD_BORDERO
+AND   BORDERO.CD_BORDERO                         = MOV_CONCOR.CD_BORDERO
+AND   CON_PAG.CD_HISTORICO_PADRAO       = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND   CON_PAG.CD_MULTI_EMPRESA             = :CAMPO_CD_MULTI_EMPRESA 
+AND   CON_PAG.CD_TIP_DOC                            = TIP_DOC.CD_TIP_DOC
+AND   ITCON_PAG.CD_CON_PAG_AGRUP     IS NULL
+UNION
+SELECT  PAGCON_PAG.DT_PAGAMENTO    DT_PAGAMENTO
+       ,ITCON_PAG.DT_VENCIMENTO    DT_VENCIMENTO
+       ,ITCON_PAG.CD_CON_PAG       CD_CON_PAG
+       ,ITCON_PAG.VL_MOEDA             VL_DUPLICATA
+       ,CON_PAG.NR_DOCUMENTO || '/' ||  to_char(  ITCON_PAG.NR_PARCELA, '000' )   NR_DOCUMENTO
+       ,CON_PAG.DS_CON_PAG         DS_CON_PAG
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO    DS_HIST_P
+       ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR,FORNECEDOR.NM_FANTASIA)    NM_FANTASIA
+       ,TO_NUMBER(NULL)         CHE_BORD
+       ,TO_NUMBER(NULL)            CD_CON_COR
+       ,PAGCON_PAG.VL_MOEDA        VL_PAGO
+FROM    dbamv.PAGCON_PAG
+       ,dbamv.ITCON_PAG
+       ,dbamv.CON_PAG
+       ,dbamv.FORNECEDOR
+       ,dbamv.HISTORICO_PADRAO
+       ,dbamv.tip_doc
+WHERE PAGCON_PAG.DT_PAGAMENTO              >  ITCON_PAG.DT_VENCIMENTO
+AND   PAGCON_PAG.CD_ITCON_PAG                    =  ITCON_PAG.CD_CON_PAG
+AND   ITCON_PAG.CD_CON_PAG                           =  CON_PAG.CD_CON_PAG
+AND   CON_PAG.CD_FORNECEDOR                      =  FORNECEDOR.CD_FORNECEDOR(+)
+AND   PAGCON_PAG.TP_PAGAMENTO                 = '4'
+AND   CON_PAG.CD_HISTORICO_PADRAO          = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND   CON_PAG.CD_MULTI_EMPRESA                = :CAMPO_CD_MULTI_EMPRESA 
+AND   CON_PAG.CD_TIP_DOC                               = TIP_DOC.CD_TIP_DOC
+AND   ITCON_PAG.CD_CON_PAG_AGRUP        IS NULL
+UNION
+SELECT  PAGCON_PAG.DT_PAGAMENTO    DT_PAGAMENTO
+       ,ITCON_PAG.DT_VENCIMENTO    DT_VENCIMENTO
+       ,ITCON_PAG.CD_CON_PAG       CD_CON_PAG
+        ,ITCON_PAG.VL_MOEDA             VL_DUPLICATA
+       ,CON_PAG.NR_DOCUMENTO || '/' ||  to_char(  ITCON_PAG.NR_PARCELA, '000' )   NR_DOCUMENTO
+       ,CON_PAG.DS_CON_PAG         DS_CON_PAG
+       ,HISTORICO_PADRAO.DS_HISTORICO_PADRAO    DS_HIST_P
+       ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR,FORNECEDOR.NM_FANTASIA)    NM_FANTASIA
+       ,TO_NUMBER(NULL)         CHE_BORD
+       ,TO_NUMBER(NULL)            CD_CON_COR
+       ,PAGCON_PAG.VL_MOEDA        VL_PAGO
+FROM    dbamv.PAGCON_PAG
+       ,dbamv.ITCON_PAG
+       ,dbamv.CON_PAG
+       ,dbamv.FORNECEDOR
+       ,dbamv.HISTORICO_PADRAO
+       ,dbamv.tip_doc
+WHERE PAGCON_PAG.DT_PAGAMENTO              >  ITCON_PAG.DT_VENCIMENTO
+AND  PAGCON_PAG.CD_ITCON_PAG                    =  ITCON_PAG.CD_ITCON_PAG
+AND   ITCON_PAG.CD_CON_PAG                           =  CON_PAG.CD_CON_PAG
+AND   CON_PAG.CD_FORNECEDOR                      =  FORNECEDOR.CD_FORNECEDOR(+)
+AND   PAGCON_PAG.TP_PAGAMENTO                = 'E'
+AND   CON_PAG.CD_HISTORICO_PADRAO          = HISTORICO_PADRAO.CD_HISTORICO_PADRAO(+)
+AND   CON_PAG.CD_MULTI_EMPRESA                = :CAMPO_CD_MULTI_EMPRESA
+AND   CON_PAG.CD_TIP_DOC                               = TIP_DOC.CD_TIP_DOC
+AND   ITCON_PAG.CD_CON_PAG_AGRUP        IS NULL
+UNION
+SELECT  PAGCON_PAG.DT_PAGAMENTO         DT_PAGAMENTO
+       ,ITCON_PAG.DT_VENCIMENTO                    DT_VENCIMENTO
+       ,ITCON_PAG.CD_CON_PAG                           CD_CON_PAG
+       ,ITCON_PAG.VL_MOEDA                                VL_DUPLICATA
+       ,CON_PAG.NR_DOCUMENTO || '/' ||  to_char(  ITCON_PAG.NR_PARCELA, '000' )                                             NR_DOCUMENTO
+       ,CON_PAG.DS_CON_PAG                                                                                                                                      DS_CON_PAG
+       ,HIST_P.DS_HISTORICO_PADRAO    DS_HIST_P
+       ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR,FORNECEDOR.NM_FANTASIA)    NM_FANTASIA
+       ,TO_NUMBER(NULL)                        CHE_BORD
+       ,CON_COR.CD_CON_COR               CD_CON_COR
+      ,PAGCON_PAG.VL_MOEDA               VL_PAGO
+FROM     dbamv.PAGCON_PAG                    PAGCON_PAG
+        ,dbamv.ITCON_PAG                              ITCON_PAG
+        ,dbamv.CON_PAG                                 CON_PAG
+        ,dbamv.FORNECEDOR                        FORNECEDOR
+        ,dbamv.CON_COR                                CON_COR
+        ,dbamv.HISTORICO_PADRAO            HIST_P
+        ,dbamv.tip_doc
+WHERE  PAGCON_PAG.DT_PAGAMENTO             >  ITCON_PAG.DT_VENCIMENTO
+AND     CON_PAG.CD_MULTI_EMPRESA            = :CAMPO_CD_MULTI_EMPRESA
+AND     CON_PAG.CD_CON_PAG                            = ITCON_PAG.CD_CON_PAG
+AND     CON_PAG.CD_TIP_DOC                               =  TIP_DOC.CD_TIP_DOC
+AND     PAGCON_PAG.TP_PAGAMENTO                = '5'
+AND     ITCON_PAG.CD_ITCON_PAG                     = PAGCON_PAG.CD_ITCON_PAG
+AND     CON_PAG.CD_FORNECEDOR                    = FORNECEDOR.CD_FORNECEDOR(+)
+AND     CON_COR.CD_CON_COR           = pagcon_pag.CD_CON_COR
+AND     CON_PAG.CD_HISTORICO_PADRAO  = HIST_P.CD_HISTORICO_PADRAO(+)
+and     con_cor.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+UNION
+SELECT  PAGCON_PAG.DT_PAGAMENTO         DT_PAGAMENTO
+       ,ITCON_PAG.DT_VENCIMENTO                    DT_VENCIMENTO
+       ,ITCON_PAG.CD_CON_PAG                           CD_CON_PAG
+        ,ITCON_PAG.VL_MOEDA                               VL_MOEDA
+       ,CON_PAG.NR_DOCUMENTO || '/' ||  to_char(  ITCON_PAG.NR_PARCELA, '000' )                                             NR_DOCUMENTO
+       ,CON_PAG.DS_CON_PAG                                                                                                                                      DS_CON_PAG
+       ,HIST_P.DS_HISTORICO_PADRAO    DS_HIST_P
+       ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR,FORNECEDOR.NM_FANTASIA)    NM_FANTASIA       ,TO_NUMBER(NULL)                         CHE_BORD
+       ,PAGCON_PAG.CD_CON_COR         CD_CON_COR
+       ,PAGCON_PAG.VL_MOEDA                VL_PAGO
+FROM     dbamv.PAGCON_PAG                    PAGCON_PAG
+        ,dbamv.ITCON_PAG                              ITCON_PAG
+        ,dbamv.CON_PAG                                 CON_PAG
+        ,dbamv.FORNECEDOR                        FORNECEDOR
+        ,dbamv.HISTORICO_PADRAO            HIST_P
+        ,dbamv.tip_doc
+WHERE  PAGCON_PAG.DT_PAGAMENTO             >  ITCON_PAG.DT_VENCIMENTO
+AND     CON_PAG.CD_MULTI_EMPRESA            = :CAMPO_CD_MULTI_EMPRESA
+AND     CON_PAG.CD_CON_PAG                  = ITCON_PAG.CD_CON_PAG
+AND     CON_PAG.CD_TIP_DOC                  =  TIP_DOC.CD_TIP_DOC
+AND     PAGCON_PAG.TP_PAGAMENTO             = '7'
+AND     ITCON_PAG.CD_ITCON_PAG              = PAGCON_PAG.CD_ITCON_PAG
+AND     CON_PAG.CD_FORNECEDOR               = FORNECEDOR.CD_FORNECEDOR(+)
+AND     CON_PAG.CD_HISTORICO_PADRAO        = HIST_P.CD_HISTORICO_PADRAO(+)
+:CAMPO_CF_MOEDA
+)
+Group By Trunc(DT_PAGAMENTO)
+              ,Trunc(DT_VENCIMENTO)
+              ,CD_CON_PAG
+              ,VL_DUPLICATA
+              ,NR_DOCUMENTO
+              ,DS_CON_PAG
+              ,DS_HIST_P
+              ,NM_FANTASIA
+ORDER BY DT_VENCIMENTO,
+NM_FANTASIA,CD_CON_PAG,VL_DUPLICATA,DS_HIST_P,NR_DOCUMENTO,DS_CON_PAG

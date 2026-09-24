@@ -1,0 +1,80 @@
+/*----------------------------------------------------------------------------*/
+--R_LETA_INFEC_SETOR
+SELECT cd_setor, ds_unid_int,
+       Sum(QTD_OBITO_INFEC) QTD_OBITO_INFEC,
+       sum(QTD_PAC_INFEC  )  QTD_PAC_INFEC
+FROM (
+          SELECT unid_int.cd_setor    ,
+                 unid_int.ds_unid_int ,
+                 0 qtd_obito_infec    ,
+                 COUNT(atendime.cd_paciente) QTD_PAC_INFEC  
+            FROM dbamv.reg_inf
+                ,dbamv.atendime
+                ,dbamv.paciente
+                ,dbamv.leito
+                ,dbamv.unid_int
+                ,DBAMV.SETOR
+          WHERE reg_inf.cd_atendimento    = atendime.cd_atendimento
+            AND atendime.cd_paciente      = paciente.cd_paciente
+            and reg_inf.cd_leito          = leito.cd_leito
+            and leito.cd_unid_int         = unid_int.cd_unid_int
+            AND UNID_INT.CD_SETOR         = SETOR.CD_SETOR
+            AND reg_inf.tp_sit            = 'C'
+          group by unid_int.cd_setor, unid_int.ds_unid_int
+          UNION
+          SELECT cen_cir.cd_cen_cir  cd_setor  ,
+                 cen_cir.ds_cen_cir  ds_unid_int,
+                 0 qtd_obito_infec  ,
+                 COUNT(atendime.cd_paciente) QTD_PAC_INFEC  
+            FROM dbamv.reg_inf
+                ,dbamv.atendime
+                ,dbamv.paciente
+                ,dbamv.aviso_cirurgia
+                ,dbamv.cen_cir
+          WHERE reg_inf.cd_atendimento    = atendime.cd_atendimento
+            AND atendime.cd_paciente      = paciente.cd_paciente
+            and reg_inf.cd_aviso_cirurgia = aviso_cirurgia.cd_aviso_cirurgia
+            AND aviso_cirurgia.cd_cen_cir = cen_cir.cd_cen_cir
+            AND reg_inf.tp_sit         = 'C'
+          group by cen_cir.cd_cen_cir, cen_cir.ds_cen_cir
+          UNION
+          SELECT unid_int.cd_setor                          ,
+                 unid_int.ds_unid_int                       ,
+                 Count(atendime.cd_paciente) qtd_obito_infec,
+                 0 QTD_PAC_INFEC  
+          FROM dbamv.atendime,
+              dbamv.leito   ,
+               dbamv.unid_int,
+               DBAMV.SETOR,
+               DBAMV.REG_INF
+         WHERE REG_INF.cd_leito           = leito.cd_leito
+           AND leito.cd_unid_int          = unid_int.cd_unid_int
+           AND UNID_INT.CD_SETOR          = SETOR.CD_SETOR
+           AND REG_INF.CD_ATENDIMENTO     = ATENDIME.CD_ATENDIMENTO
+           AND atendime.dt_alta           IS NOT NULL
+           AND atendime.sn_obito_infec    = 'S'
+           AND atendime.cd_mot_alt        IN ( SELECT cd_mot_alt
+                                             FROM dbamv.mot_alt
+                                            WHERE tp_mot_alta = 'O'  )
+          GROUP BY unid_int.cd_setor, unid_int.ds_unid_int
+          UNION
+          SELECT cen_cir.cd_cen_cir cd_setor    ,
+                 cen_cir.ds_cen_cir ds_unid_int ,
+                 Count(atendime.cd_paciente) qtd_obito_infec,
+                 0 QTD_PAC_INFEC  
+          FROM dbamv.atendime,
+               dbamv.aviso_cirurgia,
+               dbamv.cen_cir,
+               DBAMV.REG_INF
+         WHERE REG_INF.CD_ATENDIMENTO     = ATENDIME.CD_ATENDIMENTO
+           AND atendime.cd_atendimento    = aviso_cirurgia.cd_atendimento
+           AND aviso_cirurgia.cd_cen_cir  = cen_cir.cd_cen_cir
+           AND atendime.dt_alta           IS NOT NULL
+           AND atendime.sn_obito_infec    = 'S'
+           AND atendime.cd_mot_alt        IN ( SELECT cd_mot_alt
+                                             FROM dbamv.mot_alt
+                                            WHERE tp_mot_alta = 'O'  )
+          GROUP BY cen_cir.cd_cen_cir, cen_cir.ds_cen_cir
+)
+GROUP BY cd_setor, ds_unid_int
+ORDER BY cd_setor, ds_unid_int

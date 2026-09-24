@@ -1,0 +1,44 @@
+/*----------------------------------------------------------------------------*/
+--R_ENTREGAEXA
+SELECT * FROM
+  (SELECT paciente.cd_paciente cd_paciente ,
+  		  paciente.nm_paciente nm_paciente ,
+     (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          entrega_exame_sadt.cd_entrega_exame cd_entrega_exame ,
+          entrega_exame_sadt.nm_responsavel nm_responsavel ,
+          entrega_exame_sadt.dt_entrega_exame dt_entrega_exame ,
+          to_char(entrega_exame_sadt.hr_entrega_exame, 'hh24') hr_entrega ,
+          entrega_exame_sadt.ds_observacao ds_observacao ,
+          itped_lab.cd_ped_lab cd_ped_lab
+   FROM dbamv.entrega_exame_sadt ,
+        dbamv.itped_lab ,
+        dbamv.exa_lab ,
+        dbamv.ped_lab ,
+        dbamv.atendime ,
+        dbamv.paciente
+   WHERE entrega_exame_sadt.cd_entrega_exame = itped_lab.cd_entrega_exame
+     AND atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND itped_lab.cd_ped_lab = ped_lab.cd_ped_lab
+     AND ped_lab.cd_atendimento = atendime.cd_atendimento
+     AND EXISTS
+       (SELECT 1
+        FROM DBAMV.USUARIOS_SET_EXA
+        WHERE ITPED_LAB.CD_SET_EXA = USUARIOS_SET_EXA.CD_SET_EXA
+          AND USUARIOS_SET_EXA.NM_USUARIO = USER)
+     AND atendime.cd_paciente = paciente.cd_paciente
+     AND itped_lab.cd_exa_lab = exa_lab.cd_exa_lab
+     AND itped_lab.cd_ped_lab LIKE :CAMPO_PEDIDO
+     AND itped_lab.cd_exa_lab LIKE :CAMPO_EXAME_PEDIDO
+     AND trunc(entrega_exame_sadt.dt_entrega_exame) BETWEEN :CAMPO_DTINIC GROUP  BY entrega_exame_sadt.cd_entrega_exame ,
+               entrega_exame_sadt.nm_responsavel ,
+               entrega_exame_sadt.dt_entrega_exame ,
+               entrega_exame_sadt.hr_entrega_exame ,
+               entrega_exame_sadt.ds_observacao ,
+               itped_lab.cd_ped_lab ,
+               paciente.cd_paciente ,
+               paciente.nm_paciente ,
+               NM_SOCIAL_PACIENTE )
+ORDER BY DT_ENTREGA_EXAME,
+         HR_ENTREGA,
+         NM_RESPONSAVEL,
+         DS_OBSERVACAO

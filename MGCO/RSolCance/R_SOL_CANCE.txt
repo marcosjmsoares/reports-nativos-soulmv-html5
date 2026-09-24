@@ -1,0 +1,91 @@
+/*----------------------------------------------------------------------------*/
+--R_SOL_CANCE
+SELECT * FROM (
+Select  sol_com.cd_sol_com           cd_sol_com
+           ,sol_com.dt_sol_com            dt_sol_com
+           ,trunc(sol_com.dt_cancelamento)   dt_cancelamento
+           ,sol_com.cd_setor                cd_setor
+           ,sol_com.nm_solicitante       nm_solicitante
+           ,sol_com.cd_mot_ped          cd_mot_ped
+           ,sol_com.cd_cotador            cd_cotador
+           ,sol_com.cd_estoque           cd_estoque
+           ,itsol_com.qt_solic                qt_solic
+           ,itsol_com.cd_produto          cd_produto
+           ,cotador.ds_cotador             ds_cotador
+           ,setor.nm_setor                     nm_setor
+           ,estoque.ds_estoque            ds_estoque
+           ,PRODUTO.ds_produto || DECODE(PRODUTO.ds_complemento, null,null,' ') || PRODUTO.ds_complemento || DECODE(PRODUTO.nr_referencia, null,null,' ') || PRODUTO.nr_referencia	ds_produto
+           ,uni_pro.ds_unidade             ds_unidade
+           ,mot_ped.ds_mot_ped          ds_mot_ped
+           ,NVL(itsol_com.dt_cancel,sol_com.dt_cancelamento)  dt_cancel
+           ,Decode(Sol_Com.Tp_Situacao,'A','Aberta'
+                                                             ,'F', 'Fechada'
+                                                             ,'C','Cancelada'
+                                                             ,'N','Lancamento'
+                                                             ,'S','Solicitada'
+                                                             ,'L','Licitacao'
+                                                             ,'P','Parcialmente Atendida','Aberta') Tp_Situacao
+From  dbamv.sol_com                sol_com
+         ,dbamv.itsol_com              itsol_com
+         ,dbamv.cotador                 cotador
+         ,dbamv.setor                     setor
+         ,dbamv.estoque                estoque
+         ,dbamv.produto                 produto
+         ,dbamv.uni_pro                 uni_pro
+         ,dbamv.mot_ped               mot_ped
+Where sol_com.dt_sol_com between To_Date(To_Char(:CAMPO_DATA_INI,'dd/mm/yyyy')||' '||'00','dd/mm/yyyy hh24')
+                                                    and To_Date(To_Char(:CAMPO_DATA_FIM,'dd/mm/yyyy')||' '||'23','dd/mm/yyyy hh24')
+and      sol_com.cd_sol_com     = itsol_com.cd_sol_com
+and      sol_com.cd_cotador      = cotador.cd_cotador(+)
+and      sol_com.cd_setor          = setor.cd_setor
+and      sol_com.cd_estoque     = estoque.cd_estoque
+and      estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and      itsol_com.cd_produto    = produto.cd_produto
+and      itsol_com.cd_uni_pro    = uni_pro.cd_uni_pro
+and      sol_com.cd_mot_ped    = mot_ped.cd_mot_ped
+and      itsol_com.cd_mot_cancel IS NOT NULL
+Union All
+Select sol_com.cd_sol_com              cd_sol_com
+          ,sol_com.dt_sol_com               dt_sol_com
+           ,trunc(sol_com.dt_cancelamento)   dt_cancelamento
+          ,sol_com.cd_setor                   cd_setor
+          ,sol_com.nm_solicitante           nm_solicitante
+          ,sol_com.cd_mot_ped             cd_mot_ped
+          ,sol_com.cd_cotador               cd_cotador
+          ,sol_com.cd_estoque              cd_estoque
+          ,0                                             qt_solic
+          ,itsol_ser.cd_ser_sol                cd_produto
+          ,cotador.ds_cotador                ds_cotador
+          ,setor.nm_setor                        nm_setor
+          ,estoque.ds_estoque               ds_estoque
+          ,manu_serv.nm_servico                ds_produto
+          ,'Serviço'                                 ds_unidade
+          ,mot_ped.ds_mot_ped            ds_mot_ped
+           ,sol_com.dt_cancelamento   dt_cancel
+           ,Decode(Sol_Com.Tp_Situacao,'A','Aberta'
+                                                             ,'F', 'Fechada'
+                                                             ,'C','Cancelada'
+                                                             ,'N','Lancamento'
+                                                             ,'S','Solicitada'
+                                                             ,'L','Licitacao'
+                                                             ,'P','Parcialmente Atendida','Aberta') Tp_Situacao
+From  dbamv.sol_com             sol_com
+         ,dbamv.itsol_ser             itsol_ser
+         ,dbamv.cotador              cotador
+         ,dbamv.setor                  setor
+         ,dbamv.mot_ped            mot_ped
+         ,dbamv.estoque             estoque
+         ,dbamv.manu_serv
+Where sol_com.dt_sol_com between To_Date(To_Char(:CAMPO_DATA_INI,'dd/mm/yyyy')||' '||'00','dd/mm/yyyy hh24')
+                                                    and To_Date(To_Char(:CAMPO_DATA_FIM,'dd/mm/yyyy')||' '||'23','dd/mm/yyyy hh24')
+and      sol_com.tp_situacao       = 'C'
+and      sol_com.cd_sol_com      = itsol_ser.cd_sol_com
+and      sol_com.cd_cotador       = cotador.cd_cotador(+)
+and      sol_com.cd_setor           = setor.cd_setor
+and      sol_com.cd_mot_ped     = mot_ped.cd_mot_ped
+and      sol_com.cd_estoque      = estoque.cd_estoque
+and      estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and      manu_serv.cd_servico = itsol_ser.cd_ser_sol
+:CAMPO_CF_COND_SETOR
+)
+ORDER BY CD_SOL_COM,DT_SOL_COM,DT_CANCELAMENTO,CD_SETOR,NM_SETOR,NM_SOLICITANTE,CD_MOT_PED,DS_MOT_PED,CD_COTADOR,DS_COTADOR,TP_SITUACAO,CD_ESTOQUE,DS_ESTOQUE, ds_produto , ds_unidade

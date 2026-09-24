@@ -1,0 +1,63 @@
+/*----------------------------------------------------------------------------*/
+--R_ALTA_MED_HOSP
+SELECT * FROM (
+SELECT aten.CD_ATENDIMENTO CD_ATENDIMENTO,
+              paciente.CD_PACIENTE CD_PACIENTE,
+              paciente.NM_PACIENTE NM_PACIENTE,
+              (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+              aten.DT_ATENDIMENTO DT_ATENDIMENTO,
+              pres.NM_MNEMONICO NM_PRESTADOR,
+              LEITO.DS_LEITO DS_LEITO,
+              conv.CD_CONVENIO CD_CONVENIO,
+              conv.NM_CONVENIO NM_CONVENIO,
+              copl.DS_CON_PLA DS_CON_PLA,
+              ORI.DS_ORI_ATE DS_ORI_ATE,
+              CASE WHEN CONV.TP_CONVENIO IN ('A','H') THEN
+                        ATEN.CD_PROCEDIMENTO
+              ELSE ATEN.CD_PRO_INT
+              END       CD_PRO_INT,
+              CASE WHEN CONV.TP_CONVENIO IN ('A','H') THEN
+                        PRO_SUS.DS_PROCEDIMENTO
+              ELSE  PRO_FAT.DS_PRO_FAT
+              END       DS_PRO_INT,
+	      MOT_ALT.DS_MOT_ALT  DS_MOT_ALT,
+              to_char(aten.DT_ALTA , 'dd/mm/yyyy' ) DT_ALTA,
+              to_char(aten.HR_ALTA, 'hh24') HR_ALTA,
+              to_char(aten.DT_ALTA_MEDICA,'dd/mm/yyyy') DT_ALTA_MEDICA,
+              to_char(aten.HR_ALTA_MEDICA, 'hh24') HR_ALTA_MEDICA,
+              aten.DT_ALTA DATA_ALTA, 
+              aten.DT_ALTA_MEDICA DATA_ALTA_MEDICA, 
+              aten.HR_ALTA HORA_ALTA, 
+              aten.HR_ALTA_MEDICA HORA_ALTA_MEDICA,  
+              unid_int.CD_UNID_INT  CD_UNID_INT,
+              unid_int.DS_UNID_INT  DS_UNID_INT
+   FROM DBAMV.ATENDIME aten,
+              DBAMV.PRO_FAT,
+	      DBAMV.PROCEDIMENTO_SUS PRO_SUS,
+              DBAMV.PACIENTE,
+              DBAMV.CON_PLA copl,
+              DBAMV.CONVENIO conv,
+              DBAMV.PRESTADOR pres,
+              DBAMV.LEITO  leito,
+              DBAMV.MOT_ALT,
+              DBAMV.ORI_ATE ori,
+              DBAMV.UNID_INT
+ WHERE aten.TP_ATENDIMENTO IN ( 'I', 'H' )
+      AND aten.DT_ALTA is not null
+      AND aten.DT_ALTA between :CAMPO_DATINI and 
+      AND aten.CD_PACIENTE  = paciente.CD_PACIENTE
+      AND aten.CD_PRO_INT   = pro_fat.CD_PRO_FAT(+)
+      AND aten.CD_PROCEDIMENTO   = pro_sus.CD_PROCEDIMENTO(+)
+      AND aten.CD_CONVENIO  = copl.CD_CONVENIO(+)
+      AND aten.CD_CON_PLA   = copl.CD_CON_PLA(+)
+      AND aten.CD_LEITO     = leito.CD_LEITO(+)
+      AND leito.CD_UNID_INT = unid_int.CD_UNID_INT(+)
+      AND aten.CD_CONVENIO  = conv.CD_CONVENIO
+      AND aten.CD_PRESTADOR = pres.CD_PRESTADOR
+      AND aten.CD_MOT_ALT   = mot_alt.CD_MOT_ALT
+      AND aten.CD_ORI_ATE(+)= ori.CD_ORI_ATE
+      AND ATEN.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY conv.NM_CONVENIO,
+         paciente.NM_PACIENTE
+)
+ORDER BY CD_UNID_INT,DS_UNID_INT

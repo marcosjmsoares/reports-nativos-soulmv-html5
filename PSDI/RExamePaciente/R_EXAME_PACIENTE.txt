@@ -1,0 +1,92 @@
+/*----------------------------------------------------------------------------*/
+--R_EXAME_PACIENTE
+SELECT cd_atendimento,
+       dt_atendimento,
+       nm_paciente,
+       nm_social_paciente,
+       hr_atendimento,
+       nm_convenio,
+       nm_prestador,
+       cd_ped_rx,
+       dt_pedido,
+       ds_exa_rx,
+       cd_exa_rx,
+       cd_guia
+FROM
+  (SELECT atendime.cd_atendimento cd_atendimento,
+          to_char(atendime.dt_atendimento, 'dd/mm/yyyy') dt_atendimento,
+          paciente.nm_paciente nm_paciente,
+          (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+          to_char(atendime.hr_atendimento, 'hh24') hr_atendimento,
+          convenio.nm_convenio nm_convenio,
+          nvl(prestador.nm_prestador, ped_rx.nm_prestador) NM_PRESTADOR,
+          ped_rx.cd_ped_rx cd_ped_rx,
+          to_char(ped_rx.dt_pedido, 'dd/mm/yyyy') dt_pedido,
+          exa_rx.ds_exa_rx ds_exa_rx,
+          itped_rx.cd_exa_rx cd_exa_rx,
+          ped_rx.cd_guia cd_guia,
+          to_char(itped_rx.cd_itped_rx) cod
+   FROM dbamv.paciente,
+        dbamv.atendime,
+        dbamv.ped_rx,
+        dbamv.convenio,
+        dbamv.prestador,
+        dbamv.itped_rx,
+        dbamv.exa_rx,
+        Dbamv.Empresa_Convenio,
+           dbamv.set_exa,
+           dbamv.setor
+   WHERE Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+     AND Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND paciente.cd_paciente = atendime.cd_paciente
+     AND atendime.cd_atendimento = ped_rx.cd_atendimento
+     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+     AND ped_rx.cd_convenio = convenio.cd_convenio
+     AND ped_rx.cd_prestador = prestador.cd_prestador(+)     and set_exa.cd_setor = setor.cd_setor
+    and setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND ped_rx.cd_set_exa = set_exa.cd_set_exa
+    and set_exa.cd_set_exa in (select psdi_set_exa.cd_set_exa
+                                 from dbamv.psdi_set_exa
+                                where nm_usuario = user)
+    AND set_exa.tp_setor in ('R', 'A')
+     AND ped_rx.cd_ped_rx = itped_rx.cd_ped_rx
+     AND itped_rx.cd_exa_rx = exa_rx.cd_exa_rx
+     AND :CAMPO_TP_EXAME in ('R', 'N', '%') 
+   UNION 
+   SELECT atendime.cd_atendimento cd_atendimento,
+          to_char(atendime.dt_atendimento, 'dd/mm/yyyy') dt_atendimento,
+          it_escala_dia.nm_paciente nm_paciente,
+          (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND ATENDIME.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+          to_char(atendime.hr_atendimento, 'hh24') hr_atendimento,
+          convenio.nm_convenio nm_convenio,
+          prestador.nm_prestador NOME_PRESTADOR,
+          ped_rx.cd_ped_rx cd_ped_rx,
+          to_char(ped_rx.dt_pedido, 'dd/mm/yyyy') dt_pedido,
+          exa_rx.ds_exa_rx ds_exa_rx,
+          itped_rx.cd_exa_rx cd_exa_rx,
+          ped_rx.cd_guia cd_guia,
+          '
+   FROM dbamv.escala_dia ,
+        dbamv.prestador ,
+        dbamv.it_escala_dia ,
+        dbamv.convenio ,
+        dbamv.exa_rx_it_escala_dia ,
+        dbamv.exa_rx ,
+        dbamv.atendime ,
+        dbamv.itped_rx ,
+        dbamv.ped_rx,
+        Dbamv.Empresa_Convenio
+   WHERE Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+     AND Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND trunc(escala_dia.dt_escala_dia) BETWEEN :CAMPO_DT_INI AND 
+     AND escala_dia.cd_prestador = prestador.cd_prestador(+)
+     AND escala_dia.cd_escala_dia = it_escala_dia.cd_escala_dia
+     AND ped_rx.cd_convenio = convenio.cd_convenio(+)
+     AND it_escala_dia.cd_escala_dia = exa_rx_it_escala_dia.cd_escala_dia
+     AND it_escala_dia.hr_agenda = exa_rx_it_escala_dia.hr_agenda
+     AND exa_rx_it_escala_dia.cd_exa_rx = exa_rx.cd_exa_rx(+)
+     AND atendime.cd_atendimento(+) = it_escala_dia.cd_atendimento
+     AND atendime.cd_atendimento = ped_rx.cd_atendimento(+)
+     AND :CAMPO_TP_EXAME = ('A')
+     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+     :CAMPO_CF_TP_ATENDIMENTO )

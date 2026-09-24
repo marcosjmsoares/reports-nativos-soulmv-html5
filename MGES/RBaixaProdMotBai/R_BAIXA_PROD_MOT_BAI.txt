@@ -1,0 +1,35 @@
+/*----------------------------------------------------------------------------*/
+--R_BAIXA_PROD_MOT_BAI
+SELECT
+       mvto_estoque.cd_estoque     ,
+       estoque.ds_estoque          ,
+       mvto_estoque.dt_mvto_estoque,
+       mvto_estoque.cd_mot_bai     ,
+       mot_bai.ds_mot_bai          ,
+       itmvto_estoque.cd_produto   ,
+       itmvto_estoque.cd_lote,
+       itmvto_estoque.dt_validade,
+       itmvto_estoque.qt_movimentacao ,
+       uni_pro.ds_unidade ds_unidade,
+       produto.ds_produto,
+       SETOR.CD_SETOR,
+       SETOR.NM_SETOR,
+       DECODE(nvl(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_CUSTO_MEDIO_MENSAL'),'N'),'S',
+       FNC_MGES_VERIF_VL_CUSTO_MEDIO(ITMVTO_ESTOQUE.CD_PRODUTO,MVTO_ESTOQUE.DT_MVTO_ESTOQUE,:CAMPO_TP_CUSTO,NULL,MVTO_ESTOQUE.HR_MVTO_ESTOQUE,MVTO_ESTOQUE.CD_MULTI_EMPRESA)
+       ,'N',VERIF_VL_CUSTO_MEDIO(ITMVTO_ESTOQUE.CD_PRODUTO,MVTO_ESTOQUE.DT_MVTO_ESTOQUE,:CAMPO_TP_CUSTO,NULL,MVTO_ESTOQUE.HR_MVTO_ESTOQUE)) * uni_pro.vl_fator   vl_unitario
+FROM   dbamv.estoque,
+       dbamv.mot_bai,
+       dbamv.mvto_estoque,
+       dbamv.itmvto_estoque,
+       dbamv.produto ,
+       dbamv.uni_pro,
+       dbamv.SETOR 
+WHERE  mvto_estoque.tp_mvto_estoque   = 'X'
+AND    mvto_estoque.cd_estoque        = estoque.cd_estoque
+AND    mvto_estoque.cd_mot_bai        = mot_bai.cd_mot_bai
+AND    mvto_estoque.cd_SETOR(+)    = SETOR.cd_SETOR
+AND    itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+AND    itmvto_estoque.cd_produto      = produto.cd_produto
+AND  uni_pro.cd_uni_pro                       = itmvto_estoque.cd_uni_pro
+AND        mvto_estoque.dt_mvto_estoque BETWEEN :CAMPO_DTINIC  ORDER BY DS_ESTOQUE,CD_ESTOQUE,
+NM_SETOR,CD_SETOR,CD_MOT_BAI,DS_MOT_BAI

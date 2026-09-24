@@ -1,0 +1,31 @@
+/*----------------------------------------------------------------------------*/
+--R_RAZAO_CUSTO
+SELECT * FROM (
+SELECT  SETOR.CD_SETOR                         CD_CEN_CUS
+       ,SETOR.NM_SETOR                           DS_CEN_CUS
+       ,SUBSTR( PC.CD_CONTABIL, 1, Length(G.DS_GRAU_DA_CONTA) )              CD_CONTABIL_QUEBRA
+       ,PC.CD_CONTABIL                           CD_CONTABIL
+       ,PC.DS_CONTA                              DS_CONTA
+       ,decode(  PC.TP_CONTA , 'A', SUM( NVL( SMS.VL_SALDO_MES, 0 ) ), 0 )  VL_SALDO
+       ,PC.TP_CONTA
+FROM    DBAMV.SETOR                       SETOR
+       ,DBAMV.SALDO_MENSAL_SETOR          SMS
+       ,DBAMV.V_NATUREZA_PLANO_CONTAS                PC
+       ,DBAMV.GRAU_DA_CONTA G
+WHERE   SETOR.CD_SETOR             = SMS.CD_SETOR
+AND     SMS.CD_REDUZIDO            = PC.CD_REDUZIDO
+AND PC.TP_CONTA_CONTABIL <> 'ATIVO'
+AND PC.TP_CONTA_CONTABIL <> 'PASSIVO'
+AND     PC.CD_MULTI_EMPRESA        = :CAMPO_CD_MULTI_EMPRESA
+AND     SMS.DT_SALDO_MES BETWEEN Trunc(To_Date(:CAMPO_DT_INICIO,'MM/YYYY'),'MM')  AND  Trunc(To_Date(:CAMPO_DT_FIM,'MM/YYYY'),'MM')
+AND g.cd_grau_da_conta = 1
+AND g.cd_multi_empresa = PC.cd_multi_empresa
+GROUP BY  SETOR.CD_SETOR
+         ,SETOR.NM_SETOR
+         ,SUBSTR( PC.CD_CONTABIL, 1, Length(G.DS_GRAU_DA_CONTA) )
+         ,PC.CD_CONTABIL
+         ,PC.DS_CONTA
+         ,PC.TP_CONTA
+ORDER BY  SETOR.NM_SETOR
+         ,PC.CD_CONTABIL
+)

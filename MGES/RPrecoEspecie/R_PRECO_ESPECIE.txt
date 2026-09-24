@@ -1,0 +1,50 @@
+/*----------------------------------------------------------------------------*/
+--R_PRECO_ESPECIE
+Select Produto.Cd_Produto,
+       Produto.Ds_Produto,
+       Verif_Ds_Unid_Prod( produto.cd_produto, 'G' ) Unidade,
+       (SELECT Max(e.dt_entrada)f
+                  FROM dbamv.ent_pro e
+                    , dbamv.itent_pro i
+                    , dbamv.estoque  est
+                WHERE e.cd_ent_pro = i.cd_ent_pro
+                  AND e.cd_estoque = est.cd_estoque
+                  AND est.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                  AND i.cd_produto = Produto.Cd_Produto) Dt_Ultima_Entrada,
+              CASE WHEN Produto.Vl_Ultima_custo_real <> 0  THEN Produto.Vl_Ultima_custo_real * Verif_vl_fator_prod( produto.cd_produto, 'G' )
+       ELSE Empresa_produto.Vl_Ultima_custo_real * Verif_vl_fator_prod( produto.cd_produto, 'G' ) END vl_ult_entrada,
+       Nvl(Produto.Vl_fator_pro_fat, Verif_vl_fator_prod( produto.cd_produto, 'G' )) Vl_fator_pro_fat,
+       Decode(Produto.Tp_Atualizacao_Preco,'BR','BRASINDICE',
+                                           'SI','SIMPRO',
+                                           'NA','N.F REAJUSTE ASSIMA',
+                                           'NV','N.F REAJUSTE VARIAVEL') TP_ATUALIZACAO,
+       Empresa_produto.Cd_ultimo_Fornecedor cd_fornec,
+       Fornecedor.Nm_fornecedor,
+       Nvl(Produto.Vl_Percentual_Variacao,0) PERC_VARIACAO,
+       Especie.Cd_Especie,
+       Especie.Ds_Especie,
+       Sub_Clas.Cd_Tab_Fat,
+       Produto.Cd_Pro_Fat
+From Dbamv.Produto,
+     Dbamv.Especie,
+     Dbamv.Classe,
+     Dbamv.Sub_Clas,
+     Dbamv.Fornecedor,
+     Dbamv.Empresa_Produto
+Where ((Classe.Cd_Especie  = Especie.Cd_Especie)
+  And  (Produto.Cd_Sub_Cla = Sub_Clas.Cd_Sub_Cla
+  And   Produto.Cd_Especie = Sub_Clas.Cd_Especie
+  And   Produto.Cd_Classe = Sub_Clas.Cd_Classe)
+  And  (Sub_Clas.Cd_Classe = Classe.Cd_Classe
+  And   Sub_Clas.Cd_Especie = Classe.Cd_Especie)
+  And  Empresa_Produto.cd_ultimo_fornecedor = Fornecedor.cd_fornecedor(+)
+  And  Empresa_Produto.cd_produto = produto.cd_produto
+  And  Empresa_Produto.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  And dbamv.mges.f_configuracao_estoque(:CAMPO_ESTOQUE
+                                                             ,produto.cd_especie
+                                                             ,produto.cd_classe
+                                                             ,produto.cd_sub_cla
+                                                              ,produto.cd_produto)  > 0 )
+  And (Produto.Vl_Ultima_custo_real <> 0
+   OR Empresa_Produto.Vl_Ultima_custo_real <> 0)
+order by produto.cd_produto

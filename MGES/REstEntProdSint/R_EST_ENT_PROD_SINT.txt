@@ -1,0 +1,209 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_ENT_PROD_SINT
+SELECT * FROM (
+Select Fornecedor.cd_fornecedor  cd_fornecedor
+       ,Fornecedor.nm_fornecedor nm_fornecedor
+       ,Tip_doc.Ds_Tip_Doc Ds_Tip_Doc
+       ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento) nr_documento
+       ,Ent_pro.Nr_Serie Nr_Serie
+       ,Ent_pro.Dt_Emissao Dt_Emissao
+       ,Ent_pro.Dt_Entrada Dt_Entrada
+       ,Nvl(Ent_Pro_Moeda.vl_indice_moeda,1) vl_indice_moeda
+       ,Nvl(Ent_Pro_Moeda.cd_moeda_indice,multi_empresas.cd_moeda) cd_moeda_indice
+       ,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_emissao) dt_indice_moeda
+       ,Iso_Avaliacao.Vl_Nota Vl_Nota
+       ,Iso_Avaliacao.Vl_Media Vl_Media
+       ,Iso_Ranking.Ds_Ranking Ds_Ranking
+       ,Decode(ent_pro.tp_documento_entrada, 'P', Decode(:CAMPO_CD_VALORES,'N',Round(sum((decode(multi_empresas.sn_utiliza_moeda,'S',(nvl(itent_pro.vl_total_custo_real,0) / Decode(Nvl(itent_pro.vl_total_moeda,0),0,1,nvl(ent_pro_moeda.vl_indice_ent_pro,1))),nvl(itent_pro.vl_total_custo_real,0)))),2),
+                                                         Round(sum((decode(multi_empresas.sn_utiliza_moeda,'S',(nvl(itent_pro.vl_total_producao,0) / Decode(Nvl(itent_pro.vl_total_moeda,0),0,1,nvl(ent_pro_moeda.vl_indice_ent_pro,1))),nvl(itent_pro.vl_total_producao,0)))),2)),
+                                                         Round(sum((decode(multi_empresas.sn_utiliza_moeda,'S',(nvl(itent_pro.vl_total_custo_real,0) / Decode(Nvl(itent_pro.vl_total_moeda,0),0,1,nvl(ent_pro_moeda.vl_indice_ent_pro,1))),nvl(itent_pro.vl_total_custo_real,0)))),2)) vl_total
+       ,Round(sum(nvl(dbamv.converte_moeda_entrada(
+                      Decode(nvl(:CAMPO_CONVERTE,'0'),0,1),
+                      nvl(itent_pro.vl_total_custo_real,0),
+                      (decode(multi_empresas.sn_utiliza_moeda,'S',(nvl(itent_pro.vl_total_custo_real,0) / Decode(Nvl(itent_pro.vl_total_moeda,0),0,1,nvl(ent_pro_moeda.vl_indice_ent_pro,1))),nvl(itent_pro.vl_total_custo_real,0))),
+                      Decode(Nvl(itent_pro.vl_total_moeda,0),0,multi_empresas.cd_moeda,ent_pro_moeda.cd_moeda_indice),
+                      Decode(Nvl(itent_pro.vl_total_moeda,0),0,multi_empresas.cd_moeda,ent_pro_moeda.cd_moeda_indice),
+                      Decode(Nvl(itent_pro.vl_total_moeda,0),0,'S',ent_pro_moeda.sn_cambio_sugerido),
+                      Decode(Nvl(itent_pro.vl_total_moeda,0),0,ent_pro.dt_emissao,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_emissao)),
+                      Decode(Nvl(itent_pro.vl_total_moeda,0),0,1,ent_pro_moeda.vl_indice_ent_pro)),0)),2) vl_total_convertido
+  From Dbamv.Fornecedor
+       ,Dbamv.Tip_Doc
+       ,Dbamv.ItEnt_Pro
+       ,Dbamv.Ent_Pro
+       ,Dbamv.ent_pro_moeda
+       ,Dbamv.Iso_Avaliacao
+       ,Dbamv.Iso_Ranking
+       ,Dbamv.Estoque
+       ,Dbamv.Multi_Empresas
+       ,DBAMV.CONFIGEST
+ Where Ent_Pro.Cd_Ent_Pro       = ItEnt_Pro.Cd_Ent_Pro
+   And Ent_Pro.Cd_Fornecedor    = Fornecedor.Cd_Fornecedor
+   And Ent_Pro.Cd_Tip_Doc       = Tip_doc.Cd_Tip_Doc
+   And Ent_pro.cd_estoque       = Estoque.cd_estoque
+   And Estoque.cd_multi_empresa = Multi_Empresas.cd_multi_empresa
+   AND CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+   And Ent_Pro.Cd_Fornecedor Is Not Null
+   And Ent_Pro.Cd_Ent_Pro       = Iso_Avaliacao.Cd_Ent_Pro (+)
+   And Ent_Pro.cd_ent_pro       =  ent_pro_moeda.cd_ent_pro(+)
+   And Iso_Avaliacao.Cd_Ranking = Iso_Ranking.Cd_Ranking (+)
+   AND (iso_avaliacao.cd_avaliacao IN (SELECT Max(cd_avaliacao) FROM dbamv.iso_Avaliacao i WHERE i.cd_ent_pro = Ent_Pro.cd_ent_pro)
+    OR iso_avaliacao.cd_avaliacao IS NULL)
+   And Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA						     And Exists (Select Cd_Fornecedor
+                 From Dbamv.Tip_Ativ
+                      ,Dbamv.Ati_For
+                Where Tip_Ativ.Cd_Tip_Ativ = Ati_For.Cd_Tip_Ativ
+                  And Ati_For.Cd_Fornecedor = Fornecedor.Cd_Fornecedor
+                 :CAMPO_CF_TP_CRITERIO)
+Group by Fornecedor.Cd_Fornecedor
+         ,Fornecedor.Nm_Fornecedor
+         ,tip_doc.Ds_Tip_Doc
+         ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento)
+         ,Ent_Pro.Nr_Serie
+         ,Ent_Pro.Dt_Emissao
+         ,Ent_Pro.Dt_Entrada
+	 ,ent_pro.tp_documento_entrada
+         ,Nvl(Ent_Pro_Moeda.vl_indice_moeda,1)
+         ,Nvl(Ent_Pro_Moeda.cd_moeda_indice,multi_empresas.cd_moeda)
+         ,Nvl(ent_pro_moeda.dt_indice_moeda,ent_pro.dt_emissao)
+         ,Iso_Avaliacao.Vl_Nota
+         ,Iso_Avaliacao.Vl_Media
+         ,Iso_Ranking.Ds_Ranking
+Union All
+Select Fornecedor.Cd_Fornecedor
+       ,Fornecedor.Nm_Fornecedor
+       ,'Avaliação Sem Entrada'    Ds_Tip_Doc
+       ,Null                       Nr_Documento
+       ,Null                       Nr_Serie
+       ,Iso_Avaliacao.Dt_Avaliacao Dt_Emissao
+       ,Iso_Avaliacao.Dt_Avaliacao Dt_Entrada
+       ,0 vl_indice_moeda
+       ,null cd_indice_moeda
+       ,null dt_indice_moeda
+       ,Iso_Avaliacao.Vl_Nota
+       ,Iso_Avaliacao.Vl_Media
+       ,Iso_Ranking.Ds_Ranking
+       ,0 Vl_Total
+       ,0 vl_total_convertido
+  From Dbamv.Iso_Avaliacao
+       ,Dbamv.Iso_Ranking
+       ,Dbamv.Fornecedor
+ Where Iso_Avaliacao.Cd_Ranking    = Iso_Ranking.Cd_Ranking
+   And Iso_Avaliacao.Cd_Fornecedor = Fornecedor.Cd_Fornecedor
+   And Iso_Avaliacao.Cd_Ent_Pro Is Null
+   And Exists (Select Cd_Fornecedor
+                 From Dbamv.Tip_Ativ
+                      ,Dbamv.Ati_For
+                Where Tip_Ativ.Cd_Tip_Ativ = Ati_For.Cd_Tip_Ativ
+                  And Ati_For.Cd_Fornecedor = Fornecedor.Cd_Fornecedor
+                 :CAMPO_CF_TP_CRITERIO)
+   And Iso_Avaliacao.Dt_Avaliacao Between :CAMPO_DATA_INI And 
+  And  'S' = :CAMPO_SN_AVALIACAO
+:CAMPO_CF_TP_ORDEM
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_ENT_PROD_SINT_SEM_MOEDA
+Select CD_FORNECEDOR,
+       NM_FORNECEDOR,
+       DS_TIP_DOC,
+       NR_DOCUMENTO,
+       NR_SERIE,
+       DT_EMISSAO,
+       DT_ENTRADA,
+       VL_INDICE_MOEDA,
+       CD_MOEDA_INDICE,
+       DT_INDICE_MOEDA,
+       VL_NOTA,
+       VL_MEDIA,
+       DS_RANKING,
+       VL_TOTAL,
+       VL_TOTAL_CONVERTIDO,
+       VL_DESCONTO,
+       VL_TOTAL_PRODUTOS
+  From (Select FORNECEDOR.CD_FORNECEDOR,
+               FORNECEDOR.NM_FORNECEDOR,
+               TIP_DOC.DS_TIP_DOC,
+               Decode(Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF,
+                          'N'),
+                      'S',
+                      ENT_PRO.NR_NCF,
+                      ENT_PRO.NR_DOCUMENTO) As NR_DOCUMENTO,
+               ENT_PRO.NR_SERIE,
+               ENT_PRO.DT_EMISSAO,
+               ENT_PRO.DT_ENTRADA,
+               1 As VL_INDICE_MOEDA,
+               Null As CD_MOEDA_INDICE,
+               To_Date(Null) As DT_INDICE_MOEDA,
+               ISO_AVALIACAO.VL_NOTA,
+               ISO_AVALIACAO.VL_MEDIA,
+               ISO_RANKING.DS_RANKING,
+               Nvl((Select Sum(ITENT_PRO.VL_TOTAL_CUSTO_REAL)
+                      From DBAMV.ITENT_PRO
+                     Where ITENT_PRO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO),
+                   0) As VL_TOTAL,
+               Nvl((Select Sum(ITENT_PRO.VL_TOTAL_CUSTO_REAL)
+                      From DBAMV.ITENT_PRO
+                     Where ITENT_PRO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO),
+                   0) As VL_TOTAL_CONVERTIDO,
+               ENT_PRO.VL_DESCONTO,
+               Nvl((Select Sum(ITENT_PRO.VL_TOTAL)
+                      From DBAMV.ITENT_PRO
+                     Where ITENT_PRO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO),
+                   0) As VL_TOTAL_PRODUTOS
+          From DBAMV.ENT_PRO
+    Inner Join DBAMV.FORNECEDOR On
+               FORNECEDOR.CD_FORNECEDOR = ENT_PRO.CD_FORNECEDOR
+    Inner Join DBAMV.TIP_DOC On
+               TIP_DOC.CD_TIP_DOC = ENT_PRO.CD_TIP_DOC
+    Inner Join DBAMV.ESTOQUE On
+               ESTOQUE.CD_ESTOQUE = ENT_PRO.CD_ESTOQUE
+    Inner Join DBAMV.CONFIGEST On
+               CONFIGEST.CD_MULTI_EMPRESA = ESTOQUE.CD_MULTI_EMPRESA
+     Left Join DBAMV.ISO_AVALIACAO On
+               ISO_AVALIACAO.CD_ENT_PRO = ENT_PRO.CD_ENT_PRO
+     Left Join DBAMV.ISO_RANKING On
+               ISO_RANKING.CD_RANKING = ISO_AVALIACAO.CD_RANKING
+         Where ENT_PRO.CD_FORNECEDOR Is Not Null
+           AND ESTOQUE.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+           And Exists (Select 1
+                         From DBAMV.ATI_FOR
+                   Inner Join DBAMV.TIP_ATIV On
+                              TIP_ATIV.CD_TIP_ATIV = ATI_FOR.CD_TIP_ATIV
+                        Where ATI_FOR.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR)
+			and Iso_Avaliacao.cd_avaliacao = (select max(iav.cd_avaliacao) FROM dbamv.ISO_AVALIACAO iav where iav.cd_ent_pro 
+                                      in (select ep.cd_ent_pro from ent_pro ep where  ep.nr_documento = Ent_Pro.nr_documento and ep.nr_serie = Ent_Pro.nr_serie and ep.cd_fornecedor = Ent_Pro.cd_fornecedor))			
+     Union All
+        Select FORNECEDOR.CD_FORNECEDOR,
+               FORNECEDOR.NM_FORNECEDOR,
+               'Avaliação Sem Entrada' As DS_TIP_DOC,
+               Null As NR_DOCUMENTO,
+               Null As NR_SERIE,
+               ISO_AVALIACAO.DT_AVALIACAO As DT_EMISSAO,
+               ISO_AVALIACAO.DT_AVALIACAO As DT_ENTRADA,
+               0 As VL_INDICE_MOEDA,
+               Null As CD_MOEDA_INDICE,
+               To_Date(Null) As DT_INDICE_MOEDA,
+               ISO_AVALIACAO.VL_NOTA,
+               ISO_AVALIACAO.VL_MEDIA,
+               ISO_RANKING.DS_RANKING,
+               0 As VL_TOTAL,
+               0 As VL_TOTAL_CONVERTIDO,
+               0 As VL_DESCONTO,
+               0 As VL_TOTAL_PRODUTOS
+          From DBAMV.FORNECEDOR
+    Inner Join DBAMV.ISO_AVALIACAO On
+               ISO_AVALIACAO.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR
+           And ISO_AVALIACAO.CD_ENT_PRO Is Null
+           And ISO_AVALIACAO.DT_AVALIACAO Between :CAMPO_DATA_INI
+                                              And 
+    Inner Join DBAMV.ISO_RANKING On
+               ISO_RANKING.CD_RANKING = ISO_AVALIACAO.CD_RANKING
+         Where Exists (Select 1
+                         From DBAMV.ATI_FOR
+                   Inner Join DBAMV.TIP_ATIV On
+                              TIP_ATIV.CD_TIP_ATIV = ATI_FOR.CD_TIP_ATIV
+                        Where ATI_FOR.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR)
+           And 'S' = :CAMPO_SN_AVALIACAO
+           :CAMPO_CF_FORNECEDOR)

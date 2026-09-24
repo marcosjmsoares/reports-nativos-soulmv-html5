@@ -1,0 +1,57 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_CLAS
+SELECT * FROM (
+SELECT Distinct  especie.cd_especie
+            ,  especie.ds_especie
+            ,  classe.cd_classe
+            ,  classe.ds_classe
+            ,  sub_clas.cd_sub_cla
+            ,  sub_clas.ds_sub_cla
+            ,  decode (:CAMPO_ORDEM, '1', produto.cd_produto, null ) cd_ordena_cd
+            ,  decode (:CAMPO_ORDEM, '2', produto.ds_produto, null ) cd_ordena_des
+            ,  produto.cd_produto codigo
+            ,  produto.ds_produto descricao
+            ,  decode( produto.sn_pscotropico, 'S', :CAMPO_SIM, :CAMPO_NAO ) sn_pscotropico
+            ,  decode( produto.sn_medicamento, 'S', :CAMPO_SIM, :CAMPO_NAO ) sn_medicamento
+            ,  empresa_produto.tp_classificacao_xyz
+            ,  produto_filho.cd_produto                codigo_filho
+            ,  produto_filho.ds_produto                 descricao_filho
+            ,  decode( produto_filho.sn_pscotropico, 'S', :CAMPO_SIM, :CAMPO_NAO ) sn_pscotropico_filho
+            ,  decode( produto_filho.sn_medicamento, 'S', :CAMPO_SIM, :CAMPO_NAO ) sn_medicamento_filho
+            ,  empresa_filho.tp_classificacao_xyz   tp_classificacao_xyz_filho
+FROM    dbamv.especie
+           ,  dbamv.classe
+           ,  dbamv.sub_clas
+           ,  (SELECT produto.*
+			    FROM produto produto, empresa_produto empresa_produto
+				WHERE produto.cd_produto = empresa_produto.cd_produto
+			    AND  empresa_produto.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)produto
+           ,  dbamv.empresa_produto
+           ,  (select * from (SELECT produto.*
+			    FROM produto produto, empresa_produto empresa_produto
+				WHERE produto.cd_produto = empresa_produto.cd_produto
+			    AND  empresa_produto.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)produto where 1=1 :CAMPO_CF_P_DETALHES) produto_filho 
+           ,  dbamv.empresa_produto empresa_filho
+WHERE especie.cd_especie               = classe.cd_especie
+      AND classe.cd_especie                 = sub_clas.cd_especie
+      AND classe.cd_classe                     = sub_clas.cd_classe
+      AND sub_clas.cd_especie               = produto.cd_especie
+      AND sub_clas.cd_classe                 = produto.cd_classe
+      AND sub_clas.cd_sub_cla               = produto.cd_sub_cla
+      AND empresa_produto.cd_produto  = produto.cd_produto
+      AND empresa_filho.cd_produto(+)        = produto_filho.cd_produto
+      AND produto.cd_produto                  = produto_filho.cd_produto_tem(+)
+      AND (produto.cd_produto_tem is null
+               OR (produto.cd_produto_tem = (SELECT produto_mestre.cd_produto
+                                                                FROM dbamv.produto produto_mestre
+                                                             WHERE  produto_mestre.cd_produto = produto.cd_produto_tem
+                                                                   AND produto_mestre.sn_movimentacao = 'N')
+                     AND produto.sn_movimentacao = 'S'))
+      AND empresa_produto.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND (empresa_filho.cd_multi_empresa   = :CAMPO_CD_MULTI_EMPRESA or empresa_filho.cd_multi_empresa is null)
+:CAMPO_CF_P_DETALHES
+)
+ORDER BY CD_ESPECIE,DS_ESPECIE,
+CD_CLASSE,DS_CLASSE,
+CD_SUB_CLA,DS_SUB_CLA, :CAMPO_CF_ORDEM
+CD_ORDENA_CD,CD_ORDENA_DES,CODIGO,DESCRICAO,TP_CLASSIFICACAO_XYZ,SN_PSCOTROPICO,SN_MEDICAMENTO

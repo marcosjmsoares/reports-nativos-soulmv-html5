@@ -1,0 +1,136 @@
+/*----------------------------------------------------------------------------*/
+--R_ORDEM_PLANO
+SELECT solicitacao_os.cd_os
+     , solicitacao_os.dt_pedido
+     , solicitacao_os.nm_solicitante Solicitante
+     , solicitacao_os.ds_observacao
+     , solicitacao_os.ds_servico
+     , solicitacao_os.ds_ramal
+     , solicitacao_os.dt_entrega Prazo_Entrega
+     , usuarios.nm_usuario Responsavel
+     , solicitacao_os.dt_ultima_atualizacao Ultima_Atualizacao
+     , Decode(Nvl(solicitacao_os.tp_situacao,'A'),'A' , 'Aberto'
+                                    ,'C' , 'Concluído'
+                                    ,'N' , 'Não Atendido'
+                                    ,'M' , 'Aguardando material'
+                                    ,'E' , 'Concerto Externo'
+                                    ,'S' , 'Solicitação'
+                                    ,'F' , 'A Agendar'
+                                    ,'L' , 'Aguardando liberação do setor') Situacao
+     , Decode(Nvl(avaliacao_servico.tp_avaliacao,'N'),'N', 'Não Avaliado'
+                                      ,'E', 'Excelente'
+                                      ,'B', 'Bom'
+                                      ,'R', 'Razoável'
+                                      ,'U', 'Ruim') Avaliacao
+     , solicitacao_os.dt_prev_exec Data_Prevista
+     , Decode(solicitacao_os.tp_classificacao,'C','Comum','Projeto') Classificacao
+     , Decode(solicitacao_os.tp_prioridade, 'M', 'Muito Alta'
+                                          ,'A', 'Alta'
+                                          ,'E', 'Media'
+                                          ,'B', 'Baixa'
+                                          ,'U', 'Muito Baixa') Prioridade
+     , dt_usuario_fecha_os
+     , cd_usuario_fecha_os
+     , bens.ds_plaqueta ||' - '||bens.ds_bem DS_BEM
+     , oficina.ds_oficina
+     , plano_manutencao.cd_plano_alterno||' - '||plano_manutencao.ds_plano  DS_PLANO
+     , tipo_os.ds_tipo_os DS_TIPO
+FROM dbamv.solicitacao_os
+   , dbamv.avaliacao_servico
+   , dbasgu.usuarios
+   , dbamv.bens
+   , dbamv.oficina
+   , dbamv.plano_manutencao
+   , dbamv.tipo_os
+WHERE solicitacao_os.cd_os = avaliacao_servico.cd_solicitacao_ordem_srv(+)
+  AND solicitacao_os.cd_responsavel = usuarios.cd_usuario(+)
+  AND solicitacao_os.cd_bem = bens.cd_bem(+)
+  AND solicitacao_os.cd_oficina = oficina.cd_oficina(+)
+  AND solicitacao_os.cd_plano = plano_manutencao.cd_plano(+)
+  AND solicitacao_os.cd_tipo_os = tipo_os.cd_tipo_os(+)
+  AND ( ( :CAMPO_FUNCIONARIO = '%' )   OR
+             ( :CAMPO_FUNCIONARIO <> '%'   :CAMPO_CF_EXECUTANTE )
+          )
+  AND (         ( :CAMPO_OPCAO_PERIODO = 'S'  AND solicitacao_os.dt_pedido BETWEEN  to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')  )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'P'  AND solicitacao_os.dt_prev_exec BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'T'  AND solicitacao_os.dt_execucao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'R'  AND solicitacao_os.dt_usuario_recebe_sol_serv BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'F'  AND solicitacao_os.dt_usuario_fecha_os BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+           )
+ORDER BY solicitacao_os.cd_os, solicitacao_os.dt_pedido
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ORDEM_PLANO_R_1_Q_3
+SELECT a.ds_tipo_os, Sum(a.numrec) Quantidade
+FROM (
+   SELECT 1 Numrec
+      , solicitacao_os.cd_os
+     , solicitacao_os.dt_pedido
+     , solicitacao_os.nm_solicitante Solicitante
+     , solicitacao_os.ds_observacao
+     , solicitacao_os.dt_entrega Prazo_Entrega
+     , usuarios.nm_usuario Responsavel
+     , solicitacao_os.dt_ultima_atualizacao Ultima_Atualizacao
+     , tipo_os.ds_tipo_os
+     , Decode(Nvl(solicitacao_os.tp_situacao,'A'),'A' , 'Aberto'
+                                    ,'C' , 'Concluído'
+                                    ,'N' , 'Não Atendido'
+                                    ,'M' , 'Aguardando material'
+                                    ,'E' , 'Concerto Externo'
+                                    ,'S' , 'Solicitação'
+                                    ,'F' , 'A Agendar'
+                                    ,'L' , 'Aguardando liberação do setor') Situacao
+     , Decode(Nvl(avaliacao_servico.tp_avaliacao,'N'),'N', 'Não Avaliado'
+                                      ,'E', 'Excelente'
+                                      ,'B', 'Bom'
+                                      ,'R', 'Razoável'
+                                      ,'U', 'Ruim') Avaliacao
+     , solicitacao_os.dt_prev_exec Data_Prevista
+     , Decode(solicitacao_os.tp_classificacao,'C','Comum','Projeto') Classificacao
+     , Decode(solicitacao_os.tp_prioridade, 'M', 'Muito Alta'
+                                          ,'A', 'Alta'
+                                          ,'E', 'Media'
+                                          ,'B', 'Baixa'
+                                          ,'U', 'Muito Baixa') Prioridade
+     , dt_usuario_fecha_os
+     , cd_usuario_fecha_os
+     , bens.ds_plaqueta ||' - '||bens.ds_bem DS_BEM
+     , oficina.ds_oficina
+     , plano_manutencao.cd_plano_alterno||' - '||plano_manutencao.ds_plano  DS_PLANO
+   FROM dbamv.solicitacao_os
+       , dbamv.avaliacao_servico
+       , dbasgu.usuarios
+       , dbamv.tipo_os
+   , dbamv.bens
+   , dbamv.oficina
+   , dbamv.plano_manutencao
+   WHERE solicitacao_os.cd_os = avaliacao_servico.cd_solicitacao_ordem_srv(+)
+     AND solicitacao_os.cd_responsavel = usuarios.cd_usuario(+)
+    AND solicitacao_os.cd_bem = bens.cd_bem(+)
+    AND solicitacao_os.cd_oficina = oficina.cd_oficina(+)
+    AND solicitacao_os.cd_plano = plano_manutencao.cd_plano(+)
+     AND solicitacao_os.cd_tipo_Os = tipo_os.cd_tipo_os(+)
+  AND ( ( :CAMPO_FUNCIONARIO = '%' )   OR
+             ( :CAMPO_FUNCIONARIO <> '%'   :CAMPO_CF_EXECUTANTE )
+          )
+  AND (         ( :CAMPO_OPCAO_PERIODO = 'S'  AND solicitacao_os.dt_pedido BETWEEN  to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')  )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'P'  AND solicitacao_os.dt_prev_exec BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'T'  AND solicitacao_os.dt_execucao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'R'  AND solicitacao_os.dt_usuario_recebe_sol_serv BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'F'  AND solicitacao_os.dt_usuario_fecha_os BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+           )
+   :CAMPO_CF_CLASSIFICACAO
+) a
+GROUP BY a.ds_tipo_os

@@ -1,0 +1,83 @@
+/*----------------------------------------------------------------------------*/
+--R_REAEXA
+SELECT * FROM (
+SELECT  EXAME_ATEND.DT_PEDIDO  DT_PEDIDO
+               ,EXAME_ATEND.CD_ATENDIMENTO  CD_ATENDIMENTO
+               ,EXAME_ATEND.CD_CON_PLA   CD_CON_PLA
+               ,EXAME_ATEND.DS_CON_PLA   DS_CON_PLA
+               ,EXAME_ATEND.CD_ORI_ATE   CD_ORI_ATE
+               ,EXAME_ATEND.DS_ORI_ATE   DS_ORI_ATE
+               ,EXAME_ATEND.CD_PACIENTE  CD_PACIENTE
+               ,EXAME_ATEND.NM_PACIENTE  NM_PACIENTE               
+               ,EXAME_ATEND.CD_CONVENIO   CD_CONVENIO
+               ,EXAME_ATEND.NM_CONVENIO  NM_CONVENIO
+               ,EXAME_ATEND.NM_SETOR  NM_SETOR
+               ,EXAME_ATEND.CD_PED_RX   CD_PED_RX
+               ,EXAME_ATEND.CD_TECNICO  CD_TECNICO
+               ,EXAME_ATEND.CD_EXA_RX  CD_EXA_RX
+               ,EXAME_ATEND.DS_EXA_RX   DS_EXA_RX
+               ,EXAME_ATEND.TP_ATENDIMENTO  TP_ATENDIMENTO
+FROM  DBAMV.PRESTADOR,
+            ( SELECT  PED_RX.DT_PEDIDO
+                             ,PED_RX.CD_ATENDIMENTO
+                             ,PED_RX.CD_CON_PLA
+                             ,CON_PLA.DS_CON_PLA
+                             ,ATENDIME.CD_ORI_ATE
+                             ,ORI_ATE.DS_ORI_ATE
+                             ,ATENDIME.CD_PACIENTE
+                             ,DECODE(nvl(PACIENTE.SN_UTILIZA_NOME_SOCIAL, 'N'),'S', Nvl(PACIENTE.NM_SOCIAL_PACIENTE, PACIENTE.NM_PACIENTE), PACIENTE.NM_PACIENTE) NM_PACIENTE
+                             ,ATENDIME.CD_CONVENIO
+                             ,CONVENIO.NM_CONVENIO
+                             ,SETOR.NM_SETOR
+                             ,PED_RX.CD_PED_RX
+                             ,PED_RX.CD_TECNICO   CD_TECNICO
+                             ,ITPED_RX.CD_EXA_RX
+                             ,(DECODE( ITPED_RX.CD_LAUDO, NULL, ' * ', '' ) || EXA_RX.DS_EXA_RX)   DS_EXA_RX
+                             ,DECODE(ATENDIME.TP_ATENDIMENTO, 'A', 'AMBULATORIAL'
+                                                                                                   , 'E', 'EXTERNO'
+                                                                                                   , 'I', 'INTERNACAO'
+                                                                                                   , 'H', 'HOME CARE'
+                                                                                                   , 'U', 'URGÊNCIA/EMERGÊNCIA'
+                                                                                                   , 'S', 'SUS AIH'
+                                                                                                   , 'B', 'BUSCA ATIVA'  ,'DESCONHECIDO' )  TP_ATENDIMENTO
+                             ,DECODE(LAUDO_RX.CD_PRESTADOR, NULL, ITPED_RX.CD_PRESTADOR,
+                                                                                                             LAUDO_RX.CD_PRESTADOR)  CD_PRESTADOR
+              FROM   DBAMV.ATENDIME
+                          ,DBAMV.ORI_ATE
+                          ,DBAMV.PACIENTE
+                          ,DBAMV.PED_RX
+                          ,DBAMV.CONVENIO
+                          ,DBAMV.SETOR
+                          ,DBAMV.ITPED_RX
+                          ,DBAMV.EXA_RX
+                          ,DBAMV.LAUDO_RX
+                          ,DBAMV.CON_PLA
+             WHERE  ATENDIME.CD_ORI_ATE             =  ORI_ATE.CD_ORI_ATE
+             AND        ATENDIME.CD_PACIENTE           =  PACIENTE.CD_PACIENTE
+             AND        ATENDIME.CD_ATENDIMENTO  =  PED_RX.CD_ATENDIMENTO
+             AND        PED_RX.CD_CONVENIO              =  CONVENIO.CD_CONVENIO
+             AND        PED_RX.CD_CONVENIO              =  CONVENIO.CD_CONVENIO
+             AND        PED_RX.CD_CONVENIO              =  CON_PLA.CD_CONVENIO(+)
+             AND        PED_RX.CD_CON_PLA                =  CON_PLA.CD_CON_PLA(+)
+             AND        PED_RX.CD_SETOR                    =  SETOR.CD_SETOR
+             AND        ATENDIME.CD_MULTI_EMPRESA    = :CAMPO_CD_MULTI_EMPRESA
+             AND        ITPED_RX.SN_REALIZADO         =  'S'
+             AND        PED_RX.CD_PED_RX                  =  ITPED_RX.CD_PED_RX
+             AND        ITPED_RX.CD_EXA_RX               =  EXA_RX.CD_EXA_RX
+             AND        ITPED_RX.CD_PED_RX               =  LAUDO_RX.CD_PED_RX(+)
+             AND        ITPED_RX.CD_LAUDO                 =  LAUDO_RX.CD_LAUDO(+)
+               AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+             :CAMPO_COND_CONVENIO
+            )  EXAME_ATEND
+WHERE  EXAME_ATEND.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+ORDER BY EXAME_ATEND.DT_PEDIDO
+                   ,EXAME_ATEND.NM_CONVENIO
+                   ,EXAME_ATEND.CD_PED_RX
+                   ,EXAME_ATEND.CD_ORI_ATE
+                   ,EXAME_ATEND.DS_ORI_ATE
+                   ,EXAME_ATEND.CD_PACIENTE
+                   ,EXAME_ATEND.NM_PACIENTE                   
+                   ,EXAME_ATEND.CD_CONVENIO
+)
+ORDER BY TP_ATENDIMENTO,
+DT_PEDIDO,NM_PACIENTE,CD_ORI_ATE,DS_ORI_ATE,CD_PACIENTE,CD_CONVENIO,NM_CONVENIO,NM_SETOR,CD_PED_RX,CD_ATENDIMENTO,CD_CON_PLA,DS_CON_PLA

@@ -1,0 +1,78 @@
+/*----------------------------------------------------------------------------*/
+--R_IND_PRODUTIVIDADE
+SELECT ip.dt_competencia competencia
+      ,s.cd_setor
+      ,s.nm_setor setor
+      ,itp.ds_item_producao item_setor
+      ,itp.cd_item_producao
+FROM   dbamv.ind_produtividade ip
+      ,dbamv.setor s
+      ,dbamv.item_producao itp
+      ,dbamv.custo_final cf
+WHERE  ip.cd_setor = s.cd_setor
+AND    ip.cd_item_producao = itp.cd_item_producao
+AND    ip.cd_setor = cf.cd_setor
+AND    ip.dt_competencia = cf.dt_competencia
+AND    ip.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    ip.dt_competencia BETWEEN :CAMPO_DT_INICIO ORDER BY setor, item_setor
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IND_PRODUTIVIDADE_DETAIL
+SELECT
+      ip.dt_competencia competencia
+      ,s.cd_setor
+      ,s.nm_setor setor
+      ,itp.ds_item_producao item_setor
+      ,(  NVL( cf.vl_custo_primario, 0 )
+        - NVL( cf.vl_custo_matmed, 0 )) custo_primario
+      ,NVL( cf.vl_custo_matmed, 0 ) cf_matmed
+      ,NVL( cf.vl_custo_genericos, 0 ) custo_generico
+      ,NVL( cf.vl_custo_especificos, 0 ) custo_especificos
+      ,(  NVL( cf.vl_custo_primario, 0 )
+        - NVL( cf.vl_custo_matmed, 0 )
+        + NVL( cf.vl_custo_matmed, 0 )
+        + NVL( cf.vl_custo_genericos, 0 )
+        + NVL( cf.vl_custo_especificos, 0 )) custo_total
+      ,NVL( cf.vl_custo_fixo, 0 ) custo_fixo_setor
+      ,NVL( cf.vl_custo_variavel, 0 ) custo_variavel_setor
+      ,NVL( cf.vl_receita_honorarios, 0 ) honorarios
+      ,NVL( cf.vl_receita_sd, 0 ) sadt
+      ,NVL( cf.vl_receita_sh, 0 ) hospitalar
+      ,NVL( cf.vl_receita_matmed, 0 ) rec_matmed
+      ,(  NVL( cf.vl_receita_matmed, 0 )
+        + NVL( cf.vl_receita_sh, 0 )
+        + NVL( cf.vl_receita_sd, 0 )
+        + NVL( cf.vl_receita_honorarios, 0 )) total_receita
+      ,DECODE( NVL( sn_deducao_honorario, 'N' )
+               ,'N', 0
+               ,cf.vl_receita_honorarios ) ded_honorarios
+      ,ip.cd_item_producao cod_itp
+      ,ip.vl_receita_media receita_media
+      ,ip.vl_receita_total receita_total
+      ,ip.vl_custeio_var_unit
+      ,ip.vl_margem_cont
+      ,ip.vl_tx_margem_cont
+      ,ip.vl_ponto_equilibrio ponto_equilibrio
+      ,ip.vl_unid_producao
+      ,ip.vl_receita_ponto_eq
+      ,ip.vl_meta_producao
+      ,NVL( ip.vl_custo_fixo, 0 ) custo_fixo
+      ,NVL( ip.vl_custo_variavel, 0 ) custo_variavel
+      ,ip.vl_custo_operacional
+      ,( NVL( ip.vl_custo_fixo, 0 ) + NVL( ip.vl_custo_variavel, 0 )) custo_total_ind
+      ,(NVL(ip.vl_custo_operacional,0)/(DECODE(NVL(ip.vl_unid_producao,0),0,1,ip.vl_unid_producao)))
+       vl_custo_medio_operacional
+FROM   dbamv.ind_produtividade ip
+      ,dbamv.setor s
+      ,dbamv.item_producao itp
+      ,dbamv.custo_final cf
+WHERE  ip.cd_setor = s.cd_setor
+AND    ip.cd_item_producao = itp.cd_item_producao
+AND    ip.cd_setor = cf.cd_setor
+AND    ip.dt_competencia = cf.dt_competencia
+AND    ip.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND    ip.dt_competencia BETWEEN :CAMPO_DT_INICIO AND 
+AND    s.cd_setor = :CAMPO_CD_SETOR
+AND    ip.cd_item_producao = :CAMPO_CD_ITEM_PRODUCAO

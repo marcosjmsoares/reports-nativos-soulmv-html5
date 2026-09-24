@@ -1,0 +1,68 @@
+/*----------------------------------------------------------------------------*/
+--R_COMPARA_GASTO
+SELECT  CD_EXA_RX
+       ,DS_EXA_RX
+       ,CD_PRODUTO
+       ,DS_PRODUTO
+       ,SUM(QT_PADRAO)          QT_PADRAO
+       ,SUM(QT_CONSUMIDA)   QT_CONSUMIDA
+FROM (
+   SELECT DISTINCT
+                  EXA_RX.CD_EXA_RX                     CD_EXA_RX
+                 ,EXA_RX.DS_EXA_RX                     DS_EXA_RX
+                 ,PRODUTO.CD_PRODUTO             CD_PRODUTO
+                 ,PRODUTO.DS_PRODUTO             DS_PRODUTO
+                 ,GAS_EXA.QT_USADA                    QT_PADRAO
+                 ,0                                                       QT_CONSUMIDA
+   FROM DBAMV.PED_RX
+       ,DBAMV.SET_EXA
+       ,DBAMV.ITPED_RX
+       ,DBAMV.EXA_RX
+       ,DBAMV.GAS_EXA
+       ,DBAMV.PRODUTO
+   WHERE TRUNC(PED_RX.DT_PEDIDO)  BETWEEN  :CAMPO_DT_INIC  AND  
+   AND       PED_RX.CD_SET_EXA = SET_EXA.CD_SET_EXA
+   AND       PED_RX.CD_PED_RX = ITPED_RX.CD_PED_RX
+   AND       ITPED_RX.CD_EXA_RX = EXA_RX.CD_EXA_RX
+   AND       EXA_RX.CD_EXA_RX =  GAS_EXA.CD_EXA_RX
+   AND       GAS_EXA.CD_PRODUTO = PRODUTO.CD_PRODUTO
+   And Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+   UNION ALL
+   SELECT  EXA_RX.CD_EXA_RX                                               CD_EXA_RX
+          ,EXA_RX.DS_EXA_RX                                               DS_EXA_RX
+          ,PRODUTO.CD_PRODUTO                                       CD_PRODUTO
+          ,PRODUTO.DS_PRODUTO                                       DS_PRODUTO
+          ,0                                                                                 QT_PADRAO
+          ,AVG(ITMVTO_ESTOQUE.QT_MOVIMENTACAO)    QT_CONSUMIDA
+   FROM   DBAMV.PED_RX
+         ,DBAMV.SET_EXA
+         ,DBAMV.ITPED_RX
+         ,DBAMV.EXA_RX
+         ,DBAMV.MVTO_ESTOQUE
+         ,DBAMV.ITMVTO_ESTOQUE
+         ,DBAMV.PRODUTO
+	 ,dbamv.Estoque 
+   WHERE TRUNC(PED_RX.DT_PEDIDO)  BETWEEN  :CAMPO_DT_INIC  AND  
+   AND       PED_RX.CD_SET_EXA = SET_EXA.CD_SET_EXA
+   AND       PED_RX.CD_PED_RX = ITPED_RX.CD_PED_RX
+   AND       ITPED_RX.CD_EXA_RX  =  EXA_RX.CD_EXA_RX
+   AND       ITPED_RX.CD_ITPED_RX = MVTO_ESTOQUE.CD_ITPED_RX
+   AND       MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+   AND       ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+   AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+   AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   GROUP BY  EXA_RX.CD_EXA_RX
+            ,EXA_RX.DS_EXA_RX
+            ,PRODUTO.CD_PRODUTO
+            ,PRODUTO.DS_PRODUTO
+            ,0
+   )
+GROUP BY  CD_EXA_RX
+         ,DS_EXA_RX
+         ,CD_PRODUTO
+         ,DS_PRODUTO
+ORDER BY DS_EXA_RX
+       , DS_PRODUTO

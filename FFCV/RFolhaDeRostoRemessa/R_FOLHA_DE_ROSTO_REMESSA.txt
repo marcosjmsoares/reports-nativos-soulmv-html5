@@ -1,0 +1,104 @@
+/*----------------------------------------------------------------------------*/
+--R_FOLHA_DE_ROSTO_REMESSA
+SELECT REG_FAT.CD_REMESSA
+             ,'CONTA_HOSPITALAR'      TP_ATENDIMENTO
+             ,CONVENIO.NM_CONVENIO
+             ,COUNT(ATENDIME.CD_ATENDIMENTO) NR_ATENDIMENTOS
+FROM DBAMV.REG_FAT
+          ,DBAMV.ATENDIME
+          ,DBAMV.PACIENTE
+          ,DBAMV.CONVENIO
+          ,DBAMV.SERVICO
+WHERE  REG_FAT.CD_REMESSA = :CAMPO_CD_REMESSA
+AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+AND        ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+GROUP BY  REG_FAT.CD_REMESSA
+                    ,'CONTA_HOSPITALAR'
+                    ,CONVENIO.NM_CONVENIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FOLHA_DE_ROSTO_REMESSA_R_CONTA_Q_GRU_FAT
+SELECT * FROM (
+SELECT * FROM (
+select CD_REMESSA CD_REM
+     , TP_GRU_FAT
+     , CD_PRESTADOR
+     , NM_PRESTADOR
+     , sum(TOT_CASA) TOT_CASA
+     , sum(TOT_REPASSAR) TOT_REPASSAR
+     , sum(TOT_DEMONSTRAR) TOT_DEMONSTRAR
+from
+(select REG_FAT.CD_REMESSA
+     , REG_FAT.CD_REG_FAT   CD_CONTA
+     , REG_FAT.TP_GRU_FAT
+     , REG_FAT.CD_PRESTADOR
+     , REG_FAT.NM_PRESTADOR
+     , Decode( Nvl( reg_fat.tp_pagamento, 'F' ), 'F', reg_fat.vl_total_conta, 'P', decode(reg_fat.cd_prestador, null, reg_fat.vl_total_conta, reg_fat.vl_total_conta - dbamv.f_obtem_vlrepasse_folharosto(reg_fat.cd_reg_fat,null,reg_fat.cd_atendimento,reg_fat.cd_multi_empresa,decode(reg_fat.cd_prestador,null,null,reg_fat.cd_pro_fat),reg_fat.cd_prestador)), 0)  TOT_CASA
+     , Decode( Nvl( reg_fat.tp_pagamento, 'F' ), 'P', decode(reg_fat.cd_prestador, null, 0, dbamv.f_obtem_vlrepasse_folharosto(reg_fat.cd_reg_fat,null,reg_fat.cd_atendimento,reg_fat.cd_multi_empresa,decode(reg_fat.cd_prestador,null,null,reg_fat.cd_pro_fat),reg_fat.cd_prestador)), 0 )  TOT_REPASSAR
+     , Decode( Nvl( reg_fat.tp_pagamento, 'F' ), 'C', decode(nvl(reg_fat.sn_paciente_paga, 'N'), 'N', reg_fat.vl_total_conta, 0), 0 )  TOT_DEMONSTRAR
+from (
+SELECT REG_FAT.CD_REMESSA
+     , REG_FAT.CD_REG_FAT   CD_CONTA
+     , GRU_FAT.TP_GRU_FAT
+     , NVL(PRESTADOR.CD_PRESTADOR, PREST_LAN_MED.CD_PRESTADOR)  CD_PRESTADOR
+     , NVL(PRESTADOR.NM_PRESTADOR, PREST_LAN_MED.NM_PRESTADOR)  NM_PRESTADOR
+     , decode(ITLAN_MED.CD_PRESTADOR,null,itreg_fat.tp_pagamento,itlan_med.tp_pagamento) tp_pagamento
+     , decode(ITLAN_MED.CD_PRESTADOR,null,itreg_fat.sn_paciente_paga,itlan_med.sn_paciente_paga) sn_paciente_paga
+     , itreg_fat.cd_reg_fat
+     , reg_fat.cd_atendimento
+     , reg_fat.cd_multi_empresa
+     , itreg_fat.cd_pro_fat
+     , sum(DECODE(PREST_LAN_MED.CD_PRESTADOR,NULL,itreg_fat.vl_total_conta,nvl(itlan_med.vl_ato,0) * nvl(itreg_fat.qt_lancamento,1))) vl_total_conta
+     , reg_fat.vl_total_conta  vl_total_conta_reg
+  FROM DBAMV.REG_FAT
+     , DBAMV.ITREG_FAT
+     , DBAMV.GRU_FAT
+     , DBAMV.PRESTADOR
+     , DBAMV.ITLAN_MED
+     , DBAMV.PRESTADOR PREST_LAN_MED
+ WHERE REG_FAT.CD_REMESSA = :CAMPO_CD_REMESSA
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+   AND ITREG_FAT.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+   AND ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+   AND ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+   AND ITREG_FAT.CD_REG_FAT = ITLAN_MED.CD_REG_FAT(+)
+   AND ITREG_FAT.CD_LANCAMENTO = ITLAN_MED.CD_LANCAMENTO(+)
+   AND ITLAN_MED.CD_PRESTADOR = PREST_LAN_MED.CD_PRESTADOR(+)
+   AND NOT EXISTS (SELECT 1
+                     FROM DBAMV.ITREG_FAT ITR,
+                          DBAMV.ITLAN_MED ITM
+                    WHERE ITR.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                      AND ITR.CD_LANCAMENTO = ITREG_FAT.CD_LANCAMENTO
+                      AND ITR.CD_REG_FAT = ITM.CD_REG_FAT(+)
+                      AND ITR.CD_LANCAMENTO = ITM.CD_LANCAMENTO(+)
+                      AND NVL(ITM.TP_PAGAMENTO, ITR.TP_PAGAMENTO) = 'C'
+                      AND NVL(ITM.SN_PACIENTE_PAGA, ITR.SN_PACIENTE_PAGA) = 'S')
+ GROUP BY REG_FAT.CD_REMESSA
+        , REG_FAT.CD_REG_FAT
+        , GRU_FAT.TP_GRU_FAT
+        , NVL(PRESTADOR.CD_PRESTADOR, PREST_LAN_MED.CD_PRESTADOR)
+        , NVL(PRESTADOR.NM_PRESTADOR, PREST_LAN_MED.NM_PRESTADOR)
+        , decode(ITLAN_MED.CD_PRESTADOR,null,itreg_fat.tp_pagamento,itlan_med.tp_pagamento)
+        , decode(ITLAN_MED.CD_PRESTADOR,null,itreg_fat.sn_paciente_paga,itlan_med.sn_paciente_paga)
+        , itreg_fat.cd_reg_fat
+        , reg_fat.cd_atendimento
+        , reg_fat.cd_multi_empresa
+        , reg_fat.vl_total_conta
+        , itreg_fat.cd_pro_fat
+) reg_fat
+)
+group by CD_REMESSA
+     , TP_GRU_FAT
+     , CD_PRESTADOR
+     , NM_PRESTADOR
+)
+WHERE CD_REM = :CAMPO_CD_REMESSA
+)
+ORDER BY CD_REM,TP_GRU_FAT

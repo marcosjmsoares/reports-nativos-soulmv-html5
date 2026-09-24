@@ -1,0 +1,141 @@
+/*----------------------------------------------------------------------------*/
+--R_IMPRIME_ETIQ_DOSE
+select distinct hs.DH_MEDICACAO,
+		   s.cd_solsai_pro solicitacao,
+		   initcap(pa.nm_paciente) paciente,
+		   pa.dt_nascimento Nascimento,
+		   l.ds_resumo leito,
+		   p.cd_atendimento atendimento,
+		   initcap(replace(t.ds_tip_presc,'FARMACOTECNICA - ')) item_principal,
+		   ip.qt_itpre_med qtde_item_principal,
+		   up.cd_unidade unidade_produto,
+		   decode(up.ds_unidade,'MILILITRO','ML'
+								,'COMPRIMIDO','COMP'
+								,'AMPOLA','AMP'
+								,'FRASCO','FR'
+								,up.ds_unidade) unid_principal,
+		   initcap(f.ds_for_apl) aplicacao,      
+		   ip.qt_infusao, 
+		   vol.qt_prescrito volume_item_principal, 
+		   decode(ip.tp_situacao,'S','SN',decode(tf.ds_tip_fre,'ACM','xx/xx/xxxx','Continuo','Cont',to_char(hs.DH_MEDICACAO,'DD/MM/YYYY')))data_med,
+		   decode(ip.tp_situacao,'S','SN',decode(tf.ds_tip_fre,'ACM','xx','Continuo','Cont',to_char(hs.DH_MEDICACAO,'HH24'))) hora_med,
+		   (ie.dh_mvto_estoque+(to_number(((t.nr_dias_aberto*24 )+ t.nr_horas_aberto))/24)) estabilidade,
+		   initcap(ip.ds_itpre_med) observacao_item,
+		   u.ds_unid_int unid_int,
+		   ip.cd_itpre_med cd_it_pre_med,
+		   p.cd_pre_med,
+		   t.cd_tip_esq,
+		   t.cd_tip_presc cd_item_principal,
+		   tf.ds_tip_fre frequencia,
+		   ip.cd_for_apl,
+		   ip.tp_situacao,
+		   ip.cd_produto, 
+		   st.nm_setor setor,
+		   its.cd_itsolsai_pro,
+		   a.cd_multi_empresa,
+		   PR.NM_PRESTADOR        farmaceutico,
+           PR.DS_CODIGO_CONSELHO  crf,
+			(select decode(x.ds_unidade,'MILILITRO','ML'
+								,'COMPRIMIDO','COMP'
+								,'AMPOLA','AMP'
+								,'FRASCO','FR'
+								,x.ds_unidade)||'/'||x.tp_tempo
+				   from dbamv.uni_pro x
+				  where x.cd_uni_pro = ip.cd_uni_pro_inf)uni_infusao,
+		   pa.nm_mae,
+		  (Select '2'|| Substr(Replace(To_Char(to_number(dbamv.FNC_MGES_VALIDA_COD_BARRA(i.cd_identificador)),'99999999999'),' ','0'),2, 11)||'1' 
+			  From dual ) DSP_CODIGO_DE_BARRAS
+	  from dbamv.pre_med              p,
+		   dbamv.itpre_med            ip,
+		   dbamv.tip_presc            t,
+		   dbamv.solsai_pro           s,
+		   dbamv.itsolsai_pro         its,
+		   dbamv.atendime             a,
+		   dbamv.paciente             pa,
+		   dbamv.leito                l,
+		   dbamv.unid_int             u,
+		   dbamv.tip_fre              tf,
+		   dbamv.for_apl              f,
+		   dbamv.uni_pro              up,
+		   dbamv.setor                st,
+		   dbamv.HRITPRE_MED       hs,
+		   dbamv.itmvto_estoque       ie,
+		   dbamv.hritpre_vol          vol,
+           DBAMV.FARMACEUTICO_EMPRESA FA,
+           DBAMV.PRESTADOR PR,
+           dbamv.identificador_etiqueta  i
+	 where 1 = 1 
+	   and p.cd_pre_med = ip.cd_pre_med
+	   and ip.cd_tip_presc = t.cd_tip_presc
+	   and s.cd_pre_med = p.cd_pre_med
+	   and its.cd_itsolsai_pro = ie.cd_itsolsai_pro(+)
+	   and s.cd_solsai_pro = its.cd_solsai_pro
+	   and its.cd_itpre_med = ip.cd_itpre_med
+	   and ip.cd_tip_presc = t.cd_tip_presc
+	   AND FA.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA 
+     AND FA.CD_FARMACEUTICO_RESP = PR.CD_PRESTADOR
+	   and p.cd_atendimento = a.cd_atendimento
+	   and a.cd_paciente = pa.cd_paciente
+	   and a.cd_leito = l.cd_leito(+)        
+	   and l.cd_unid_int = u.cd_unid_int(+)  
+	   and ip.cd_tip_fre = tf.cd_tip_fre(+)
+	   and ip.cd_for_apl = f.cd_for_apl(+)
+	   and ip.cd_uni_pro = up.cd_uni_pro(+)
+	   and u.cd_setor = st.cd_setor(+)      
+	   and its.cd_itsolsai_pro = i.cd_itsolsai_pro
+	   AND i.cd_produto =  its.cd_produto 
+	   and ip.cd_itpre_med = hs.cd_itpre_med
+	   and ip.cd_itpre_med = vol.cd_itpre_med (+)
+     and To_Char(I.NR_RECEBIMENTO) = To_Char(hs.DH_MEDICACAO, 'DD/MM/YYYY HH24')
+	   and vol.cd_tip_presc is null     
+	   and ip.cd_tip_esq is not null
+	   and t.cd_tip_esq is not null
+	   and nvl(ip.sn_cancelado, 'N') = 'N'
+	   and nvl(t.sn_ativo, 'S') = 'S'
+	   and (ip.cd_produto <> 0 or ip.cd_produto is null)
+	   AND ie.cd_itmvto_estoque = (SELECT Min(cd_itmvto_estoque) FROM dbamv.itmvto_estoque WHERE cd_itsolsai_pro = ITS.cd_itsolsai_pro)
+and its.cd_itsolsai_pro in (:CAMPO_CD_ITSOLSAI_PRO)
+and s.cd_solsai_pro in   (:CAMPO_CD_SOLSAI_PRO ) 
+and TO_CHAR(HS.DH_MEDICACAO,'DD/MM/YYYY HH24') IN (:CAMPO_HORA_MED)
+  order by DH_MEDICACAO ASC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_IMPRIME_ETIQ_DOSE_COMPONENTE
+select a.cd_itpre_med,
+       initcap(d.ds_tip_presc) ds_tip_presc_compon,
+       a.qt_componente qt_componente_compon,
+       c.cd_solsai_pro,
+       a.cd_tip_presc,
+       b.cd_pre_med,
+       decode(e.ds_unidade,'MILILITRO','ML'
+                                          ,'COMPRIMIDO','COMP'
+                                          ,'AMPOLA','AMP'
+                                          ,'FRASCO','FR'
+                                          ,e.ds_unidade) unidade_compon,
+       e.cd_unidade ,
+       dh_inicial,
+       d.cd_tip_presc, 
+       (select hv.qt_prescrito
+          from dbamv.hritpre_vol hv
+         where hv.cd_tip_presc is not null 
+           and hv.cd_tip_presc = a.cd_tip_presc
+           and hv.cd_itpre_med = a.cd_itpre_med
+           and hv.dh_medicacao = dh_inicial
+         )     qt_prescrito
+  from dbamv.citpre_med  a,
+       dbamv.itpre_med   b,
+       dbamv.solsai_pro  c,
+       dbamv.tip_presc   d,
+       dbamv.uni_pro     e
+ where a.cd_itpre_med = b.cd_itpre_med
+   and b.cd_pre_med = c.cd_pre_med 
+   and a.cd_tip_presc = d.cd_tip_presc  
+   and a.cd_uni_pro = e.cd_uni_pro    
+   and a.tp_componente = 'M'
+   and d.cd_tip_esq <>'MAT' 
+   AND ROWNUM <= 2 
+   AND c.cd_solsai_pro = :CAMPO_SOLICITACAO
+   AND b.cd_pre_med =   :CAMPO_CD_PRE_MED
+   AND b.cd_itpre_med = :CAMPO_CD_IT_PRE_MED

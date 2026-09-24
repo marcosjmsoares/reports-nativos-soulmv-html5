@@ -1,0 +1,109 @@
+/*----------------------------------------------------------------------------*/
+--R_ANALISE_PRODUTO
+SELECT cd_produto
+			, ds_produto
+			, ds_unidade
+			, estoque_atual
+			, vl_custo_medio
+      , Round(estoque_atual / Decode((consumo_Mensal / 30) ,0,1,(consumo_Mensal / 30)),2) qtd_cobertos
+			, Pendente_Compra
+			, consumo_Mensal
+			, Round(Decode(Sign((consumo_Mensal/30)),-1,0,(consumo_Mensal/30)),2)  consumo_diario
+			, Nvl(Round(dbamv.fnc_mgco_qtd_ressuprimento( cd_produto
+				                                      , nvl(consumo_Mensal,0)
+				                                      , nvl(estoque_atual,0)
+				                                      , nvl(Pendente_Compra,0)
+                                              , :CAMPO_QTD_DIAS
+				                                      , :CAMPO_MARGEM_SEGURANCA),2),0) qtd_ressuprimento
+	FROM (
+	      SELECT pro.cd_produto
+			      , pro.ds_produto
+			      , dbamv.verif_ds_unid_prod(pro.cd_produto, :CAMPO_TP_UNIDADE ) ds_unidade
+			      , Round(Nvl((Sum(estPro.qt_estoque_atual) / Dbamv.Verif_Vl_Fator_Prod(pro.Cd_Produto, :CAMPO_TP_UNIDADE )),0),2) estoque_atual
+			      , Nvl(Round(dbamv.verif_vl_custo_medio(pro.cd_produto, SYSDATE, 'H', NULL, SYSDATE, ESTOQUE.cd_Multi_Empresa),4),0) * Dbamv.Verif_Vl_Fator_Prod(pro.Cd_Produto, :CAMPO_TP_UNIDADE ) vl_custo_medio
+            , Nvl((SELECT Sum(Nvl(v.qtd_pendente_compra,0)) /dbamv.VERIF_VL_FATOR_PROD(pro.cd_produto, :CAMPO_TP_UNIDADE)
+                 FROM dbamv.VDIC_MGCO_PENDENTE_COMPRA v
+                     ,dbamv.ESTOQUE
+                WHERE v.cd_produto       = pro.cd_produto
+                  AND ESTOQUE.cd_estoque = v.cd_estoque
+                   :CAMPO_CF_LISTA_ESTOQUE
+                ),0) Pendente_Compra
+            , Round(Sum(Nvl(Cons_Medio_Mensal.Med_Mensal,0)),2) consumo_Mensal
+		      FROM dbamv.est_pro estPro
+			       , dbamv.produto pro
+			       , dbamv.estoque
+			       , dbamv.empresa_produto empPro
+             , (
+              SELECT  CD_PRODUTO
+                    , CD_ESTOQUE
+                    , (NVL(SUM(QT_SAIDA),0)/DBAMV.VERIF_VL_FATOR_PROD(CD_PRODUTO, :CAMPO_TP_UNIDADE) - NVL(SUM(QT_DEVOL),0)/DBAMV.VERIF_VL_FATOR_PROD(CD_PRODUTO, :CAMPO_TP_UNIDADE)) AS MED_MENSAL
+	              FROM (
+                      SELECT I.CD_PRODUTO
+                          , SUM(DECODE (E.TP_MVTO_ESTOQUE, 'C', 0
+                                                         , 'D', 0
+                                                         , 'N', 0
+                                                         , (I.QT_MOVIMENTACAO * U.VL_FATOR)  ) ) AS QT_SAIDA
+                          , SUM(DECODE (E.TP_MVTO_ESTOQUE, 'C', (I.QT_MOVIMENTACAO * U.VL_FATOR)
+                                                         , 'D', (I.QT_MOVIMENTACAO * U.VL_FATOR)
+                                                         , 'N', (I.QT_MOVIMENTACAO * U.VL_FATOR)
+                                                         ,  0 )) AS QT_DEVOL
+                          , E.CD_ESTOQUE
+		                    FROM DBAMV.ITMVTO_ESTOQUE I
+                            , DBAMV.MVTO_ESTOQUE E
+                            , DBAMV.UNI_PRO U
+                            , DBAMV.ESTOQUE
+                        WHERE E.CD_MVTO_ESTOQUE = I.CD_MVTO_ESTOQUE
+		   	                  AND I.CD_UNI_PRO      = U.CD_UNI_PRO
+                          AND E.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+                          AND Trunc(E.DT_MVTO_ESTOQUE) BETWEEN TRUNC(To_Date(:CAMPO_DT_INICIAL,'dd/mm/yyyy')) AND TRUNC(To_Date(:CAMPO_DT_FINAL,'dd/mm/yyyy'))
+                        GROUP BY I.CD_PRODUTO, E.CD_ESTOQUE
+                    )
+                WHERE 'M' = :CAMPO_CF_TP_CONSUMO
+                GROUP BY CD_PRODUTO, CD_ESTOQUE
+              UNION ALL
+              SELECT SUM( (   NVL(C_CONEST.QT_SAIDA_SETOR,0) +
+                                  NVL(C_CONEST.QT_SAIDA_PACIENTE,0)+
+                                  NVL(C_CONEST.QT_BAIXA,0)+
+                                  NVL(C_CONEST.QT_VENDA,0)+
+                                  NVL(C_CONEST.QT_EMPRESTIMO,0)+
+                                  NVL(C_CONEST.QT_SAIDA_PAG_EMPRESTIMO,0)+
+                                  NVL(C_CONEST.QT_MANIPULADA_SAIDA,0)+
+                                  NVL(C_CONEST.QT_DEMANDA,0)+
+                                  NVL(C_CONEST.QT_DEVOLVIDA_FORNEC,0))
+                            - ( NVL(C_CONEST.QT_DEVOLUCAO_SETOR, 0 ) +
+				 		                    NVL(C_CONEST.QT_DEVOLUCAO_PACIENTE, 0 )+
+                                NVL(C_CONEST.QT_DEVOLUCAO_VENDA, 0) ) ) * DBAMV.VERIF_VL_FATOR_PROD(C_CONEST.CD_PRODUTO, :CAMPO_TP_UNIDADE)  MED_MENSAL
+				              , C_CONEST.CD_PRODUTO
+				              , C_CONEST.CD_ESTOQUE
+		              FROM DBAMV.C_CONEST
+			                , DBAMV.ESTOQUE
+		              WHERE C_CONEST.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+			              AND TO_DATE( '01/' || TO_CHAR( CD_MES, 'FM00' ) || '/' || TO_CHAR( CD_ANO, 'FM0000' ), 'DD/MM/YYYY' ) = (SELECT TRUNC(MAX(FDS.DT_COMPETENCIA))
+				                                                                                                                        FROM DBAMV.FECHAMENTO_DO_MES  FDS
+				                                                                                                                      WHERE FDS.SN_FECHAMENTO_DO_MES = 'S'
+				                                                                                                                        AND FDS.DT_COMPETENCIA < TO_DATE('01'||TO_CHAR(SYSDATE,'MM/YYYY'), 'DD/MM/YYYY')
+                                                                                                                                AND FDS.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA)
+                     AND 'C' = :CAMPO_CF_TP_CONSUMO
+                  GROUP BY C_CONEST.CD_PRODUTO
+    				              ,C_CONEST.CD_ESTOQUE
+              ) Cons_Medio_Mensal
+	      WHERE estPro.cd_estoque          = ESTOQUE.cd_estoque
+		      AND estPro.cd_produto          = pro.cd_produto
+		      AND estPro.cd_produto          = Cons_Medio_Mensal.cd_produto(+)
+		      AND estPro.cd_Estoque          = Cons_Medio_Mensal.cd_estoque(+)
+		      AND estPro.cd_produto          = empPro.cd_produto
+		      AND ESTOQUE.cd_multi_empresa   = empPro.cd_multi_empresa
+		      AND pro.sn_mestre              = 'N'
+          AND pro.sn_kit                 = 'N'
+		      AND pro.Sn_Consignado          = 'N'
+          AND pro.SN_PSCOTROPICO = :CAMPO_SN_PSCOTROPICO
+          AND PRO.SN_MEDICAMENTO = :CAMPO_SN_MEDICAMENTO
+          AND DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S', EMPPRO.SN_MOVIMENTACAO, PRO.SN_MOVIMENTACAO) = :CAMPO_SN_MOVIMENTACAO
+          AND DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S', EMPPRO.SN_BLOQUEIO_DE_COMPRA, PRO.SN_BLOQUEIO_DE_COMPRA) = :CAMPO_SN_BLOQUEIO_DE_COMPRA
+          AND DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_PADRONIZADO_EMP'), 'S', EMPPRO.SN_PADRONIZADO, PRO.SN_PADRONIZADO) = :CAMPO_SN_PADRONIZADO
+      GROUP BY pro.cd_produto
+            , pro.ds_produto
+			      , ESTOQUE.cd_Multi_Empresa
+      ORDER BY 2
+) CONSULTA
+WHERE 1=1

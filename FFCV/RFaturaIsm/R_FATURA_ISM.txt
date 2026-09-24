@@ -1,0 +1,1286 @@
+/*----------------------------------------------------------------------------*/
+--R_FATURA_ISM
+SELECT distinct ATENDIME.CD_ATENDIMENTO
+      ,PACIENTE.NM_PACIENTE
+      ,DECODE(PACIENTE.TP_SEXO,'M','(X) M','( ) M')  SEXO_MAS
+      ,DECODE(PACIENTE.TP_SEXO,'F' ,'(X) F','( ) F')    SEXO_FEM
+      ,PACIENTE.DT_NASCIMENTO
+      ,DT_ATENDIMENTO DATA
+      ,ATENDIME.DT_ALTA
+      ,ATENDIME.CD_CID
+      ,CID.DS_CID
+      ,REG_FAT.CD_REG_FAT
+      ,HOSPITAL.DS_RAZAO
+      ,ATENDIME.CD_PACIENTE
+      ,ATENDIME.CD_CONVENIO
+      ,ATENDIME.CD_CON_PLA
+  FROM DBAMV.ATENDIME,
+       DBAMV.PACIENTE,
+       DBAMV.CID,
+       DBAMV.REG_FAT,
+       DBAMV.HOSPITAL
+ WHERE ATENDIME.CD_PACIENTE               =   PACIENTE.CD_PACIENTE
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND     CID.CD_CID(+)                                   =   ATENDIME.CD_CID
+   AND     REG_FAT.CD_ATENDIMENTO         =   ATENDIME.CD_ATENDIMENTO
+   AND     ATENDIME.CD_ATENDIMENTO      =  :CAMPO_ATENDIME
+   AND     REG_FAT.CD_REG_FAT                  =   TO_NUMBER( :CAMPO_CD_REG_FAT)
+   and Hospital.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_ISM_R_10_Q_1
+SELECT * FROM (
+SELECT REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+      ,DECODE(PRO_FAT.CD_PRO_FAT, REG_FAT.CD_PRO_FAT_SOLICITADO,
+              DECODE( NVL( CIRURGIAO.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA.CD_PRESTADOR, '0' ),
+                      NVL( CIRURGIAO_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1_PP.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3_PP.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA_PP.CD_PRESTADOR, '0' ),
+                      '1','2'),
+              DECODE( NVL( CIRURGIAO.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA.CD_PRESTADOR, '0' ),
+                      NVL( CIRURGIAO_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1_PP.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3_PP.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA_PP.CD_PRESTADOR, '0' ),
+                      '1','2') ) ORDEM
+      ,NVL( CIRURGIAO.CD_PRESTADOR, '0' ) CD_CIRURGIAO
+      ,NVL( AUXILIAR1.CD_PRESTADOR, '0' ) CD_AUXILIAR1
+      ,NVL( AUXILIAR2.CD_PRESTADOR, '0' ) CD_AUXILIAR2
+      ,NVL( AUXILIAR3.CD_PRESTADOR, '0' ) CD_AUXILIAR3
+      ,NVL( ANESTESIA.CD_PRESTADOR, '0' ) CD_ANESTESIA
+      ,PRO_FAT.CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT
+      ,GUIA.NR_GUIA
+      ,DECODE( ITREG_FAT.VL_PERCENTUAL_MULTIPLA, 100, 'PRINCIPAL', 70, 'DVA', 50, 'MVA', '   ' ) VIA_DE_ACESSO
+      ,itreg_fat.qt_lancamento
+      ,itreg_fat.cd_lancamento
+  FROM DBAMV.ATENDIME,
+		       DBAMV.REG_FAT,
+		       DBAMV.ITREG_FAT,
+		       DBAMV.PRO_FAT,
+		       DBAMV.GUIA,
+		       DBAMV.GRU_FAT
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '02'  ) AUXILIAR1
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '03'  ) AUXILIAR2
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '04'  ) AUXILIAR3
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '06'  ) ANESTESIA
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                            AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '02'  ) AUXILIAR1_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '03'  ) AUXILIAR2_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '04'  ) AUXILIAR3_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '06'  ) ANESTESIA_PP
+		 WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+		   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                                  AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                   AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+		   AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+		   AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+		   AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+		   AND PRO_FAT.CD_PRO_FAT           not in ('00010016','00010065','00040010')
+		   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+		   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+		   and guia.cd_atendimento(+)       = atendime.cd_atendimento
+		   and guia.cd_paciente(+)          = atendime.cd_paciente
+		   and guia.cd_convenio(+)          = atendime.cd_convenio
+		   and nvl(guia.tp_guia,'I')        = 'I'
+                                   AND ITREG_FAT.CD_PRO_FAT       not in ('00020010','00010015')
+		   AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR1.CD_LANCAMENTO(+)
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR2.CD_LANCAMENTO(+)
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR3.CD_LANCAMENTO(+)
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = ANESTESIA.CD_LANCAMENTO(+)
+		   AND ITREG_FAT.CD_REG_FAT         = CIRURGIAO_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = AUXILIAR1_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = AUXILIAR2_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = AUXILIAR3_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = ANESTESIA_PP.CD_REG_FAT(+)
+      UNION
+SELECT ATENDIME.CD_ATENDIMENTO
+      ,0 CD_REG_FAT
+      ,'1' ORDEM
+      ,' ' CD_CIRURGIAO
+      ,' ' CD_AUXILIAR1
+      ,' ' CD_AUXILIAR2
+      ,' ' CD_AUXILIAR3
+      ,' ' CD_ANESTESIA
+      ,' ' CD_PRO_FAT
+      ,' ' DS_PRO_FAT
+      ,' ' NR_GUIA
+      ,' ' VIA_DE_ACESSO
+      ,0 qt_lancamento
+      ,0 cd_lancamento
+ FROM DBAMV.ATENDIME,
+      DBAMV.ITREG_FAT,
+      DBAMV.REG_FAT
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   AND ITREG_FAT.CD_REG_FAT         = REG_FAT.CD_REG_FAT
+   AND NOT EXISTS ( SELECT IT.CD_GRU_FAT
+                      FROM DBAMV.ITREG_FAT IT,
+                           DBAMV.GRU_FAT GR,
+                           DBAMV.REG_FAT RG
+                     WHERE RG.CD_REG_FAT     = TO_NUMBER( :CAMPO_CD_REG_FAT )
+                       AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                       AND RG.CD_ATENDIMENTO = :CAMPO_ATENDIME
+                       AND IT.CD_REG_FAT     = RG.CD_REG_FAT
+                       AND IT.CD_GRU_FAT     = GR.CD_GRU_FAT
+                       AND GR.TP_GRU_FAT     = 'SP' )
+      UNION
+SELECT REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+      ,DECODE(PRO_FAT.CD_PRO_FAT, REG_FAT.CD_PRO_FAT_SOLICITADO, '1', '2') ORDEM
+      ,CIRURGIAO.CD_PRESTADOR CD_CIRURGIAO
+      ,' ' CD_AUXILIAR1
+      ,' ' CD_AUXILIAR2
+      ,' ' CD_AUXILIAR3
+      ,' ' CD_ANESTESIA
+      ,PRO_FAT.CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT
+      ,GUIA.NR_GUIA
+      ,DECODE( ITREG_FAT.VL_PERCENTUAL_MULTIPLA, 100, 'PRINCIPAL', 70, 'DVA', 50, 'MVA', '   ' ) VIA_DE_ACESSO
+      ,SUM(itreg_fat.qt_lancamento)   QT_LANCAMENTO
+      ,ITREG_FAT.CD_LANCAMENTO
+ FROM DBAMV.ATENDIME,
+      DBAMV.REG_FAT,
+      DBAMV.ITREG_FAT,
+      DBAMV.PRO_FAT,
+      DBAMV.GUIA,
+      DBAMV.GRU_FAT
+     ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+              IT.CD_LANCAMENTO
+         FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+              DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+        WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+	      AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+	      AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+	      AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+	      AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+          AND IT.CD_PRO_FAT  NOT in ('00010016', '00010065')
+          AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+   AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+   AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+   AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   and guia.cd_atendimento(+)       = atendime.cd_atendimento
+   and guia.cd_paciente(+)          = atendime.cd_paciente
+   and guia.cd_convenio(+)          = atendime.cd_convenio
+   and nvl(guia.tp_guia,'I')        = 'I'
+   AND ITREG_FAT.CD_PRO_FAT         in ('00020010','00010015')
+   AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO(+)
+GROUP BY REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+      ,DECODE(PRO_FAT.CD_PRO_FAT, REG_FAT.CD_PRO_FAT_SOLICITADO, '1', '2')
+      ,CIRURGIAO.CD_PRESTADOR
+      ,PRO_FAT.CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT
+      ,GUIA.NR_GUIA
+      ,DECODE( ITREG_FAT.VL_PERCENTUAL_MULTIPLA, 100, 'PRINCIPAL', 70, 'DVA', 50, 'MVA', '   ' )
+      ,ITREG_FAT.CD_LANCAMENTO
+ ORDER BY 1,2,3,4,5,6,7,8,12 desc,9
+)
+ORDER BY ORDEM,CD_ATENDIMENTO,CD_REG_FAT,
+CD_CIRURGIAO,CD_AUXILIAR1,CD_AUXILIAR2,CD_AUXILIAR3,CD_ANESTESIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_ISM_R_1_Q_1
+SELECT * FROM (
+SELECT REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+      ,DECODE(PRO_FAT.CD_PRO_FAT, REG_FAT.CD_PRO_FAT_SOLICITADO,
+              DECODE( NVL( CIRURGIAO.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA.CD_PRESTADOR, '0' ),
+                      NVL( CIRURGIAO_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1_PP.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3_PP.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA_PP.CD_PRESTADOR, '0' ),
+                      '1','2'),
+              DECODE( NVL( CIRURGIAO.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA.CD_PRESTADOR, '0' ),
+                      NVL( CIRURGIAO_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR1_PP.CD_PRESTADOR, '0' )||
+                      NVL( AUXILIAR2_PP.CD_PRESTADOR, '0' )|| NVL( AUXILIAR3_PP.CD_PRESTADOR, '0' )||
+                      NVL( ANESTESIA_PP.CD_PRESTADOR, '0' ),
+                      '1','2') ) ORDEM
+      ,NVL( CIRURGIAO.CD_PRESTADOR, '0' ) CD_CIRURGIAO
+      ,NVL( AUXILIAR1.CD_PRESTADOR, '0' ) CD_AUXILIAR1
+      ,NVL( AUXILIAR2.CD_PRESTADOR, '0' ) CD_AUXILIAR2
+      ,NVL( AUXILIAR3.CD_PRESTADOR, '0' ) CD_AUXILIAR3
+      ,NVL( ANESTESIA.CD_PRESTADOR, '0' ) CD_ANESTESIA
+      ,PRO_FAT.CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT
+      ,GUIA.NR_GUIA
+      ,DECODE( ITREG_FAT.VL_PERCENTUAL_MULTIPLA, 100, 'PRINCIPAL', 70, 'DVA', 50, 'MVA', '   ' ) VIA_DE_ACESSO
+      ,itreg_fat.qt_lancamento
+      ,itreg_fat.cd_lancamento
+  FROM DBAMV.ATENDIME,
+		       DBAMV.REG_FAT,
+		       DBAMV.ITREG_FAT,
+		       DBAMV.PRO_FAT,
+		       DBAMV.GUIA,
+		       DBAMV.GRU_FAT
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '02'  ) AUXILIAR1
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '03'  ) AUXILIAR2
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '04'  ) AUXILIAR3
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_LANCAMENTO
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+                   AND AM.CD_ATI_MED       = '06'  ) ANESTESIA
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                            AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '02'  ) AUXILIAR1_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '03'  ) AUXILIAR2_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '04'  ) AUXILIAR3_PP
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       IT.CD_REG_FAT
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                       DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM,
+                       DBAMV.REG_FAT RG
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+		           AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+		           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+		           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+		           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                   AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+                   AND RG.CD_REG_FAT       = IT.CD_REG_FAT
+                   AND IT.CD_PRO_FAT       = RG.CD_PRO_FAT_SOLICITADO
+                   AND AM.CD_ATI_MED       = '06'  ) ANESTESIA_PP
+		 WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+		   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                                  AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                   AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+		   AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+		   AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+		   AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+		   AND PRO_FAT.CD_PRO_FAT           not in ('00010016','00010065','00040010')
+		   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+		   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+		   and guia.cd_atendimento(+)       = atendime.cd_atendimento
+		   and guia.cd_paciente(+)          = atendime.cd_paciente
+		   and guia.cd_convenio(+)          = atendime.cd_convenio
+		   and nvl(guia.tp_guia,'I')        = 'I'
+                                   AND ITREG_FAT.CD_PRO_FAT       not in ('00020010','00010015')
+		   AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR1.CD_LANCAMENTO(+)
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR2.CD_LANCAMENTO(+)
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR3.CD_LANCAMENTO(+)
+ 		   AND ITREG_FAT.CD_LANCAMENTO      = ANESTESIA.CD_LANCAMENTO(+)
+		   AND ITREG_FAT.CD_REG_FAT         = CIRURGIAO_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = AUXILIAR1_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = AUXILIAR2_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = AUXILIAR3_PP.CD_REG_FAT(+)
+ 		   AND ITREG_FAT.CD_REG_FAT         = ANESTESIA_PP.CD_REG_FAT(+)
+      UNION
+SELECT ATENDIME.CD_ATENDIMENTO
+      ,0 CD_REG_FAT
+      ,'1' ORDEM
+      ,' ' CD_CIRURGIAO
+      ,' ' CD_AUXILIAR1
+      ,' ' CD_AUXILIAR2
+      ,' ' CD_AUXILIAR3
+      ,' ' CD_ANESTESIA
+      ,' ' CD_PRO_FAT
+      ,' ' DS_PRO_FAT
+      ,' ' NR_GUIA
+      ,' ' VIA_DE_ACESSO
+      ,0 qt_lancamento
+      ,0 cd_lancamento
+ FROM DBAMV.ATENDIME,
+      DBAMV.ITREG_FAT,
+      DBAMV.REG_FAT
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   AND ITREG_FAT.CD_REG_FAT         = REG_FAT.CD_REG_FAT
+   AND NOT EXISTS ( SELECT IT.CD_GRU_FAT
+                      FROM DBAMV.ITREG_FAT IT,
+                           DBAMV.GRU_FAT GR,
+                           DBAMV.REG_FAT RG
+                     WHERE RG.CD_REG_FAT     = TO_NUMBER( :CAMPO_CD_REG_FAT )
+                       AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                       AND RG.CD_ATENDIMENTO = :CAMPO_ATENDIME
+                       AND IT.CD_REG_FAT     = RG.CD_REG_FAT
+                       AND IT.CD_GRU_FAT     = GR.CD_GRU_FAT
+                       AND GR.TP_GRU_FAT     = 'SP' )
+      UNION
+SELECT REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+      ,DECODE(PRO_FAT.CD_PRO_FAT, REG_FAT.CD_PRO_FAT_SOLICITADO, '1', '2') ORDEM
+      ,CIRURGIAO.CD_PRESTADOR CD_CIRURGIAO
+      ,' ' CD_AUXILIAR1
+      ,' ' CD_AUXILIAR2
+      ,' ' CD_AUXILIAR3
+      ,' ' CD_ANESTESIA
+      ,PRO_FAT.CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT
+      ,GUIA.NR_GUIA
+      ,DECODE( ITREG_FAT.VL_PERCENTUAL_MULTIPLA, 100, 'PRINCIPAL', 70, 'DVA', 50, 'MVA', '   ' ) VIA_DE_ACESSO
+      ,SUM(itreg_fat.qt_lancamento)   QT_LANCAMENTO
+      ,ITREG_FAT.CD_LANCAMENTO
+ FROM DBAMV.ATENDIME,
+      DBAMV.REG_FAT,
+      DBAMV.ITREG_FAT,
+      DBAMV.PRO_FAT,
+      DBAMV.GUIA,
+      DBAMV.GRU_FAT
+     ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+              IT.CD_LANCAMENTO
+         FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+              DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+        WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+	      AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+	      AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+	      AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+	      AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+          AND IT.CD_PRO_FAT  NOT in ('00010016', '00010065')
+          AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+   AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+   AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+   AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   and guia.cd_atendimento(+)       = atendime.cd_atendimento
+   and guia.cd_paciente(+)          = atendime.cd_paciente
+   and guia.cd_convenio(+)          = atendime.cd_convenio
+   and nvl(guia.tp_guia,'I')        = 'I'
+   AND ITREG_FAT.CD_PRO_FAT         in ('00020010','00010015')
+   AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO(+)
+GROUP BY REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+      ,DECODE(PRO_FAT.CD_PRO_FAT, REG_FAT.CD_PRO_FAT_SOLICITADO, '1', '2')
+      ,CIRURGIAO.CD_PRESTADOR
+      ,PRO_FAT.CD_PRO_FAT
+      ,PRO_FAT.DS_PRO_FAT
+      ,GUIA.NR_GUIA
+      ,DECODE( ITREG_FAT.VL_PERCENTUAL_MULTIPLA, 100, 'PRINCIPAL', 70, 'DVA', 50, 'MVA', '   ' )
+      ,ITREG_FAT.CD_LANCAMENTO
+ ORDER BY 1,2,3,4,5,6,7,8,12 desc,9
+)
+ORDER BY ORDEM,CD_ATENDIMENTO,CD_REG_FAT,
+CD_CIRURGIAO,CD_AUXILIAR1,CD_AUXILIAR2,CD_AUXILIAR3,CD_ANESTESIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_ISM_R_3_Q_2
+SELECT * FROM (
+select ds_codigo_cobranca cod
+      ,ds_nome_cobranca descricao
+      ,sum( itreg_fat.qt_lancamento )  qtde
+      ,sum(itreg_fat.vl_total_conta) valor
+      ,reg_fat.cd_atendimento
+      ,vl_unitario
+  from dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.cod_pro
+      ,dbamv.gru_fat
+ where reg_fat.cd_reg_fat   = itreg_fat.cd_reg_fat
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   and cod_pro.cd_pro_fat = itreg_fat.cd_pro_fat
+   and cod_pro.cd_convenio = reg_fat.cd_convenio
+   AND GRU_FAT.TP_GRU_FAT IN ('SH')
+   and reg_fat.cd_atendimento = :CAMPO_ATENDIME
+   AND  REG_FAT.CD_REG_FAT    = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   and :CAMPO_ORDEM = 1
+   and ( Cod_Pro.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA or Cod_Pro.Cd_Multi_Empresa Is Null )
+group by ds_nome_cobranca,reg_fat.cd_atendimento ,ds_codigo_cobranca,vl_unitario
+UNION ALL
+select '999999' cod
+      , 'MAT/MED QUARTO' descricao
+      ,sum( itreg_fat.qt_lancamento )  qtde
+      ,sum(itreg_fat.vl_total_conta) valor
+      ,reg_fat.cd_atendimento
+      ,sum(itreg_fat.vl_total_conta) vl_unitario
+  from dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.pro_fat
+      ,dbamv.gru_fat
+ where reg_fat.cd_reg_fat   = itreg_fat.cd_reg_fat
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   AND GRU_FAT.TP_GRU_FAT IN ('MD','MT','MM')
+   AND GRU_FAT.CD_GRU_FAT NOT IN ( 5 )
+   AND PRO_FAT.CD_PRO_FAT   = ITREG_FAT.CD_PRO_FAT
+   AND PRO_FAT.CD_GRU_PRO NOT IN ( 9 )
+   AND NVL(ITREG_FAT.CD_SETOR, 0) NOT IN (150,148,119)
+   and reg_fat.cd_atendimento = :CAMPO_ATENDIME
+   AND  REG_FAT.CD_REG_FAT    = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   and :CAMPO_ORDEM = 1
+group by reg_fat.cd_atendimento, '999999', 'MAT/MED QUARTO'
+UNION ALL
+select '901002' cod
+      ,'MAT/MED UTI' descricao
+      ,sum( itreg_fat.qt_lancamento )  qtde
+      ,sum(itreg_fat.vl_total_conta) valor
+      ,reg_fat.cd_atendimento
+      ,sum(itreg_fat.vl_total_conta) vl_unitario
+  from dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.pro_fat
+      ,dbamv.gru_fat
+ where reg_fat.cd_reg_fat   = itreg_fat.cd_reg_fat
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   AND GRU_FAT.TP_GRU_FAT IN ('MD','MT','MM')
+   AND GRU_FAT.CD_GRU_FAT NOT IN ( 5 )
+   AND PRO_FAT.CD_PRO_FAT   = ITREG_FAT.CD_PRO_FAT
+   AND PRO_FAT.CD_GRU_PRO NOT IN ( 9 )
+   AND NVL(ITREG_FAT.CD_SETOR, 0) = 150
+   and reg_fat.cd_atendimento = :CAMPO_ATENDIME
+   AND  REG_FAT.CD_REG_FAT    = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   and :CAMPO_ORDEM = 1
+group by reg_fat.cd_atendimento, '901002', 'MAT/MED UTI'
+UNION ALL
+select '999998' cod
+      ,'MAT/MED CIRURGICO' descricao
+      ,sum( itreg_fat.qt_lancamento )  qtde
+      ,sum(itreg_fat.vl_total_conta) valor
+      ,reg_fat.cd_atendimento
+      ,sum(itreg_fat.vl_total_conta) vl_unitario
+  from dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.pro_fat
+      ,dbamv.gru_fat
+ where reg_fat.cd_reg_fat   = itreg_fat.cd_reg_fat
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   AND GRU_FAT.TP_GRU_FAT IN ('MD','MT','MM')
+   AND GRU_FAT.CD_GRU_FAT NOT IN ( 5 )
+   AND PRO_FAT.CD_PRO_FAT   = ITREG_FAT.CD_PRO_FAT
+   AND PRO_FAT.CD_GRU_PRO NOT IN ( 9 )
+   AND NVL(ITREG_FAT.CD_SETOR, 0)  in (148,119)
+   and reg_fat.cd_atendimento = :CAMPO_ATENDIME
+   AND  REG_FAT.CD_REG_FAT    = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   and :CAMPO_ORDEM = 1
+group by reg_fat.cd_atendimento, '999998', 'MAT/MED CIRURGICO'
+UNION ALL
+select '999998' cod
+      ,'NOTA FISCAL' descricao
+      ,sum( itreg_fat.qt_lancamento )  qtde
+      ,sum(itreg_fat.vl_total_conta) valor
+      ,reg_fat.cd_atendimento
+      ,sum(itreg_fat.vl_total_conta) vl_unitario
+  from dbamv.reg_fat
+      ,dbamv.itreg_fat
+      ,dbamv.pro_fat
+      ,dbamv.gru_fat
+ where reg_fat.cd_reg_fat   = itreg_fat.cd_reg_fat
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and itreg_fat.cd_gru_fat = gru_fat.cd_gru_fat
+   AND GRU_FAT.TP_GRU_FAT IN ('MD','MT','MM','OP')
+   AND GRU_FAT.CD_GRU_FAT IN ( 5 )
+   AND PRO_FAT.CD_PRO_FAT   = ITREG_FAT.CD_PRO_FAT
+   AND PRO_FAT.CD_GRU_PRO IN ( 9 )
+   and reg_fat.cd_atendimento = :CAMPO_ATENDIME
+   AND  REG_FAT.CD_REG_FAT    = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   and :CAMPO_ORDEM = 1
+group by reg_fat.cd_atendimento, '999998', 'NOTA FISCAL'
+)
+WHERE CD_ATENDIMENTO = :CAMPO_CD_ATENDIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_ISM_R_4_Q_5
+SELECT * FROM (
+SELECT NVL( CIRURGIAO.CD_PRESTADOR, '0' ) CD_CIRURGIAO
+      ,CIRURGIAO.NM_PRESTADOR NM_CIRURGIAO
+      ,CIRURGIAO.SN_RECEBE         RECEBE_CIRURGIAO
+      ,SUM( CIRURGIAO.QT_LANCAMENTO ) QT_CIRURGIAO
+      ,SUM( CIRURGIAO.VALOR         ) VALOR_CIRURGIAO
+      ,SUM( CIRURGIAO.QT_CH         ) CH_CIRURGIAO
+      ,NVL( AUXILIAR1.CD_PRESTADOR, '0' ) CD_AUXILIAR1
+      ,AUXILIAR1.NM_PRESTADOR NM_AUXILIAR1
+      ,AUXILIAR1.SN_RECEBE         RECEBE_AUXILIAR1
+      ,SUM( AUXILIAR1.VALOR         ) VALOR_AUXILIAR1
+      ,SUM( AUXILIAR1.QT_CH         ) CH_AUXILIAR1
+      ,NVL( AUXILIAR2.CD_PRESTADOR, '0' ) CD_AUXILIAR2
+      ,AUXILIAR2.NM_PRESTADOR NM_AUXILIAR2
+      ,AUXILIAR2.SN_RECEBE         RECEBE_AUXILIAR2
+      ,SUM( AUXILIAR2.VALOR         ) VALOR_AUXILIAR2
+      ,SUM( AUXILIAR2.QT_CH         ) CH_AUXILIAR2
+      ,NVL( AUXILIAR3.CD_PRESTADOR, '0' ) CD_AUXILIAR3
+      ,AUXILIAR3.NM_PRESTADOR NM_AUXILIAR3
+      ,AUXILIAR3.SN_RECEBE         RECEBE_AUXILIAR3
+      ,SUM( AUXILIAR3.VALOR         ) VALOR_AUXILIAR3
+      ,SUM( AUXILIAR3.QT_CH         ) CH_AUXILIAR3
+      ,NVL( ANESTESIA.CD_PRESTADOR, '0' ) CD_ANESTESIA
+      ,ANESTESIA.NM_PRESTADOR NM_ANESTESIA
+      ,ANESTESIA.SN_RECEBE         RECEBE_ANESTESIA
+      ,SUM( ANESTESIA.VALOR         ) VALOR_ANESTESIA
+      ,SUM( ANESTESIA.QT_CH         ) CH_ANESTESIA
+      ,REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+  FROM DBAMV.ATENDIME,
+       DBAMV.REG_FAT,
+       DBAMV.ITREG_FAT,
+       DBAMV.PRO_FAT,
+       DBAMV.GUIA,
+       DBAMV.GRU_FAT
+  ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+               PR.NM_PRESTADOR,
+               IT.CD_LANCAMENTO,
+               IT.QT_LANCAMENTO
+              ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+              ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+              ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+          FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+               DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+         WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+           AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+           AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+  ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+       FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+      WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+         AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+         AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+         AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+         AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+         AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+         AND AM.CD_ATI_MED       = '02'  ) AUXILIAR1
+   ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+      FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+   WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+        AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+        AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+        AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+        AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+        AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+        AND AM.CD_ATI_MED       = '03'  ) AUXILIAR2
+   ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+       FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+   WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+         AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+         AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+         AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+         AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+         AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+         AND AM.CD_ATI_MED       = '04'  ) AUXILIAR3
+   ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+       FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+     WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+         AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+         AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+         AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+         AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+         AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+         AND AM.CD_ATI_MED       = '06'  ) ANESTESIA
+ WHERE
+	  REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+	AND REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+       AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+       AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+       AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+       AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+       AND PRO_FAT.CD_PRO_FAT           not in ('00010016','00010065','00040010')
+       AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+       AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+       and guia.cd_atendimento(+)       = atendime.cd_atendimento
+       and guia.cd_paciente(+)          = atendime.cd_paciente
+       and guia.cd_convenio(+)          = atendime.cd_convenio
+       and nvl(guia.tp_guia,'I')        = 'I'
+       AND ITREG_FAT.CD_PRO_FAT        not in ('00020010','00010015')
+       AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO
+       AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR1.CD_LANCAMENTO(+)
+       AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR2.CD_LANCAMENTO(+)
+       AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR3.CD_LANCAMENTO(+)
+       AND ITREG_FAT.CD_LANCAMENTO      = ANESTESIA.CD_LANCAMENTO(+)
+       AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY NVL( CIRURGIAO.CD_PRESTADOR, '0' )
+              ,CIRURGIAO.NM_PRESTADOR
+              ,CIRURGIAO.SN_RECEBE
+              ,NVL( AUXILIAR1.CD_PRESTADOR, '0' )
+              ,AUXILIAR1.NM_PRESTADOR
+              ,AUXILIAR1.SN_RECEBE
+              ,NVL( AUXILIAR2.CD_PRESTADOR, '0' )
+              ,AUXILIAR2.NM_PRESTADOR
+              ,AUXILIAR2.SN_RECEBE
+              ,NVL( AUXILIAR3.CD_PRESTADOR, '0' )
+              ,AUXILIAR3.NM_PRESTADOR
+              ,AUXILIAR3.SN_RECEBE
+              ,NVL( ANESTESIA.CD_PRESTADOR, '0' )
+              ,ANESTESIA.NM_PRESTADOR
+              ,ANESTESIA.SN_RECEBE
+             ,REG_FAT.CD_ATENDIMENTO
+             ,REG_FAT.CD_REG_FAT
+      UNION
+SELECT ' ' CD_CIRURGIAO
+              ,' ' NM_CIRURGIAO
+              , ' '   RECEBE_CIRURGIAO
+             ,0 QT_CIRURGIAO
+             ,0 VALOR_CIRURGIAO
+             ,0 CH_CIRURGIAO
+              ,' ' CD_AUXILIAR1
+              ,' ' NM_AUXILIAR1
+              ,' '  RECEBE_AUXILIAR1
+              ,0   VALOR_AUXILIAR1
+              ,0   CH_AUXILIAR1
+              ,' ' CD_AUXILIAR2
+              ,' ' NM_AUXILIAR2
+              ,' '  RECEBE_AUXILIAR2
+              ,0   VALOR_AUXILIAR2
+              ,0   CH_AUXILIAR2
+              ,' ' CD_AUXILIAR3
+              ,' ' NM_AUXILIAR3
+              ,' '  RECEBE_AUXILIAR3
+              ,0   VALOR_AUXILIAR3
+              ,0   CH_AUXILIAR3
+              ,' ' CD_ANESTESIA
+              ,' ' NM_ANESTESIA
+              ,' '  RECEBE_ANESTESIA
+              ,0   VALOR_ANESTESIA
+              ,0   CH_ANESTESIA
+             ,ATENDIME.CD_ATENDIMENTO
+             ,0 CD_REG_FAT
+ FROM DBAMV.ATENDIME,
+      DBAMV.ITREG_FAT,
+      DBAMV.REG_FAT
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+   AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   AND ITREG_FAT.CD_REG_FAT         = REG_FAT.CD_REG_FAT
+   AND NOT EXISTS ( SELECT IT.CD_GRU_FAT
+                      FROM DBAMV.ITREG_FAT IT,
+                           DBAMV.GRU_FAT GR,
+                           DBAMV.REG_FAT RG
+                     WHERE RG.CD_REG_FAT     = TO_NUMBER( :CAMPO_CD_REG_FAT )
+                       AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                       AND RG.CD_ATENDIMENTO = :CAMPO_ATENDIME
+                       AND IT.CD_REG_FAT     = RG.CD_REG_FAT
+                       AND IT.CD_GRU_FAT     = GR.CD_GRU_FAT
+                       AND GR.TP_GRU_FAT     = 'SP' )
+      UNION
+SELECT CIRURGIAO.CD_PRESTADOR CD_CIRURGIAO
+              ,CIRURGIAO.NM_PRESTADOR NM_CIRURGIAO
+              ,CIRURGIAO.SN_RECEBE   RECEBE_CIRURGIAO
+             ,SUM( CIRURGIAO.QT_LANCAMENTO ) QT_CIRURGIAO
+             ,SUM( CIRURGIAO.VALOR         ) VALOR_CIRURGIAO
+             ,SUM( CIRURGIAO.QT_CH         ) CH_CIRURGIAO
+              ,' ' CD_AUXILIAR1
+              ,' ' NM_AUXILIAR1
+              ,' '  RECEBE_AUXILIAR1
+              ,0   VALOR_AUXILIAR1
+              ,0   CH_AUXILIAR1
+              ,' ' CD_AUXILIAR2
+              ,' ' NM_AUXILIAR2
+              ,' '  RECEBE_AUXILIAR2
+              ,0   VALOR_AUXILIAR2
+              ,0   CH_AUXILIAR2
+              ,' ' CD_AUXILIAR3
+              ,' ' NM_AUXILIAR3
+              ,' '  RECEBE_AUXILIAR3
+              ,0   VALOR_AUXILIAR3
+              ,0   CH_AUXILIAR3
+              ,' ' CD_ANESTESIA
+              ,' ' NM_ANESTESIA
+              ,' '  RECEBE_ANESTESIA
+              ,0   VALOR_ANESTESIA
+              ,0   CH_ANESTESIA
+             ,REG_FAT.CD_ATENDIMENTO
+             ,REG_FAT.CD_REG_FAT
+  FROM DBAMV.ATENDIME,
+             DBAMV.REG_FAT,
+             DBAMV.ITREG_FAT,
+             DBAMV.PRO_FAT,
+             DBAMV.GUIA,
+             DBAMV.GRU_FAT
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       PR.NM_PRESTADOR,
+                       IT.CD_LANCAMENTO,
+                       IT.QT_LANCAMENTO
+                      ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                      ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                      ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                             DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+                      AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+	      AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+	      AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+	     AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                     AND IT.CD_PRO_FAT  NOT in ('00010016', '00010065')
+                      AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+       AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+       AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+       AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+       AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+       AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+       AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+       AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+       and guia.cd_atendimento(+)       = atendime.cd_atendimento
+       and guia.cd_paciente(+)          = atendime.cd_paciente
+       and guia.cd_convenio(+)          = atendime.cd_convenio
+       and nvl(guia.tp_guia,'I')        = 'I'
+       AND ITREG_FAT.CD_PRO_FAT      in ('00020010','00010015')
+       AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO(+)
+ GROUP BY CIRURGIAO.CD_PRESTADOR
+              ,CIRURGIAO.NM_PRESTADOR
+              ,CIRURGIAO.SN_RECEBE
+              ,REG_FAT.CD_ATENDIMENTO
+              ,REG_FAT.CD_REG_FAT
+ ORDER BY 1,7,12,17,22
+)
+WHERE CD_CIRURGIAO = :CAMPO_CD_CIRURGIAO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FATURA_ISM_R_6_Q_5
+SELECT * FROM (
+SELECT NVL( CIRURGIAO.CD_PRESTADOR, '0' ) CD_CIRURGIAO
+      ,CIRURGIAO.NM_PRESTADOR NM_CIRURGIAO
+      ,CIRURGIAO.SN_RECEBE         RECEBE_CIRURGIAO
+      ,SUM( CIRURGIAO.QT_LANCAMENTO ) QT_CIRURGIAO
+      ,SUM( CIRURGIAO.VALOR         ) VALOR_CIRURGIAO
+      ,SUM( CIRURGIAO.QT_CH         ) CH_CIRURGIAO
+      ,NVL( AUXILIAR1.CD_PRESTADOR, '0' ) CD_AUXILIAR1
+      ,AUXILIAR1.NM_PRESTADOR NM_AUXILIAR1
+      ,AUXILIAR1.SN_RECEBE         RECEBE_AUXILIAR1
+      ,SUM( AUXILIAR1.VALOR         ) VALOR_AUXILIAR1
+      ,SUM( AUXILIAR1.QT_CH         ) CH_AUXILIAR1
+      ,NVL( AUXILIAR2.CD_PRESTADOR, '0' ) CD_AUXILIAR2
+      ,AUXILIAR2.NM_PRESTADOR NM_AUXILIAR2
+      ,AUXILIAR2.SN_RECEBE         RECEBE_AUXILIAR2
+      ,SUM( AUXILIAR2.VALOR         ) VALOR_AUXILIAR2
+      ,SUM( AUXILIAR2.QT_CH         ) CH_AUXILIAR2
+      ,NVL( AUXILIAR3.CD_PRESTADOR, '0' ) CD_AUXILIAR3
+      ,AUXILIAR3.NM_PRESTADOR NM_AUXILIAR3
+      ,AUXILIAR3.SN_RECEBE         RECEBE_AUXILIAR3
+      ,SUM( AUXILIAR3.VALOR         ) VALOR_AUXILIAR3
+      ,SUM( AUXILIAR3.QT_CH         ) CH_AUXILIAR3
+      ,NVL( ANESTESIA.CD_PRESTADOR, '0' ) CD_ANESTESIA
+      ,ANESTESIA.NM_PRESTADOR NM_ANESTESIA
+      ,ANESTESIA.SN_RECEBE         RECEBE_ANESTESIA
+      ,SUM( ANESTESIA.VALOR         ) VALOR_ANESTESIA
+      ,SUM( ANESTESIA.QT_CH         ) CH_ANESTESIA
+      ,REG_FAT.CD_ATENDIMENTO
+      ,REG_FAT.CD_REG_FAT
+  FROM DBAMV.ATENDIME,
+       DBAMV.REG_FAT,
+       DBAMV.ITREG_FAT,
+       DBAMV.PRO_FAT,
+       DBAMV.GUIA,
+       DBAMV.GRU_FAT
+  ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+               PR.NM_PRESTADOR,
+               IT.CD_LANCAMENTO,
+               IT.QT_LANCAMENTO
+              ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+              ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+              ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+          FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+               DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+         WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+           AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+           AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+           AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+           AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+           AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+           AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+  ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+       FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+      WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+         AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+         AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+         AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+         AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+         AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+         AND AM.CD_ATI_MED       = '02'  ) AUXILIAR1
+   ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+      FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+   WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+        AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+        AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+        AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+        AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+        AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+        AND AM.CD_ATI_MED       = '03'  ) AUXILIAR2
+   ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+       FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+   WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+         AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+         AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+         AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+         AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+         AND IT.CD_PRO_FAT     not in ('00020010','00010015')
+         AND AM.CD_ATI_MED       = '04'  ) AUXILIAR3
+   ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                  PR.NM_PRESTADOR,
+                  IT.CD_LANCAMENTO,
+                  IT.QT_LANCAMENTO
+                 ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                 ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                 ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+       FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                  DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+     WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+         AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+         AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+         AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+         AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+         AND IT.CD_PRO_FAT      not in ('00020010','00010015')
+         AND AM.CD_ATI_MED       = '06'  ) ANESTESIA
+ WHERE
+	  REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+	AND REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+       AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+       AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+       AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+       AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+       AND PRO_FAT.CD_PRO_FAT           not in ('00010016','00010065','00040010')
+       AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+       AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+       and guia.cd_atendimento(+)       = atendime.cd_atendimento
+       and guia.cd_paciente(+)          = atendime.cd_paciente
+       and guia.cd_convenio(+)          = atendime.cd_convenio
+       and nvl(guia.tp_guia,'I')        = 'I'
+       AND ITREG_FAT.CD_PRO_FAT        not in ('00020010','00010015')
+       AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO
+       AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR1.CD_LANCAMENTO(+)
+       AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR2.CD_LANCAMENTO(+)
+       AND ITREG_FAT.CD_LANCAMENTO      = AUXILIAR3.CD_LANCAMENTO(+)
+       AND ITREG_FAT.CD_LANCAMENTO      = ANESTESIA.CD_LANCAMENTO(+)
+       AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY NVL( CIRURGIAO.CD_PRESTADOR, '0' )
+              ,CIRURGIAO.NM_PRESTADOR
+              ,CIRURGIAO.SN_RECEBE
+              ,NVL( AUXILIAR1.CD_PRESTADOR, '0' )
+              ,AUXILIAR1.NM_PRESTADOR
+              ,AUXILIAR1.SN_RECEBE
+              ,NVL( AUXILIAR2.CD_PRESTADOR, '0' )
+              ,AUXILIAR2.NM_PRESTADOR
+              ,AUXILIAR2.SN_RECEBE
+              ,NVL( AUXILIAR3.CD_PRESTADOR, '0' )
+              ,AUXILIAR3.NM_PRESTADOR
+              ,AUXILIAR3.SN_RECEBE
+              ,NVL( ANESTESIA.CD_PRESTADOR, '0' )
+              ,ANESTESIA.NM_PRESTADOR
+              ,ANESTESIA.SN_RECEBE
+             ,REG_FAT.CD_ATENDIMENTO
+             ,REG_FAT.CD_REG_FAT
+      UNION
+SELECT ' ' CD_CIRURGIAO
+              ,' ' NM_CIRURGIAO
+              , ' '   RECEBE_CIRURGIAO
+             ,0 QT_CIRURGIAO
+             ,0 VALOR_CIRURGIAO
+             ,0 CH_CIRURGIAO
+              ,' ' CD_AUXILIAR1
+              ,' ' NM_AUXILIAR1
+              ,' '  RECEBE_AUXILIAR1
+              ,0   VALOR_AUXILIAR1
+              ,0   CH_AUXILIAR1
+              ,' ' CD_AUXILIAR2
+              ,' ' NM_AUXILIAR2
+              ,' '  RECEBE_AUXILIAR2
+              ,0   VALOR_AUXILIAR2
+              ,0   CH_AUXILIAR2
+              ,' ' CD_AUXILIAR3
+              ,' ' NM_AUXILIAR3
+              ,' '  RECEBE_AUXILIAR3
+              ,0   VALOR_AUXILIAR3
+              ,0   CH_AUXILIAR3
+              ,' ' CD_ANESTESIA
+              ,' ' NM_ANESTESIA
+              ,' '  RECEBE_ANESTESIA
+              ,0   VALOR_ANESTESIA
+              ,0   CH_ANESTESIA
+             ,ATENDIME.CD_ATENDIMENTO
+             ,0 CD_REG_FAT
+ FROM DBAMV.ATENDIME,
+      DBAMV.ITREG_FAT,
+      DBAMV.REG_FAT
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+   AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+   AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+   AND ITREG_FAT.CD_REG_FAT         = REG_FAT.CD_REG_FAT
+   AND NOT EXISTS ( SELECT IT.CD_GRU_FAT
+                      FROM DBAMV.ITREG_FAT IT,
+                           DBAMV.GRU_FAT GR,
+                           DBAMV.REG_FAT RG
+                     WHERE RG.CD_REG_FAT     = TO_NUMBER( :CAMPO_CD_REG_FAT )
+                       AND RG.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                       AND RG.CD_ATENDIMENTO = :CAMPO_ATENDIME
+                       AND IT.CD_REG_FAT     = RG.CD_REG_FAT
+                       AND IT.CD_GRU_FAT     = GR.CD_GRU_FAT
+                       AND GR.TP_GRU_FAT     = 'SP' )
+      UNION
+SELECT CIRURGIAO.CD_PRESTADOR CD_CIRURGIAO
+              ,CIRURGIAO.NM_PRESTADOR NM_CIRURGIAO
+              ,CIRURGIAO.SN_RECEBE   RECEBE_CIRURGIAO
+             ,SUM( CIRURGIAO.QT_LANCAMENTO ) QT_CIRURGIAO
+             ,SUM( CIRURGIAO.VALOR         ) VALOR_CIRURGIAO
+             ,SUM( CIRURGIAO.QT_CH         ) CH_CIRURGIAO
+              ,' ' CD_AUXILIAR1
+              ,' ' NM_AUXILIAR1
+              ,' '  RECEBE_AUXILIAR1
+              ,0   VALOR_AUXILIAR1
+              ,0   CH_AUXILIAR1
+              ,' ' CD_AUXILIAR2
+              ,' ' NM_AUXILIAR2
+              ,' '  RECEBE_AUXILIAR2
+              ,0   VALOR_AUXILIAR2
+              ,0   CH_AUXILIAR2
+              ,' ' CD_AUXILIAR3
+              ,' ' NM_AUXILIAR3
+              ,' '  RECEBE_AUXILIAR3
+              ,0   VALOR_AUXILIAR3
+              ,0   CH_AUXILIAR3
+              ,' ' CD_ANESTESIA
+              ,' ' NM_ANESTESIA
+              ,' '  RECEBE_ANESTESIA
+              ,0   VALOR_ANESTESIA
+              ,0   CH_ANESTESIA
+             ,REG_FAT.CD_ATENDIMENTO
+             ,REG_FAT.CD_REG_FAT
+  FROM DBAMV.ATENDIME,
+             DBAMV.REG_FAT,
+             DBAMV.ITREG_FAT,
+             DBAMV.PRO_FAT,
+             DBAMV.GUIA,
+             DBAMV.GRU_FAT
+              ,(SELECT PR.DS_CODIGO_CONSELHO CD_PRESTADOR,
+                       PR.NM_PRESTADOR,
+                       IT.CD_LANCAMENTO,
+                       IT.QT_LANCAMENTO
+                      ,NVL(IL.VL_ATO*IT.QT_LANCAMENTO, IT.VL_TOTAL_CONTA) VALOR
+                      ,(((IT.QT_CH_UNITARIO * IT.QT_LANCAMENTO)*AM.VL_PERCENTUAL_PAGO)/100) QT_CH
+                      ,DECODE( NVL(NVL(IL.TP_PAGAMENTO,IT.TP_PAGAMENTO),'P'), 'C', 'NAO', 'SIM' ) SN_RECEBE
+                  FROM DBAMV.ITREG_FAT IT, DBAMV.ITLAN_MED IL,
+                             DBAMV.PRESTADOR PR, DBAMV.ATI_MED AM
+                 WHERE IT.CD_REG_FAT = :CAMPO_CD_REG_FAT
+                      AND IL.CD_REG_FAT(+)    = IT.CD_REG_FAT
+	      AND IL.CD_LANCAMENTO(+) = IT.CD_LANCAMENTO
+	      AND PR.CD_PRESTADOR     = NVL( IL.CD_PRESTADOR, IT.CD_PRESTADOR )
+	     AND AM.CD_ATI_MED       = NVL( IL.CD_ATI_MED, IT.CD_ATI_MED )
+                     AND IT.CD_PRO_FAT  NOT in ('00010016', '00010065')
+                      AND AM.CD_ATI_MED      IN ('01', '07')  ) CIRURGIAO
+ WHERE REG_FAT.CD_ATENDIMENTO       = ATENDIME.CD_ATENDIMENTO
+       AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+       AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       AND REG_FAT.CD_REG_FAT           = ITREG_FAT.CD_REG_FAT
+       AND PRO_FAT.CD_PRO_FAT           = ITREG_FAT.CD_PRO_FAT
+       AND GRU_FAT.CD_GRU_FAT(+)        = ITREG_FAT.CD_GRU_FAT
+       AND NVL( GRU_FAT.TP_GRU_FAT, '  ' )  =  'SP'
+       AND ATENDIME.CD_ATENDIMENTO      = :CAMPO_ATENDIME
+       AND REG_FAT.CD_REG_FAT           = TO_NUMBER( :CAMPO_CD_REG_FAT )
+       and guia.cd_atendimento(+)       = atendime.cd_atendimento
+       and guia.cd_paciente(+)          = atendime.cd_paciente
+       and guia.cd_convenio(+)          = atendime.cd_convenio
+       and nvl(guia.tp_guia,'I')        = 'I'
+       AND ITREG_FAT.CD_PRO_FAT      in ('00020010','00010015')
+       AND ITREG_FAT.CD_LANCAMENTO      = CIRURGIAO.CD_LANCAMENTO(+)
+ GROUP BY CIRURGIAO.CD_PRESTADOR
+              ,CIRURGIAO.NM_PRESTADOR
+              ,CIRURGIAO.SN_RECEBE
+              ,REG_FAT.CD_ATENDIMENTO
+              ,REG_FAT.CD_REG_FAT
+ ORDER BY 1,7,12,17,22
+)
+WHERE CD_CIRURGIAO = :CAMPO_CD_CIRURGIAO

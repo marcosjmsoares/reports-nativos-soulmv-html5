@@ -1,0 +1,64 @@
+/*----------------------------------------------------------------------------*/
+--R_DEPREC_IOB
+SELECT * FROM (
+select    b.cd_deprecia
+             ,b.dt_lancamento dt_deprecia
+             ,b.dt_competencia
+             ,d.nm_solicitante
+             ,b.cd_capitulo
+             ,iob.ds_capitulo
+             ,b.cd_sub_cap
+             ,siob.ds_sub_cap
+             ,sum(b.vl_deprecia_antes) vl_anterior
+             ,sum(b.vl_deprecia_atual) vl_deprec
+from        dbamv.deprecia d
+              ,dbamv.v_lancamento_patrimonio b
+              ,dbamv.iob iob
+              ,dbamv.sub_iob siob
+              ,dbamv.multi_empresas me
+where     b.tp_lancamento  =  'D'
+and        d.cd_deprecia = b.cd_deprecia
+and          b.cd_capitulo      =  siob.cd_capitulo
+and          b.cd_sub_cap     =  siob.cd_sub_cap
+and          iob.cd_capitulo = siob.cd_capitulo
+and         b.dt_lancamento      between :CAMPO_DT_INICIAL   and  last_day(:CAMPO_DT_FINAL)
+and         me.cd_multi_empresa = b.cd_multi_empresa_bem
+group by  b.cd_deprecia,
+me.ds_multi_empresa
+              ,b.dt_lancamento
+              ,d.nm_solicitante
+              ,b.cd_capitulo
+              ,iob.ds_capitulo
+              ,b.cd_sub_cap
+             ,siob.ds_sub_cap
+             ,b.dt_competencia
+union all
+select 1 cd_deprecia,
+       be.dt_ult_depre dt_deprecia,
+       be.dt_ult_depre dt_competencia,
+       'SALDO INICIAL' nm_solicitante,
+       iob.cd_capitulo,
+       iob.ds_capitulo,
+       be.cd_sub_cap,
+       siob.ds_sub_cap,
+       sum(nvl(be.vl_compra,0)) vl_anterior,
+       sum(nvl(be.vl_compra,0) - nvl(be.vl_depreciacao_historica,0) - NVL(Be.VL_DEPREC_ACUM_ECO, 0)) vl_deprec
+from dbamv.bens be,
+     dbamv.iob iob,
+     dbamv.sub_iob siob
+where be.cd_capitulo = siob.cd_capitulo
+and   be.cd_sub_cap  = siob.cd_sub_cap
+AND iob.cd_capitulo = siob.cd_capitulo
+and   be.vl_depreciacao_historica + NVL(Be.VL_DEPREC_ACUM_ECO, 0) > 0
+and be.dt_tombamento BETWEEN :CAMPO_DT_INICIAL   and  last_day(:CAMPO_DT_FINAL)
+group by 1 ,
+         be.dt_ult_depre,
+         be.dt_ult_depre,
+         'SALDO INICIAL',
+         iob.cd_capitulo,
+         iob.ds_capitulo,
+         be.cd_sub_cap,
+         siob.ds_sub_cap
+)
+ORDER BY CD_DEPRECIA,DT_DEPRECIA,NM_SOLICITANTE,
+CD_CAPITULO, CD_SUB_CAP

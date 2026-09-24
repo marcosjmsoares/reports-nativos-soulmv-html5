@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_ENT_PRO_CONT_DT_EMIS
+Select ent_pro.cd_ent_pro,
+       ent_pro.cd_estoque,
+       ent_pro.cd_fornecedor||' '||fornecedor.nm_fornecedor fornecedor,
+       Decode('','D',documento_entrada.dt_entrada,ent_pro.dt_entrada) dt_entrada,
+       tip_doc.ds_tip_doc,
+       Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', nvl(ent_pro.nr_ncf,'N/A'), nvl(ent_pro.nr_documento,'N/A')) documento,
+       nvl(ent_pro.nr_serie,'N/A') serie,
+       ent_pro.vl_total vl_total_nota,
+       especie.cd_especie||' '||especie.ds_especie especie,
+       Sum( itent_pro.qt_entrada * itent_pro.vl_custo_real ) vl_total_especie,
+       ent_pro.sn_inclusao_nota,
+       Nvl(itent_pro.sn_agrega_frete_custo_medio, 'N') sn_agrega_frete_custo_medio,
+       Sum(  Decode(itent_pro.sn_agrega_frete_custo_medio,'S', nvl(itent_pro.vl_frete,0), 0) )    vl_frete,
+       fornecedor.nm_fornecedor fornec
+  From dbamv.ent_pro,
+       dbamv.itent_pro,
+       dbamv.produto,
+       dbamv.especie,
+       dbamv.fornecedor,
+       dbamv.tip_doc,
+       dbamv.documento_entrada,
+       DBAMV.CONFIGEST
+Where ent_pro.cd_ent_pro    = itent_pro.cd_ent_pro
+  And ent_pro.cd_fornecedor = fornecedor.cd_fornecedor
+  And itent_pro.cd_produto  = produto.cd_produto
+  And produto.cd_Especie    = especie.cd_especie
+  And ent_pro.cd_tip_doc    = tip_doc.cd_tip_doc
+  and CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+  and ent_pro.cd_fornecedor = documento_entrada.cd_fornecedor(+)
+  and ent_pro.nr_documento  = documento_entrada.nr_documento(+)
+  and ent_pro.nr_serie        = documento_entrada.nr_serie(+)
+ And Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			            From Dbamv.Estoque :CAMPO_CF_EMPRESAS )
+And Trunc(Decode('','D',documento_entrada.dt_entrada,ent_pro.dt_entrada)) between to_date('','dd/mm/yyyy') and to_date('', 'dd/mm/yyyy')
+Group By  ent_pro.cd_ent_pro,
+         ent_pro.cd_fornecedor,
+         fornecedor.nm_fornecedor,
+         tip_doc.ds_tip_doc,
+         Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', nvl(ent_pro.nr_ncf,'N/A'), nvl(ent_pro.nr_documento,'N/A')),
+         ent_pro.nr_serie,
+         especie.cd_especie,
+         especie.ds_especie,
+         ent_pro.vl_total,
+         ent_pro.cd_estoque,
+         Decode('','D',documento_entrada.dt_entrada,ent_pro.dt_entrada),
+         ent_pro.sn_inclusao_nota,
+         Nvl(itent_pro.sn_agrega_frete_custo_medio, 'N')

@@ -1,0 +1,59 @@
+/*----------------------------------------------------------------------------*/
+--M_BLOQ_DESBLOQ_HR_AGD
+SELECT * FROM (
+select ac.dt_agenda                                                             dt_marcacao
+     , ac.cd_agenda_central                                                     cd_agenda_central
+     ,pres.nm_prestador
+     ,to_char(ac.hr_inicio,'HH24') hr_inicio
+     ,to_char(ac.hr_fim,'HH24') hr_fim
+     ,rec.ds_recurso_central
+     ,ua.ds_unidade_atendimento
+     ,se.nm_setor
+     , ga.ds_grupo_agenda                                                       ds_grupo_agenda
+     , to_char(iac.hr_agenda,'HH24')                                                            hr_agenda
+     , Decode(ga.cd_grupo_agenda ,NULL,iac.cd_paciente,gap.cd_paciente)         cd_paciente
+     , Decode(ga.cd_grupo_agenda ,NULL,Decode(iac.cd_paciente,NULL,iac.nm_paciente,p.nm_paciente)
+             ,Decode(gap.cd_paciente,NULL,gap.nm_paciente,p.nm_paciente))       nm_paciente
+     , Nvl(iac.nr_fone,nvl(gap.nr_fone,p.nr_fone))                                             Fone
+     , decode(ac.tp_agenda,
+              'I', 'Diag. Imagem',
+              'L', 'Laboratorio',
+              'A', 'Ambulatorio')                                               tp_agenda
+     , ia.ds_item_agendamento                                                   procedimento
+     , c.nm_convenio
+     , cp.ds_con_pla
+  from dbamv.agenda_central      ac
+     , dbamv.it_agenda_central   iac
+     , dbamv.convenio            c
+     , dbamv.item_agendamento    ia
+     , dbamv.recurso_central     rc
+     , dbamv.con_pla             cp
+     , dbamv.grupo_agenda        ga
+     , dbamv.grupo_agenda_pac    gap
+     , dbamv.paciente            p
+     , dbamv.prestador           pres
+     , dbamv.recurso_central      rec
+     , dbamv.unidade_atendimento  ua
+     , dbamv.setor                se
+ where ac.cd_agenda_central      = iac.cd_agenda_central
+   and iac.cd_it_agenda_pai is null
+   and ac.cd_prestador = pres.cd_prestador(+)
+   and ac.cd_recurso_central = rec.cd_recurso_central(+)
+   and ac.cd_unidade_atendimento = ua.cd_unidade_atendimento(+)
+   and ac.cd_setor      =  se.cd_setor(+)
+   and iac.cd_item_agendamento   = ia.cd_item_agendamento(+)
+   and ac.cd_recurso_central     = rc.cd_recurso_central(+)
+   and iac.cd_convenio           = c.cd_convenio(+)
+   and iac.cd_convenio           = cp.cd_convenio(+)
+   and iac.cd_con_pla            = cp.cd_con_pla(+)
+   and ac.sn_ativo               = 'S'
+   and iac.cd_grupo_agenda       = ga.cd_grupo_agenda(+)
+   and ga.cd_grupo_agenda        = gap.cd_grupo_agenda(+)
+   and iac.cd_paciente           = p.cd_paciente(+)
+   and ( iac.nm_paciente         is not null  or
+        iac.cd_paciente          is not null  or
+        iac.cd_grupo_agenda      is not null )
+order by 1 , 2 , 3 desc ,4
+)
+ORDER BY DT_MARCACAO,
+CD_AGENDA_CENTRAL,HR_AGENDA

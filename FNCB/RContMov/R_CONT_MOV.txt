@@ -1,0 +1,88 @@
+/*----------------------------------------------------------------------------*/
+--R_CONT_MOV
+SELECT * FROM (
+Select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+       , Con.cd_con_rec con
+,Rec.Dt_Recebimento Data
+,Rec.Nr_Documento Documento
+,Con.Cd_Historico_Padrao Historico
+,'-' Nominal
+,Null Status_Impresso
+,Null Status_Cancelado
+,Mov.Sn_Conciliado Status_Conciliado
+,Rat.Cd_Reduzido Cod_Comp    
+,Con.Cd_Reduzido Cod_Conta   
+,'-' Verso
+,DECODE( LAN.TP_OPERACAO_SALDO_CONTA, '+', Rec.Vl_Recebido,- Rec.Vl_Recebido ) Valor_Rec
+,Mov.cd_mov_concor
+,Rat.Vl_Rateio Vl_Rateio
+,Mov.Cd_Con_cor
+,Rec.Cd_Reccon_Rec Codigo
+From Dbamv.Con_rec Con
+     , Dbamv.Itcon_Rec It
+     , Dbamv.Reccon_rec Rec
+     , Dbamv.Rec_Mov_Con Recm
+     , Dbamv.Mov_Concor Mov
+     , Dbamv.Rat_Conrec Rat
+     , Dbamv.Lan_Concor Lan
+     , dbamv.multi_empresas e
+Where Con.Cd_Con_Rec = It.Cd_Con_Rec
+And   It.Cd_Itcon_rec = Rec.Cd_Itcon_rec
+And   Rec.Cd_Reccon_Rec = Recm.Cd_Reccon_Rec
+And   Rec.Tp_Recebimento = '1'
+And   Recm.Cd_Mov_ConCor = Mov.Cd_Mov_Concor
+And   Con.Cd_Con_Rec = Rat.Cd_Con_Rec
+And   Lan.Cd_Lan_ConCor = Mov.Cd_Lan_Concor
+And   Rec.Dt_Recebimento >= to_date( to_char( :CAMPO_DATA_INIC, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+And   Rec.Dt_Recebimento <= to_date( to_char( :CAMPO_DATA_FIM, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+And   Rec.Dt_Estorno is null
+and   CON.cd_multi_empresa = e.cd_multi_empresa
+Union All
+Select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+       , con.cd_con_pag con
+,Rec.Dt_Pagamento Data
+,To_Char(Ch.Nr_Cheque) Documento
+,Con.Cd_Historico_Padrao   Historico
+,Ch.Ds_Nome_Impresso Nominal
+,Ch.Sn_Impresso Status_Impresso
+,Ch.Sn_Cancelado Status_Cancelado
+,Mov.Sn_Conciliado Status_Conciliado
+,Rat.Cd_reduzido   Cod_Comp        
+,Con.Cd_Reduzido   Cod_Conta     
+,Ch.Ds_Verso_Cheque Verso
+,DECODE( LAN.TP_OPERACAO_SALDO_CONTA, '+' ,Rec.Vl_Pago, - Rec.Vl_Pago ) Valor_Rec
+,Mov.cd_mov_concor
+,Rat.Vl_Rateio Vl_Rateio
+,Mov.Cd_Con_cor
+,Rec.Cd_Pagcon_Pag Codigo
+From Dbamv.Con_pag Con
+     , Dbamv.Itcon_pag It
+     , Dbamv.Pagcon_pag Rec
+     , Dbamv.Mov_Concor Mov
+     , Dbamv.Cheque Ch
+     , Dbamv.Ratcon_Pag Rat
+     , Dbamv.Lan_Concor Lan
+     , Dbamv.Con_Cor C
+     , dbamv.multi_empresas e
+Where Con.Cd_con_pag = It.Cd_con_pag
+And   It.Cd_itcon_pag = Rec.Cd_itcon_pag
+And   Rec.Cd_Cheque = Ch.Cd_Cheque
+And   Rec.Tp_Pagamento = '3'
+And   Rat.Cd_Con_Pag = Con.Cd_con_pag
+And   Rec.cd_pagcon_pag = Mov.cd_pagcon_pag
+And   Lan.Cd_Lan_ConCor = Mov.Cd_Lan_Concor
+And   C.Cd_Con_Cor = Mov.Cd_Con_Cor
+And   Rec.Dt_Pagamento >= to_date( to_char( :CAMPO_DATA_INIC, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+And   Rec.Dt_Pagamento <= to_date( to_char( :CAMPO_DATA_FIM, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+And   Rec.Dt_Estorno is null
+and   C.cd_multi_empresa = e.cd_multi_empresa
+:CAMPO_CF_EMPRESA
+)
+ORDER BY CD_MULTI_EMPRESA,EMPRESA,
+EMPRESA_O,DATA,CON,
+CD_CON_COR,
+DOCUMENTO,CODIGO,HISTORICO,NOMINAL,STATUS_IMPRESSO,STATUS_CANCELADO,STATUS_CONCILIADO,COD_CONTA,VERSO,CD_MOV_CONCOR,VALOR_REC

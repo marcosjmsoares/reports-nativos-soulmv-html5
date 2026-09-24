@@ -1,0 +1,151 @@
+/*----------------------------------------------------------------------------*/
+--R_PLANILHA_AGEND_SERV_UNID
+SELECT * FROM (
+SELECT cd_unidade_regional
+      ,ds_unidade_regional
+      ,cd_ser_dis
+      ,Nvl(ds_ser_dis,'Não Encontrado') ds_ser_dis
+      ,NVL(sum(consultas),0)   consultas
+      ,sum(marcadas)    marcadas
+      ,(sum(disponiveis) - sum(canceladas) - sum(bloqueadas)) disponiveis
+FROM (
+      SELECT  unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+             ,sum(nvl(marcacao_ser_dis.nr_consultas,0)) consultas
+             ,0 marcadas
+             ,0 disponiveis
+             ,0 canceladas
+             ,0 bloqueadas
+      FROM   dbamv.marcacao
+            ,dbamv.ser_dis
+            ,dbamv.marcacao_ser_dis
+            ,dbamv.unidade_regional
+      WHERE  
+ marcacao.cd_unidade_regional = unidade_regional.cd_unidade_regional(+)
+and marcacao.cd_marcacao = marcacao_ser_dis.cd_marcacao
+and marcacao_ser_dis.cd_ser_dis = ser_dis.cd_ser_dis
+      AND   marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+      									 to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24') 
+      GROUP BY  unidade_regional.cd_unidade_regional
+               ,unidade_regional.ds_unidade_regional
+               ,ser_dis.cd_ser_dis
+               ,ser_dis.ds_ser_dis
+      UNION
+      SELECT  unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+             ,0 consultas
+             ,Sum(nvl(marcacao_ser_dis.nr_marcados,0)) marcadas
+             ,0 disponiveis
+             ,0 canceladas
+             ,0 bloqueadas
+      FROM   dbamv.marcacao
+            ,dbamv.ser_dis
+            ,dbamv.marcacao_ser_dis
+            ,dbamv.unidade_regional
+      WHERE
+        marcacao.cd_unidade_regional = unidade_regional.cd_unidade_regional(+)
+      and    marcacao_ser_dis.cd_marcacao = marcacao.cd_marcacao
+      and    marcacao_ser_dis.cd_ser_dis = ser_dis.cd_ser_dis
+      AND   marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+      									 to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+      GROUP BY  unidade_regional.cd_unidade_regional
+               ,unidade_regional.ds_unidade_regional
+               ,ser_dis.cd_ser_dis
+               ,ser_dis.ds_ser_dis
+      UNION
+      SELECT  unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+             ,0 consultas
+             ,0 marcadas
+             ,Sum(nvl(marcacao_ser_dis.nr_consultas,0) - nvl(marcacao_ser_dis.nr_marcados,0)) disponiveis
+             ,0 canceladas
+             ,0 bloqueadas
+      FROM   dbamv.marcacao
+            ,dbamv.marcacao_ser_dis
+            ,dbamv.ser_dis
+            ,dbamv.unidade_regional
+      WHERE
+        marcacao.cd_unidade_regional = unidade_regional.cd_unidade_regional(+)
+      AND    marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+      									  to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+      and    marcacao.cd_marcacao = marcacao_ser_dis.cd_marcacao
+      and    marcacao_ser_dis.cd_ser_dis = ser_dis.cd_ser_dis
+      GROUP BY  unidade_regional.cd_unidade_regional
+               ,unidade_regional.ds_unidade_regional
+               ,ser_dis.cd_ser_dis
+               ,ser_dis.ds_ser_dis
+UNION
+      SELECT  unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+             ,0 consultas
+             ,0 marcadas
+             ,0 disponiveis
+             ,SUM(DECODE(it_marcacao.cd_it_Marcacao,it_marcacao.cd_it_Marcacao,1,1)) canceladas
+             ,0 bloqueadas
+      FROM   dbamv.marcacao
+            ,dbamv.marcacao_ser_dis
+            ,dbamv.ser_dis
+            ,dbamv.unidade_regional
+            ,dbamv.it_marcacao
+      WHERE
+      marcacao.cd_marcacao = it_marcacao.cd_marcacao
+      AND   it_marcacao.cd_ser_dis = ser_dis.cd_ser_dis(+)
+      AND
+        marcacao.cd_unidade_regional = unidade_regional.cd_unidade_regional(+)
+      AND  it_marcacao.tp_situacao = 'C'
+      AND    nvl(it_marcacao.sn_encaixe,'N') = 'N'
+      AND    marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+      									  to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+      and    marcacao.cd_marcacao = marcacao_ser_dis.cd_marcacao
+      and    marcacao_ser_dis.cd_ser_dis = ser_dis.cd_ser_dis
+      GROUP BY   unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+UNION
+      SELECT  unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+             ,0 consultas
+             ,0 marcadas
+             ,0 disponiveis
+             ,0 canceladas
+             ,SUM(DECODE(it_marcacao.cd_it_Marcacao,it_marcacao.cd_it_Marcacao,1,1)) bloqueadas
+      FROM   dbamv.marcacao
+            ,dbamv.marcacao_ser_dis
+            ,dbamv.ser_dis
+            ,dbamv.unidade_regional
+            ,dbamv.it_marcacao
+      WHERE
+      marcacao.cd_marcacao = it_marcacao.cd_marcacao
+      AND   it_marcacao.cd_ser_dis = ser_dis.cd_ser_dis(+)
+      AND
+        marcacao.cd_unidade_regional = unidade_regional.cd_unidade_regional(+)
+      AND  it_marcacao.tp_situacao <> 'C'
+      AND  it_marcacao.sn_bloquear = 'S'
+      AND    nvl(it_marcacao.sn_encaixe,'N') = 'N'
+      AND    marcacao.dt_marcacao between to_date(to_char(:CAMPO_DT_INICIO,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+      									  to_date(to_char(:CAMPO_DT_FINAL,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+      and    marcacao.cd_marcacao = marcacao_ser_dis.cd_marcacao
+      and    marcacao_ser_dis.cd_ser_dis = ser_dis.cd_ser_dis
+      GROUP BY   unidade_regional.cd_unidade_regional
+             ,unidade_regional.ds_unidade_regional
+             ,ser_dis.cd_ser_dis
+             ,ser_dis.ds_ser_dis
+)
+      GROUP BY  cd_unidade_regional
+               ,ds_unidade_regional
+               ,cd_ser_dis
+               ,ds_ser_dis
+)
+ORDER BY DS_SER_DIS,
+DS_UNIDADE_REGIONAL

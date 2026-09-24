@@ -1,0 +1,180 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_FLUXO_CAIXA
+SELECT * FROM (
+SELECT   A.CODIGO
+        ,A.DESCRICAO
+        ,A.DIA
+        ,SUM( A.VL_A_REALIZAR )  VL_A_REALIZAR
+        ,SUM( A.VL_REALIZADO  )  VL_REALIZADO
+        ,SUM( A.VL_RATEIO     )  VL_RATEIO
+        ,SUM( A.VL_ACRESCIMO  )  VL_ACRESCIMO
+        ,SUM( A.VL_DESCONTO   )  VL_DESCONTO
+        ,SUM( A.VL_PREVISTO   )  VL_PREVISTO
+FROM
+(
+SELECT   IR.CD_ITEM_RES                            CODIGO
+        ,IR.DS_ITEM_RES                            DESCRICAO
+        ,TO_CHAR( IT.DT_PREVISTA_RECEBIMENTO, 'DD' ) DIA
+        ,SUM( RCR.VL_RATEIO )                      VL_A_REALIZAR
+        ,0                                         VL_REALIZADO
+        ,0                                         VL_RATEIO
+        ,0                                         VL_ACRESCIMO
+        ,0                                         VL_DESCONTO
+        ,0                                         VL_PREVISTO
+FROM     dbamv.CON_REC                             CR
+        ,dbamv.RAT_CONREC                          RCR
+        ,dbamv.ITEM_RES                            IR
+        ,dbamv.ITCON_REC       IT
+WHERE    CR.CD_MULTI_EMPRESA       =  :CAMPO_CD_MULTI_EMPRESA
+AND     CR.CD_CON_REC            =     IT.CD_CON_REC
+AND      CR.CD_CON_REC             =  RCR.CD_CON_REC
+AND      IR.CD_ITEM_RES            =  RCR.CD_ITEM_RES
+AND     IT.DT_PREVISTA_RECEBIMENTO  >= to_date( to_char( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND      IT.DT_PREVISTA_RECEBIMENTO  <= to_date( to_char( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+GROUP BY  IR.CD_ITEM_RES
+         ,IR.DS_ITEM_RES
+         ,TO_CHAR( IT.DT_PREVISTA_RECEBIMENTO, 'DD' )
+UNION
+SELECT   IR.CD_ITEM_RES                       CODIGO
+        ,IR.DS_ITEM_RES                       DESCRICAO
+        ,TO_CHAR( MCC.DT_MOVIMENTACAO, 'DD' ) DIA
+        ,0                                    VL_A_REALIZAR
+        ,0                                    VL_REALIZADO
+        ,SUM( RCR.VL_RATEIO   )               VL_RATEIO
+        ,SUM( CR.VL_ACRESCIMO )               VL_ACRESCIMO
+        ,SUM( CR.VL_DESCONTO  )               VL_DESCONTO
+        ,SUM( CR.VL_PREVISTO  )               VL_PREVISTO
+FROM     dbamv.CON_REC        CR
+        ,dbamv.MOV_CONCOR     MCC
+        ,dbamv.RAT_CONREC     RCR
+        ,dbamv.ITEM_RES       IR
+        ,dbamv.ITCON_REC IT
+        ,dbamv.RECCON_REC RC
+        ,dbamv.REC_MOV_CON RMC
+WHERE    CR.CD_MULTI_EMPRESA  =  :CAMPO_CD_MULTI_EMPRESA
+AND      IT.TP_QUITACAO       IN ( 'Q', 'T' )
+AND      MCC.DT_MOVIMENTACAO  >=  to_date( to_char( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND      MCC.DT_MOVIMENTACAO  <= to_date( to_char( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+AND      CR.CD_CON_REC = IT.CD_CON_REC
+AND      IT.CD_ITCON_REC = RC.CD_ITCON_REC
+AND      RC.CD_RECCON_REC = RMC.CD_RECCON_REC
+AND      RMC.CD_MOV_CONCOR = MCC.CD_MOV_CONCOR
+AND      CR.CD_CON_REC        =  RCR.CD_CON_REC
+AND      RCR.CD_ITEM_RES      =  IR.CD_ITEM_RES
+GROUP BY  IR.CD_ITEM_RES
+         ,IR.DS_ITEM_RES
+         ,TO_CHAR( MCC.DT_MOVIMENTACAO, 'DD' )
+UNION
+SELECT   IR.CD_ITEM_RES  CODIGO
+        ,IR.DS_ITEM_RES  DESCRICAO
+        ,DIA.DIA         DIA
+        ,0               VL_A_REALIZAR
+        ,0               VL_REALIZADO
+        ,0               VL_RATEIO
+        ,0               VL_ACRESCIMO
+        ,0               VL_DESCONTO
+        ,0               VL_PREVISTO
+FROM     dbamv.ITEM_RES  IR
+        ,dbamv.DIA_AUX   DIA
+WHERE    DIA.DIA >= to_char( :CAMPO_DT_INICIAL, 'DD' )
+AND      DIA.DIA <= to_char(  :CAMPO_DT_FINAL, 'DD' )
+) A
+GROUP BY  A.CODIGO
+         ,A.DESCRICAO
+         ,A.DIA
+ORDER BY DESCRICAO
+ 	 ,DIA
+)
+ORDER BY DESCRICAO,CODIGO,
+DIA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_FLUXO_CAIXA_X_G_SUMVL_A_REALIZARPERCODIGO1
+SELECT * FROM (
+SELECT  A.CODIGO CODIGO1
+       ,A.DESCRICAO  DESCRICAO1
+       ,A.DIA DIA1
+       ,SUM( A.VL_RATEIO )  VL_A_REALIZAR1
+       ,SUM( A.VL_REALIZADO  )  VL_REALIZADO1
+       ,SUM( A.VL_RATEIO     )  VL_RATEIO1
+       ,SUM( A.VL_ACRESCIMO  )  VL_ACRESCIMO1
+       ,SUM( A.VL_DESCONTO   )  VL_DESCONTO1
+       ,SUM( A.VL_DUPLICATA  )  VL_DUPLICATA1
+FROM
+(
+SELECT  UNIQUE
+        IR.CD_ITEM_RES                       CODIGO
+       ,IR.DS_ITEM_RES                       DESCRICAO
+       ,TO_CHAR( ICP.DT_VENCIMENTO, 'DD' )   DIA
+       ,SUM( ICP.VL_DUPLICATA )              VL_A_REALIZAR
+       ,0                                    VL_REALIZADO
+       ,0                                    VL_RATEIO
+       ,0                                    VL_ACRESCIMO
+       ,0                                    VL_DESCONTO
+       ,0                                    VL_DUPLICATA
+FROM    dbamv.CON_PAG                CP
+       ,dbamv.ITCON_PAG              ICP
+       ,dbamv.RATCON_PAG             RCP
+       ,dbamv.ITEM_RES               IR
+WHERE   IR.CD_ITEM_RES               =  RCP.CD_ITEM_RES
+AND     RCP.CD_CON_PAG               =  CP.CD_CON_PAG
+AND     CP.CD_CON_PAG                =  ICP.CD_CON_PAG
+AND     CP.CD_MULTI_EMPRESA          =  :CAMPO_CD_MULTI_EMPRESA
+AND     ICP.DT_VENCIMENTO            >= to_date( to_char( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND     ICP.DT_VENCIMENTO            <= to_date( to_char( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+AND     ICP.CD_CON_PAG_AGRUP       IS NULL
+GROUP BY  IR.CD_ITEM_RES
+         ,IR.DS_ITEM_RES
+         ,TO_CHAR( ICP.DT_VENCIMENTO, 'DD' )
+UNION
+SELECT  UNIQUE
+        IR.CD_ITEM_RES                    CODIGO
+       ,IR.DS_ITEM_RES                    DESCRICAO
+       ,TO_CHAR( PCP.DT_PAGAMENTO, 'DD' ) DIA
+       ,0                                 VL_A_REALIZAR
+       ,0                                 VL_REALIZADO
+       ,SUM( RCP.VL_RATEIO    )           VL_RATEIO
+       ,SUM( PCP.VL_ACRESCIMO )           VL_ACRESCIMO
+       ,SUM( PCP.VL_DESCONTO  )           VL_DESCONTO
+       ,SUM( ICP.VL_DUPLICATA )           VL_DUPLICATA
+FROM    dbamv.PAGCON_PAG          PCP
+       ,dbamv.ITCON_PAG           ICP
+       ,dbamv.CON_PAG             CP
+       ,dbamv.RATCON_PAG          RCP
+       ,dbamv.ITEM_RES            IR
+WHERE   CP.CD_MULTI_EMPRESA     = :CAMPO_CD_MULTI_EMPRESA
+AND     IR.CD_ITEM_RES          = RCP.CD_ITEM_RES
+AND     RCP.CD_CON_PAG          = CP.CD_CON_PAG
+AND     CP.CD_CON_PAG           = ICP.CD_CON_PAG
+AND     ICP.CD_ITCON_PAG        = PCP.CD_ITCON_PAG
+AND     ICP.cd_con_pag_agrup  IS NULL
+AND     PCP.DT_PAGAMENTO        >=  to_date( to_char( :CAMPO_DT_INICIAL, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND     PCP.DT_PAGAMENTO        <= to_date( to_char( :CAMPO_DT_FINAL , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+GROUP BY  IR.CD_ITEM_RES
+         ,IR.DS_ITEM_RES
+         ,PCP.DT_PAGAMENTO
+UNION
+SELECT  IR.CD_ITEM_RES  CODIGO
+       ,IR.DS_ITEM_RES  DESCRICAO
+       ,DIA.DIA         DIA
+       ,0               VL_A_REALIZAR
+       ,0               VL_REALIZADO
+       ,0               VL_RATEIO
+       ,0               VL_ACRESCIMO
+       ,0               VL_DESCONTO
+       ,0               VL_DUPLICATA
+FROM    dbamv.ITEM_RES  IR
+       ,dbamv.DIA_AUX   DIA
+WHERE    DIA.DIA >= to_char( :CAMPO_DT_INICIAL, 'DD' )
+AND      DIA.DIA <= to_char(  :CAMPO_DT_FINAL, 'DD' )
+) A
+GROUP BY A.CODIGO
+        ,A.DESCRICAO
+        ,A.DIA
+ORDER BY  DIA
+         ,DESCRICAO
+)
+ORDER BY DESCRICAO1,CODIGO1,
+DIA1

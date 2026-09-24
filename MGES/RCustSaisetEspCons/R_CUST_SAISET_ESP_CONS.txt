@@ -1,0 +1,291 @@
+/*----------------------------------------------------------------------------*/
+--R_CUST_SAISET_ESP_CONS
+Select 1 Cd_Setor_Ini,
+	'Nao Imprime                                       ' Nm_Setor_Ini,
+	999999 Cd_Setor_Fim,
+	'A                                                        ' Nm_Setor_Fim
+  From Dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUST_SAISET_ESP_CONS_R_3_Q_TOTAL
+select CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+      ,sum(diferenca) diferenca
+     , SUM ( Nvl ( VL_SAIDA_SETOR, 0 ) ) vl_saida_setor
+     , SUM ( NvL ( VL_SAIDA_PACIENTE, 0 ) ) vl_saida_paciente
+     , SUM ( Nvl  ( VL_BAIXA, 0 ) ) vl_baixa
+     , SUM ( Nvl ( VL_DEVOLVIDA_SETOR, 0 ) ) vl_devolvida_setor
+     , SUM ( Nvl ( VL_DEVOLVIDA_PACIENTE, 0 ) ) vl_devolvida_paciente
+      from (
+SELECT ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+             , COUNT(C_CONSET.CD_PRODUTO) QTD_ITENS_PRODUTO
+             , SUM(C_CONSET.VL_SAIDA_PACIENTE + C_CONSET.VL_SAIDA_SETOR + C_CONSET.VL_VENDA
+                  -C_CONSET.VL_DEVOLVIDA_PACIENTE - C_CONSET.VL_DEVOLVIDA_SETOR - C_CONSET.VL_DEVOLVIDA_SETOR)  VL_ATUAL
+              ,0 VL_DOADO
+             , round(sum(( C_CONSET.QT_CONTAGEM_ENTRADA * C_CONSET.VL_CONTAGEM_ENTRADA )
+                        - ( C_CONSET.QT_CONTAGEM_SAIDA * C_CONSET.QT_CONTAGEM_SAIDA )), 2) DIFERENCA
+             , SUM  ( Nvl  ( C_ConSet.vl_saida_setor, 0 ) ) vl_saida_setor
+             , SUM  ( NvL ( C_ConSet.vl_saida_paciente, 0 ) ) vl_saida_paciente
+             , SUM  ( Nvl  ( C_ConSet.vl_baixa, 0 ) ) vl_baixa
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_setor, 0 ) ) vl_devolvida_setor
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_paciente, 0 ) ) vl_devolvida_paciente
+          FROM DBAMV.C_CONSET
+             , DBAMV.SETOR
+             , DBAMV.ESTOQUE
+             , DBAMV.PRODUTO
+             , DBAMV.ESPECIE
+             , DBAMV.GRUPO_DE_CUSTO
+         WHERE c_conset.cd_ano|| to_char(c_conset.cd_mes,'fm09') between
+                                                to_char( :CAMPO_DATA_INI,'YYYYMM')
+                                                AND to_char(:CAMPO_DATA_FIM ,'YYYYMM')
+           AND C_CONSET.CD_SETOR      = SETOR.CD_SETOR
+           AND C_CONSET.CD_PRODUTO    = PRODUTO.CD_PRODUTO
+           AND PRODUTO.CD_ESPECIE       = ESPECIE.CD_ESPECIE
+           AND C_CONSET.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+           AND SETOR.CD_GRUPO_DE_CUSTO      = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+      GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+             , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+             , SETOR.CD_SETOR
+             , SETOR.NM_SETOR
+             , ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+)
+Group by  CD_ESPECIE
+                ,DS_ESPECIE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUST_SAISET_ESP_CONS_R_GRUPO_CUSTO1_Q_SAI_SETOR
+SELECT * FROM (
+select Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+     ,diferenca
+     , SUM ( Nvl ( VL_SAIDA_SETOR, 0 ) ) vl_saida_setor
+     , SUM ( NvL ( VL_SAIDA_PACIENTE, 0 ) ) vl_saida_paciente
+     , SUM ( Nvl  ( VL_BAIXA, 0 ) ) vl_baixa
+     , SUM ( Nvl ( VL_DEVOLVIDA_SETOR, 0 ) ) vl_devolvida_setor
+     , SUM ( Nvl ( VL_DEVOLVIDA_PACIENTE, 0 ) ) vl_devolvida_paciente
+      from (
+SELECT       Decode( '', 'S', Setor.Cd_Setor, 0 ) Quebra_Setor
+             , GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+             , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+             , SETOR.CD_SETOR
+             , SETOR.NM_SETOR
+             , ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+             , COUNT(C_CONSET.CD_PRODUTO) QTD_ITENS_PRODUTO
+             , SUM(C_CONSET.VL_SAIDA_PACIENTE + C_CONSET.VL_SAIDA_SETOR + C_CONSET.VL_VENDA
+                  -C_CONSET.VL_DEVOLVIDA_PACIENTE - C_CONSET.VL_DEVOLVIDA_SETOR - C_CONSET.VL_DEVOLVIDA_SETOR)  VL_ATUAL
+              ,0 VL_DOADO
+             , round(sum(( C_CONSET.QT_CONTAGEM_ENTRADA * C_CONSET.VL_CONTAGEM_ENTRADA )
+                        - ( C_CONSET.QT_CONTAGEM_SAIDA * C_CONSET.QT_CONTAGEM_SAIDA )), 2) DIFERENCA
+             , SUM  ( Nvl  ( C_ConSet.vl_saida_setor, 0 ) ) vl_saida_setor
+             , SUM  ( NvL ( C_ConSet.vl_saida_paciente, 0 ) ) vl_saida_paciente
+             , SUM  ( Nvl  ( C_ConSet.vl_baixa, 0 ) ) vl_baixa
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_setor, 0 ) ) vl_devolvida_setor
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_paciente, 0 ) ) vl_devolvida_paciente
+          FROM DBAMV.C_CONSET
+             , DBAMV.SETOR
+             , DBAMV.ESTOQUE
+             , DBAMV.PRODUTO
+             , DBAMV.ESPECIE
+             , DBAMV.GRUPO_DE_CUSTO
+         WHERE c_conset.cd_ano|| to_char(c_conset.cd_mes,'fm09') between
+                                                to_char( :CAMPO_DATA_INI,'YYYYMM')
+                                                AND to_char(:CAMPO_DATA_FIM ,'YYYYMM')
+           AND C_CONSET.CD_SETOR      = SETOR.CD_SETOR
+           AND C_CONSET.CD_PRODUTO    = PRODUTO.CD_PRODUTO
+           AND PRODUTO.CD_ESPECIE       = ESPECIE.CD_ESPECIE
+           AND C_CONSET.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+           AND SETOR.CD_GRUPO_DE_CUSTO      = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+      GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+             , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+             , SETOR.CD_SETOR
+             , SETOR.NM_SETOR
+             , ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+)
+Group by Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,diferenca
+)
+ORDER BY
+	CD_GRUPO_DE_CUSTO,
+	DS_GRUPO_DE_CUSTO,
+	QUEBRA_SETOR,
+	CD_SETOR,
+	NM_SETOR,
+	CD_ESPECIE,
+	DS_ESPECIE,
+	diferenca
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUST_SAISET_ESP_CONS_R_GRUPO_CUSTO2_Q_SAI_SETOR
+SELECT * FROM (
+select Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+     , diferenca
+     , SUM ( Nvl ( VL_SAIDA_SETOR, 0 ) ) vl_saida_setor
+     , SUM ( NvL ( VL_SAIDA_PACIENTE, 0 ) ) vl_saida_paciente
+     , SUM ( Nvl  ( VL_BAIXA, 0 ) ) vl_baixa
+     , SUM ( Nvl ( VL_DEVOLVIDA_SETOR, 0 ) ) vl_devolvida_setor
+     , SUM ( Nvl ( VL_DEVOLVIDA_PACIENTE, 0 ) ) vl_devolvida_paciente
+      from (
+SELECT       Decode( '', 'S', Setor.Cd_Setor, 0 ) Quebra_Setor
+             , GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+             , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+             , SETOR.CD_SETOR
+             , SETOR.NM_SETOR
+             , ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+             , COUNT(C_CONSET.CD_PRODUTO) QTD_ITENS_PRODUTO
+             , SUM(C_CONSET.VL_SAIDA_PACIENTE + C_CONSET.VL_SAIDA_SETOR + C_CONSET.VL_VENDA
+                  -C_CONSET.VL_DEVOLVIDA_PACIENTE - C_CONSET.VL_DEVOLVIDA_SETOR - C_CONSET.VL_DEVOLVIDA_SETOR)  VL_ATUAL
+              ,0 VL_DOADO
+             , round(sum(( C_CONSET.QT_CONTAGEM_ENTRADA * C_CONSET.VL_CONTAGEM_ENTRADA )
+                        - ( C_CONSET.QT_CONTAGEM_SAIDA * C_CONSET.QT_CONTAGEM_SAIDA )), 2) DIFERENCA
+             , SUM  ( Nvl  ( C_ConSet.vl_saida_setor, 0 ) ) vl_saida_setor
+             , SUM  ( NvL ( C_ConSet.vl_saida_paciente, 0 ) ) vl_saida_paciente
+             , SUM  ( Nvl  ( C_ConSet.vl_baixa, 0 ) ) vl_baixa
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_setor, 0 ) ) vl_devolvida_setor
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_paciente, 0 ) ) vl_devolvida_paciente
+          FROM DBAMV.C_CONSET
+             , DBAMV.SETOR
+             , DBAMV.ESTOQUE
+             , DBAMV.PRODUTO
+             , DBAMV.ESPECIE
+             , DBAMV.GRUPO_DE_CUSTO
+         WHERE c_conset.cd_ano|| to_char(c_conset.cd_mes,'fm09') between to_char( :CAMPO_DATA_INI,'YYYYMM')
+	   AND to_char(:CAMPO_DATA_FIM ,'YYYYMM')
+           AND C_CONSET.CD_SETOR      	= SETOR.CD_SETOR
+           AND C_CONSET.CD_PRODUTO    	= PRODUTO.CD_PRODUTO
+           AND PRODUTO.CD_ESPECIE      	= ESPECIE.CD_ESPECIE
+           AND C_CONSET.CD_ESTOQUE     	= ESTOQUE.CD_ESTOQUE
+           AND SETOR.CD_GRUPO_DE_CUSTO 	= GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+      GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+             , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+             , SETOR.CD_SETOR
+             , SETOR.NM_SETOR
+             , ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+)
+Group by Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,diferenca
+)
+ORDER BY 	
+		CD_GRUPO_DE_CUSTO,
+		DS_GRUPO_DE_CUSTO,
+		CD_SETOR,
+		NM_SETOR,
+		CD_ESPECIE,
+		DS_ESPECIE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUST_SAISET_ESP_CONS_R_SETOR4_Q_SAI_SETOR
+SELECT * FROM (
+select Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,sum(QTD_ITENS_PRODUTO) QTD_ITENS_PRODUTO
+      ,sum(VL_ATUAL) VL_ATUAL
+      ,sum(vl_doado) vl_doado
+     ,diferenca
+     , SUM ( Nvl ( VL_SAIDA_SETOR, 0 ) ) vl_saida_setor
+     , SUM ( NvL ( VL_SAIDA_PACIENTE, 0 ) ) vl_saida_paciente
+     , SUM ( Nvl  ( VL_BAIXA, 0 ) ) vl_baixa
+     , SUM ( Nvl ( VL_DEVOLVIDA_SETOR, 0 ) ) vl_devolvida_setor
+     , SUM ( Nvl ( VL_DEVOLVIDA_PACIENTE, 0 ) ) vl_devolvida_paciente
+      from (
+SELECT       Decode( :CAMPO_LIST_QUEBRA, 'S', Setor.Cd_Setor, 0 ) Quebra_Setor
+             , GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+             , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+             , SETOR.CD_SETOR
+             , SETOR.NM_SETOR
+             , ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+             , COUNT(C_CONSET.CD_PRODUTO) QTD_ITENS_PRODUTO
+             , SUM(C_CONSET.VL_SAIDA_PACIENTE + C_CONSET.VL_SAIDA_SETOR + C_CONSET.VL_VENDA
+                  -C_CONSET.VL_DEVOLVIDA_PACIENTE - C_CONSET.VL_DEVOLVIDA_SETOR - C_CONSET.VL_DEVOLVIDA_SETOR)  VL_ATUAL
+              ,0 VL_DOADO
+             , round(sum(( C_CONSET.QT_CONTAGEM_ENTRADA * C_CONSET.VL_CONTAGEM_ENTRADA )
+                        - ( C_CONSET.QT_CONTAGEM_SAIDA * C_CONSET.QT_CONTAGEM_SAIDA )), 2) DIFERENCA
+             , SUM  ( Nvl  ( C_ConSet.vl_saida_setor, 0 ) ) vl_saida_setor
+             , SUM  ( NvL ( C_ConSet.vl_saida_paciente, 0 ) ) vl_saida_paciente
+             , SUM  ( Nvl  ( C_ConSet.vl_baixa, 0 ) ) vl_baixa
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_setor, 0 ) ) vl_devolvida_setor
+             , SUM  ( Nvl  ( C_ConSet.vl_devolvida_paciente, 0 ) ) vl_devolvida_paciente
+          FROM DBAMV.C_CONSET
+             , DBAMV.SETOR
+             , DBAMV.ESTOQUE
+             , DBAMV.PRODUTO
+             , DBAMV.ESPECIE
+             , DBAMV.GRUPO_DE_CUSTO
+         WHERE c_conset.cd_ano|| to_char(c_conset.cd_mes,'fm09') between
+                                                to_char( :CAMPO_DATA_INI,'YYYYMM')
+                                                AND to_char(:CAMPO_DATA_FIM ,'YYYYMM')
+           AND C_CONSET.CD_SETOR      = SETOR.CD_SETOR
+           AND C_CONSET.CD_PRODUTO    = PRODUTO.CD_PRODUTO
+           AND PRODUTO.CD_ESPECIE       = ESPECIE.CD_ESPECIE
+           AND C_CONSET.CD_ESTOQUE      = ESTOQUE.CD_ESTOQUE
+           AND SETOR.CD_GRUPO_DE_CUSTO      = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+      GROUP BY GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+             , GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+             , SETOR.CD_SETOR
+             , SETOR.NM_SETOR
+             , ESPECIE.CD_ESPECIE
+             , ESPECIE.DS_ESPECIE
+)
+Group by Quebra_Setor
+     ,CD_GRUPO_DE_CUSTO
+     , DS_GRUPO_DE_CUSTO
+      ,CD_SETOR
+      ,NM_SETOR
+      ,CD_ESPECIE
+      ,DS_ESPECIE
+      ,diferenca
+)
+ORDER BY  CD_GRUPO_DE_CUSTO,DS_GRUPO_DE_CUSTO,
+QUEBRA_SETOR,
+CD_SETOR,NM_SETOR

@@ -1,0 +1,36 @@
+/*----------------------------------------------------------------------------*/
+--R_MVTO_KIT
+SELECT * FROM (
+SELECT   CD_SETOR
+                ,NM_SETOR
+                ,CD_PRODUTO
+                ,DS_PRODUTO
+                ,SUM(QT_KIT) QT_KIT
+FROM (select  mvto_estoque.cd_setor cd_setor
+             ,setor.nm_setor    nm_setor
+             ,formula.cd_produto cd_produto
+             ,Decode(produto.ds_produto_resumido,null,produto.ds_produto,produto.ds_produto_resumido) ds_produto
+             ,sum(Decode(mvto_estoque.tp_mvto_estoque,'D', -1, 'C', -1, 'N',-1,1) * NVL(itmvto_kits.qt_kit,1)) qt_kit
+      from   dbamv.mvto_estoque
+            ,dbamv.itmvto_kits
+            ,dbamv.formula
+            ,dbamv.produto
+            ,dbamv.setor
+	    ,dbamv.estoque 
+      where         mvto_estoque.cd_mvto_estoque = itmvto_kits.cd_mvto_estoque
+           and      formula.cd_formula                         = itmvto_kits.cd_formula
+           and      produto.cd_produto                        = formula.cd_produto
+           and      setor.cd_setor                                = mvto_estoque.cd_setor
+           and      mvto_estoque.dt_mvto_estoque    between :CAMPO_DATA_INI and 
+           AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+           AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           group by mvto_estoque.cd_setor
+                    ,setor.nm_setor
+                    ,formula.cd_produto
+                    ,Decode(produto.ds_produto_resumido,null,produto.ds_produto,produto.ds_produto_resumido))
+GROUP BY CD_SETOR
+                ,NM_SETOR
+                ,CD_PRODUTO
+                ,DS_PRODUTO
+)
+ORDER BY NM_SETOR,CD_SETOR, CD_PRODUTO

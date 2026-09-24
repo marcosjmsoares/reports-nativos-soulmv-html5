@@ -1,0 +1,54 @@
+/*----------------------------------------------------------------------------*/
+--R_MONITORAMENTO_PACIENTES
+SELECT v_internados.cd_atendimento,
+       LEITO.CD_UNID_INT,
+       leito.CD_leito,
+       leito.ds_leito,
+       atendime.tp_atendimento,
+       paciente.cd_paciente,
+       CASE WHEN nvl(PACIENTE.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' THEN paciente.nm_social_paciente
+           	ELSE paciente.nm_paciente END nm_paciente,
+       dbamv.fn_idade (paciente.dt_nascimento, 'a"a" m"m" d"d" h"h" mi"mi"') nr_idade,
+       atendime.cd_especialid,
+       especialid.ds_especialid,
+       atendime.dt_atendimento AS dt_atendime,
+       atendime.hr_atendimento,
+       atendime.dt_alta,
+       atendime.hr_alta,
+       Decode(
+                (SELECT Count(itped_rx.dt_realizado)
+                 FROM dbamv.itped_rx, dbamv.ped_rx
+                 WHERE ped_rx.cd_ped_rx = itped_rx.cd_ped_rx
+                   AND itped_rx.cd_laudo IS NULL
+                   AND ped_rx.cd_atendimento = atendime.cd_atendimento
+                   AND itped_rx.dt_realizado IS NOT NULL ), 0, NULL, 'P') PENDENCIA_RX,
+       Decode(
+                (SELECT Count(itped_lab.dt_laudo)
+                 FROM dbamv.itped_lab, dbamv.ped_lab
+                 WHERE ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+                   AND nvl(itped_lab.sn_assinado, 'N') = 'N'
+                   AND ped_lab.cd_atendimento = atendime.cd_atendimento
+                   AND itped_lab.dt_laudo IS NOT NULL ), 0, NULL, 'P') PENDENCIA_LAB,
+       dbamv.fn_idade(trunc(atendime.dt_atendimento)+(atendime.hr_atendimento - trunc(atendime.hr_atendimento)), '#a A m M d D h H') dt_atendimento,
+       atendime_programa.ds_observacao,
+       atendime_programa.cd_motivo_permanencia,
+       motivo_permanencia.ds_motivo_permanencia,
+       atendime_programa.ds_grau_dependencia,
+       atendime_programa.ds_cor_kanban,
+       1 qt_pac_internado
+FROM dbamv.v_internados,
+     dbamv.atendime,
+     dbamv.paciente,
+     dbamv.especialid,
+     dbamv.atendime_programa,
+     dbamv.motivo_permanencia,
+     dbamv.leito
+WHERE atendime.cd_atendimento = v_internados.cd_atendimento
+  AND paciente.cd_paciente = atendime.cd_paciente
+  AND especialid.cd_especialid = atendime.cd_especialid
+  AND atendime_programa.dt_saida IS NULL
+  AND atendime_programa.cd_atendimento(+) = atendime.cd_atendimento
+  AND motivo_permanencia.cd_motivo_permanencia(+) = atendime_programa.cd_motivo_permanencia
+  AND leito.cd_leito = v_internados.cd_leito
+  ORDER BY v_internados.cd_unid_int,
+         leito.ds_leito

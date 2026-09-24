@@ -1,0 +1,83 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_IND_CIRUR
+SELECT * FROM (
+SELECT   AVISO_CIRURGIA.CD_AVISO_CIRURGIA             CD_AVISO_CIRURGIA
+                ,PRESTADOR_AVISO.CD_PRESTADOR                 CD_PRESTADOR
+                ,PRESTADOR.NM_PRESTADOR                       NM_PRESTADOR
+                ,CIRURGIA.DS_CIRURGIA                         DS_CIRURGIA
+                ,CIRURGIA_AVISO.CD_CIRURGIA_AVISO  CD_CIRURGIA_AVISO
+                ,CEN_CIR.CD_CEN_CIR                           CD_CEN_CIR
+                ,CEN_CIR.DS_CEN_CIR                           DS_CEN_CIR
+FROM     DBAMV.AVISO_CIRURGIA                         AVISO_CIRURGIA
+               ,(SELECT P_A.CD_PRESTADOR,
+                                A_M.CD_ATI_MED,
+                                A_M.DS_ATI_MED,
+                                P_A.CD_CIRURGIA_AVISO,
+                                P_A.CD_AVISO_CIRURGIA
+                    FROM  DBAMV.PRESTADOR_AVISO P_A,
+                                DBAMV.ATI_MED A_M
+                 WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                       AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+              ,DBAMV.PRESTADOR                              PRESTADOR
+              ,DBAMV.ATI_MED                                ATI_MED
+              ,DBAMV.CIRURGIA_AVISO                         CIRURGIA_AVISO
+              ,DBAMV.CIRURGIA                               CIRURGIA
+              ,DBAMV.CEN_CIR                               CEN_CIR
+WHERE    AVISO_CIRURGIA.TP_SITUACAO          = 'R'
+AND        AVISO_CIRURGIA.CD_AVISO_CIRURGIA   =  CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+AND        CIRURGIA_AVISO.CD_CIRURGIA_AVISO    =  PRESTADOR_AVISO.CD_CIRURGIA_AVISO(+)
+AND        AVISO_CIRURGIA.CD_MULTI_EMPRESA     =  DBAMV.PKG_MV2000.LE_EMPRESA
+AND        CIRURGIA_AVISO.CD_CIRURGIA          = CIRURGIA.CD_CIRURGIA
+AND       AVISO_CIRURGIA.CD_CEN_CIR     = CEN_CIR.CD_CEN_CIR
+AND       PRESTADOR_AVISO.CD_PRESTADOR        = PRESTADOR.CD_PRESTADOR(+)
+AND       PRESTADOR_AVISO.CD_ATI_MED          = ATI_MED.CD_ATI_MED(+)
+AND      AVISO_CIRURGIA.DT_REALIZACAO BETWEEN To_Date(Concat(To_Char(To_Date(:CAMPO_DATA_INI,'dd/mm/yyyy'),'dd/mm/yyyy'),'00'),'dd/mm/yyyy hh24') and  To_Date(Concat(To_Char(To_Date(:CAMPO_DATA_FIM,'dd/mm/yyyy'),'dd/mm/yyyy'),'23'),'dd/mm/yyyy hh24')
+UNION
+SELECT   AVISO_CIRURGIA.CD_AVISO_CIRURGIA             CD_AVISO_CIRURGIA
+        ,EQUIPE_PRESTADOR.CD_PRESTADOR                CD_PRESTADOR
+        ,PRESTADOR.NM_PRESTADOR                       NM_PRESTADOR
+        ,CIRURGIA.DS_CIRURGIA                         DS_CIRURGIA
+        ,CIRURGIA_AVISO.CD_CIRURGIA_AVISO  CD_CIRURGIA_AVISO
+        ,CEN_CIR.CD_CEN_CIR                             CD_CEN_CIR
+        ,CEN_CIR.DS_CEN_CIR                             DS_CEN_CIR
+FROM     DBAMV.AVISO_CIRURGIA                         AVISO_CIRURGIA
+        ,DBAMV.EQUIPE_MEDICA                          EQUIPE_MEDICA
+        ,DBAMV.EQUIPE_PRESTADOR                       EQUIPE_PRESTADOR
+        ,DBAMV.PRESTADOR                              PRESTADOR
+        ,DBAMV.ATI_MED                                ATI_MED
+        ,DBAMV.CIRURGIA_AVISO                         CIRURGIA_AVISO
+        ,DBAMV.CIRURGIA                               CIRURGIA
+        ,DBAMV.CEN_CIR                               CEN_CIR
+WHERE    AVISO_CIRURGIA.TP_SITUACAO            = 'R'
+AND      AVISO_CIRURGIA.CD_EQUIPE_MEDICA     = EQUIPE_MEDICA.CD_EQUIPE_MEDICA
+AND      AVISO_CIRURGIA.CD_AVISO_CIRURGIA    = CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+AND      CIRURGIA_AVISO.CD_CIRURGIA                = CIRURGIA.CD_CIRURGIA
+AND      AVISO_CIRURGIA.CD_MULTI_EMPRESA     =  DBAMV.PKG_MV2000.LE_EMPRESA
+AND      EQUIPE_MEDICA.CD_EQUIPE_MEDICA      = EQUIPE_PRESTADOR.CD_EQUIPE_MEDICA
+AND      AVISO_CIRURGIA.CD_CEN_CIR                  = CEN_CIR.CD_CEN_CIR
+AND      EQUIPE_PRESTADOR.CD_PRESTADOR     = PRESTADOR.CD_PRESTADOR
+AND      EQUIPE_PRESTADOR.CD_ATI_MED           = ATI_MED.CD_ATI_MED
+AND      ATI_MED.TP_FUNCAO                                  = 'C'
+AND      AVISO_CIRURGIA.CD_AVISO_CIRURGIA NOT IN
+                            (SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA
+                             FROM   DBAMV.AVISO_CIRURGIA
+                                         ,(SELECT P_A.CD_PRESTADOR,
+                                                          A_M.CD_ATI_MED,
+                                                          A_M.DS_ATI_MED,
+                                                          P_A.CD_CIRURGIA_AVISO,
+                                                          P_A.CD_AVISO_CIRURGIA
+                                              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                                                          DBAMV.ATI_MED A_M
+                                           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                                                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+                                         ,DBAMV.ATI_MED
+                                        ,DBAMV.CIRURGIA_AVISO
+                             WHERE      AVISO_CIRURGIA.CD_AVISO_CIRURGIA    =  CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+                             AND            CIRURGIA_AVISO.CD_CIRURGIA_AVISO    =  PRESTADOR_AVISO.CD_CIRURGIA_AVISO(+)
+                             AND            PRESTADOR_AVISO.CD_ATI_MED = ATI_MED.CD_ATI_MED(+))
+AND      AVISO_CIRURGIA.DT_REALIZACAO BETWEEN To_Date(Concat(To_Char(To_Date(:CAMPO_DATA_INI,'dd/mm/yyyy'),'dd/mm/yyyy'),'00'),'dd/mm/yyyy hh24') and  To_Date(Concat(To_Char(To_Date(:CAMPO_DATA_FIM,'dd/mm/yyyy'),'dd/mm/yyyy'),'23'),'dd/mm/yyyy hh24')
+ORDER BY NM_PRESTADOR
+)
+ORDER BY DS_CEN_CIR,CD_CEN_CIR,
+NM_PRESTADOR,CD_PRESTADOR,
+DS_CIRURGIA

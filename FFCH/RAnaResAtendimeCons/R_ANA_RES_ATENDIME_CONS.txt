@@ -1,0 +1,92 @@
+/*----------------------------------------------------------------------------*/
+--R_ANA_RES_ATENDIME_CONS
+SELECT    tb.*
+	    ,decode(tb.qtd_diaria,0,0,tb.vl_resultado/Decode(Nvl(tb.qtd_diaria,0), 0, 1, tb.qtd_diaria) ) resultado_diaria
+            ,(tb.vl_resultado/Decode(Nvl(tb.qtd_atendimento,0), 0, 1, tb.qtd_atendimento)) resultado_paciente
+            ,(tb.vl_resultado/(Decode(Nvl(tb.receita,0), 0, 1, tb.receita)*100) ) resultado_rentabilidade
+    FROM (
+        SELECT   a.analise
+                ,SUM ( a.receita ) receita
+                ,SUM ( a.diaria ) diaria
+                ,SUM ( a.qtd_diaria ) qtd_diaria
+                ,SUM ( a.honorario ) honorario
+                ,SUM ( a.procedimento ) procedimento
+                ,SUM ( a.matmed ) matmed
+                ,SUM ( a.terceiro ) terceiro
+                ,MAX ( a.tx_adm ) tx_adm
+                ,MAX ( a.tx_imposto ) tx_imposto
+                ,SUM ( a.vl_resultado ) vl_resultado
+                ,SUM ( a.vl_rentabilidade ) vl_rentabilidade
+                ,a.sn_uti sn_uti
+                ,a.sn_mult_proc sn_mult_proc
+                ,'x' quebra
+                ,COUNT ( a.qtd_atendimento ) qtd_atendimento
+            FROM ( SELECT decode (
+                          ,'1', nvl ( ate.cd_pro_int, nvl ( ate.cd_procedimento, ate.cd_ssm_sia ))
+                          ,'2', ate.cd_cid
+                          ,'3', ate.cd_convenio
+                          ,'4', ate.cd_servico
+                          ,'5', ate.cd_especialid
+                          ,'6', ate.cd_prestador
+                          ,'7', ate.tp_atendimento
+                          ,'8', decode ( fa.cd_cirurgia, '', ate.cd_pro_int, fa.cd_cirurgia )
+                          ,'9', ate.cd_tipo_internacao
+                          ,'0', ate.cd_atendimento
+                          ,'10', sgru_cid.cd_gru_cid
+                          ,'11', cid.cd_sgru_cid
+						  ,'12', to_char( cp.cd_con_pla)||' - '||to_char(cp.cd_convenio)
+                          ) analise
+                        ,fa.vl_receita receita
+                        ,fa.vl_diaria diaria
+                        ,fa.qtd_diaria qtd_diaria
+                        ,fa.vl_honorario honorario
+                        ,fa.vl_procedimento procedimento
+                        ,fa.vl_matmed matmed
+                        ,fa.vl_terceiro terceiro
+                        ,fa.tx_adm tx_adm
+                        ,fa.tx_imposto tx_imposto
+                        ,fa.vl_resultado vl_resultado
+                        ,fa.vl_rentabilidade vl_rentabilidade
+                        ,decode( :CAMPO_SN_UTI,'%','-','T',Nvl(fa.sn_uti ,'N'),nvl( fa.sn_uti, 'N' )) sn_uti
+                        ,decode( :CAMPO_SN_MULTIPLO_PROCEDIMENTO,'%','-',nvl ( fa.sn_multiplos_procedimentos, 'N' )) sn_mult_proc
+                        ,ser_dis.ds_ser_dis
+                        ,'X' dummy
+                        ,rownum qtd_atendimento
+                    FROM dbamv.fa_custo_atendimento fa
+                        ,dbamv.atendime ate
+                        ,dbamv.paciente pc
+                        ,dbamv.pro_fat pf
+                        ,dbamv.tab_siasus sia
+                        ,dbamv.convenio cv
+                        ,dbamv.prestador pr
+                        ,dbamv.cid
+                        ,dbamv.cirurgia
+                        ,dbamv.tipo_internacao tp_int
+                        ,dbamv.ser_dis
+                        ,dbamv.gru_cid
+                        ,dbamv.sgru_cid
+                        ,dbamv.con_pla cp
+                  WHERE to_char ( fa.dt_alta, 'yyyy/mm/dd' ) >= :CAMPO_DT_INI
+                    AND to_char ( fa.dt_alta, 'yyyy/mm/dd' ) <= :CAMPO_DT_FIM
+                    AND to_char ( ate.dt_atendimento, 'yyyy/mm/dd' ) >= :CAMPO_DT_ATENDIMENTO
+                    AND ate.cd_paciente = pc.cd_paciente
+                    AND ate.cd_atendimento = fa.cd_atendimento
+                    AND ate.cd_pro_int = pf.cd_pro_fat(+)
+                    AND ate.cd_ssm_sia = sia.cd_ssm(+)
+                    AND cid.cd_cid(+) = ate.cd_cid
+                    AND cid.cd_sgru_cid = sgru_cid.cd_sgru_cid(+)
+                    AND sgru_cid.cd_gru_cid = gru_cid.cd_gru_cid(+)
+                    AND cirurgia.cd_cirurgia(+) = fa.cd_cirurgia
+                    AND ate.cd_convenio = cv.cd_convenio
+                    AND ate.cd_prestador = pr.cd_prestador(+)
+                    AND ate.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                    AND ate.cd_tipo_internacao = tp_int.cd_tipo_internacao(+)
+                    AND ate.cd_ser_dis = ser_dis.cd_ser_dis(+)
+	            AND cv.cd_convenio = cp.cd_convenio(+)
+                    AND ate.cd_con_pla = cp.cd_con_pla
+                    :CAMPO_CF_PROCEDIMENTO
+                ) a
+        GROUP BY a.analise
+                ,a.sn_uti
+                ,a.sn_mult_proc
+    ) tb

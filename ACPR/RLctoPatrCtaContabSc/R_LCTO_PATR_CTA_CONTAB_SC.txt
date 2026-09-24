@@ -1,0 +1,65 @@
+/*----------------------------------------------------------------------------*/
+--R_LCTO_PATR_CTA_CONTAB_SC
+select
+   cd_contabil,
+   ds_conta,
+   sum(nvl(Vl_Opercional,0)) Total_Custo,
+   sum(nvl(Vl_Patrimonial,0))Total_Despesas,
+   sum(nvl(Vl_Opercional,0))  + sum(nvl(Vl_Patrimonial,0))  Total_Geral
+from
+(
+Select
+   p.cd_contabil cd_contabil,
+   p.ds_conta    ds_conta,
+   sum(nvl(Lc.Vl_Lancamento,0)) Vl_Opercional,
+   0                Vl_Patrimonial
+from
+   Dbamv.Lancamento_Patrimonio	Lc,
+   dbamv.bens b,
+   dbamv.setor s,
+   dbamv.V_LOV_PLANO_CONTAS_RELATORIOS p,
+   dbamv.sub_iob siob
+where
+   lc.cd_bem        = b.cd_bem and
+   b.cd_setor       = s.cd_setor and
+   p.cd_reduzido    =  To_Char(lc.cd_reduzido_debito) and
+   nvl(s.tp_setor,'O')  = 'O' and
+   lc.tp_lancamento = 'D'  And
+   b.cd_capitulo    = siob.cd_capitulo and
+   b.cd_sub_cap     = siob.cd_sub_cap and
+   b.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA and
+   Lc.Dt_Lancamento Between :CAMPO_PDTINICIO And 
+   AND P.CD_MULTI_EMPRESA = B.CD_MULTI_EMPRESA
+ group by
+     cd_contabil,
+     ds_conta
+union
+Select
+   p.cd_contabil    cd_contabil,
+   p.ds_conta       ds_conta,
+   0                Vl_Opercional,
+   sum(nvl(Lc.Vl_Lancamento,0)) Vl_Patrimonial
+from
+   Dbamv.Lancamento_Patrimonio	Lc,
+   dbamv.bens b,
+   dbamv.setor s,
+   dbamv.V_LOV_PLANO_CONTAS_RELATORIOS p,
+   dbamv.sub_iob siob
+where
+   lc.cd_bem   = b.cd_bem and
+   b.cd_setor  = s.cd_setor and
+   p.cd_reduzido = To_Char(lc.cd_reduzido_debito) and
+   s.tp_setor  = 'P' and
+   lc.tp_lancamento = 'D'    And
+   b.cd_Capitulo    = siob.cd_capitulo and
+   b.cd_sub_cap     = siob.cd_sub_cap and
+   b.cd_multi_empresa  =  :CAMPO_CD_MULTI_EMPRESA and
+   Lc.Dt_Lancamento Between :CAMPO_PDTINICIO And 
+   AND P.CD_MULTI_EMPRESA = B.CD_MULTI_EMPRESA
+group by
+     cd_contabil,
+     ds_conta
+     )
+group by
+     cd_contabil,
+     ds_conta

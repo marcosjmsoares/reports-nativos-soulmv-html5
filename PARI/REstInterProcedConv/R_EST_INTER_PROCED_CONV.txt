@@ -1,0 +1,157 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_INTER_PROCED_CONV
+SELECT  DECODE(CONVENIO.TP_CONVENIO, 'C',  ATENDIME.CD_PRO_INT,
+                                                                               'P',  ATENDIME.CD_PRO_INT,
+                                                                               'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)     CD_PRO_INT
+               ,DECODE(CONVENIO.TP_CONVENIO, 'C',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'P',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'H', PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)     DS_PRO_INT
+              ,COUNT(*)    QUANT
+              ,(   SELECT COUNT(*)
+                   FROM DBAMV.ATENDIME ,
+                        DBAMV.CONVENIO       ,
+                        DBAMV.PRO_FAT        ,
+                        DBAMV.GRU_PRO        ,
+                        DBAMV.PROCEDIMENTO_SUS
+                    WHERE ATENDIME.TP_ATENDIMENTO  = 'I'
+                      AND ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+                      AND TRUNC(ATENDIME.DT_ATENDIMENTO) BETWEEN :CAMPO_DT_INICIO AND 
+                      AND ATENDIME.CD_CONVENIO     = CONVENIO.CD_CONVENIO
+                      AND ATENDIME.CD_PRO_INT      = PRO_FAT.CD_PRO_FAT(+)
+                      AND ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO (+)
+                      AND PRO_FAT.CD_GRU_PRO       = GRU_PRO.CD_GRU_PRO(+)) QUANT_TOTAL
+FROM     DBAMV.ATENDIME
+              ,DBAMV.CONVENIO
+              ,DBAMV.PRO_FAT
+              ,DBAMV.GRU_PRO
+              ,DBAMV.PROCEDIMENTO_SUS
+WHERE   ATENDIME.TP_ATENDIMENTO  =  'I'
+AND         ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+AND        TRUNC(ATENDIME.DT_ATENDIMENTO)  BETWEEN :CAMPO_DT_INICIO AND 
+AND        ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_PRO_INT  =  PRO_FAT.CD_PRO_FAT(+)
+AND        ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO (+)
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO(+)
+GROUP BY  DECODE(CONVENIO.TP_CONVENIO, 'C',  ATENDIME.CD_PRO_INT,
+                                                                               'P',  ATENDIME.CD_PRO_INT,
+                                                                               'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)
+               ,DECODE(CONVENIO.TP_CONVENIO, 'C',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'P',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'H', PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)
+UNION ALL
+SELECT  DECODE(CONVENIO.TP_CONVENIO, 'C', PRO_FAT.CD_PRO_FAT,
+                                                                               'P', PRO_FAT.CD_PRO_FAT,
+                                                                               'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)      CD_PRO_INT
+             ,DECODE(CONVENIO.TP_CONVENIO, 'C',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'P',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'H', PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                                                                               'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)     DS_PRO_INT
+              ,COUNT(ITREG_FAT.QT_LANCAMENTO)  QUANT
+              ,(   SELECT COUNT(*)
+                   FROM DBAMV.ATENDIME ,
+                        DBAMV.CONVENIO       ,
+                        DBAMV.PRO_FAT        ,
+                        DBAMV.GRU_PRO        ,
+                        DBAMV.PROCEDIMENTO_SUS
+                    WHERE ATENDIME.TP_ATENDIMENTO  = 'I'
+                      AND ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+                      AND TRUNC(ATENDIME.DT_ATENDIMENTO) BETWEEN :CAMPO_DT_INICIO AND 
+                      AND ATENDIME.CD_CONVENIO     = CONVENIO.CD_CONVENIO
+                      AND ATENDIME.CD_PRO_INT      = PRO_FAT.CD_PRO_FAT(+)
+                      AND ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO (+)
+                      AND PRO_FAT.CD_GRU_PRO       = GRU_PRO.CD_GRU_PRO(+)) QUANT_TOTAL
+FROM DBAMV.ATENDIME
+          ,DBAMV.REG_FAT
+          ,DBAMV.CONVENIO
+          ,DBAMV.ITREG_FAT
+          ,DBAMV.PRO_FAT
+          ,DBAMV.GRU_PRO
+          ,DBAMV.PROCEDIMENTO_SUS
+WHERE  ATENDIME.TP_ATENDIMENTO  =  'I'
+AND         ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+AND        TRUNC(ATENDIME.DT_ATENDIMENTO)  BETWEEN :CAMPO_DT_INICIO AND 
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+AND       REG_FAT.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND       ITREG_FAT.CD_PRO_FAT  =  PRO_FAT.CD_PRO_FAT(+)
+AND       ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)
+AND       PRO_FAT.CD_GRU_PRO  =  GRU_PRO.CD_GRU_PRO(+)
+GROUP BY  DECODE(CONVENIO.TP_CONVENIO, 'C', PRO_FAT.CD_PRO_FAT,
+                                                                               'P', PRO_FAT.CD_PRO_FAT,
+                                                                               'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)
+             ,DECODE(CONVENIO.TP_CONVENIO, 'C',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'P',  NVL(PRO_FAT.DS_PRO_FAT, 'NAO INFORMADO'),
+                                                                               'H', PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                                                                               'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)
+ORDER BY  QUANT DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_INTER_PROCED_CONV_R_CONVENIO_Q_CONVENIO
+SELECT * FROM (
+SELECT  DECODE(CONVENIO.TP_CONVENIO, 'C',  ATENDIME.CD_PRO_INT,
+                                                                               'P',  ATENDIME.CD_PRO_INT,
+                                                                               'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)       CD_PROCED
+               ,ATENDIME.CD_CONVENIO
+               ,CONVENIO.NM_CONVENIO
+               ,COUNT(*)  QUANT_CONV
+FROM     DBAMV.ATENDIME
+              ,DBAMV.CONVENIO
+              ,DBAMV.PRO_FAT
+              ,DBAMV.PROCEDIMENTO_SUS
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ATENDIME.TP_ATENDIMENTO  =  'I'
+AND        ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+AND        TRUNC(ATENDIME.DT_ATENDIMENTO)  BETWEEN :CAMPO_DT_INICIO AND 
+AND        ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        ATENDIME.CD_PRO_INT  =  PRO_FAT.CD_PRO_FAT(+)
+AND        ATENDIME.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)
+GROUP BY  DECODE(CONVENIO.TP_CONVENIO, 'C',  ATENDIME.CD_PRO_INT,
+                                                                                    'P',  ATENDIME.CD_PRO_INT,
+                                                                                    'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                     'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)
+                   ,ATENDIME.CD_CONVENIO
+                   ,CONVENIO.NM_CONVENIO
+UNION ALL
+SELECT  DECODE(CONVENIO.TP_CONVENIO, 'C', PRO_FAT.CD_PRO_FAT,
+                                                                               'P', PRO_FAT.CD_PRO_FAT,
+                                                                               'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)   CD_PROCED
+              ,CONVENIO.CD_CONVENIO
+              ,CONVENIO.NM_CONVENIO
+              ,COUNT(ITREG_FAT.QT_LANCAMENTO)  QUANT_CONV
+FROM DBAMV.ATENDIME
+          ,DBAMV.REG_FAT
+          ,DBAMV.CONVENIO
+          ,DBAMV.ITREG_FAT
+          ,DBAMV.PRO_FAT
+          ,DBAMV.PROCEDIMENTO_SUS
+          ,Dbamv.Empresa_Convenio
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+and    Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and    atendime.tp_atendimento = 'I'
+AND        TRUNC(ATENDIME.DT_ATENDIMENTO)  BETWEEN :CAMPO_DT_INICIO AND 
+AND        ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+AND       REG_FAT.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND       ITREG_FAT.CD_PRO_FAT  =  PRO_FAT.CD_PRO_FAT(+)
+AND       ITREG_FAT.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)
+GROUP BY DECODE(CONVENIO.TP_CONVENIO, 'C', PRO_FAT.CD_PRO_FAT,
+                                                                                   'P', PRO_FAT.CD_PRO_FAT,
+                                                                                   'H', PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                                                                                    'I', PROCEDIMENTO_SUS.DS_PROCEDIMENTO)
+                  ,CONVENIO.CD_CONVENIO
+                  ,CONVENIO.NM_CONVENIO
+ORDER BY  QUANT_CONV  DESC
+)
+WHERE CD_PROCED = :CAMPO_CD_PRO_INT

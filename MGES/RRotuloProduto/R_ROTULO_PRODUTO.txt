@@ -1,0 +1,61 @@
+/*----------------------------------------------------------------------------*/
+--R_ROTULO_PRODUTO
+SELECT CD_CIDADE,
+               1 cd_join_cidade
+   FROM DBAMV.CIDADE
+WHERE ROWNUM <= :CAMPO_QUANT
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ROTULO_PRODUTO_R_1_Q_1
+SELECT * FROM (
+select Solicitacao.nm_paciente
+       , Itens.cd_produto
+       , Itens.ds_produto_resumido
+       , Itens.Cd_SolSai_Pro
+       , 1 Cd_join
+    from (Select Paciente.Nm_Paciente
+            From Dbamv.Mvto_Estoque
+               , Dbamv.Atendime
+               , Dbamv.Paciente
+               , Dbamv.Sessao_Tratamento
+               , Dbamv.Ciclo_Tratamento
+           Where Mvto_Estoque.Cd_Atendimento = Atendime.Cd_Atendimento
+             And Atendime.Cd_Paciente = Paciente.Cd_Paciente
+             And Atendime.Cd_Atendimento = Sessao_Tratamento.Cd_Atendimento
+             And Sessao_Tratamento.Nr_Ciclo = Ciclo_Tratamento.Nr_Ciclo
+             And Sessao_Tratamento.Cd_Tratamento = Ciclo_Tratamento.Cd_Tratamento
+             And Mvto_Estoque.Cd_SolSai_Pro = :CAMPO_PCD_SOLICITACAO
+      union
+     Select Paciente.Nm_Paciente
+            From Dbamv.Mvto_Estoque
+               , Dbamv.Atendime
+               , Dbamv.Paciente
+           Where Mvto_Estoque.Cd_Atendimento = Atendime.Cd_Atendimento
+             and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+             And Atendime.Cd_Paciente = Paciente.Cd_Paciente
+             And Mvto_Estoque.Cd_SolSai_Pro = :CAMPO_PCD_SOLICITACAO) Solicitacao
+       , (Select Produto.Ds_Produto_resumido
+                   , Tip_Presc.cd_tip_presc
+                   , ItSolSai_Pro.Cd_Produto Cd_Produto
+                   , ItSolSai_Pro.Cd_SolSai_Pro Cd_SolSai_Pro
+            From Dbamv.ItSolSai_Pro
+               , Dbamv.Produto
+               , Dbamv.ItPre_Med
+               , Dbamv.Tip_Presc
+           Where ItSolSai_Pro.Cd_Produto = Produto.Cd_Produto
+             And ItSolSai_Pro.Cd_SolSai_Pro = :CAMPO_PCD_SOLICITACAO
+             And ItSolSai_Pro.Cd_ItPre_Med  = ItPre_Med.Cd_ItPre_Med(+)
+             And Tip_Presc.Cd_Tip_Presc(+)     = ItPre_Med.Cd_Tip_Presc
+             And Exists (Select ItMvto_Estoque.Cd_Produto
+                           From Dbamv.ItMvto_Estoque
+                              , Dbamv.Mvto_Estoque
+                          Where ItMvto_Estoque.Cd_Produto = ItSolSai_Pro.Cd_Produto
+                            And ItMvto_Estoque.Cd_Mvto_Estoque = Mvto_Estoque.Cd_Mvto_Estoque
+                            And Mvto_Estoque.Cd_SolSai_Pro = ItSolSai_Pro.Cd_SolSai_Pro)) Itens
+  where not exists (select 1
+                                from dbamv.compon
+                             where cd_tip_presc = Itens.cd_tip_presc)
+)
+WHERE CD_JOIN = :CAMPO_CD_JOIN_CIDADE

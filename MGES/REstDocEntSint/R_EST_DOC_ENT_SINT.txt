@@ -1,0 +1,74 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_DOC_ENT_SINT
+SELECT * FROM (
+select cd_fornecedor,
+          nm_fornecedor,
+          ds_tip_doc,
+          Decode((SELECT Nvl(SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N') FROM DBAMV.CONFIGEST WHERE CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA), 'S', nr_ncf, nr_documento) nr_documento,
+          nr_serie,
+          dt_emissao,
+          dt_vencimento,
+          vl_parcela,
+          vl_total,
+          dt_entrada
+from (
+select    doc_ent.cd_fornecedor,
+          fornecedor.nm_fornecedor,
+          tip_doc.ds_tip_doc,
+          doc_ent.nr_documento,
+          doc_ent.nr_ncf,
+          doc_ent.nr_serie,
+          doc_ent.dt_emissao,
+          dup.dt_vencimento,
+          dup.vl_parcela,
+          doc_ent.vl_total,
+          doc_ent.dt_entrada
+from   dbamv.documento_entrada doc_ent,
+       dbamv.fornecedor,
+       dbamv.tip_doc,
+       dbamv.duplicata dup
+where doc_ent.cd_fornecedor = fornecedor.cd_fornecedor
+ AND doc_ent.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and  fornecedor.Tp_Cliente_Forn In ( 'F', 'A', 'R', 'T' )
+   and  doc_ent.cd_tip_doc = tip_doc.cd_tip_doc
+   and  doc_ent.cd_fornecedor is not null
+   and  doc_ent.cd_fornecedor = dup.cd_fornecedor
+   and  doc_ent.nr_documento = dup.nr_documento
+   and  doc_ent.nr_serie = dup.nr_serie
+   and  doc_ent.tp_documento_entrada <> 'F'
+UNION ALL
+select    doc_ent.cd_fornecedor,
+          fornecedor.nm_fornecedor,
+          tip_doc.ds_tip_doc,
+          doc_ent.nr_documento,
+          doc_ent.nr_ncf,
+          doc_ent.nr_serie,
+          doc_ent.dt_emissao,
+          dup.dt_vencimento,
+          dup.vl_parcela,
+          doc_ent.vl_total,
+          doc_ent.dt_entrada
+from   dbamv.documento_entrada doc_ent,
+       dbamv.fornecedor,
+       dbamv.tip_doc,
+       dbamv.duplicata dup
+where   doc_ent.cd_fornecedor = fornecedor.cd_fornecedor
+ AND doc_ent.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and  fornecedor.Tp_Cliente_Forn In ( 'F', 'A', 'R', 'T' )
+   and  doc_ent.cd_tip_doc = tip_doc.cd_tip_doc
+   and  doc_ent.cd_fornecedor is not null
+   and  doc_ent.cd_fornecedor = dup.cd_fornecedor
+   and  doc_ent.nr_documento = dup.nr_documento
+   and  doc_ent.nr_serie = dup.nr_serie
+   and  doc_ent.tp_documento_entrada = 'F'
+   and exists (Select ent_pro.cd_ent_pro
+                 from dbamv.ent_pro, dbamv.itent_pro
+                where  ent_pro.cd_fornecedor_frete = doc_ent.cd_fornecedor
+                  and  ent_pro.nr_conhecimento_frete = doc_ent.nr_documento
+                  and  ent_pro.nr_serie_frete = doc_ent.nr_serie
+                  and  ent_pro.cd_ent_pro = itent_pro.cd_ent_pro
+                  and ( ent_pro.tp_frete='F' and ent_pro.sn_inclusao_nota='N' and itent_pro.sn_agrega_frete_custo_medio = 'S'))
+   :CAMPO_CF_NCF )
+)
+ORDER BY :CAMPO_CF_ORDER_BY ,NM_FORNECEDOR,CD_FORNECEDOR,NR_DOCUMENTO,
+NR_SERIE,DT_EMISSAO,DT_ENTRADA,VL_TOTAL,DS_TIP_DOC

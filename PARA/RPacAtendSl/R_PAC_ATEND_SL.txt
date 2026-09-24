@@ -1,0 +1,46 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_ATEND_SL
+SELECT * FROM (
+SELECT  MARCACAO.CD_MARCACAO           CD_MARCACAO
+               ,PRESTADOR.CD_PRESTADOR      CD_PRESTADOR1
+               ,PRESTADOR.NM_PRESTADOR     NM_PRESTADOR
+               ,MARCACAO.DT_MARCACAO          DT_MARCACAO
+               ,MARCACAO.HR_INICIAL                  HR_INICIAL
+               ,MARCACAO.HR_FINAL                    HR_FINAL
+               ,TIP_MAR.CD_TIP_MAR                   CD_TIP_MAR
+               ,TIP_MAR.DS_TIP_MAR                   DS_TIP_MAR
+              ,MARCACAO.NR_TEMPO_MEDIO     NR_TEMPO_MEDIO
+              ,MARCACAO.SN_SIA                          SN_SIA
+              ,IT_MARCACAO.CD_PACIENTE
+              ,IT_MARCACAO.NM_PACIENTE
+              ,(SELECT PA.NM_SOCIAL_PACIENTE
+          		FROM DBAMV.PACIENTE PA
+          		WHERE PA.CD_PACIENTE = IT_MARCACAO.CD_PACIENTE
+            	  AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE
+              ,IT_MARCACAO.NR_TELEFONE
+              ,IT_MARCACAO.CD_ATENDIMENTO
+              ,IT_MARCACAO.CD_IT_MARCACAO
+              ,IT_MARCACAO.SN_ENCAIXE
+FROM    Dbamv.MARCACAO         MARCACAO
+             ,Dbamv.PRESTADOR       PRESTADOR
+             ,Dbamv.IT_MARCACAO
+             ,Dbamv.TIP_MAR
+WHERE  PRESTADOR.CD_PRESTADOR    = MARCACAO.CD_PRESTADOR
+AND        MARCACAO.CD_MARCACAO        = IT_MARCACAO.CD_MARCACAO
+AND        IT_MARCACAO.CD_TIP_MAR       = TIP_MAR.CD_TIP_MAR(+)
+AND        (IT_MARCACAO.CD_PACIENTE is not null   OR IT_MARCACAO.NM_PACIENTE is not null )
+AND        MARCACAO.CD_PRESTADOR  LIKE  :CAMPO_CD_MEDICO
+AND   MARCACAO.DT_MARCACAO between to_date(to_char(:CAMPO_DT_INIC,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+								   to_date(to_char(:CAMPO_DT_FIM,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+ORDER BY MARCACAO.CD_MARCACAO
+                   ,PRESTADOR.CD_PRESTADOR
+                   ,MARCACAO.DT_MARCACAO
+                   ,to_date(to_char(MARCACAO.HR_INICIAL,'hh24'),'hh24')
+                   ,IT_MARCACAO.CD_PACIENTE
+)
+ORDER BY CD_MARCACAO,CD_PRESTADOR1,NM_PRESTADOR,DT_MARCACAO,HR_INICIAL,HR_FINAL
+,CD_ATENDIMENTO
+,CD_PACIENTE
+,NM_PACIENTE
+,CD_TIP_MAR
+,DS_TIP_MAR

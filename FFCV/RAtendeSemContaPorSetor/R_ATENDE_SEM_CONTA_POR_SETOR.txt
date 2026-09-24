@@ -1,0 +1,104 @@
+/*----------------------------------------------------------------------------*/
+--R_ATENDE_SEM_CONTA_POR_SETOR
+SELECT * FROM (
+SELECT DISTINCT
+               REG_FAT.CD_ATENDIMENTO
+              ,ATENDIME.TP_ATENDIMENTO
+              ,ATENDIME.CD_PACIENTE
+              ,REG_FAT.CD_REG_FAT   CONTA
+              ,ATENDIME.DT_ATENDIMENTO
+              ,ATENDIME.DT_ALTA
+              ,ATENDIME.CD_LEITO
+              ,REG_FAT.CD_CONVENIO
+              ,PACIENTE.NM_PACIENTE
+              ,CONVENIO.NM_CONVENIO
+              ,LEITO.DS_LEITO
+               ,UNID_INT.CD_UNID_INT
+               ,nvl( UNID_INT.DS_UNID_INT,ori_ate.ds_ori_ate ) DS_UNID_INT
+               ,nvl(REG_FAT.VL_TOTAL_CONTA,0)               VL_TOTAL_CONTA
+               ,REG_FAT.DT_INICIO   DT_INICIO
+               ,REG_FAT.DT_FINAL  DT_FINAL
+FROM     DBAMV.ATENDIME
+              ,DBAMV.REG_FAT
+              ,DBAMV.CONVENIO
+              ,DBAMV.PACIENTE
+              ,DBAMV.LEITO
+              ,DBAMV.UNID_INT
+              ,DBAMV.REMESSA_FATURA,
+	     dbamv.empresa_convenio
+              ,dbamv.ori_ate
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and ATENDIME.CD_ATENDIMENTO  = REG_FAT.CD_ATENDIMENTO
+ AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+ AND      ATENDIME.CD_PACIENTE           = PACIENTE.CD_PACIENTE
+ AND      ATENDIME.CD_LEITO                  = LEITO.CD_LEITO(+)
+ AND      LEITO.CD_UNID_INT                    = UNID_INT.CD_UNID_INT(+)
+ AND      REG_FAT.CD_REMESSA            = REMESSA_FATURA.CD_REMESSA(+)
+ AND      REG_FAT.CD_CONVENIO            = CONVENIO.CD_CONVENIO
+ AND       CONVENIO.TP_CONVENIO <> 'H'
+ AND  NVL(ATENDIME.CD_ATENDIMENTO_PAI,0) NOT IN ( SELECT ATENDIME_PAI.CD_ATENDIMENTO
+                                                    FROM DBAMV.ATENDIME  ATENDIME_PAI
+                                                   WHERE NVL(ATENDIME_PAI.QT_SESSOES,0) > 0 )
+ AND      ATENDIME.CD_MULTI_EMPRESA = NVL( :CAMPO_CD_MULTI_EMPRESA, ATENDIME.CD_MULTI_EMPRESA )
+ and atendime.cd_ori_ate = ori_ate.cd_ori_ate
+UNION  ALL
+SELECT DISTINCT
+               ITREG_AMB.CD_ATENDIMENTO
+              ,ATENDIME.TP_ATENDIMENTO
+              ,ATENDIME.CD_PACIENTE
+              ,ITREG_AMB.CD_REG_AMB    CONTA
+              ,ATENDIME.DT_ATENDIMENTO
+              ,NVL(ATENDIME.DT_ALTA,  ATENDIME.DT_ATENDIMENTO)  DT_ALTA
+              ,ATENDIME.CD_LEITO
+              ,REG_AMB.CD_CONVENIO
+              ,PACIENTE.NM_PACIENTE
+              ,CONVENIO.NM_CONVENIO
+              ,LEITO.DS_LEITO
+              ,UNID_INT.CD_UNID_INT
+               ,nvl( UNID_INT.DS_UNID_INT,ori_ate.ds_ori_ate ) DS_UNID_INT
+              ,SUM(decode(ITREG_AMB.SN_PERTENCE_PACOTE, 'S', 0,
+                          decode(NVL(ITREG_AMB.TP_PAGAMENTO,'X'), 'C', 0,ITREG_AMB.VL_TOTAL_CONTA))) VL_TOTAL_CONTA
+              ,ATENDIME.DT_ATENDIMENTO   DT_INICIO
+              ,ATENDIME.DT_ATENDIMENTO  DT_FINAL
+FROM    DBAMV.ATENDIME
+             ,DBAMV.ITREG_AMB
+             ,DBAMV.CONVENIO
+             ,DBAMV.PACIENTE
+             ,DBAMV.LEITO
+             ,DBAMV.UNID_INT
+             ,DBAMV.REG_AMB
+             ,DBAMV.REMESSA_FATURA,
+	     dbamv.empresa_convenio
+              ,dbamv.ori_ate
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+AND       ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+AND       LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+AND       ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND       REG_AMB.CD_REMESSA = REMESSA_FATURA.CD_REMESSA(+)
+AND       REG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND       CONVENIO.TP_CONVENIO <> 'H'
+ AND  NVL(ATENDIME.CD_ATENDIMENTO_PAI,0) NOT IN ( SELECT ATENDIME_PAI.CD_ATENDIMENTO
+                                                    FROM DBAMV.ATENDIME  ATENDIME_PAI
+                                                   WHERE NVL(ATENDIME_PAI.QT_SESSOES,0) > 0 )
+ AND      ATENDIME.CD_MULTI_EMPRESA = NVL( :CAMPO_CD_MULTI_EMPRESA, ATENDIME.CD_MULTI_EMPRESA )
+ and atendime.cd_ori_ate = ori_ate.cd_ori_ate
+GROUP BY  ITREG_AMB.CD_ATENDIMENTO
+                    ,ATENDIME.TP_ATENDIMENTO
+                    ,ATENDIME.CD_PACIENTE
+                    ,ITREG_AMB.CD_REG_AMB
+                    ,ATENDIME.DT_ATENDIMENTO
+                    ,NVL(ATENDIME.DT_ALTA,  ATENDIME.DT_ATENDIMENTO)
+                    ,ATENDIME.CD_LEITO
+                    ,REG_AMB.CD_CONVENIO
+                    ,PACIENTE.NM_PACIENTE
+                    ,CONVENIO.NM_CONVENIO
+                    ,LEITO.DS_LEITO
+                    ,UNID_INT.CD_UNID_INT
+                    ,UNID_INT.DS_UNID_INT
+                    ,ori_ate.ds_ori_ate
+:CAMPO_CF_ORDEM
+)

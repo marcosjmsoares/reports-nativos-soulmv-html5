@@ -1,0 +1,232 @@
+/*----------------------------------------------------------------------------*/
+--R_INTERN_SIN
+SELECT * FROM (
+select nvl(sum(valor),0)VALOR,mes,ano
+            ,((sum(ZeroHor)+ sum(inter) + sum(entr)) - (sum(alta) + sum(obto) + sum(said))) PAC_DIA
+            ,sum(leito) LEITOS,
+            nvl((((sum(ZeroHor)+ sum(inter) + sum(entr)) - (sum(alta) + sum(obto) + sum(said)))*100)/DECODE(sum(leito),0,1,sum(leito)),0)pERC_OCUP
+from (
+SELECT COUNT(*) VALOR
+,TO_CHAR(DT_ATENDIMENTO,'MM') MES
+,TO_CHAR(DT_ATENDIMENTO,'YYYY') ANO
+,0 alta
+,0 inter
+,0 obto
+,0 ZeroHor
+,0 entr
+,0 said
+,0 leito
+FROM DBAMV.ATENDIME
+WHERE TP_ATENDIMENTO in ('I','H')
+AND CD_ATENDIMENTO_PAI IS NULL
+GROUP BY
+TO_CHAR(DT_ATENDIMENTO,'YYYY')
+,TO_CHAR(DT_ATENDIMENTO,'MM')
+UNION ALL
+     select 0 VALOR,to_char(dt_alta,'MM') mes, to_char(dt_alta,'YYYY') ano
+            ,count(*) alta
+            ,0 inter
+            ,0 obto
+            ,0 ZeroHor
+            ,0 entr
+            ,0 said
+            ,0 leito
+      from   dbamv.atendime
+            ,dbamv.unid_int
+            ,dbamv.leito
+            ,dbamv.mot_alt
+            ,dbamv.convenio
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa =:CAMPO_CD_MULTI_EMPRESA
+And nvl(unid_int.cd_unid_int,0) like '%'
+      and    leito.cd_leito = atendime.cd_leito
+      and    nvl(atendime.cd_servico,0)  like '%'
+      and    nvl(atendime.cd_convenio,0) like '%'
+      and    mot_alt.cd_mot_alt = atendime.cd_mot_alt
+      and    unid_int.cd_unid_int = leito.cd_unid_int
+      and    TRUNC(atendime.dt_alta) BETWEEN TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')
+                                                                    AND LAST_DAY(TO_DATE('01/12/' || TO_CHAR(:CAMPO_DATA_FIM,'YYYY'),'DD/MM/YYYY') )
+      and    mot_alt.tp_mot_alta <> 'O'
+      and    atendime.tp_atendimento = 'I'
+      and    atendime.cd_atendimento_pai is null
+      and    nvl(convenio.tp_convenio,0) like '%'
+      and    atendime.cd_convenio = convenio.cd_convenio
+      group by  to_char(dt_alta,'YYYY'), to_char(dt_alta,'MM')
+UNION  ALL
+ SELECT  0 VALOR,mes,ano
+        ,0 alta
+        ,SUM(qtd_inter)
+            ,0 obto
+            ,0 ZeroHor
+            ,0 entr
+            ,0 said
+            ,0 leito
+  FROM (
+   select to_char(contador.data,'MM') mes, to_char(contador.data,'YYYY') ano
+           ,count(*)  qtd_inter
+      from   dbamv.atendime
+            ,dbamv.unid_int
+            ,dbamv.leito
+            ,dbamv.mov_int
+            ,dbamv.convenio
+              ,(
+                select (TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')  -1) + rownum DATA
+                  FROM DBAMV.CID
+                  WHERE (TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY') -1) + rownum <= LAST_DAY(TO_DATE('01/12/' || TO_CHAR(:CAMPO_DATA_FIM,'YYYY'),'DD/MM/YYYY') )
+               ) Contador
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And leito.cd_unid_int = unid_int.cd_unid_int
+      and    leito.cd_leito = mov_int.cd_leito
+      and    TRUNC(dt_mov_int) = trunc( contador.data )
+      and    MOV_INT.TP_MOV = 'I'
+      and    atendime.cd_atendimento = mov_int.cd_atendimento
+      and (
+          atendime.tp_atendimento in ('I','H') and atendime.cd_atendimento_pai is null
+      )
+      and    atendime.cd_convenio = convenio.cd_convenio
+      group by to_char(contador.data,'YYYY'),to_char(contador.data,'MM')
+      )
+      group by ano,mes
+      union ALL
+    select  0 VALOR,to_char(dt_alta,'MM') mes,to_char(dt_alta,'YYYY') ano
+           ,0 alta
+           ,0 inter
+            ,count(*) obto
+            ,0 ZeroHor
+            ,0 entr
+            ,0 said
+            ,0 leito
+      from dbamv.atendime
+          ,dbamv.mot_alt
+      where mot_alt.cd_mot_alt      = atendime.cd_mot_alt
+        and TRUNC(atendime.dt_alta) BETWEEN TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')
+                                                                    AND LAST_DAY(TO_DATE('01/12/' || TO_CHAR(:CAMPO_DATA_FIM,'YYYY'),'DD/MM/YYYY') )
+        and mot_alt.tp_mot_alta     = 'O'
+        And atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+        and atendime.tp_atendimento = 'I'
+        and atendime.cd_atendimento_pai is null
+        group by to_char(dt_alta,'YYYY'),to_char(dt_alta,'MM')
+        union  ALL
+   SELECT   0 VALOR,mes,ano
+           ,0 alta
+           ,0 inter
+            ,0 obto
+            ,SUM(zero) ZeroHor
+            ,0 entr
+            ,0 said
+            ,0 leito
+      FROM (
+      select to_char(contador.data,'MM') mes,to_char(contador.data,'YYYY') ano
+             ,count(*) zero
+      from   dbamv.mov_int
+            ,dbamv.unid_int
+            ,dbamv.leito
+            ,dbamv.atendime
+            ,dbamv.convenio
+              ,(
+                select(TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')  -1 ) + rownum DATA
+                  FROM DBAMV.CID
+                  WHERE (TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')  -1) + rownum <= LAST_DAY(TO_DATE('01/12/' || TO_CHAR(:CAMPO_DATA_FIM,'YYYY'),'DD/MM/YYYY') )
+             ) contador
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And TRUNC(dt_mov_int) <= contador.data - 1
+      and    TRUNC(NVL(dt_lib_mov, SYSDATE) ) > contador.data - 1
+      and    tp_mov in('O', 'I')
+      and    leito.cd_unid_int = unid_int.cd_unid_int
+      and    mov_int.cd_atendimento = atendime.cd_atendimento
+      and (
+          atendime.tp_atendimento in ('I','H') and atendime.cd_atendimento_pai is null
+      )
+      and    mov_int.cd_leito = leito.cd_leito
+      and    atendime.cd_convenio = convenio.cd_convenio
+       group by to_char(contador.data,'YYYY'),to_char(contador.data,'MM'))
+       group by ano,mes
+      union ALL
+    select  0 VALOR,to_char(dt_mov_int,'MM') mes,to_char(dt_mov_int,'YYYY') ano
+           ,0 alta
+           ,0 inter
+            ,0 obto
+            ,0 ZeroHor
+            ,count(*) entr
+            ,0 said
+            ,0 leito
+      from   dbamv.mov_int
+            ,dbamv.unid_int
+            ,dbamv.unid_int unid_int1
+            ,dbamv.leito
+            ,dbamv.leito leito1
+            ,dbamv.atendime
+      where    tp_mov                   = 'O'
+      and    TRUNC(dt_mov_int)        BETWEEN  TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')
+                                                                    AND LAST_DAY(TO_DATE('01/12/' || TO_CHAR(:CAMPO_DATA_FIM,'YYYY'),'DD/MM/YYYY') )
+      and    mov_int.cd_leito         = leito.cd_leito
+      and    mov_int.cd_leito_anterior =    leito1.cd_leito
+      and    leito1.cd_unid_int        =    unid_int1.cd_unid_int
+      and    unid_int.cd_unid_int      <>   unid_int1.cd_unid_int
+      and    leito.cd_unid_int        = unid_int.cd_unid_int
+        And atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and    atendime.cd_atendimento  = mov_int.cd_atendimento
+      and ( atendime.tp_atendimento in ('I','H') and atendime.cd_atendimento_pai is null
+          )
+group by to_char(dt_mov_int,'YYYY'),to_char(dt_mov_int,'MM')
+union all
+    select  0 VALOR,to_char(dt_mov_int,'MM') mes,to_char(dt_mov_int,'YYYY') ano
+           ,0 alta
+           ,0 inter
+            ,0 obto
+            ,0 ZeroHor
+            ,0 entr
+            ,count(*)  said
+            ,0 leito
+      from   dbamv.mov_int
+            ,dbamv.unid_int
+            ,dbamv.unid_int unid_int1
+            ,dbamv.leito
+            ,dbamv.leito leito1
+            ,dbamv.atendime
+      where    tp_mov                   = 'O'
+      and    TRUNC(dt_mov_int)        BETWEEN  TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')
+                                                                    AND LAST_DAY(TO_DATE('01/12/' || TO_CHAR(:CAMPO_DATA_FIM,'YYYY'),'DD/MM/YYYY') )
+      And   mov_int.tp_mov            =  'O'
+      And   mov_int.cd_leito_anterior =  leito.cd_leito
+      and   mov_int.cd_leito          =  leito1.cd_leito
+      and   leito1.cd_unid_int        =  unid_int1.cd_unid_int
+      and   unid_int.cd_unid_int      <> unid_int1.cd_unid_int
+      and   leito.cd_unid_int         =  unid_int.cd_unid_int
+      and   atendime.cd_atendimento   =  mov_int.cd_atendimento
+        And atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and ( atendime.tp_atendimento in ('I','H') and atendime.cd_atendimento_pai is null
+          )
+group by to_char(dt_mov_int,'YYYY'),to_char(dt_mov_int,'MM')
+   union  ALL
+select  0 VALOR,to_char(contador.data,'MM') mes,to_char(contador.data,'YYYY') ano
+           ,0 alta
+           ,0 inter
+            ,0 obto
+            ,0 ZeroHor
+            ,0 entr
+            ,0 said
+            ,count(*) leito
+      from dbamv.leito
+         ,( select (TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY')  -1) + rownum DATA
+              FROM DBAMV.CID
+              WHERE (TO_DATE('01/01/' || TO_CHAR(:CAMPO_DATA_INI,'YYYY'),'DD/MM/YYYY') -1) + rownum <=  LAST_DAY(TO_DATE('01/12/' || TO_CHAR(:CAMPO_DATA_FIM,'YYYY'),'DD/MM/YYYY') )
+          ) contador
+          ,dbamv.unid_int
+          ,dbamv.setor
+     where leito.sn_extra = 'N'
+       and contador.data >= leito.dt_ativacao
+       and contador.data <= nvl(leito.dt_desativacao,sysdate)
+       and leito.cd_unid_int = unid_int.cd_unid_int
+       and unid_int.cd_setor = setor.cd_setor
+       group by to_char(contador.data,'YYYY'),to_char(contador.data,'MM')
+)
+GROUP BY ANO,MES
+)
+ORDER BY MES,
+ANO

@@ -1,0 +1,86 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_APRESENTADAS
+select ds_setor_faturamento, nr_guia, cd_paciente, nm_paciente, dt_conta, ds_setor_clinica, cd_procedimento_realizado, sn_opme, qt_dias_p, tp_apac
+from (
+select '('||dbamv.pkg_ffis_regra_fatura.f_setor_remessa(p.cd_remessa_origem)||') '
+     ||dbamv.pkg_sus_regra_setor.f_descricao(dbamv.pkg_ffis_regra_fatura.f_setor_remessa(p.cd_remessa_origem)) ds_setor_faturamento
+     , r.nr_guia
+     , a.cd_paciente
+     , dbamv.pkg_sus_regra_paciente.f_nome_paciente(a.cd_paciente) nm_paciente
+     , to_char(r.dt_inicio,'dd/mm/yy')||' a '||to_char(r.dt_final,'dd/mm/yy')  dt_conta
+     , '('||dbamv.pkg_ffis_regra_conta_aih.f_setor_conta(a.cd_atendimento,r.cd_reg_fat)
+     ||') '|| dbamv.pkg_sus_Regra_setor.f_descricao(dbamv.pkg_ffis_regra_conta_aih.f_setor_conta(a.cd_atendimento,r.cd_reg_fat)) ds_setor_clinica
+     , r.cd_procedimento_realizado
+     , decode(DBAMV.pkg_sus_util.f_aih_qtd_opm(r.cd_reg_fat),0,'NÃO','SIM('||DBAMV.pkg_sus_util.f_aih_qtd_opm(r.cd_reg_fat)||')') sn_opme
+     , trunc(sysdate) - trunc(r.dt_final) qt_dias_p
+     , p.cd_protocolo
+     , '' tp_apac
+  from dbamv.reg_fat                    r
+     , dbamv.item_protocolo_remessa_aih i
+     , dbamv.atendime                   a
+     , dbamv.protocolo_remessa_aih      p
+where r.cd_reg_fat     = i.cd_reg_fat
+  and p.cd_protocolo   = i.cd_protocolo
+  and a.cd_atendimento = r.cd_atendimento
+  and p.cd_protocolo = :CAMPO_PROTOCOLO
+UNION ALL
+select '('||dbamv.pkg_ffas_regra_fatura.f_setor_remessa('APAC', p.cd_remessa_origem)||') '
+     ||dbamv.pkg_sus_regra_setor.f_descricao(dbamv.pkg_ffas_regra_fatura.f_setor_remessa('APAC', p.cd_remessa_origem)) ds_setor_faturamento
+     , to_char(r.nr_apac) nr_guia
+     , r.cd_paciente
+     , dbamv.pkg_sus_regra_paciente.f_nome_paciente(r.cd_paciente) nm_paciente
+     , to_char(r.dt_inicial,'dd/mm/yy')||' a '||to_char(r.dt_final,'dd/mm/yy')  dt_conta
+     , '('||dbamv.pkg_ffas_regra_conta_apac.f_setor_conta(e.cd_atendimento,r.cd_apac)
+     ||') '|| dbamv.pkg_sus_Regra_setor.f_descricao(dbamv.pkg_ffas_regra_conta_apac.f_setor_conta(e.cd_atendimento,r.cd_apac)) ds_setor_clinica
+     , e.cd_procedimento cd_procedimento_realizado
+     , decode(DBAMV.pkg_sus_util.f_apac_qtd_opm(r.cd_apac),0,'NÃO','SIM('||DBAMV.pkg_sus_util.f_apac_qtd_opm(r.cd_apac)||')') sn_opme
+     , trunc(sysdate) - trunc(sysdate) qt_dias_p
+     , p.cd_protocolo
+     , decode(R.tp_apac,'1','Inicial','2','Continuídade','Única') TP_APAC
+  from dbamv.apac                        r
+     , dbamv.eve_siasus                  e
+     , dbamv.item_protocolo_remessa_apac i
+     , dbamv.protocolo_remessa_apac      p
+where r.cd_apac        = i.cd_apac
+  and r.cd_apac        = e.cd_apac
+  and NVL(e.sn_apac_principal, 'N') = 'S'
+  and p.cd_protocolo   = i.cd_protocolo
+  and p.cd_protocolo = :CAMPO_PROTOCOLO
+  )
+  order by 1,2
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_APRESENTADAS_subreport1
+select mes, qtd_contas, qtd_opm, vl_total
+  from (
+select to_char(r.dt_final,'mm/yyyy') mes
+    , count(*) qtd_contas
+    , sum(dbamv.pkg_sus_util.f_aih_qtd_opm(r.cd_reg_fat)) qtd_opm
+    , to_char(sum(dbamv.pkg_ffis_calc_aih.fnc_ffis_retorna_valor_conta(r.cd_reg_fat)), '999999990D99')  vl_total
+  from dbamv.reg_fat                    r
+     , dbamv.item_protocolo_remessa_aih i
+     , dbamv.atendime                   a
+     , dbamv.protocolo_remessa_aih      p
+where r.cd_reg_fat     = i.cd_reg_fat
+  and p.cd_protocolo   = i.cd_protocolo
+  and a.cd_atendimento = r.cd_atendimento
+  and p.cd_protocolo = :CAMPO_PROTOCOLO
+  group by to_char(r.dt_final,'mm/yyyy')
+UNION ALL
+select to_char(m.dt_competencia_apresentacao,'mm/yyyy') mes
+    , count(*) qtd_contas
+    , sum(dbamv.pkg_sus_util.f_apac_qtd_opm(r.cd_apac)) qtd_opm
+    , to_char(SUM(DBAMV.PKG_SUS_UTIL.f_apac_tot_conta(r.cd_apac)), '999999990D99')  vl_total
+  from dbamv.apac                        r
+     , dbamv.remessa_apac                m
+     , dbamv.item_protocolo_remessa_apac i
+     , dbamv.protocolo_remessa_apac      p
+where r.cd_apac        = i.cd_apac
+  and p.cd_protocolo   = i.cd_protocolo
+  and r.cd_remessa     = m.cd_remessa
+  and p.cd_protocolo = :CAMPO_PROTOCOLO
+  group by to_char(m.dt_competencia_apresentacao,'mm/yyyy')
+)
+ order by 1 desc

@@ -1,0 +1,39 @@
+/*----------------------------------------------------------------------------*/
+--R_INTERNACOESMEDICO
+SELECT * FROM
+			  (SELECT PRESTADOR.CD_PRESTADOR,
+			          PRESTADOR.NM_PRESTADOR,
+			          aten.CD_ATENDIMENTO,
+			          paci.NM_PACIENTE,
+			      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACI.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+			          aten.DT_ATENDIMENTO,
+			          aten.DT_ALTA,
+			          conv.NM_CONVENIO,
+			          copl.DS_CON_PLA,
+			          paci.NR_IDENTIDADE,
+			          pack_internamento.retorna_idade(paci.DT_NASCIMENTO, SYSDATE) NR_IDADE,
+			          trunc(nvl(aten.DT_ALTA, sysdate)) - aten.DT_ATENDIMENTO NR_DIAS_INT
+			   FROM DBAMV.ATENDIME aten,
+			        DBAMV.PACIENTE paci,
+			        DBAMV.CON_PLA copl,
+			        DBAMV.CONVENIO conv,
+			        DBAMV.PRESTADOR,
+			        DBAMV.LEITO,
+			        DBAMV.UNID_INT
+			   WHERE aten.TP_ATENDIMENTO IN ('I',
+			                                 'H')
+			     AND trunc(aten.DT_ATENDIMENTO) BETWEEN :CAMPO_DATINI AND 
+			     AND aten.CD_PACIENTE = paci.CD_PACIENTE
+			     AND aten.CD_CONVENIO = copl.CD_CONVENIO(+)
+			     AND aten.CD_CON_PLA = copl.CD_CON_PLA(+)
+			     AND aten.CD_CONVENIO = conv.CD_CONVENIO
+			     AND aten.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+			     AND aten.CD_LEITO = LEITO.CD_LEITO(+)
+			     AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+			     AND aten.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+			     AND aten.CD_ATENDIMENTO_PAI IS NULL    
+			   ORDER BY PRESTADOR.NM_PRESTADOR,
+			            paci.NM_PACIENTE)
+			ORDER BY NM_PRESTADOR,
+			         CD_PRESTADOR,
+			         NM_PACIENTE

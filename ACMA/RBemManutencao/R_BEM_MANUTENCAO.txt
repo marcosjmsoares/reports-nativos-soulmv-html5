@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_BEM_MANUTENCAO
+select solicitacao_os.cd_os          cd_os
+      ,solicitacao_os.dt_pedido      dt_os
+      ,bens.cd_bem                   cd_bem
+      ,bens.ds_bem                   ds_bem
+      ,bens.nr_serie                 serie
+      ,solicitacao_os.dt_prev_exec   dt_prevista
+      ,solicitacao_os.dt_execucao    dt_realizada
+      ,abs(trunc((to_date(solicitacao_os.dt_execucao,'dd/mm/yyyy hh24') -
+       to_date(solicitacao_os.dt_prev_exec,'dd/mm/yyyy hh24')) * 24) +
+       trunc((to_date(to_char(solicitacao_os.dt_execucao,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24')
+                            - to_date(to_char(solicitacao_os.dt_prev_exec,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24')
+                            - trunc(to_date(to_char(solicitacao_os.dt_execucao,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24')
+                            - to_date(to_char(solicitacao_os.dt_prev_exec,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24'))) *24)) horas
+      ,abs(trunc((to_date(to_char(solicitacao_os.dt_execucao,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24')
+                          - to_date(to_char(solicitacao_os.dt_prev_exec,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24'))*24 *60)
+                          - trunc((to_date(to_char(solicitacao_os.dt_execucao,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24')
+                          - to_date(to_char(solicitacao_os.dt_prev_exec,'dd/mm/yyyy hh24'),'dd/mm/yyyy hh24'))*24)*60) minutos
+      ,decode(solicitacao_os.tp_situacao,'A', 'Aberto'
+                                        ,'C', 'Concluído'
+                                        ,'N', 'Não Atendido'
+                                        ,'M', 'Aguardando Material'
+                                        ,'E', 'Conserto Externo'
+                                        ,'S', 'Solicitação'
+                                        ,'F', 'A agendar'
+                                        ,'L', 'Aguardando Liberação do Setor' )  situacao
+      ,fornecedor.nm_fornecedor      responsavel
+      ,oficina.cd_oficina   cd_oficina
+      ,manu_espec.cd_espec
+      ,tipo_os.cd_tipo_os
+      ,tipo_os.tp_preliminar
+      ,solicitacao_os.cd_setor
+from dbamv.solicitacao_os
+    ,dbamv.bens
+    ,dbamv.setor
+    ,dbamv.manu_espec
+    ,dbamv.fornecedor
+    ,dbamv.oficina
+    ,dbamv.tipo_os
+where solicitacao_os.cd_bem   = bens.cd_bem
+  and solicitacao_os.cd_setor = setor.cd_setor
+  and solicitacao_os.cd_espec = manu_espec.cd_espec(+)
+  and solicitacao_os.cd_fornecedor = fornecedor.cd_fornecedor(+)
+  and oficina.cd_oficina(+)   = solicitacao_os.cd_oficina
+  and tipo_os.cd_tipo_os      = solicitacao_os.cd_tipo_os
+  and solicitacao_os.dt_pedido between :CAMPO_DT_INI and 
+  and oficina.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+order by cd_os, cd_bem, dt_os

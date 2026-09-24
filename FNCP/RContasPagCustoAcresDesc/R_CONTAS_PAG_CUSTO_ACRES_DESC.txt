@@ -1,0 +1,140 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_PAG_CUSTO_ACRES_DESC
+SELECT * FROM (
+SELECT DECODE(v_contas_apag_pag.dt_pagamento,TO_DATE('01/01/0001','DD/MM/YYYY'),NULL,TO_CHAR(v_contas_apag_pag.dt_pagamento,'DD/MM/YYYY')) dt_pagamento,
+          v_contas_apag_pag.tipo_pagto,
+          v_contas_apag_pag.cd_fornecedor,
+          v_contas_apag_pag.nm_fornecedor,
+          v_contas_apag_pag.nr_documento,
+          DECODE(v_contas_apag_pag.nr_parcela,0,NULL,v_contas_apag_pag.nr_parcela) nr_parcela,
+          v_contas_apag_pag.vl_rateio,
+          v_contas_apag_pag.cd_setor,
+          v_contas_apag_pag.nm_setor,
+          DECODE(v_contas_apag_pag.dt_vencimento,TO_DATE('01/01/0001','DD/MM/YYYY'),NULL,TO_CHAR(v_contas_apag_pag.dt_vencimento,'DD/MM/YYYY')) dt_vencimento,
+          DECODE(v_contas_apag_pag.dt_prevista_pag,TO_DATE('01/01/0001','DD/MM/YYYY'),NULL,TO_CHAR(v_contas_apag_pag.dt_prevista_pag,'DD/MM/YYYY')) dt_prevista_pag,
+          v_contas_apag_pag.vl_pago,
+          v_contas_apag_pag.cd_cheque,
+          v_contas_apag_pag.nr_cheque,
+          v_contas_apag_pag.cd_bordero,
+          trunc(v_contas_apag_pag.dt_emissao) dt_emissao,
+          v_contas_apag_pag.cd_item_res,
+          v_contas_apag_pag.ds_item_res,
+          v_contas_apag_pag.cd_gru_res,
+          v_contas_apag_pag.ds_gru_res,
+          v_contas_apag_pag.ds_con_pag,
+          v_contas_apag_pag.dt_baixa,
+          v_contas_apag_pag.dt_compensacao,
+          v_contas_apag_pag.tp_pagto,
+          v_contas_apag_pag.cd_con_cor,
+          v_contas_apag_pag.vl_duplicata,
+          v_contas_apag_pag.dt_competencia,
+          v_contas_apag_pag.TP_DESC_ACRES
+FROM
+(
+SELECT PAGCON_PAG.DT_PAGAMENTO
+, DECODE(PAGCON_PAG.TP_PAGAMENTO, '1', 'Bol ', '2', 'DOC ', '3', 'Cheq', '4', 'Dinh', '5', 'Debt','6','Pres','7','Dev ') TIPO_PAGTO
+, CON_PAG.CD_FORNECEDOR
+, DECODE (CON_PAG.CD_FORNECEDOR, NULL, CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA) NM_FORNECEDOR
+, CON_PAG.NR_DOCUMENTO
+, ITCON_PAG.NR_PARCELA
+, 0  VL_RATEIO
+, SETOR.CD_SETOR
+, SETOR.NM_SETOR
+, ITCON_PAG.DT_VENCIMENTO
+, ITCON_PAG.DT_PREVISTA_PAG
+, RATPAG_DESC_ACRES.VL_RATPAG_DESC_ACRES   VL_PAGO
+, CHEQUE.NR_CHEQUE
+, CHEQUE.CD_CHEQUE
+, PAGCON_PAG.CD_BORDERO
+,CON_PAG.DT_EMISSAO
+,ITEM_RES.CD_ITEM_RES
+,ITEM_RES.DS_ITEM_RES
+,GRU_RES.CD_GRU_RES
+,GRU_RES.DS_GRU_RES
+,CON_PAG.DS_CON_PAG
+,PAGCON_PAG.DT_BAIXA
+, CHEQUE.DT_COMPENSACAO
+, PAGCON_PAG.TP_PAGAMENTO TP_PAGTO
+, PAGCON_PAG.CD_CON_COR
+, ITCON_PAG.VL_DUPLICATA
+, PAGCON_PAG.DT_PAGAMENTO DT_COMPETENCIA
+, Decode(PAG_DESC_ACRES.TP_DESC_ACRES,'D','DESCONTO','ACRESCIMO')   TP_DESC_ACRES
+FROM    DBAMV.RATPAG_DESC_ACRES
+       ,DBAMV.PAG_DESC_ACRES
+       ,DBAMV.PAGCON_PAG
+       ,DBAMV.ITCON_PAG
+       ,DBAMV.ITEM_RES
+       ,DBAMV.CON_PAG
+       ,DBAMV.FORNECEDOR
+       ,DBAMV.CHEQUE
+       ,DBAMV.GRU_RES
+       ,DBAMV.TIP_DOC
+       ,DBAMV.SETOR
+       ,(SELECT I.CD_CON_PAG, COUNT(*) TOTAL_PARC FROM DBAMV.ITCON_PAG I
+          WHERE I.DT_VENCIMENTO BETWEEN  To_Date('01/01/2009','dd/mm/yyyy')  AND To_Date('30/01/2009','dd/mm/yyyy')
+            GROUP BY I.CD_CON_PAG) QTD_PARCELA
+WHERE CON_PAG.CD_CON_PAG     = ITCON_PAG.CD_CON_PAG
+  AND PAG_DESC_ACRES.CD_PAG_DESC_ACRES = RATPAG_DESC_ACRES.CD_PAG_DESC_ACRES
+  AND PAGCON_PAG.CD_PAGCON_PAG  = PAG_DESC_ACRES.CD_PAGCON_PAG
+  AND ITCON_PAG.CD_ITCON_PAG = PAGCON_PAG.CD_ITCON_PAG
+  AND CON_PAG.CD_FORNECEDOR  = FORNECEDOR.CD_FORNECEDOR(+)
+  AND RATPAG_DESC_ACRES.CD_ITEM_RES = ITEM_RES.CD_ITEM_RES
+  AND ITEM_RES.CD_GRU_RES    = GRU_RES.CD_GRU_RES
+  AND RATPAG_DESC_ACRES.CD_SETOR    = SETOR.CD_SETOR
+  AND PAGCON_PAG.CD_CHEQUE   = CHEQUE.CD_CHEQUE(+)
+  AND CON_PAG.CD_TIP_DOC     = TIP_DOC.CD_TIP_DOC
+  AND CON_PAG.CD_MULTI_EMPRESA =  :CAMPO_CD_MULTI_EMPRESA
+  AND ITCON_PAG.CD_CON_PAG_AGRUP IS NULL
+  AND ITCON_PAG.TP_QUITACAO LIKE :CAMPO_QUITACAO
+  and con_pag.cd_con_pag = QTD_PARCELA.CD_CON_PAG (+)
+:CAMPO_CF_SN_PREVISAO
+) V_CONTAS_APAG_PAG
+, DBAMV.FORNECEDOR
+:CAMPO_CF_ORDER
+)
+ORDER BY CD_SETOR,NM_SETOR,
+CD_GRU_RES,DS_GRU_RES,
+CD_ITEM_RES,DS_ITEM_RES,
+CD_FORNECEDOR,NM_FORNECEDOR,
+DT_EMISSAO,DS_CON_PAG,NR_DOCUMENTO,
+NR_PARCELA,DT_VENCIMENTO,DT_PREVISTA_PAG,VL_DUPLICATA,
+VL_RATEIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTAS_PAG_CUSTO_ACRES_DESC_R_6_Q_LANC_EXTRATO
+SELECT sum( ( mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado, 0 ) ) ) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)              
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL 
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL 
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor) 
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) )

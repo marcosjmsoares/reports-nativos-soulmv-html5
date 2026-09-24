@@ -1,0 +1,210 @@
+/*----------------------------------------------------------------------------*/
+--R_TRANSF_EMPRESA
+SELECT
+      cd_mvto_estoque,
+      dt_mvto_estoque,
+      nr_documento,
+      nr_serie,
+      cd_tip_doc,
+      ds_tip_doc,
+      cd_fornecedor,
+      nm_fornecedor,
+      cd_produto,
+      ds_produto,
+      qt_movimentacao,
+      ds_unidade,
+      cd_lote,
+      dt_validade,
+      vl_fator,
+      cd_solsai_pro,
+      (custo * vl_fator) AS vl_unitario,
+      (custo * vl_fator * qt_movimentacao) AS vl_total
+  FROM
+  (
+      SELECT mvto_estoque.cd_mvto_estoque
+            ,mvto_estoque.dt_mvto_estoque
+            ,nvl(mvto_estoque.nr_documento,0) nr_documento
+            ,mvto_estoque.nr_serie
+            ,tip_doc.cd_tip_doc
+            ,tip_doc.ds_tip_doc
+            ,fornecedor.cd_fornecedor
+            ,fornecedor.nm_fornecedor
+            ,produto.cd_produto
+            ,produto.ds_produto
+            ,itmvto_estoque.qt_movimentacao
+            ,uni_pro.ds_unidade
+            ,itmvto_estoque.cd_lote
+            ,itmvto_estoque.dt_validade
+            ,uni_pro.vl_fator
+            ,mvto_estoque.cd_solsai_pro
+            ,(select dbamv.verif_vl_custo_medio(produto.cd_produto, mvto_estoque.dt_mvto_estoque, 'H', null, mvto_estoque.hr_mvto_estoque, :CAMPO_CD_MULTI_EMPRESA) as custo from dual ) custo
+       FROM dbamv.mvto_estoque
+           ,dbamv.itmvto_estoque
+           ,dbamv.produto
+           ,dbamv.multi_empresas
+           ,dbamv.fornecedor
+           ,dbamv.tip_doc
+           ,dbamv.uni_pro
+           ,dbamv.estoque
+ WHERE mvto_estoque.cd_mvto_estoque  = itmvto_estoque.cd_mvto_estoque
+   AND mvto_estoque.tp_mvto_estoque  = 'R'
+   AND itmvto_estoque.cd_produto     = produto.cd_produto
+   AND mvto_estoque.cd_multi_empresa = multi_empresas.cd_multi_empresa
+   AND multi_empresas.cd_fornecedor  = fornecedor.cd_fornecedor
+   AND mvto_estoque.dt_mvto_estoque between :CAMPO_DTINIC and 
+   AND mvto_estoque.cd_tip_doc       = tip_doc.cd_tip_doc
+   AND itmvto_estoque.cd_uni_pro     = uni_pro.cd_uni_pro
+   AND MVTO_ESTOQUE.cd_estoque        = ESTOQUE.cd_estoque
+   AND ESTOQUE.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ORDER BY mvto_estoque.dt_mvto_estoque
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_TRANSF_EMPRESA_R_DS_ESPECIE1_Q_3
+select especie.ds_especie
+         ,sum(dbamv.verif_vl_custo_medio(produto.cd_produto,mvto_estoque.dt_mvto_estoque,'H',null,mvto_estoque.hr_mvto_estoque,:CAMPO_CD_MULTI_EMPRESA)*
+ itmvto_estoque.qt_movimentacao*uni_pro.vl_fator) vl_total,
+    (       SELECT 
+           to_char(Sum(vl_total), 'FM999G999G999D90')  total_geral
+    FROM (
+           select especie.ds_especie
+         ,sum(dbamv.verif_vl_custo_medio(produto.cd_produto,mvto_estoque.dt_mvto_estoque,'H',null,mvto_estoque.hr_mvto_estoque,:CAMPO_CD_MULTI_EMPRESA)*
+ itmvto_estoque.qt_movimentacao*uni_pro.vl_fator) vl_total,
+ '' total_geral
+  from dbamv.mvto_estoque
+      ,dbamv.itmvto_estoque
+      ,dbamv.produto
+      ,dbamv.multi_empresas
+      ,dbamv.fornecedor
+      ,dbamv.tip_doc
+      ,dbamv.uni_pro
+      ,dbamv.especie
+      ,dbamv.estoque
+ where mvto_estoque.cd_mvto_estoque  = itmvto_estoque.cd_mvto_estoque
+   and mvto_estoque.tp_mvto_estoque  = 'R'
+   and itmvto_estoque.cd_produto     = produto.cd_produto
+   and mvto_estoque.cd_multi_empresa = multi_empresas.cd_multi_empresa
+   and multi_empresas.cd_fornecedor  = fornecedor.cd_fornecedor
+   and mvto_estoque.dt_mvto_estoque between :CAMPO_DTINIC and 
+   and mvto_estoque.cd_tip_doc       = tip_doc.cd_tip_doc
+   and itmvto_estoque.cd_uni_pro     = uni_pro.cd_uni_pro
+   and produto.cd_especie            = especie.cd_especie
+   AND MVTO_ESTOQUE.cd_estoque        = ESTOQUE.cd_estoque
+   AND ESTOQUE.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA	
+group by especie.ds_especie
+    ) X    ) total_geral
+  from dbamv.mvto_estoque
+      ,dbamv.itmvto_estoque
+      ,dbamv.produto
+      ,dbamv.multi_empresas
+      ,dbamv.fornecedor
+      ,dbamv.tip_doc
+      ,dbamv.uni_pro
+      ,dbamv.especie
+      ,dbamv.estoque
+ where mvto_estoque.cd_mvto_estoque  = itmvto_estoque.cd_mvto_estoque
+   and mvto_estoque.tp_mvto_estoque  = 'R'
+   and itmvto_estoque.cd_produto     = produto.cd_produto
+   and mvto_estoque.cd_multi_empresa = multi_empresas.cd_multi_empresa
+   and multi_empresas.cd_fornecedor  = fornecedor.cd_fornecedor
+   and mvto_estoque.dt_mvto_estoque between :CAMPO_DTINIC and 
+   and mvto_estoque.cd_tip_doc       = tip_doc.cd_tip_doc
+   and itmvto_estoque.cd_uni_pro     = uni_pro.cd_uni_pro
+   and produto.cd_especie            = especie.cd_especie
+   AND MVTO_ESTOQUE.cd_estoque        = ESTOQUE.cd_estoque
+   AND ESTOQUE.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA	
+group by especie.ds_especie
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_TRANSF_EMPRESA_SOLICITADOS_ATENDIDOS
+SELECT ItSolsai_Pro.Cd_Produto
+     , ItSolsai_Pro.Cd_solsai_pro
+     , Produto.Ds_Produto
+     , Uni_Pro.Ds_Unidade
+     , Uni_Pro.Vl_Fator
+     , Produto.Sn_Mestre
+     , Produto.Sn_Kit
+     , Produto.Cd_Produto_Tem
+     , round(SUM(Nvl(ItSolsai_Pro.Qt_Solicitado, 0)),2) Qt_Solicitado
+     , round(SUM(Nvl(ItSolsai_Pro.Qt_Atendida, 0)),2) Qt_Atendido
+     , 'S' sn_padronizado
+  FROM DBAMV.ItSolsai_Pro, DBAMV.Produto, DBAMV.Uni_Pro, DBAMV.Sub_Clas
+ WHERE ItSolsai_Pro.Cd_Produto = Produto.Cd_Produto
+   AND  EXISTS(
+                SELECT Empresa_Produto.Cd_Produto
+                  FROM DBAMV.Empresa_Produto
+                 WHERE Cd_Multi_Empresa = DBAMV.Pkg_Mv2000.Le_Empresa
+                    AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto
+              )
+   AND ItSolsai_Pro.Cd_Uni_Pro = Uni_Pro.Cd_Uni_Pro
+   AND Produto.Cd_Especie = Sub_Clas.Cd_Especie
+   AND Produto.Cd_Classe = Sub_Clas.Cd_Classe
+   AND Produto.Cd_Sub_Cla = Sub_Clas.Cd_Sub_Cla
+   AND Produto.Sn_Kit NOT IN ('C', 'E')
+   AND Sub_Clas.Sn_Prod_Permanente <> 'L'
+   AND  EXISTS(
+                SELECT 1
+                  FROM DBAMV.itSolSai_Pro issp
+                 WHERE issp.Cd_SolSai_Pro = :CAMPO_CD_SOLSAI_PRO
+                    AND Nvl(issp.Qt_Atendida, 0) <> Nvl(issp.Qt_Solicitado, 0)
+                    AND issp.Cd_Produto = ItSolsai_Pro.Cd_Produto
+                    AND issp.Cd_Uni_Pro = Uni_Pro.Cd_Uni_Pro )
+                    AND ItSolsai_Pro.Cd_SolSai_Pro = :CAMPO_CD_SOLSAI_PRO
+                    AND (
+                          (
+                            ItSolsai_Pro.Sn_Conf_Determ_Usu = 'S'
+                            AND nvl(DBAMV.pkg_mv2000.le_configuracao('MGES', 'SN_MOSTRA_DIFERENCA_PRODUTO_BAIXASOL'), 'N') = 'S'
+                          )
+                     OR ItSolsai_Pro.Sn_Conf_Determ_Usu = 'N'
+                        )
+GROUP BY ItSolsai_Pro.Cd_Produto
+       , ItSolsai_Pro.Cd_solsai_pro
+       , Produto.Ds_Produto
+       , Uni_Pro.Ds_Unidade
+       , Uni_Pro.Vl_Fator
+       , Produto.Sn_Mestre
+       , Produto.Sn_Kit
+       , Produto.Cd_Produto_Tem
+UNION 
+SELECT itmvto_estoque.Cd_Produto
+     , mvto_estoque.Cd_solsai_pro
+     , Produto.Ds_Produto
+     , Uni_Pro.Ds_Unidade
+     , Uni_Pro.Vl_Fator
+     , Produto.Sn_Mestre
+     , Produto.Sn_Kit
+     , Produto.Cd_Produto_Tem
+     , 0 Qt_Solicitado
+     , itmvto_estoque.qt_movimentacao  Qt_Atendido
+     , 'S' sn_padronizado
+  FROM DBAMV.mvto_estoque 
+     , DBAMV.itmvto_estoque
+     , DBAMV.produto
+     , DBAMV.uni_pro
+     , DBAMV.sub_clas
+ WHERE mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+   AND itmvto_estoque.Cd_Produto = Produto.Cd_Produto
+   AND itmvto_estoque.Cd_Uni_Pro = Uni_Pro.Cd_Uni_Pro
+   AND Produto.Cd_Especie = Sub_Clas.Cd_Especie
+   AND Produto.Cd_Classe = Sub_Clas.Cd_Classe
+   AND Produto.Cd_Sub_Cla = Sub_Clas.Cd_Sub_Cla
+   AND Produto.Sn_Kit NOT IN ('C', 'E')
+   AND Sub_Clas.Sn_Prod_Permanente <> 'L'
+   AND mvto_estoque.cd_solsai_pro = :CAMPO_CD_SOLSAI_PRO                                                                                                                                 
+   AND  EXISTS(
+                SELECT Empresa_Produto.Cd_Produto
+                  FROM DBAMV.Empresa_Produto
+                 WHERE Cd_Multi_Empresa = DBAMV.Pkg_Mv2000.Le_Empresa
+                    AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto
+              )
+   AND nvl(DBAMV.pkg_mv2000.le_configuracao('MGES', 'SN_MOSTRA_DIFERENCA_PRODUTO_BAIXASOL'), 'N') = 'S'
+   AND NOT EXISTS(
+                     SELECT 1
+                       FROM DBAMV.itSolSai_Pro issp
+                      WHERE issp.Cd_SolSai_Pro = :CAMPO_CD_SOLSAI_PRO
+                        AND issp.Cd_Produto    = itmvto_estoque.Cd_Produto
+                 )

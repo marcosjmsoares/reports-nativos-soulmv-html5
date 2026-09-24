@@ -1,0 +1,35 @@
+/*----------------------------------------------------------------------------*/
+--R_LALUR_PARTEA
+SELECT * FROM (
+SELECT dig.cd_digitacao_partea
+	   ,last_day(to_date(:CAMPO_DT_FINAL, 'mm/yyyy')) dt_referencia
+	   ,dig.dt_lancamento
+	   ,dig.cd_historico
+  	   ,dig.cd_reduzido
+  	   ,decode(nvl(it_dig.vl_movimento,0), 0, nvl(dig.vl_total_lancamento,0), it_dig.vl_movimento) vl_total_lancamento
+	   ,dig.cd_multi_empresa
+                   ,decode(conf_hist.tp_historico, 'A', decode(nvl(it_dig.vl_movimento,0), 0, nvl(dig.vl_total_lancamento,0), it_dig.vl_movimento), 0) vl_adicao
+                   ,decode(conf_hist.tp_historico, 'E', decode(nvl(it_dig.vl_movimento,0), 0, nvl(dig.vl_total_lancamento,0), it_dig.vl_movimento), 0) vl_exclusao
+	   ,it_dig.cd_item_digitacao_partea
+	   ,it_dig.cd_movimento
+  	   ,it_dig.dt_movimento
+	   ,it_dig.ds_movimento
+	   ,it_dig.vl_movimento
+  	   ,it_dig.sn_base_csll
+                   ,decode(conf_hist.tp_historico, 'A', 1,2) tp_historico
+                   ,decode(conf_hist.tp_historico, 'A', 'ADIÇÃO', 'EXCLUSÃO') nm_historico
+                   ,conf_hist.ds_historico
+FROM  dbamv.digitacao_parte_a_lalur dig
+            ,dbamv.item_digitacao_parte_a_lalur it_dig
+            ,dbamv.configuracao_historico_lalur conf_hist
+WHERE dig.cd_digitacao_partea = it_dig.cd_digitacao_partea(+)
+      AND dig.cd_historico = conf_hist.cd_historico
+      AND conf_hist.tp_historico in ('A', 'E')
+      AND nvl(it_dig.sn_base_irpj, 'S') = 'S'
+      AND to_char(dig.dt_referencia, 'mm/yyyy')  <= :CAMPO_DT_FINAL
+ORDER BY tp_historico
+)
+ORDER BY CD_MULTI_EMPRESA,
+DT_REFERENCIA,
+TP_HISTORICO,NM_HISTORICO,
+CD_REDUZIDO,DS_HISTORICO,DT_LANCAMENTO,CD_DIGITACAO_PARTEA,CD_HISTORICO

@@ -1,0 +1,116 @@
+/*----------------------------------------------------------------------------*/
+--R_CONS_ATE_AVICIR_PROCED
+SELECT  
+       Atendimento,
+       Aviso_Cirurgia,
+       cd_estoque,
+       cd_setor,
+       cd_paciente,
+       Paciente,
+       Dt_Atend,
+       Dt_Alta,
+       Leito,
+       ds_leito,
+       cd_unid_int,
+       Unid_Intern,
+       Medico,
+       Convenio,
+       Cod_Produto,
+       Produto,
+       Unidade,
+       Sum(Qt_Movimentada) Qt_Movimentada,
+       Vl_Unitario
+FROM (
+select mvto_estoque.cd_atendimento Atendimento,
+       mvto_estoque.cd_aviso_cirurgia Aviso_Cirurgia,
+       mvto_estoque.cd_estoque,
+       mvto_estoque.cd_setor,
+       mvto_estoque.dt_mvto_estoque,
+       atendime.cd_paciente,
+       paciente.nm_paciente Paciente,
+       to_char(atendime.dt_atendimento, 'dd/mm/yyyy') Dt_Atend,
+       to_char(atendime.dt_alta, 'dd/mm/yyyy') Dt_Alta,
+       atendime.cd_leito Leito,
+       '('||atendime.cd_leito||') - '||leito.ds_leito ds_leito,
+       leito.cd_unid_int,
+       unid_int.ds_unid_int Unid_Intern,
+       prestador.nm_prestador Medico,
+       convenio.nm_convenio Convenio,
+       itmvto_estoque.cd_produto Cod_Produto,
+       produto.ds_produto Produto,
+       verif_ds_unid_prod(itmvto_estoque.cd_produto) Unidade,
+       sum(decode(tp_mvto_estoque, 'P', 1, 0) * itmvto_estoque.qt_movimentacao * uni_pro.vl_fator)/verif_vl_fator_prod(itmvto_estoque.cd_produto) -
+       sum(decode(tp_mvto_estoque, 'C', 1, 0) * itmvto_estoque.qt_movimentacao * uni_pro.vl_fator)/verif_vl_fator_prod(itmvto_estoque.cd_produto) Qt_Movimentada,
+       VERIF_VL_CUSTO_MEDIO(ITMVTO_ESTOQUE.CD_PRODUTO,MVTO_ESTOQUE.DT_MVTO_ESTOQUE,'H',NULL,MVTO_ESTOQUE.HR_MVTO_ESTOQUE) * verif_vl_fator_prod(itmvto_estoque.cd_produto) Vl_Unitario
+from dbamv.atendime,
+     dbamv.convenio,
+     dbamv.mvto_estoque,
+     dbamv.itmvto_estoque,
+     dbamv.leito,
+     dbamv.paciente,
+     dbamv.prestador,
+     dbamv.produto,
+     dbamv.uni_pro,
+     dbamv.unid_int,
+     dbamv.estoque,
+     dbamv.setor
+where atendime.cd_atendimento = mvto_estoque.cd_atendimento
+  and atendime.cd_paciente = paciente.cd_paciente
+  and atendime.cd_leito = leito.cd_leito(+)
+  and leito.cd_unid_int = unid_int.cd_unid_int(+)
+  and atendime.cd_prestador = prestador.cd_prestador
+  and atendime.cd_convenio = convenio.cd_convenio
+  and mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+  AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+  AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+  and itmvto_estoque.cd_produto = produto.cd_produto
+  and itmvto_estoque.cd_uni_pro = uni_pro.cd_uni_pro
+  and mvto_estoque.tp_mvto_estoque in ('C', 'P')
+  And Trunc(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) Between Trunc(:CAMPO_DTINIC) And Trunc(:CAMPO_DTFIM)
+  and mvto_estoque.cd_setor = setor.cd_setor
+  And (:CAMPO_CONS_ATEND_AVIR = 'N' OR (:CAMPO_CONS_ATEND_AVIR = 'S' AND Exists (Select 1 From DBAMV.AVISO_CIRURGIA AC Where AC.CD_AVISO_CIRURGIA = MVTO_ESTOQUE.CD_AVISO_CIRURGIA And
+  AC.CD_ATENDIMENTO = MVTO_ESTOQUE.CD_ATENDIMENTO)))
+group by uni_pro.vl_fator,
+               itmvto_estoque.cd_produto,
+               mvto_estoque.cd_atendimento,
+               mvto_estoque.cd_aviso_cirurgia,
+               mvto_estoque.dt_mvto_estoque,
+               atendime.cd_paciente,
+               paciente.nm_paciente,
+               atendime.dt_atendimento,
+               atendime.dt_alta,
+               atendime.cd_leito,
+               leito.cd_unid_int,
+               unid_int.ds_unid_int,
+               prestador.nm_prestador,
+               convenio.nm_convenio,
+               produto.ds_produto,
+               mvto_estoque.cd_estoque,
+               mvto_estoque.cd_setor,
+               leito.ds_leito,
+               produto.vl_custo_medio,
+               MVTO_ESTOQUE.HR_MVTO_ESTOQUE
+order by produto.ds_produto
+)
+GROUP BY 
+       Atendimento,
+       Aviso_Cirurgia,
+       cd_estoque,
+       cd_setor,
+       cd_paciente,
+       Paciente,
+       Dt_Atend,
+       Dt_Alta,
+       Leito,
+       ds_leito,
+       cd_unid_int,
+       Unid_Intern,
+       Medico,
+       Convenio,
+       Cod_Produto,
+       Produto,
+       Unidade,
+       Vl_Unitario
+HAVING Sum(Qt_Movimentada) <> 0
+ORDER BY ATENDIMENTO,AVISO_CIRURGIA,PACIENTE,DT_ATEND,DT_ALTA,LEITO,DS_LEITO,UNID_INTERN,MEDICO,CONVENIO,Produto

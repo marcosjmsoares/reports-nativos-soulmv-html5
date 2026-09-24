@@ -1,0 +1,264 @@
+/*----------------------------------------------------------------------------*/
+--R_BAL_COMP_MED_RD
+SELECT * FROM (
+Select Itcontagem.Cd_produto                       Cd_produto
+     , Produto.Ds_produto                          Ds_produto
+       :CAMPO_CF_SELECT
+     , Sum( Nvl(Itcontagem.Qt_estoque,0) + Nvl( Itcontagem.Qt_estoque_doado,0)) Quantidade
+     , 0                                           Perdas
+     , Trunc(Contagem.Dt_geracao)                  Data
+     , To_char(Contagem.Hr_geracao, 'hh24' ) Hora
+     , Contagem.Cd_contagem                        Documento
+     , 'Contagem'                                  Operacao
+     , Estoque.Cd_estoque                          Cd_estoque
+     , Uni_pro.Vl_fator                            Vl_fator
+     , DBAMV.PKG_MV2000.LE_CONFIGURACAO('MGES','NR_CIDC') NR_CIDC
+  From Dbamv.Itcontagem
+     , Dbamv.Contagem
+     , Dbamv.Produto
+     , Dbamv.Uni_pro
+     , Dbamv.Lista_codigo_medicamento
+     , Dbamv.Portaria
+     , Dbamv.Itportaria
+     , Dbamv.Estoque
+ Where trunc(contagem.dt_geracao) + ((contagem.hr_geracao) - trunc(contagem.hr_geracao)) >= to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy') ||' 00','dd/mm/yyyy hh24') 
+   And trunc(contagem.dt_geracao) + ((contagem.hr_geracao) - trunc(contagem.hr_geracao)) <= to_date(to_char(:CAMPO_DTFIM ,'dd/mm/yyyy') ||' 23','dd/mm/yyyy hh24')
+   And Estoque.Cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+   And Portaria.Cd_portaria                = Itportaria.Cd_portaria
+   And Itportaria.Cd_produto               = Produto.Cd_produto
+   And Produto.Cd_lista_codigo_medicamento = Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+   And Itcontagem.Cd_produto               = Produto.Cd_produto
+   And Itcontagem.Cd_contagem              = Contagem.Cd_contagem
+   And Itcontagem.Cd_uni_pro               = Uni_pro.Cd_uni_pro
+   And Contagem.Cd_estoque                 = Estoque.Cd_estoque
+Group By Itcontagem.Cd_produto
+       , Produto.Ds_produto
+       , Produto.Vl_custo_medio
+       , Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+       , Lista_codigo_medicamento.Ds_lista_codigo_medicamento
+       , Portaria.Cd_portaria
+       , Portaria.Ds_portaria
+       , Contagem.Dt_geracao
+       , Contagem.Hr_geracao
+       , Contagem.Cd_contagem
+       , Estoque.Cd_estoque
+       , Uni_pro.Vl_fator
+Union All
+Select Itmvto_estoque.Cd_produto         Cd_produto
+     , Produto.Ds_produto                Ds_produto
+       :CAMPO_CF_SELECT
+     , Decode( Mvto_estoque.Tp_mvto_estoque,'X', 0
+                                           ,  Itmvto_estoque.Qt_movimentacao * -1 )     Quantidade
+     , ( Decode( Mvto_estoque.Tp_mvto_estoque,'X', Itmvto_estoque.Qt_movimentacao * -1 ) * Uni_pro.Vl_fator )   Perdas
+     , Trunc(Mvto_estoque.Dt_mvto_estoque)                  Data
+     , To_char(Mvto_estoque.Hr_mvto_estoque, 'hh24' ) Hora
+     , Mvto_estoque.Cd_mvto_estoque                         Documento
+     , Initcap( Decode(Mvto_estoque.Tp_mvto_estoque,'X', 'Baixa De Produtos'
+                                                   ,'S', Decode( Mvto_paciente.Nm_paciente, Null, 'Saida Setor', 'Saida Paciente.' )
+                                                   ,'P', 'Saida Paciente'
+                                                   ,'T', 'Transf. De Estoque '
+                                                   ,'M', 'Manipul.  Produtos'
+                                                   ,'O', 'Doação  Produtos'
+                                                   ,'R','Transf. Empresa'
+                                                   ,'V', 'Venda De Produtos' ) )             Operacao
+     , Estoque.Cd_estoque        Cd_estoque
+     , Uni_pro.Vl_fator
+      ,DBAMV.PKG_MV2000.LE_CONFIGURACAO('MGES','NR_CIDC') NR_CIDC
+   From Dbamv.Mvto_estoque              Mvto_estoque
+      , Dbamv.Mvto_paciente		Mvto_paciente
+      , Dbamv.Itmvto_estoque            Itmvto_estoque
+      , Dbamv.Produto                   Produto
+      , Dbamv.Uni_pro                   Uni_pro
+      , Dbamv.Lista_codigo_medicamento
+      , Dbamv.Portaria
+      , Dbamv.Itportaria
+      , Dbamv.Estoque                   Estoque
+  Where trunc(Mvto_estoque.Dt_mvto_estoque) + ((Mvto_estoque.hr_mvto_estoque) - trunc(Mvto_estoque.hr_mvto_estoque) ) >= to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy') ||' 00','dd/mm/yyyy hh24') 
+    And trunc(Mvto_estoque.Dt_mvto_estoque) + ((Mvto_estoque.hr_mvto_estoque) - trunc(Mvto_estoque.hr_mvto_estoque) ) <= to_date(to_char(:CAMPO_DTFIM ,'dd/mm/yyyy') ||' 23','dd/mm/yyyy hh24')
+    And Portaria.Cd_portaria                = Itportaria.Cd_portaria
+    And Itportaria.Cd_produto               = Produto.Cd_produto
+    And Produto.Cd_lista_codigo_medicamento = Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+    And Estoque.Cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+    And Itmvto_estoque.Cd_produto           = Produto.Cd_produto
+    And Itmvto_estoque.Cd_mvto_estoque      = Mvto_estoque.Cd_mvto_estoque
+    And Itmvto_estoque.Cd_uni_pro           = Uni_pro.Cd_uni_pro
+    And Mvto_paciente.Cd_mvto_estoque(+)    = Mvto_estoque.Cd_mvto_estoque
+    And Itmvto_estoque.Cd_uni_pro           = Uni_pro.Cd_uni_pro
+    And Mvto_estoque.Cd_estoque             = Estoque.Cd_estoque
+    And Mvto_estoque.Tp_mvto_estoque not in ('D','C')
+Union All
+Select Itmvto_estoque.Cd_produto         Cd_produto
+     , Produto.Ds_produto                Ds_produto
+       :CAMPO_CF_SELECT
+     , Decode( Mvto_estoque.Tp_mvto_estoque,'D', Itmvto_estoque.Qt_movimentacao
+                                           ,'C', Itmvto_estoque.Qt_movimentacao) Quantidade
+     , 0   Perdas
+     , Trunc(Mvto_estoque.Dt_mvto_estoque)                  Data
+     , To_char(Mvto_estoque.Hr_mvto_estoque, 'hh24' ) Hora
+     , Mvto_estoque.Cd_mvto_estoque                         Documento
+     , Initcap( Decode(Mvto_estoque.Tp_mvto_estoque,'D', 'Devol. De Setor'
+                                                   ,'C', 'Devol. De Paciente' )) Operacao
+     , Estoque.Cd_estoque        Cd_estoque
+     , Uni_pro.Vl_fator
+      , DBAMV.PKG_MV2000.LE_CONFIGURACAO('MGES','NR_CIDC') NR_CIDC
+   From Dbamv.Mvto_estoque              Mvto_estoque
+      , Dbamv.Mvto_paciente		Mvto_paciente
+      , Dbamv.Itmvto_estoque            Itmvto_estoque
+      , Dbamv.Produto                   Produto
+      , Dbamv.Uni_pro                   Uni_pro
+      , Dbamv.Lista_codigo_medicamento
+      , Dbamv.Portaria
+      , Dbamv.Itportaria
+      , Dbamv.Estoque                   Estoque
+  Where trunc(Mvto_estoque.Dt_mvto_estoque) + ((Mvto_estoque.hr_mvto_estoque) - trunc(Mvto_estoque.hr_mvto_estoque) ) >= to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy') ||' 00','dd/mm/yyyy hh24') 
+    And trunc(Mvto_estoque.Dt_mvto_estoque) + ((Mvto_estoque.hr_mvto_estoque) - trunc(Mvto_estoque.hr_mvto_estoque) ) <= to_date(to_char(:CAMPO_DTFIM ,'dd/mm/yyyy') ||' 23','dd/mm/yyyy hh24')
+    And Portaria.Cd_portaria                = Itportaria.Cd_portaria
+    And Itportaria.Cd_produto               = Produto.Cd_produto
+    And Produto.Cd_lista_codigo_medicamento = Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+    And Estoque.Cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+    And Itmvto_estoque.Cd_produto           = Produto.Cd_produto
+    And Itmvto_estoque.Cd_mvto_estoque      = Mvto_estoque.Cd_mvto_estoque
+    And Itmvto_estoque.Cd_uni_pro           = Uni_pro.Cd_uni_pro
+    And Mvto_paciente.Cd_mvto_estoque(+)    = Mvto_estoque.Cd_mvto_estoque
+    And Itmvto_estoque.Cd_uni_pro           = Uni_pro.Cd_uni_pro
+    And Mvto_estoque.Cd_estoque             = Estoque.Cd_estoque
+    And Mvto_estoque.Tp_mvto_estoque in ('D','C')
+Union All
+Select Itent_pro.Cd_produto                     Cd_produto
+     , Produto.Ds_produto                       Ds_produto
+       :CAMPO_CF_SELECT
+     , Itent_pro.Qt_entrada                     Quantidade
+     , 0                                        Perdas
+     , Trunc(Ent_pro.Dt_entrada)                Data
+     , To_char(Ent_pro.Hr_entrada,'hh24') Hora
+     , Ent_pro.Cd_ent_pro                       Documento
+     , Initcap(Tip_doc.Ds_tip_doc)              Operacao
+     , Estoque.Cd_estoque                       Cd_estoque
+     , Uni_pro.Vl_fator
+      ,DBAMV.PKG_MV2000.LE_CONFIGURACAO('MGES','NR_CIDC') NR_CIDC
+  From Dbamv.Itent_pro                Itent_pro
+     , Dbamv.Ent_pro                  Ent_pro
+     , Dbamv.Produto                  Produto
+     , Dbamv.Tip_doc                  Tip_doc
+     , Dbamv.Uni_pro                  Uni_pro
+     , Dbamv.Lista_codigo_medicamento
+     , Dbamv.Portaria
+     , Dbamv.Itportaria
+     , Dbamv.Fornecedor               Fornec
+     , Dbamv.Estoque
+ Where Portaria.Cd_portaria      = Itportaria.Cd_portaria
+   And Itportaria.Cd_produto     = Produto.Cd_produto
+   And Produto.Cd_lista_codigo_medicamento = Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+   And trunc(Ent_pro.Dt_Entrada) + ((Ent_pro.Hr_Entrada) - trunc(Ent_pro.Hr_Entrada) ) >= to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy') ||' 00','dd/mm/yyyy hh24') 
+   And trunc(Ent_pro.Dt_Entrada) + ((Ent_pro.Hr_Entrada) - trunc(Ent_pro.Hr_Entrada) ) <= to_date(to_char(:CAMPO_DTFIM ,'dd/mm/yyyy') ||' 23','dd/mm/yyyy hh24')
+   And Estoque.Cd_multi_empresa  = :CAMPO_CD_MULTI_EMPRESA
+   And Itent_pro.Cd_produto      =   Produto.Cd_produto
+   And Itent_pro.Cd_ent_pro      =   Ent_pro.Cd_ent_pro
+   And Ent_pro.Cd_tip_doc        =   Tip_doc.Cd_tip_doc
+   And Itent_pro.Cd_uni_pro      =   Uni_pro.Cd_uni_pro
+   And Ent_pro.Cd_fornecedor     =   Fornec.Cd_fornecedor
+   And Itent_pro.Cd_uni_pro      =   Uni_pro.Cd_uni_pro
+   And Ent_pro.Cd_estoque        =  Estoque.Cd_estoque
+Union All
+Select Itmvto_estoque.Cd_produto                           Cd_produto
+     , Produto.Ds_produto                                  Ds_produto
+       :CAMPO_CF_SELECT
+     , Itmvto_estoque.Qt_movimentacao                      Quantidade
+     , 0                                                   Perdas
+     , Trunc( Mvto_estoque.Dt_mvto_estoque)                Data
+     , To_char(Mvto_estoque.Hr_mvto_estoque, 'hh24') Hora
+     , Mvto_estoque.Cd_mvto_estoque Documento
+     , Initcap( Decode( Mvto_estoque.Tp_mvto_estoque,'T', 'Cred. Transf. Est.' )  ) Operacao
+     , Mvto_estoque.Cd_estoque_destino                     Cd_estoque
+     , Uni_pro.Vl_fator
+      , DBAMV.PKG_MV2000.LE_CONFIGURACAO('MGES','NR_CIDC') NR_CIDC
+  From Dbamv.Mvto_estoque
+     , Dbamv.Itmvto_estoque
+     , Dbamv.Produto
+     , Dbamv.Uni_pro
+     , Dbamv.Lista_codigo_medicamento
+     , Dbamv.Portaria
+     , Dbamv.Itportaria
+     , Dbamv.Estoque
+     , Dbamv.Estoque Estoque_destino
+ Where trunc(Mvto_estoque.Dt_mvto_estoque) + ((Mvto_estoque.hr_mvto_estoque) - trunc(Mvto_estoque.hr_mvto_estoque) ) >= to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy') ||' 00','dd/mm/yyyy hh24') 
+   And trunc(Mvto_estoque.Dt_mvto_estoque) + ((Mvto_estoque.hr_mvto_estoque) - trunc(Mvto_estoque.hr_mvto_estoque) ) <= to_date(to_char(:CAMPO_DTFIM ,'dd/mm/yyyy') ||' 23','dd/mm/yyyy hh24')
+   And Portaria.Cd_portaria                 = Itportaria.Cd_portaria
+   And Itportaria.Cd_produto                = Produto.Cd_produto
+   And Produto.Cd_lista_codigo_medicamento  = Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+   And Mvto_estoque.Tp_mvto_estoque         = Decode( :CAMPO_ESTOQUE, '%', '*','T')
+   And Estoque_destino.Cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+   And Itmvto_estoque.Cd_produto            = Produto.Cd_produto
+   And Itmvto_estoque.Cd_mvto_estoque       = Mvto_estoque.Cd_mvto_estoque
+   And Itmvto_estoque.Cd_uni_pro            = Uni_pro.Cd_uni_pro
+   And Mvto_estoque.Cd_estoque              = Estoque_destino.Cd_estoque
+   And Itmvto_estoque.Cd_uni_pro            = Uni_pro.Cd_uni_pro
+   And Estoque.Cd_estoque                   = Mvto_estoque.Cd_estoque_destino
+Union All
+Select Itdev_for.Cd_produto
+     , Produto.Ds_produto
+       :CAMPO_CF_SELECT
+     , Itdev_for.Qt_devolvida * -1                  Quantidade
+     , 0                                            Perdas
+     , Trunc(Dev_for.Dt_devolucao)                  Data
+     , To_char(Dev_for.Hr_devolucao, 'hh24' ) Hora
+     , Dev_for.Cd_devolucao                         Documento
+     , 'Dev. P/  Fornecedor'                        Operacao
+     , Estoque.Cd_estoque                           Cd_estoque
+     , Uni_pro.Vl_fator
+      ,DBAMV.PKG_MV2000.LE_CONFIGURACAO('MGES','NR_CIDC') NR_CIDC
+  From Dbamv.Estoque
+     , Dbamv.Dev_for
+     , Dbamv.Itdev_for
+     , Dbamv.Uni_pro
+     , Dbamv.Lista_codigo_medicamento
+     , Dbamv.Portaria
+     , Dbamv.Itportaria
+     , Dbamv.Produto
+     , Dbamv.Ent_pro
+     , Dbamv.Itent_pro
+ Where trunc(Dev_for.Dt_devolucao) + ((Dev_for.hr_devolucao) - trunc(Dev_for.hr_devolucao)) >= to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy') ||' 00','dd/mm/yyyy hh24') 
+   And trunc(Dev_for.Dt_devolucao) + ((Dev_for.hr_devolucao) - trunc(Dev_for.hr_devolucao)) <= to_date(to_char(:CAMPO_DTFIM ,'dd/mm/yyyy') ||' 23','dd/mm/yyyy hh24')
+   And Portaria.Cd_portaria                = Itportaria.Cd_portaria
+   And Itportaria.Cd_produto               = Produto.Cd_produto
+   And Produto.Cd_lista_codigo_medicamento = Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+   And Estoque.Cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+   And Itdev_for.Cd_devolucao              = Dev_for.Cd_devolucao
+   And Itdev_for.Cd_produto                = Produto.Cd_produto
+   And Itdev_for.Cd_uni_pro                = Uni_pro.Cd_uni_pro
+   And Dev_for.Cd_ent_pro                  = Ent_pro.Cd_ent_pro
+   And Ent_pro.Cd_estoque                  = Estoque.Cd_estoque
+   And Itdev_for.Cd_itent_pro              = Itent_pro.Cd_itent_pro
+Union All
+Select Produto.Cd_produto                                   Cd_produto
+     , Produto.Ds_produto                                   Ds_produto
+       :CAMPO_CF_SELECT
+     , 0                                                    Quantidade
+     , 0                                                    Perdas
+     , To_Date(null)                                        Data
+     , '00'                                           Hora
+     , to_number(null)                                      Documento
+     , 'Geral'                                              Operacao
+     , Estoque.Cd_estoque                                   Cd_estoque
+     , Dbamv.Verif_Vl_Fator_Prod(Produto.Cd_Produto)        Vl_fator
+      ,DBAMV.PKG_MV2000.LE_CONFIGURACAO('MGES','NR_CIDC') NR_CIDC
+  From Dbamv.Produto
+     , Dbamv.Lista_codigo_medicamento
+     , Dbamv.Portaria
+     , Dbamv.Itportaria
+     , Dbamv.Estoque
+     , Dbamv.Est_pro
+ Where Estoque.Cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+   And Portaria.Cd_portaria                = Itportaria.Cd_portaria
+   And Itportaria.Cd_produto               = Produto.Cd_produto
+   And Produto.Cd_lista_codigo_medicamento = Lista_codigo_medicamento.Cd_lista_codigo_medicamento
+   And Produto.Cd_Produto                  = Est_Pro.Cd_Produto
+   And Estoque.Cd_Estoque                  = Est_Pro.Cd_Estoque
+Order By Cd_lista_codigo_medicamento
+       , Cd_portaria
+       , Ds_produto
+       , Cd_Estoque
+       , Data
+       , Hora
+       , Operacao
+)

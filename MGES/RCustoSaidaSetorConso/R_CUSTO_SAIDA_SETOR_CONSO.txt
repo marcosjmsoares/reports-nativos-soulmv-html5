@@ -1,0 +1,156 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_CONSO
+SELECT * FROM (
+SELECT  SETOR.CD_SETOR                                           		CD_SETOR
+               ,SETOR.NM_SETOR 				NM_SETOR
+               ,GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO		CD_GRUPO_DE_CUSTO
+               ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO		DS_GRUPO_DE_CUSTO
+               ,PRODUTO.CD_ESPECIE				CD_ESPECIE
+               ,PRODUTO.CD_CLASSE				CD_CLASSE
+               ,SUB_CLAS.CD_SUB_CLA				CD_SUB_CLA
+               ,SUB_CLAS.DS_SUB_CLA				DS_SUB_CLA
+               ,COUNT(C_CONSET.CD_PRODUTO) 			QTD_ITENS_ATENDIDO
+               ,sum((decode('','S',nvl( vl_saida_setor,0),
+                                'P',nvl( vl_saida_paciente,0),
+                                'A',nvl( vl_saida_setor,0)+ nvl( vl_saida_paciente,0)+ nvl( vl_venda,0),0))
+                  - (decode('','S',nvl( vl_devolvida_setor,0),
+                                'P',nvl( vl_devolvida_paciente,0),
+                                'A',nvl( vl_devolvida_setor,0)+ nvl( vl_devolvida_paciente,0)+ nvl( vl_devolucao_venda,0),0))) VL_ATUAL ,
+	1 CD_LINK
+FROM            DBAMV.C_CONSET
+               ,DBAMV.SETOR
+               ,DBAMV.ESTOQUE
+               ,DBAMV.PRODUTO
+               ,DBAMV.SUB_CLAS
+               ,DBAMV.GRUPO_DE_CUSTO
+WHERE     To_Date('01/'|| LPad( To_Char( C_Conset.Cd_Mes ), 2, '0' )||'/' || To_Char( C_Conset.Cd_Ano ), 'DD/MM/YYYY' )   Between TRUNC(:CAMPO_DATA_INI)  And Last_Day(:CAMPO_DATA_FIM)
+AND        C_CONSET.CD_SETOR = SETOR.CD_SETOR
+AND        C_CONSET.CD_PRODUTO = PRODUTO.CD_PRODUTO
+AND        PRODUTO.CD_SUB_CLA = SUB_CLAS.CD_SUB_CLA
+AND        PRODUTO.CD_CLASSE = SUB_CLAS.CD_CLASSE
+AND        PRODUTO.CD_ESPECIE = SUB_CLAS.CD_ESPECIE
+AND        C_CONSET.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND  SETOR.CD_GRUPO_DE_CUSTO = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO(+)
+GROUP BY
+SETOR.CD_SETOR
+               ,SETOR.NM_SETOR
+               ,GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+               ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+               ,PRODUTO.CD_ESPECIE
+               ,PRODUTO.CD_CLASSE
+               ,SUB_CLAS.CD_SUB_CLA
+               ,SUB_CLAS.DS_SUB_CLA
+HAVING sum((decode('','S',nvl( vl_saida_setor,0),
+                                'P',nvl( vl_saida_paciente,0),
+                                'A',nvl( vl_saida_setor,0)+ nvl( vl_saida_paciente,0)+ nvl( vl_venda,0)
+                                ,0))
+                  - (decode('','S',nvl( vl_devolvida_setor,0),
+                                'P',nvl( vl_devolvida_paciente,0),
+                                'A',nvl( vl_devolvida_setor,0)+ nvl( vl_devolvida_paciente,0)+ nvl( vl_devolucao_venda,0)
+                                ,0))) > 0
+)
+ORDER BY cD_GRUPO_DE_CUSTO,DS_GRUPO_DE_CUSTO,
+CD_SETOR,NM_SETOR, DS_SUB_CLA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_CONSO_R_TOTALSUBCLASSES1_Q_TOTAL_SUBCLASSES
+SELECT * FROM (
+SELECT * FROM (
+SELECT
+                GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO 	CD_GRUPO_DE_CUSTO_RESUMO
+               ,GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO 	DS_GRUPO_DE_CUSTO_RESUMO
+               ,PRODUTO.CD_ESPECIE 			CD_ESPECIE_RESUMO
+               ,PRODUTO.CD_CLASSE  			CD_CLASSE_RESUMO
+	,SETOR.CD_SETOR			CD_SETOR_RESUMO
+               ,SUB_CLAS.CD_SUB_CLA 			CD_SUB_CLA_RESUMO
+               ,SUB_CLAS.DS_SUB_CLA 			DS_SUB_CLA_RESUMO
+               ,sum((decode('','S',nvl( vl_saida_setor,0),
+                                'P',nvl( vl_saida_paciente,0),
+                                'A',nvl( vl_saida_setor,0)+ nvl( vl_saida_paciente,0)+ nvl( vl_venda,0),0))
+                  - (decode('','S',nvl( vl_devolvida_setor,0),
+                                'P',nvl( vl_devolvida_paciente,0),
+                                'A',nvl( vl_devolvida_setor,0)+ nvl( vl_devolvida_paciente,0)+ nvl( vl_devolucao_venda,0),0))) 	VL_ATUAL_RESUMO,
+	1 					CD_LINK_RESUMO
+FROM      DBAMV.C_CONSET
+               ,DBAMV.SETOR
+               ,DBAMV.ESTOQUE
+               ,DBAMV.PRODUTO
+               ,DBAMV.SUB_CLAS
+               ,DBAMV.GRUPO_DE_CUSTO
+WHERE  To_Date('01/'|| LPad( To_Char( C_Conset.Cd_Mes ), 2, '0' )||'/' || To_Char( C_Conset.Cd_Ano ), 'DD/MM/YYYY' )   Between TRUNC(:CAMPO_DATA_INI)  And Last_Day(:CAMPO_DATA_FIM)
+AND C_CONSET.CD_SETOR 		= SETOR.CD_SETOR
+AND C_CONSET.CD_PRODUTO 		= PRODUTO.CD_PRODUTO
+AND PRODUTO.CD_SUB_CLA 		= SUB_CLAS.CD_SUB_CLA
+AND PRODUTO.CD_CLASSE 		= SUB_CLAS.CD_CLASSE
+AND PRODUTO.CD_ESPECIE 		= SUB_CLAS.CD_ESPECIE
+AND C_CONSET.CD_ESTOQUE 		= ESTOQUE.CD_ESTOQUE
+AND ESTOQUE.CD_MULTI_EMPRESA 	= :CAMPO_CD_MULTI_EMPRESA
+AND SETOR.CD_GRUPO_DE_CUSTO 	= GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO(+)
+AND NVL(SETOR.CD_GRUPO_DE_CUSTO,-1) 	= NVL(:CAMPO_CD_GRUPO_DE_CUSTO,-1)
+GROUP BY  GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO
+                    ,GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO
+                    ,PRODUTO.CD_ESPECIE
+                    ,PRODUTO.CD_CLASSE
+	    ,SETOR.CD_SETOR
+                    ,SUB_CLAS.CD_SUB_CLA
+                    ,SUB_CLAS.DS_SUB_CLA
+HAVING
+               sum((decode('','S',nvl( vl_saida_setor,0),
+                                'P',nvl( vl_saida_paciente,0),
+                                'A',nvl( vl_saida_setor,0)+ nvl( vl_saida_paciente,0)+ nvl( vl_venda,0)
+                                ,0))
+                  - (decode('','S',nvl( vl_devolvida_setor,0),
+                                'P',nvl( vl_devolvida_paciente,0),
+                                'A',nvl( vl_devolvida_setor,0)+ nvl( vl_devolvida_paciente,0)+ nvl( vl_devolucao_venda,0)
+                                ,0)))  > 0
+ORDER BY
+         GRUPO_DE_CUSTO.DS_GRUPO_DE_CUSTO,
+         DS_SUB_CLA
+)
+WHERE CD_LINK_RESUMO = :CAMPO_CD_LINK
+)
+ORDER BY CD_LINK_RESUMO,CD_ESPECIE_RESUMO,CD_CLASSE_RESUMO,CD_GRUPO_DE_CUSTO_RESUMO,DS_GRUPO_DE_CUSTO_RESUMO,CD_SUB_CLA_RESUMO,DS_SUB_CLA_RESUMO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SAIDA_SETOR_CONSO_R_TOTALSUBCLASSES2_Q_TOTAL_SUB_CLASSES_GERAL
+SELECT
+                SUB_CLAS.DS_SUB_CLA   DS_SUB_CLA_GERAL
+,sum((decode('','S',nvl( vl_saida_setor,0),
+                                'P',nvl( vl_saida_paciente,0),
+                                'A',nvl( vl_saida_setor,0)+ nvl( vl_saida_paciente,0)+ nvl( vl_venda,0)
+                                ,0))
+                  - (decode('','S',nvl( vl_devolvida_setor,0),
+                                'P',nvl( vl_devolvida_paciente,0),
+                                'A',nvl( vl_devolvida_setor,0)+ nvl( vl_devolvida_paciente,0)+ nvl( vl_devolucao_venda,0)
+                                ,0))) VL_ATUAL_GERAL
+FROM      DBAMV.C_CONSET
+               ,DBAMV.SETOR
+               ,DBAMV.ESTOQUE
+               ,DBAMV.PRODUTO
+               ,DBAMV.SUB_CLAS
+               ,DBAMV.GRUPO_DE_CUSTO
+WHERE  To_Date('01/'|| LPad( To_Char( C_Conset.Cd_Mes ), 2, '0' )||'/' || To_Char( C_Conset.Cd_Ano ), 'DD/MM/YYYY' )   Between TRUNC(:CAMPO_DATA_INI)  And Last_Day(:CAMPO_DATA_FIM)
+AND        C_CONSET.CD_SETOR = SETOR.CD_SETOR
+AND        C_CONSET.CD_PRODUTO = PRODUTO.CD_PRODUTO
+AND        PRODUTO.CD_SUB_CLA = SUB_CLAS.CD_SUB_CLA
+AND        PRODUTO.CD_CLASSE = SUB_CLAS.CD_CLASSE
+AND        PRODUTO.CD_ESPECIE = SUB_CLAS.CD_ESPECIE
+AND        C_CONSET.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        SETOR.CD_GRUPO_DE_CUSTO = GRUPO_DE_CUSTO.CD_GRUPO_DE_CUSTO(+)
+ GROUP BY
+                     SUB_CLAS.DS_SUB_CLA
+HAVING
+               sum((decode('','S',nvl( vl_saida_setor,0),
+                                'P',nvl( vl_saida_paciente,0),
+                                'A',nvl( vl_saida_setor,0)+ nvl( vl_saida_paciente,0)+ nvl( vl_venda,0)
+                                ,0))
+                  - (decode('','S',nvl( vl_devolvida_setor,0),
+                                'P',nvl( vl_devolvida_paciente,0),
+                                'A',nvl( vl_devolvida_setor,0)+ nvl( vl_devolvida_paciente,0)+ nvl( vl_devolucao_venda,0)
+                                ,0)))  > 0

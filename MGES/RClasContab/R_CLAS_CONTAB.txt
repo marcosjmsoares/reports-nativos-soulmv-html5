@@ -1,0 +1,290 @@
+/*----------------------------------------------------------------------------*/
+--R_CLAS_CONTAB
+SELECT * FROM (
+Select  Ent_Pro.cd_ent_pro cd_ent_pro
+           ,Ent_pro.cd_tip_doc
+           ,Tip_doc.ds_tip_doc
+           ,Ent_Pro.Vl_Total  vl_total
+           ,0 vl_frete
+           ,Cfop.nr_cfop
+           ,Ent_Pro.Cd_Fornecedor
+           ,Ent_Pro.Dt_Entrada
+           ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, Ent_Pro.Nr_Documento || '-' || Ent_Pro.Nr_Serie) Nota_Fiscal
+           ,Fornecedor.Nm_Fornecedor
+           ,Fornecedor.Nr_Cgc_Cpf
+           ,Dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque, 'C') cd_contabil
+           ,Sum(   Decode(Sn_inclusao_nota,'N', (Nvl( ItEnt_Pro.Qt_Entrada, 0 ) * Nvl( Vl_Custo_Real, 0 ))  -  Nvl(Itent_pro.vl_frete,0) ,  Nvl( ItEnt_Pro.Qt_Entrada, 0 ) * Nvl( Vl_Custo_Real, 0 ) ))    Vl_Conta
+           ,Sn_inclusao_nota
+           ,ItEnt_Pro.Sn_agrega_frete_custo_medio
+   From Dbamv.Produto
+           ,Dbamv.ItEnt_Pro
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Pro
+           ,Dbamv.Tip_doc
+           ,Dbamv.cfop
+           ,DBAMV.CONFIGEST
+Where Ent_Pro.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+     and Fornecedor.Cd_Fornecedor     = Ent_Pro.Cd_Fornecedor
+     and Itent_Pro.Cd_Ent_Pro	            = Ent_Pro.Cd_Ent_Pro
+     and Produto.Cd_Produto                = Itent_Pro.Cd_Produto
+     and Ent_Pro.Cd_Tip_Doc              = Tip_Doc.Cd_Tip_Doc
+     and Ent_Pro.Cd_Cfop                     = Cfop.Cd_Cfop
+     and CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+     and Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			      From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+ Group By  Ent_Pro.Dt_Entrada
+          ,Ent_pro.cd_tip_doc
+          ,Tip_doc.ds_tip_doc
+          ,Ent_Pro.cd_ent_pro
+          ,Fornecedor.Nm_Fornecedor
+          ,Fornecedor.Nr_Cgc_Cpf
+          ,Ent_Pro.Cd_Fornecedor
+          ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, Ent_Pro.Nr_Documento || '-' || Ent_Pro.Nr_Serie)
+          ,Ent_Pro.Vl_Total
+          ,Ent_Pro.Vl_Frete
+          ,Cfop.Nr_Cfop
+          ,Dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque,'C')
+          ,Sn_inclusao_nota
+          ,ItEnt_Pro.Sn_agrega_frete_custo_medio
+union all
+Select  Ent_Pro.cd_ent_pro cd_ent_pro
+           ,Ent_pro.cd_tip_doc
+           ,Tip_doc.ds_tip_doc
+           ,0   vl_total
+           ,Ent_Pro.Vl_Frete  vl_frete
+           ,Cfop.nr_cfop
+           ,Ent_Pro.Cd_Fornecedor_frete
+           ,Ent_Pro.Dt_Entrada
+           ,Ent_Pro.Nr_Conhecimento_frete || '-' || Ent_Pro.Nr_Serie_frete    Nota_Fiscal
+           ,Fornecedor.Nm_Fornecedor
+           ,Fornecedor.Nr_Cgc_Cpf
+           ,dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque,'C')  cd_contabil
+           ,Sum(Nvl( Itent_pro.vl_frete,0) )  Vl_Conta
+           ,Sn_inclusao_nota
+           ,Sn_agrega_frete_custo_medio
+  From  Dbamv.Produto
+           ,Dbamv.ItEnt_Pro
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Pro
+           ,Dbamv.Tip_Doc
+           ,Dbamv.Cfop
+Where Ent_Pro.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and Fornecedor.Cd_Fornecedor	= Ent_Pro.Cd_Fornecedor_frete
+      and Itent_Pro.Cd_Ent_Pro		= Ent_Pro.Cd_Ent_Pro
+      and Produto.Cd_Produto                   = Itent_Pro.Cd_Produto
+      and Ent_Pro.Cd_Tip_Doc                  = Tip_Doc.Cd_Tip_Doc
+      and Ent_Pro.Cd_Cfop                        = Cfop.Cd_Cfop
+      and Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			       From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+     and (Ent_pro.Tp_frete = 'F' and Ent_Pro.sn_inclusao_nota = 'N' and itent_pro.sn_agrega_frete_custo_medio = 'S')
+  Group By  Ent_Pro.Dt_Entrada
+          ,Ent_pro.cd_tip_doc
+          ,Tip_doc.ds_tip_doc
+          ,Ent_Pro.cd_ent_pro
+          ,Fornecedor.Nm_Fornecedor
+          ,Fornecedor.Nr_Cgc_Cpf
+          ,Ent_Pro.Cd_Fornecedor_frete
+          ,Ent_Pro.Nr_Conhecimento_frete
+          ,Ent_Pro.Nr_Serie_frete
+          ,Ent_Pro.Vl_Total
+          ,Ent_Pro.Vl_Frete
+          ,Cfop.nr_cfop
+          ,dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque,'C')
+          ,Sn_inclusao_nota
+          ,Sn_agrega_frete_custo_medio
+Union All
+Select Ent_serv.cd_ent_serv cd_ent_pro
+          ,Ent_serv.cd_tip_doc
+          ,Tip_doc.ds_tip_doc
+          ,Ent_serv.Vl_Total  vl_total
+          ,0  vl_frete
+          ,Cfop.nr_cfop
+          ,Ent_serv.Cd_Fornecedor
+          ,Ent_serv.Dt_Entrada
+          ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', Ent_serv.nr_ncf, Ent_serv.Nr_Documento || '-' || Ent_serv.Nr_Serie) Nota_Fiscal
+          ,Fornecedor.Nm_Fornecedor
+          ,Fornecedor.Nr_Cgc_Cpf
+          ,Plano_Contas.Cd_Contabil
+          ,Sum( Nvl( ItEnt_serv.Qt_Entrada, 0 ) * Nvl( itent_serv.Vl_unitario, 0 ))     Vl_Conta
+          ,'N' Sn_inclusao_nota
+          ,'N' Sn_agrega_frete_custo_medio
+  From  Dbamv.ItEnt_serv
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Serv
+           ,Dbamv.Oficina
+           ,Dbamv.Manu_Serv
+           ,Dbamv.Tip_Doc
+           ,Dbamv.Cfop
+           ,Dbamv.Plano_Contas
+           ,DBAMV.CONFIGEST
+ Where Ent_serv.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and Fornecedor.Cd_Fornecedor	 = Ent_Serv.Cd_Fornecedor
+      and ItEnt_Serv.Cd_Ent_Serv             = Ent_Serv.Cd_Ent_serv
+      and Ent_Serv.Cd_Tip_Doc                = Tip_Doc.Cd_Tip_Doc
+      and Ent_Serv.Cd_Oficina                   = Oficina.Cd_Oficina
+      and Itent_Serv.Cd_Servico                = Manu_Serv.Cd_Servico
+      and CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+      and Manu_Serv.Cd_Reduzido           = Plano_Contas.Cd_Reduzido (+)
+      and Oficina.cd_multi_empresa           = :CAMPO_CD_MULTI_EMPRESA
+      and Ent_Serv.Cd_Cfop    = Cfop.Cd_Cfop
+   Group By  Ent_Serv.Cd_Tip_Doc
+            ,Tip_Doc.Ds_Tip_Doc
+            ,Ent_Serv.Dt_Entrada
+            ,Ent_Serv.Cd_Ent_Serv
+            ,Fornecedor.Nm_Fornecedor
+            ,Fornecedor.Nr_Cgc_Cpf
+            ,Ent_Serv.Cd_Fornecedor
+            ,Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', Ent_serv.nr_ncf, Ent_serv.Nr_Documento || '-' || Ent_serv.Nr_Serie)
+            ,Cfop.Nr_Cfop
+            ,Plano_Contas.Cd_Contabil
+            ,Ent_Serv.Vl_Total
+)
+ORDER BY CD_TIP_DOC,DS_TIP_DOC,
+DT_ENTRADA,
+CD_ENT_PRO,NM_FORNECEDOR,NR_CGC_CPF,CD_FORNECEDOR,NOTA_FISCAL,VL_TOTAL,VL_FRETE,SN_INCLUSAO_NOTA,SN_AGREGA_FRETE_CUSTO_MEDIO,NR_CFOP
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CLAS_CONTAB_R_2_Q_CFOP
+Select  Cfop.nr_cfop
+           ,Cfop.ds_cfop
+           ,Sum(   Decode(Sn_inclusao_nota,'N', (Nvl( ItEnt_Pro.Qt_Entrada, 0 ) * Nvl( Vl_Custo_Real, 0 ))  -  Nvl(Itent_pro.vl_frete,0) ,  Nvl( ItEnt_Pro.Qt_Entrada, 0 ) * Nvl( Vl_Custo_Real, 0 ) ))    Vl_Conta
+  From  Dbamv.Produto
+           ,Dbamv.ItEnt_Pro
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Pro
+           ,Dbamv.Tip_doc
+           ,Dbamv.cfop
+Where Ent_Pro.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and Fornecedor.Cd_Fornecedor	= Ent_Pro.Cd_Fornecedor
+      and Itent_Pro.Cd_Ent_Pro		= Ent_Pro.Cd_Ent_Pro
+      and Produto.Cd_Produto                   = Itent_Pro.Cd_Produto
+      and Ent_Pro.Cd_Tip_Doc                 = Tip_Doc.Cd_Tip_Doc
+      and Ent_Pro.Cd_Cfop                        = Cfop.Cd_Cfop
+      and Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			       From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+  Group By Cfop.Nr_Cfop
+           ,Cfop.Ds_Cfop
+union all
+Select  Cfop.Nr_Cfop
+           ,Cfop.Ds_Cfop
+           ,Sum(Nvl( Itent_pro.vl_frete,0) )  Vl_Conta
+  From  Dbamv.Produto
+           ,Dbamv.ItEnt_Pro
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Pro
+           ,Dbamv.Tip_Doc
+           ,Dbamv.Cfop
+Where Ent_Pro.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and Fornecedor.Cd_Fornecedor	= Ent_Pro.Cd_Fornecedor_frete
+      and Itent_Pro.Cd_Ent_Pro		= Ent_Pro.Cd_Ent_Pro
+      and Produto.Cd_Produto                   = Itent_Pro.Cd_Produto
+      and Ent_Pro.Cd_Tip_Doc                 = Tip_Doc.Cd_Tip_Doc
+      and Ent_Pro.Cd_Cfop                       = Cfop.Cd_Cfop
+      and Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			       From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+     and (Ent_pro.Tp_frete = 'F' and Ent_Pro.sn_inclusao_nota = 'N' and itent_pro.sn_agrega_frete_custo_medio = 'S')
+  Group By Cfop.Nr_Cfop
+          ,Cfop.Ds_Cfop
+Union All
+Select  Cfop.Nr_Cfop
+           ,Cfop.Ds_Cfop
+           ,Sum( Nvl( ItEnt_serv.Qt_Entrada, 0 ) * Nvl( itent_serv.Vl_unitario, 0 ))     Vl_Conta
+  From  Dbamv.ItEnt_Serv
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Serv
+           ,Dbamv.Oficina
+           ,Dbamv.Manu_Serv
+           ,Dbamv.Tip_Doc
+           ,Dbamv.Cfop
+Where Ent_serv.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and Fornecedor.Cd_Fornecedor     = Ent_Serv.Cd_Fornecedor
+      and ItEnt_Serv.Cd_Ent_Serv          = Ent_Serv.Cd_Ent_Serv
+      and Ent_Serv.Cd_Tip_Doc             = Tip_Doc.Cd_Tip_Doc
+      and Ent_Serv.Cd_Oficina                = Oficina.Cd_Oficina
+      and Itent_Serv.Cd_Servico             = Manu_Serv.Cd_Servico
+      and  Oficina.cd_multi_empresa        = :CAMPO_CD_MULTI_EMPRESA
+      and  Ent_Serv.Cd_Cfop                   = Cfop.Cd_Cfop
+   Group By Cfop.Nr_Cfop
+           ,Cfop.Ds_Cfop
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CLAS_CONTAB_R_3_Q_TOTAL_CONTABIL
+select distinct cd_contabil, ds_conta, Vl_Conta_contabil from (Select  Dbamv.Busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque, '') cd_contabil
+           ,plano_contas.ds_conta
+           ,Sum(   Decode(Sn_inclusao_nota,'N', (Nvl( ItEnt_Pro.Qt_Entrada, 0 ) * Nvl( Vl_Custo_Real, 0 ))  -  Nvl(Itent_pro.vl_frete,0) ,  Nvl( ItEnt_Pro.Qt_Entrada, 0 ) * Nvl( Vl_Custo_Real, 0 ) ))    Vl_Conta_contabil
+  From  Dbamv.Produto
+           ,Dbamv.ItEnt_Pro
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Pro
+           ,Dbamv.Tip_doc
+           ,Dbamv.cfop
+           ,Dbamv.Plano_Contas
+Where Ent_Pro.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and Fornecedor.Cd_Fornecedor	= Ent_Pro.Cd_Fornecedor
+      and Itent_Pro.Cd_Ent_Pro		= Ent_Pro.Cd_Ent_Pro
+      and Produto.Cd_Produto                   = Itent_Pro.Cd_Produto
+      and Ent_pro.cd_tip_doc                    = Tip_Doc.Cd_Tip_Doc
+      and Ent_pro.cd_cfop                         = cfop.cd_cfop
+      and Dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque, '') = plano_contas.cd_contabil
+      and Plano_contas.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      and Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			       From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+  Group By  dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque,'')
+            ,plano_contas.ds_conta
+union all
+Select  Dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque,'')  cd_contabil
+           ,Plano_contas.ds_conta
+           ,Sum(Nvl( Itent_pro.vl_frete,0) )  Vl_Conta_contabil
+  From  Dbamv.Produto
+           ,Dbamv.ItEnt_Pro
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Pro
+           ,Dbamv.Tip_Doc
+           ,Dbamv.Cfop
+           ,Dbamv.Plano_Contas
+Where Ent_Pro.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+      and Dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque, '') = plano_contas.cd_contabil
+      and Plano_contas.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      and Fornecedor.Cd_Fornecedor	 = Ent_Pro.Cd_Fornecedor_frete
+      and Itent_Pro.Cd_Ent_Pro		 = Ent_Pro.Cd_Ent_Pro
+      and Produto.Cd_Produto                    = Itent_Pro.Cd_Produto
+      and Ent_pro.cd_tip_doc                     = Tip_Doc.Cd_Tip_Doc
+      and Ent_pro.cd_cfop                          = Cfop.Cd_Cfop
+      and Ent_Pro.Cd_Estoque in ( Select Estoque.Cd_Estoque
+			       From Dbamv.Estoque
+                             Where Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA )
+      and (Ent_pro.Tp_frete = 'F' and Ent_Pro.sn_inclusao_nota = 'N' and itent_pro.sn_agrega_frete_custo_medio = 'S')
+  Group By dbamv.busca_conta_contabil_mges(produto.cd_produto,'N',produto.cd_especie,produto.cd_classe,produto.cd_sub_cla,ent_pro.cd_estoque,'')
+         ,Plano_Contas.Ds_Conta
+Union All
+Select  Plano_Contas.Cd_Contabil
+           ,Plano_contas.Ds_conta
+           ,Sum( Nvl( ItEnt_serv.Qt_Entrada, 0 ) * Nvl( itent_serv.Vl_unitario, 0 ))     Vl_Conta_contabil
+  From  Dbamv.ItEnt_serv
+           ,Dbamv.Fornecedor
+           ,Dbamv.Ent_Serv
+           ,Dbamv.Oficina
+           ,Dbamv.Manu_Serv
+           ,Dbamv.Tip_Doc
+           ,Dbamv.Cfop
+           ,Dbamv.Plano_Contas
+Where Ent_Serv.Dt_Entrada Between :CAMPO_PDT_INICIAL and (:CAMPO_PDT_FINAL + 0.99999)
+     and Fornecedor.Cd_Fornecedor	= Ent_Serv.Cd_Fornecedor
+     and ItEnt_Serv.Cd_Ent_serv	= Ent_Serv.Cd_Ent_serv
+     and Ent_Serv.Cd_tip_doc                  = Tip_Doc.Cd_Tip_Doc
+     and Ent_Serv.Cd_oficina                   = Oficina.Cd_Oficina
+     and Itent_Serv.cd_Servico                = Manu_Serv.Cd_Servico
+     and Oficina.cd_multi_empresa           = :CAMPO_CD_MULTI_EMPRESA
+     and Manu_Serv.Cd_Reduzido           = Plano_Contas.Cd_Reduzido (+)
+     and Ent_Serv.Cd_Cfop                      = Cfop.Cd_Cfop
+Group By Plano_contas.cd_contabil
+           ,Plano_contas.ds_conta)

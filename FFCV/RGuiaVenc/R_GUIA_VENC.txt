@@ -1,0 +1,78 @@
+/*----------------------------------------------------------------------------*/
+--R_GUIA_VENC
+SELECT distinct * FROM (
+SELECT GUIA.CD_GUIA
+              ,GUIA.CD_GUIA_PAI
+              ,GUIA.TP_GUIA
+              ,GUIA.NR_DIAS_SOLICITADOS
+              ,GUIA.DS_JUSTIFICATIVA
+              ,GUIA.DT_SOLICITACAO
+              ,GUIA.DT_VALIDADE
+              ,GUIA.NR_GUIA
+              ,ATENDIME.CD_ATENDIMENTO
+              ,ATENDIME.CD_PRO_INT
+              ,ATENDIME.CD_PRO_INT_PROCEDIMENTO_ENTRAD
+              ,ATENDIME.DT_ATENDIMENTO
+              ,ATENDIME.HR_ATENDIMENTO
+              ,ATENDIME.DT_ALTA
+              ,GUIA.CD_CONVENIO
+              ,ATENDIME.CD_PACIENTE
+              ,CONVENIO.NM_CONVENIO
+              ,PACIENTE.NM_PACIENTE
+              ,PACIENTE.NR_DOCUMENTO
+              ,TIP_ACOM.CD_TIP_ACOM
+              ,TIP_ACOM.DS_TIP_ACOM
+              ,CARTEIRA.NR_CARTEIRA
+              ,PRO_INT.DS_PRO_FAT DS_PRO_INT
+              ,PRO_INT_ENT.DS_PRO_FAT   DS_PRO_INT_ENT
+              ,PRESTADOR.CD_PRESTADOR
+              ,PRESTADOR.NM_PRESTADOR
+              ,PRESTADOR.DS_CODIGO_CONSELHO
+              ,CONSELHO.DS_CONSELHO
+              ,LEITO.DS_RESUMO
+              ,ATENDIME.CD_LEITO
+              ,LEITO.CD_UNID_INT
+              ,LEITO.DS_ENFERMARIA
+              ,LEITO.DS_LEITO
+FROM DBAMV.GUIA
+           ,DBAMV.TIP_ACOM
+           ,DBAMV.ATENDIME
+           ,DBAMV.CONVENIO
+           ,DBAMV.PACIENTE
+           ,DBAMV.LEITO
+           ,DBAMV.CARTEIRA
+           ,DBAMV.PRO_FAT  PRO_INT
+           ,DBAMV.PRO_FAT  PRO_INT_ENT
+           ,DBAMV.PRESTADOR
+           ,DBAMV.CONSELHO
+	   ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And GUIA.CD_TIP_ACOM = TIP_ACOM.CD_TIP_ACOM(+)
+AND       GUIA.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND       GUIA.DT_NEGACAO IS NULL
+AND       GUIA.DT_SUSPENSAO IS NULL
+AND       ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_CONVENIO = CARTEIRA.CD_CONVENIO (+)
+AND       ATENDIME.CD_PACIENTE = CARTEIRA.CD_PACIENTE (+)
+AND       ATENDIME.CD_LEITO  =  LEITO.CD_LEITO(+)
+AND       ATENDIME.CD_PRO_INT = PRO_INT.CD_PRO_FAT (+)
+AND       ATENDIME.CD_PRO_INT_PROCEDIMENTO_ENTRAD = PRO_INT_ENT.CD_PRO_FAT (+)
+AND       ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+AND       PRESTADOR.CD_CONSELHO = CONSELHO.CD_CONSELHO(+)
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+ AND (atendime.tp_Atendimento) IN ('I', 'H')
+AND ( (atendime.dt_Alta > Nvl(guia.dt_Validade,SYSDATE) OR atendime.dt_Alta IS NULL AND Trunc(Nvl(guia.dt_Validade,SYSDATE)) < Trunc(SYSDATE)) )
+				       AND guia.cd_guia = (SELECT MAX(guia2.cd_guia)
+				                             FROM dbamv.guia guia2, dbamv.atendime
+				                            where guia2.cd_atendimento = atendime.cd_atendimento
+				                              AND atendime.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+				                              AND guia2.cd_Atendimento = guia.cd_Atendimento
+				                              AND GUIA2.CD_CONVENIO = guia.cd_convenio
+				                              AND GUIA2.CD_PACIENTE = GUIA.CD_PACIENTE
+				                              AND Guia2.dt_negacao IS NULL
+				                              AND guia2.dt_suspensao IS NULL
+				                              AND guia2.dt_validade IS NOT NULL
+                                      )
+)

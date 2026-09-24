@@ -1,0 +1,96 @@
+/*----------------------------------------------------------------------------*/
+--R_FATXCONS
+SELECT * FROM (
+Select atendime.cd_atendimento,
+       paciente.nm_paciente,
+       atendime.dt_atendimento,
+       atendime.dt_alta,
+       produto.cd_produto,
+       produto.ds_produto,
+       Nvl( saidas.qt_saida, 0 ) qt_saida,
+       Nvl( devolucao.qt_devolvido, 0 ) qt_devolvido,
+       Nvl( faturado.qt_faturado, 0 ) qt_faturado,
+       NVL(DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,NVL(produto.vl_fator_pro_fat, 0), dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,NVL(produto.vl_fator_pro_fat, 0), TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))),0) vl_fator_pro_fat
+  From dbamv.atendime,
+       dbamv.paciente,
+       dbamv.produto,
+       dbamv.convenio,
+       ( Select mvto_estoque.cd_atendimento,
+                itmvto_estoque.cd_produto,
+                Sum( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator) / dbamv.verif_vl_fator_prod (itmvto_estoque.cd_produto, 'G') qt_saida
+           From dbamv.itmvto_estoque,
+                dbamv.mvto_estoque,
+                dbamv.produto,
+                dbamv.uni_pro,
+		dbamv.estoque
+          Where mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+            and mvto_estoque.tp_mvto_estoque = 'P'
+            AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+            and produto.cd_produto                         = itmvto_estoque.cd_produto
+            and itmvto_estoque.cd_uni_pro             = uni_pro.cd_uni_pro
+            and mvto_estoque.cd_atendimento is not NULL
+         Group by mvto_estoque.cd_atendimento,
+                  itmvto_estoque.cd_produto) saidas,
+       ( Select mvto_estoque.cd_atendimento,
+                itmvto_estoque.cd_produto,
+                Sum( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator) / dbamv.verif_vl_fator_prod (itmvto_estoque.cd_produto, 'G') qt_devolvido
+           From dbamv.itmvto_estoque,
+                dbamv.mvto_estoque,
+                dbamv.produto,
+                dbamv.uni_pro,
+		dbamv.estoque
+          Where mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+            and mvto_estoque.tp_mvto_estoque = 'C'
+            AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+            and produto.cd_produto           = itmvto_estoque.cd_produto
+            and itmvto_estoque.cd_uni_pro    = uni_pro.cd_uni_pro
+            and mvto_estoque.cd_atendimento is not NULL
+         Group by mvto_estoque.cd_atendimento,
+                  itmvto_estoque.cd_produto ) devolucao,
+       ( Select reg_fat.cd_atendimento,
+                produto.cd_produto,
+                Sum( itreg_fat.qt_lancamento ) qt_faturado
+           From dbamv.reg_fat,
+                dbamv.produto,
+                dbamv.itreg_fat
+          Where reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+              AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+              and produto.cd_pro_fat = itreg_fat.cd_pro_fat
+         Group by reg_fat.cd_atendimento,
+                  produto.cd_produto
+         Union All
+         Select itreg_amb.cd_atendimento,
+                produto.cd_produto,
+                Sum( itreg_amb.qt_lancamento ) qt_faturado
+           From dbamv.itreg_amb,
+                dbamv.produto
+          Where itreg_amb.cd_pro_fat = produto.cd_pro_fat
+         Group by itreg_amb.cd_atendimento,
+                  produto.cd_produto ) faturado
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+    And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    And paciente.cd_paciente = atendime.cd_paciente
+    AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto
+                        WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+    and atendime.cd_convenio = convenio.cd_convenio
+    and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and convenio.tp_convenio not in ('A', 'H')
+    and saidas.cd_atendimento (+) = atendime.cd_atendimento
+    and devolucao.cd_atendimento (+) = saidas.cd_atendimento
+    and devolucao.cd_produto (+) = saidas.cd_produto
+    and faturado.cd_atendimento (+) = saidas.cd_atendimento
+    and faturado.cd_produto (+) = saidas.cd_produto
+    and produto.cd_produto = saidas.cd_produto
+    and Nvl( saidas.qt_saida, 0 ) +
+        Nvl( devolucao.qt_devolvido, 0 ) +
+        Nvl( faturado.qt_faturado, 0 )  > 0
+    and Trunc( atendime.dt_atendimento ) between Trunc( :CAMPO_DDTINICIAL ) and Trunc( :CAMPO_DDTFINAL )
+  order by atendime.cd_atendimento,
+       paciente.nm_paciente,
+       atendime.dt_atendimento,
+       atendime.dt_alta,
+       produto.ds_produto
+)
+ORDER BY CD_ATENDIMENTO,NM_PACIENTE,DT_ATENDIMENTO,DT_ALTA,DS_PRODUTO

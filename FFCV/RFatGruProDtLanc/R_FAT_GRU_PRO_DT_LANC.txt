@@ -1,0 +1,267 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_GRU_PRO_DT_LANC
+SELECT * FROM (
+SELECT  CD_GRU_PRO,
+                DS_GRU_PRO,
+               CD_PRO_FAT,
+               DS_PRO_FAT,
+               SUM(QT_LANCAMENTO) QT_LANCAMENTO,
+               SUM(VALOR_PAGAR) VALOR_PAGAR
+FROM(
+SELECT GRU_PRO.CD_GRU_PRO                   CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO                   DS_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                      CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                      DS_PRO_FAT
+              ,Decode(ITREG_FAT.cd_reg_fat_pai,NULL,ITREG_FAT.QT_LANCAMENTO,
+                      Decode(reg_fat.tp_mvto,'fDistribui',0,
+                             Decode(reg_fat.tp_mvto,'fQuebraDis',0,
+                             ITREG_FAT.QT_LANCAMENTO))    )QT_LANCAMENTO
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA)
+              																		 ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA), TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) VALOR_PAGAR              
+FROM     DBAMV.REG_FAT                                  REG_FAT
+              ,DBAMV.CONVENIO                                CONVENIO
+              ,DBAMV.ITREG_FAT                               ITREG_FAT
+              ,DBAMV.PRO_FAT                                  PRO_FAT
+              ,DBAMV.GRU_PRO                                 GRU_PRO
+	      ,Dbamv.Empresa_Convenio
+	      ,DBAMV.ITLAN_MED
+	      ,DBAMV.ATENDIME
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND ATENDIME.CD_ATENDIMENTO = REG_FAT.CD_ATENDIMENTO
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITLAN_MED.CD_REG_FAT(+) = ITREG_FAT.CD_REG_FAT
+AND        ITLAN_MED.CD_LANCAMENTO(+) = ITREG_FAT.CD_LANCAMENTO
+and          nvl( nvl( itlan_med.tp_pagamento, itreg_fat.tp_pagamento ) ,'X') <> 'C'
+AND        ITREG_FAT.DT_LANCAMENTO BETWEEN TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND (TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY') + 0.99999)
+AND        CONVENIO.TP_CONVENIO not in ('A','H')
+UNION ALL
+SELECT GRU_PRO.CD_GRU_PRO                CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO                DS_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                   CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                   DS_PRO_FAT
+              ,Decode(ITREG_AMB.cd_reg_amb_pai,NULL,ITREG_AMB.QT_LANCAMENTO,
+                      Decode(ITREG_AMB.tp_mvto_desconto,'fDistribui',0,
+                             Decode(ITREG_AMB.tp_mvto_desconto,'fQuebraDis',0,
+                             ITREG_AMB.QT_LANCAMENTO))    )QT_LANCAMENTO
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,ITREG_AMB.VL_TOTAL_CONTA
+              																		 ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,ITREG_AMB.VL_TOTAL_CONTA, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) VALOR_PAGAR              
+FROM    DBAMV.ATENDIME                             ATENDIME
+             ,DBAMV.ITREG_AMB                           ITREG_AMB
+             ,DBAMV.CONVENIO                             CONVENIO
+             ,DBAMV.REG_AMB                              REG_AMB
+             ,DBAMV.PRO_FAT                               PRO_FAT
+             ,DBAMV.GRU_PRO                              GRU_PRO
+             ,DBAMV.SERVICO		            SERVICO
+	     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+AND        ATENDIME.DT_ATENDIMENTO BETWEEN TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND (TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY') + 0.99999)
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO not in ('A','H')
+AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_COND_TP_ATENDIMENTO
+)
+WHERE NVL(VALOR_PAGAR,0) <> 0
+GROUP BY CD_GRU_PRO,
+                DS_GRU_PRO,
+               CD_PRO_FAT,
+               DS_PRO_FAT
+)
+ORDER BY CD_GRU_PRO,DS_GRU_PRO,VALOR_PAGAR DESC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GRU_PRO_CG__R_TIP_MOR_RN_Q_FAT_GRU_PRO_SINT_subreport1
+SELECT SUM(VALOR_PAGAR) VALOR_TOTAL
+FROM(
+SELECT  CD_GRU_PRO,
+                DS_GRU_PRO,
+               SUM(QT_LANCAMENTO) QT_LANCAMENTO,
+               SUM(VALOR_PAGAR) VALOR_PAGAR
+FROM(
+SELECT GRU_PRO.CD_GRU_PRO                   CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO                   DS_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                      CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                      DS_PRO_FAT
+              ,Decode(ITREG_FAT.cd_reg_fat_pai,NULL,ITREG_FAT.QT_LANCAMENTO,
+                      Decode(reg_fat.tp_mvto,'fDistribui',0,
+                             Decode(reg_fat.tp_mvto,'fQuebraDis',0,
+                             Decode(reg_fat.tp_mvto,'fQuebrGuia',0,
+                             ITREG_FAT.QT_LANCAMENTO)))    )QT_LANCAMENTO
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA)
+              																		 ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA), TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) VALOR_PAGAR              
+FROM     DBAMV.REG_FAT                                  REG_FAT
+              ,DBAMV.CONVENIO                                CONVENIO
+              ,DBAMV.ITREG_FAT                               ITREG_FAT
+              ,DBAMV.PRO_FAT                                  PRO_FAT
+              ,DBAMV.GRU_PRO                                 GRU_PRO
+              ,DBAMV.ATENDIME
+              ,DBAMV.SERVICO
+	      ,Dbamv.Empresa_Convenio
+		  ,DBAMV.ITLAN_MED
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        NVL(ITREG_FAT.SN_PERTENCE_PACOTE,'N') = 'N'
+AND        ITLAN_MED.CD_REG_FAT(+) = ITREG_FAT.CD_REG_FAT
+AND        ITLAN_MED.CD_LANCAMENTO(+) = ITREG_FAT.CD_LANCAMENTO
+and          nvl( nvl( itlan_med.tp_pagamento, itreg_fat.tp_pagamento ) ,'X') <> 'C'
+AND        ITREG_FAT.DT_LANCAMENTO BETWEEN TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND (TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY') + 0.99999)
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO not in ('A','H')
+AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT GRU_PRO.CD_GRU_PRO                CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO                DS_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                   CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                   DS_PRO_FAT
+              ,Decode(ITREG_AMB.cd_reg_amb_pai,NULL,ITREG_AMB.QT_LANCAMENTO,
+                      Decode(ITREG_AMB.tp_mvto_desconto,'fDistribui',0,
+                             Decode(ITREG_AMB.tp_mvto_desconto,'fQuebraDis',0,
+                             Decode(ITREG_AMB.tp_mvto_desconto,'fQuebrGuia',0,
+                             ITREG_AMB.QT_LANCAMENTO)))    )QT_LANCAMENTO
+               ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,ITREG_AMB.VL_TOTAL_CONTA
+              																		 ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,ITREG_AMB.VL_TOTAL_CONTA, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) VALOR_PAGAR              
+FROM    DBAMV.ATENDIME                             ATENDIME
+             ,DBAMV.ITREG_AMB                           ITREG_AMB
+             ,DBAMV.CONVENIO                             CONVENIO
+             ,DBAMV.REG_AMB                              REG_AMB
+             ,DBAMV.PRO_FAT                               PRO_FAT
+             ,DBAMV.GRU_PRO                              GRU_PRO
+             ,DBAMV.SERVICO
+	     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        NVL(ITREG_AMB.SN_PERTENCE_PACOTE,'N') = 'N'
+AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+AND        ATENDIME.DT_ATENDIMENTO BETWEEN TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND (TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY') + 0.99999)
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO <> 'H'
+AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_COND_TP_ATENDIMENTO
+)
+WHERE NVL(VALOR_PAGAR,0) <> 0
+GROUP BY CD_GRU_PRO,
+                DS_GRU_PRO
+ORDER BY VALOR_PAGAR DESC
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_GRU_PRO_DT_LANC_CG__R_TIP_MOR_RN_Q_FAT_GRU_PRO_SINT
+SELECT  CD_GRU_PRO,
+                DS_GRU_PRO,
+               SUM(QT_LANCAMENTO) QT_LANCAMENTO,
+               SUM(VALOR_PAGAR) VALOR_PAGAR
+FROM(
+SELECT GRU_PRO.CD_GRU_PRO                   CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO                   DS_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                      CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                      DS_PRO_FAT
+              ,Decode(ITREG_FAT.cd_reg_fat_pai,NULL,ITREG_FAT.QT_LANCAMENTO,
+                      Decode(reg_fat.tp_mvto,'fDistribui',0,
+                             Decode(reg_fat.tp_mvto,'fQuebraDis',0,
+                             ITREG_FAT.QT_LANCAMENTO))    )QT_LANCAMENTO
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,ITREG_FAT.VALOR_PAGAR
+              																		 ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,ITREG_FAT.VALOR_PAGAR, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) VALOR_PAGAR
+FROM     DBAMV.REG_FAT                                  REG_FAT
+              ,DBAMV.CONVENIO                                CONVENIO
+              ,DBAMV.PRO_FAT                                  PRO_FAT
+              ,DBAMV.GRU_PRO                                 GRU_PRO
+              ,DBAMV.ATENDIME
+              ,DBAMV.SERVICO
+        ,Dbamv.Empresa_Convenio
+        ,(SELECT Sum(nvl(ITLAN_MED.VL_LIQUIDO,ITREG_FAT.VL_TOTAL_CONTA)) VALOR_PAGAR
+        		, ITREG_FAT.cd_reg_fat
+        		, ITREG_FAT.cd_pro_fat
+        		, ITREG_FAT.qt_lancamento
+        		, ITREG_FAT.cd_reg_fat_pai
+        		, ITREG_FAT.cd_lancamento
+		, ITREG_FAT.SN_PERTENCE_PACOTE
+        FROM DBAMV.ITREG_FAT,
+             DBAMV.ITLAN_MED
+        WHERE  ITLAN_MED.CD_REG_FAT(+) = ITREG_FAT.CD_REG_FAT
+          AND  ITLAN_MED.CD_LANCAMENTO(+) = ITREG_FAT.CD_LANCAMENTO
+          and  nvl( nvl( ITLAN_MED.tp_pagamento, ITREG_FAT.tp_pagamento ) ,'X') <> 'C'
+          AND  ITREG_FAT.DT_LANCAMENTO BETWEEN TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND (TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY') + 0.99999)
+          GROUP BY 	ITREG_FAT.cd_reg_fat
+          			, ITREG_FAT.cd_pro_fat
+          			, ITREG_FAT.qt_lancamento
+          			, ITREG_FAT.cd_reg_fat_pai
+          			, ITREG_FAT.cd_lancamento
+			, ITREG_FAT.SN_PERTENCE_PACOTE
+           ) ITREG_FAT
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO not in ('A','H')
+AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT GRU_PRO.CD_GRU_PRO                CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO                DS_GRU_PRO
+              ,PRO_FAT.CD_PRO_FAT                   CD_PRO_FAT
+              ,PRO_FAT.DS_PRO_FAT                   DS_PRO_FAT
+              ,Decode(ITREG_AMB.cd_reg_amb_pai,NULL,ITREG_AMB.QT_LANCAMENTO,
+                      Decode(ITREG_AMB.tp_mvto_desconto,'fDistribui',0,
+                             Decode(ITREG_AMB.tp_mvto_desconto,'fQuebraDis',0,
+                             ITREG_AMB.QT_LANCAMENTO))    )QT_LANCAMENTO
+              ,DECODE(nvl(:CAMPO_CD_MOEDA,:CAMPO_CD_MOEDA_PADRAO),:CAMPO_CD_MOEDA_PADRAO,ITREG_AMB.VL_TOTAL_CONTA
+              																		 ,dbamv.fnc_moeda_depara(:CAMPO_CD_MOEDA_PADRAO,:CAMPO_CD_MOEDA,NULL,ITREG_AMB.VL_TOTAL_CONTA, TO_DATE(:CAMPO_DT_REFERENCIA_MOEDA, 'dd/mm/yyyy'))) VALOR_PAGAR
+FROM    DBAMV.ATENDIME                             ATENDIME
+             ,DBAMV.ITREG_AMB                           ITREG_AMB
+             ,DBAMV.CONVENIO                             CONVENIO
+             ,DBAMV.REG_AMB                              REG_AMB
+             ,DBAMV.PRO_FAT                               PRO_FAT
+             ,DBAMV.GRU_PRO                              GRU_PRO
+             ,DBAMV.SERVICO
+       ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ATENDIME.CD_ATENDIMENTO = ITREG_AMB.CD_ATENDIMENTO
+AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND        ITREG_AMB.CD_REG_AMB = REG_AMB.CD_REG_AMB
+AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+AND        ATENDIME.DT_ATENDIMENTO BETWEEN TO_DATE(:CAMPO_DT_INICIO,'DD/MM/YYYY')  AND (TO_DATE(:CAMPO_DT_FINAL,'DD/MM/YYYY') + 0.99999)
+AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        CONVENIO.TP_CONVENIO not in ('A','H')
+AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_COND_TP_ATENDIMENTO
+)
+WHERE NVL(VALOR_PAGAR,0) <> 0
+GROUP BY CD_GRU_PRO,
+                DS_GRU_PRO
+ORDER BY VALOR_PAGAR DESC

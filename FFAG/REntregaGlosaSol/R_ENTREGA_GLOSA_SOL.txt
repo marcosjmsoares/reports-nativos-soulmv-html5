@@ -1,0 +1,625 @@
+/*----------------------------------------------------------------------------*/
+--R_ENTREGA_GLOSA_SOL
+SELECT   NM_CONVENIO,
+       CD_REMESSA_GLOSA,
+       DT_ENTREGA,
+       CD_REMESSA,
+       NM_RAZAO_SOCIAL,
+       DT_PREVISTA_PARA_PGTO,
+       dt_competencia,
+       nr_remessa_convenio,
+       NM_CONTATO_GLOSAS,
+       NR_PROTOCOLO_GLOSA,
+       SUM(VL_GLOSA) VL_GLOSA,
+       SUM(VL_REAPRESENTADO) VL_REAPRESENTADO
+FROM (
+SELECT CONVENIO.NM_CONVENIO NM_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.NM_CONTATO_GLOSAS,
+       GLOSAS.CD_REMESSA_GLOSA CD_REMESSA_GLOSA,
+       REMESSA_GLOSA.DT_ENTREGA DT_ENTREGA,
+       REMESSA_GLOSA.NR_PROTOCOLO_GLOSA,
+       GLOSAS.VL_GLOSA VL_GLOSA ,
+       GLOSAS.VL_REAPRESENTADO VL_REAPRESENTADO,
+       REG_FAT.CD_REMESSA  CD_REMESSA,
+       remessa_fatura.nr_remessa_convenio,
+       remessa_fatura.dt_prevista_para_pgto,
+       fatura.dt_competencia
+FROM  DBAMV.CONVENIO,
+      dbamv.empresa_convenio,
+      DBAMV.REMESSA_GLOSA,
+      DBAMV.GLOSAS,
+      DBAMV.REG_FAT,
+      dbamv.remessa_fatura,
+      dbamv.fatura
+WHERE     Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+      And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and GLOSAS.CD_REG_FAT =   REG_FAT.CD_REG_FAT
+      AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+      AND REMESSA_GLOSA.CD_REMESSA_GLOSA = GLOSAS.CD_REMESSA_GLOSA
+      AND REG_FAT.CD_REMESSA = :CAMPO_CD_REMESSA
+      AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND CONVENIO.TP_CONVENIO <> 'H'
+      and  remessa_fatura.cd_remessa = remessa_glosa.cd_remessa
+      and fatura.cd_fatura = remessa_fatura.cd_fatura
+UNION ALL
+SELECT CONVENIO.NM_CONVENIO NM_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.NM_CONTATO_GLOSAS,
+       GLOSAS.CD_REMESSA_GLOSA CD_REMESSA_GLOSA,
+       REMESSA_GLOSA.DT_ENTREGA DT_ENTREGA,
+       REMESSA_GLOSA.NR_PROTOCOLO_GLOSA,
+       GLOSAS.VL_GLOSA VL_GLOSA ,
+       GLOSAS.VL_REAPRESENTADO VL_REAPRESENTADO,
+       REG_AMB.CD_REMESSA  CD_REMESSA,
+       remessa_fatura.nr_remessa_convenio,
+       remessa_fatura.dt_prevista_para_pgto,
+       fatura.dt_competencia
+FROM  DBAMV.CONVENIO,
+      dbamv.empresa_convenio,
+      DBAMV.REMESSA_GLOSA,
+      DBAMV.GLOSAS,
+      DBAMV.REG_AMB,
+      dbamv.remessa_fatura,
+      dbamv.fatura
+WHERE     Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+      And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and GLOSAS.CD_REG_AMB =  REG_AMB.CD_REG_AMB
+      AND REG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+      AND REMESSA_GLOSA.CD_REMESSA_GLOSA = GLOSAS.CD_REMESSA_GLOSA
+      AND REG_AMB.CD_REMESSA = :CAMPO_CD_REMESSA
+      AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND CONVENIO.TP_CONVENIO <> 'H'
+      and remessa_fatura.cd_remessa = remessa_glosa.cd_remessa
+      and fatura.cd_fatura = remessa_fatura.cd_fatura
+UNION ALL
+SELECT convenio.nm_convenio,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.NM_CONTATO_GLOSAS,
+       remessa_glosa.cd_remessa_glosa,
+       REMESSA_GLOSA.DT_ENTREGA DT_ENTREGA,
+       REMESSA_GLOSA.NR_PROTOCOLO_GLOSA,
+       nvl(remessa_glosa.vl_glosa_nao_identificada,0) vl_glosa,
+       nvl(remessa_glosa.vl_glosa_nao_identificada,remessa_glosa.vl_total_remessa) VL_REAPRESENTADO,
+       remessa.cd_remessa,
+       remessa.nr_remessa_convenio,
+       remessa.dt_prevista_para_pgto,
+       fatura.dt_competencia
+FROM  dbamv.remessa_glosa,
+       dbamv.remessa_fatura  remessa,
+       dbamv.fatura,
+       dbamv.convenio,
+       dbamv.empresa_convenio
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and remessa_glosa.cd_remessa = remessa.cd_remessa
+and    remessa_glosa.tp_glosa = 'N'
+and    remessa.cd_fatura         =  fatura.cd_fatura
+and    fatura.cd_convenio = convenio.cd_convenio
+and    fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    convenio.tp_convenio <> 'H'
+UNION ALL
+SELECT convenio.nm_convenio,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.NM_CONTATO_GLOSAS,
+       remessa_glosa.cd_remessa_glosa,
+       REMESSA_GLOSA.DT_ENTREGA DT_ENTREGA,
+       REMESSA_GLOSA.NR_PROTOCOLO_GLOSA,
+       nvl(remessa_glosa.vl_glosa_nao_identificada,0) vl_glosa,
+       nvl(remessa_glosa.vl_glosa_nao_identificada,remessa_glosa.vl_total_remessa) VL_REAPRESENTADO,
+       remessa.cd_remessa,
+       remessa.nr_remessa_convenio,
+       remessa.dt_prevista_para_pgto,
+       fatura.dt_competencia
+FROM  dbamv.remessa_glosa,
+       dbamv.remessa_fatura  remessa,
+       dbamv.fatura,
+       dbamv.convenio,
+       dbamv.empresa_convenio,
+       dbamv.glosas
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and remessa_glosa.cd_remessa = remessa.cd_remessa
+and    remessa_glosa.tp_glosa = 'I'
+and    remessa.cd_fatura         =  fatura.cd_fatura
+and    fatura.cd_convenio = convenio.cd_convenio
+and    fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    convenio.tp_convenio <> 'H'
+and REMESSA_GLOSA.CD_REMESSA_GLOSA = GLOSAS.CD_REMESSA_GLOSA
+and  glosas.cd_Atendimento is null and  glosas.cd_pro_fat is null
+UNION ALL
+SELECT CONVENIO.NM_CONVENIO NM_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.NM_CONTATO_GLOSAS,
+       GLOSA_RETRO.CD_REMESSA_GLOSA CD_REMESSA_GLOSA,
+       REMESSA_GLOSA.DT_ENTREGA DT_ENTREGA,
+       REMESSA_GLOSA.NR_PROTOCOLO_GLOSA,
+       GLOSA_RETRO.VL_GLOSA VL_GLOSA ,
+       GLOSA_RETRO.VL_REAPRESENTADO VL_REAPRESENTADO,
+       REG_FAT.CD_REMESSA  CD_REMESSA,
+       remessa_fatura.nr_remessa_convenio,
+       remessa_fatura.dt_prevista_para_pgto,
+       fatura.dt_competencia
+FROM  DBAMV.CONVENIO,
+      dbamv.empresa_convenio,
+      DBAMV.REMESSA_GLOSA,
+      DBAMV.GLOSA_RETRO,
+      DBAMV.REG_FAT,
+      dbamv.remessa_fatura,
+      dbamv.fatura
+WHERE     Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+      And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and GLOSA_RETRO.CD_REG_FAT =   REG_FAT.CD_REG_FAT
+      AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+      AND REMESSA_GLOSA.CD_REMESSA_GLOSA = GLOSA_RETRO.CD_REMESSA_GLOSA
+      AND REG_FAT.CD_REMESSA = :CAMPO_CD_REMESSA
+      AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND CONVENIO.TP_CONVENIO <> 'H'
+      and  remessa_fatura.cd_remessa = remessa_glosa.cd_remessa
+      and fatura.cd_fatura = remessa_fatura.cd_fatura
+UNION ALL
+SELECT CONVENIO.NM_CONVENIO NM_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.NM_CONTATO_GLOSAS,
+       GLOSA_RETRO.CD_REMESSA_GLOSA CD_REMESSA_GLOSA,
+       REMESSA_GLOSA.DT_ENTREGA DT_ENTREGA,
+       REMESSA_GLOSA.NR_PROTOCOLO_GLOSA,
+       GLOSA_RETRO.VL_GLOSA VL_GLOSA ,
+       GLOSA_RETRO.VL_REAPRESENTADO VL_REAPRESENTADO,
+       REG_AMB.CD_REMESSA  CD_REMESSA,
+       remessa_fatura.nr_remessa_convenio,
+       remessa_fatura.dt_prevista_para_pgto,
+       fatura.dt_competencia
+FROM  DBAMV.CONVENIO,
+      dbamv.empresa_convenio,
+      DBAMV.REMESSA_GLOSA,
+      DBAMV.GLOSA_RETRO,
+      DBAMV.REG_AMB,
+      dbamv.remessa_fatura,
+      dbamv.fatura
+WHERE     Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+      And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      and GLOSA_RETRO.CD_REG_AMB =  REG_AMB.CD_REG_AMB
+      AND REG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+      AND REMESSA_GLOSA.CD_REMESSA_GLOSA = GLOSA_RETRO.CD_REMESSA_GLOSA
+      AND REG_AMB.CD_REMESSA = :CAMPO_CD_REMESSA
+      AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND CONVENIO.TP_CONVENIO <> 'H'
+      and remessa_fatura.cd_remessa = remessa_glosa.cd_remessa
+      and fatura.cd_fatura = remessa_fatura.cd_fatura
+UNION ALL
+SELECT convenio.nm_convenio,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.NM_CONTATO_GLOSAS,
+       remessa_glosa.cd_remessa_glosa,
+       REMESSA_GLOSA.DT_ENTREGA DT_ENTREGA,
+       REMESSA_GLOSA.NR_PROTOCOLO_GLOSA,
+       nvl(remessa_glosa.vl_glosa_nao_identificada,0) vl_glosa,
+       nvl(remessa_glosa.vl_glosa_nao_identificada,remessa_glosa.vl_total_remessa) VL_REAPRESENTADO,
+       remessa.cd_remessa,
+       remessa.nr_remessa_convenio,
+       remessa.dt_prevista_para_pgto,
+       fatura.dt_competencia
+FROM  dbamv.remessa_glosa,
+       dbamv.remessa_fatura  remessa,
+       dbamv.fatura,
+       dbamv.convenio,
+       dbamv.empresa_convenio,
+       dbamv.glosa_retro
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and remessa_glosa.cd_remessa = remessa.cd_remessa
+and    remessa_glosa.tp_glosa = 'I'
+and    remessa.cd_fatura         =  fatura.cd_fatura
+and    fatura.cd_convenio = convenio.cd_convenio
+and    fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    convenio.tp_convenio <> 'H'
+and REMESSA_GLOSA.CD_REMESSA_GLOSA = GLOSA_retro.CD_REMESSA_GLOSA
+and  glosa_retro.cd_Atendimento is null and  glosa_retro.cd_pro_fat is null
+)
+GROUP BY NM_CONVENIO,
+         CD_REMESSA_GLOSA,
+         DT_ENTREGA,
+         CD_REMESSA,
+        NM_RAZAO_SOCIAL,
+       DT_PREVISTA_PARA_PGTO,
+       dt_competencia,
+       nr_remessa_convenio,
+       NM_CONTATO_GLOSAS,
+       NR_PROTOCOLO_GLOSA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ENTREGA_GLOSA_SOL_R_QUEBRA_PAC_Q_PACIENTE
+SELECT * FROM (
+SELECT * FROM (
+SELECT  DECODE( :CAMPO_SN_QUEBRA_PAC, 'S', NM_PACIENTE, NULL ) QUEBRA_PAC,
+       CD_PACIENTE,
+       NM_PACIENTE,
+       DS_PRO_FAT,
+       DS_GRU_PRO,
+       SUM( VL_GLOSA) VL_GLOSA ,
+       SUM(VL_REAPRESENTADO) VL_REAPRESENTADO,
+       JUSTIFICATIVA,
+       DES_JUSTIFICATIVA,
+       CD_PRO_FAT,
+       CD_GRU_PRO,
+       CD_CONVENIO,
+       CD_REMESSA,
+       CD_REMESSA_GLOSA,
+       CD_GLOSAS,
+       cd_atendimento,
+       tp_atendimento
+       ,cd_conta
+       ,nr_guia_envio_principal
+       ,QT_REAPRESENTADA
+       ,DT_ENTREGA
+       ,DT_PREVISTA_PARA_PGTO
+FROM
+(
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+       PACIENTE.NM_PACIENTE NM_PACIENTE,
+       PRO_FAT.DS_PRO_FAT DS_PRO_FAT,
+       GRU_PRO.DS_GRU_PRO DS_GRU_PRO,
+       GLOSAS.VL_GLOSA VL_GLOSA ,
+       GLOSAS.VL_REAPRESENTADO VL_REAPRESENTADO,
+       JUSTIFICA_GLOSA.DS_JUSTIFICA_GLOSA     JUSTIFICATIVA,
+       GLOSAS.DS_COMPLEMENTO_JUSTIFICA       DES_JUSTIFICATIVA,
+       PRO_FAT.CD_PRO_FAT CD_PRO_FAT,
+       GRU_PRO.CD_GRU_PRO CD_GRU_PRO,
+       REG_FAT.CD_CONVENIO CD_CONVENIO,
+       REG_FAT.CD_REMESSA  CD_REMESSA,
+       GLOSAS.CD_REMESSA_GLOSA,
+       GLOSAS.CD_GLOSAS,
+       reg_fat.cd_atendimento,
+       'H' tp_atendimento
+       ,reg_fat.cd_reg_fat cd_conta
+       ,Nvl(reg_fat.nr_guia_envio_principal,atendime.nr_guia_envio_principal) nr_guia_envio_principal
+       ,GLOSAS.QT_REAPRESENTADA QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+FROM  DBAMV.REG_FAT,
+      DBAMV.PRO_FAT,
+      DBAMV.GRU_PRO,
+      DBAMV.PACIENTE,
+      DBAMV.GLOSAS,
+      DBAMV.JUSTIFICA_GLOSA,
+      DBAMV.ATENDIME,
+      DBAMV.REMESSA_GLOSA
+WHERE  GLOSAS.CD_REMESSA_GLOSA = :CAMPO_CD_REMESSA_GLOSA
+      AND GLOSAS.CD_REG_FAT              =     REG_FAT.CD_REG_FAT(+)
+      AND GLOSAS.CD_PRO_FAT              =     PRO_FAT.CD_PRO_FAT(+)
+      AND GLOSAS.CD_GRU_PRO             =     GRU_PRO.CD_GRU_PRO(+)
+      AND GLOSAS.CD_REMESSA_GLOSA = REMESSA_GLOSA.CD_REMESSA_GLOSA
+      AND ATENDIME.CD_PACIENTE        =     PACIENTE.CD_PACIENTE
+      AND JUSTIFICA_GLOSA.CD_JUSTIFICA_GLOSA(+) = GLOSAS.CD_JUSTIFICA_GLOSA
+      AND REG_FAT.CD_ATENDIMENTO =      ATENDIME.CD_ATENDIMENTO
+      AND REG_FAT.CD_REMESSA           =     :CAMPO_CD_REMESSA
+      AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND GLOSAS.CD_GRU_PRO IS NULL
+UNION ALL
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+       PACIENTE.NM_PACIENTE NM_PACIENTE,
+       PRO_FAT.DS_PRO_FAT DS_PRO_FAT,
+       GRU_PRO.DS_GRU_PRO DS_GRU_PRO,
+       GLOSAS.VL_GLOSA VL_GLOSA ,
+       GLOSAS.VL_REAPRESENTADO VL_REAPRESENTADO,
+       JUSTIFICA_GLOSA.DS_JUSTIFICA_GLOSA     JUSTIFICATIVA,
+       GLOSAS.DS_COMPLEMENTO_JUSTIFICA       DES_JUSTIFICATIVA,
+       PRO_FAT.CD_PRO_FAT CD_PRO_FAT,
+       GRU_PRO.CD_GRU_PRO CD_GRU_PRO,
+       REG_AMB.CD_CONVENIO CD_CONVENIO,
+       REG_AMB.CD_REMESSA  CD_REMESSA,
+       GLOSAS.CD_REMESSA_GLOSA,
+       GLOSAS.CD_GLOSAS,
+       atendime.cd_atendimento,
+       'A' tp_atendimento
+       ,reg_amb.cd_reg_amb cd_conta
+       ,atendime.nr_guia_envio_principal
+       ,GLOSAS.QT_REAPRESENTADA QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+FROM DBAMV.REG_AMB,
+      DBAMV.PRO_FAT,
+      DBAMV.GRU_PRO,
+      DBAMV.PACIENTE,
+      DBAMV.GLOSAS,
+      DBAMV.JUSTIFICA_GLOSA,
+      DBAMV.ATENDIME,
+      DBAMV.REMESSA_GLOSA
+WHERE  GLOSAS.CD_REMESSA_GLOSA     =      :CAMPO_CD_REMESSA_GLOSA
+      AND  GLOSAS.CD_REG_AMB                   =      REG_AMB.CD_REG_AMB(+)
+      AND GLOSAS.CD_JUSTIFICA_GLOSA    =       JUSTIFICA_GLOSA.CD_JUSTIFICA_GLOSA(+)
+      AND GLOSAS.CD_ATENDIMENTO          =       ATENDIME.CD_ATENDIMENTO
+      AND GLOSAS.CD_PRO_FAT                    =      PRO_FAT.CD_PRO_FAT(+)
+      AND GLOSAS.CD_GRU_PRO             =     GRU_PRO.CD_GRU_PRO(+)
+      AND GLOSAS.CD_REMESSA_GLOSA = REMESSA_GLOSA.CD_REMESSA_GLOSA
+      AND ATENDIME.CD_PACIENTE              =      PACIENTE.CD_PACIENTE
+      AND REG_AMB.CD_REMESSA               =      :CAMPO_CD_REMESSA
+      AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND GLOSAS.CD_GRU_PRO IS NULL
+UNION ALL
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+       PACIENTE.NM_PACIENTE NM_PACIENTE,
+       PRO_FAT.DS_PRO_FAT DS_PRO_FAT,
+       GRU_PRO.DS_GRU_PRO      DS_GRU_PRO,
+       GLOSAS.VL_GLOSA VL_GLOSA ,
+       GLOSAS.VL_REAPRESENTADO VL_REAPRESENTADO,
+       JUSTIFICA_GLOSA.DS_JUSTIFICA_GLOSA     JUSTIFICATIVA,
+       GLOSAS.DS_COMPLEMENTO_JUSTIFICA       DES_JUSTIFICATIVA,
+       PRO_FAT.CD_PRO_FAT CD_PRO_FAT,
+       GRU_PRO.CD_GRU_PRO      CD_GRU_PRO,
+       REG_FAT.CD_CONVENIO CD_CONVENIO,
+       REG_FAT.CD_REMESSA  CD_REMESSA,
+       GLOSAS.CD_REMESSA_GLOSA,
+       GLOSAS.CD_GLOSAS,
+       reg_fat.cd_atendimento,
+       'H' tp_atendimento
+       ,reg_fat.cd_reg_fat cd_conta
+       ,Nvl(reg_fat.nr_guia_envio_principal,atendime.nr_guia_envio_principal) nr_guia_envio_principal
+       ,GLOSAS.QT_REAPRESENTADA QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+FROM  DBAMV.REG_FAT,
+      DBAMV.GRU_PRO,
+      DBAMV.PRO_FAT,
+      DBAMV.PACIENTE,
+      DBAMV.GLOSAS,
+      DBAMV.JUSTIFICA_GLOSA,
+      DBAMV.ATENDIME,
+      DBAMV.REMESSA_GLOSA
+WHERE  GLOSAS.CD_REMESSA_GLOSA = :CAMPO_CD_REMESSA_GLOSA
+      AND GLOSAS.CD_REG_FAT              =     REG_FAT.CD_REG_FAT(+)
+      AND GLOSAS.CD_GRU_PRO             =     GRU_PRO.CD_GRU_PRO
+      AND GLOSAS.CD_PRO_FAT                    =      PRO_FAT.CD_PRO_FAT(+)
+      AND GLOSAS.CD_REMESSA_GLOSA = REMESSA_GLOSA.CD_REMESSA_GLOSA
+      AND ATENDIME.CD_PACIENTE        =     PACIENTE.CD_PACIENTE
+      AND JUSTIFICA_GLOSA.CD_JUSTIFICA_GLOSA(+) = GLOSAS.CD_JUSTIFICA_GLOSA
+      AND REG_FAT.CD_ATENDIMENTO =      ATENDIME.CD_ATENDIMENTO
+      AND REG_FAT.CD_REMESSA           =     :CAMPO_CD_REMESSA
+      AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND GLOSAS.CD_GRU_PRO IS NOT NULL
+UNION ALL
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+       PACIENTE.NM_PACIENTE NM_PACIENTE,
+       PRO_FAT.DS_PRO_FAT DS_PRO_FAT,
+       GRU_PRO.DS_GRU_PRO    DS_GRU_PRO,
+       GLOSAS.VL_GLOSA VL_GLOSA ,
+       GLOSAS.VL_REAPRESENTADO VL_REAPRESENTADO,
+       JUSTIFICA_GLOSA.DS_JUSTIFICA_GLOSA     JUSTIFICATIVA,
+       GLOSAS.DS_COMPLEMENTO_JUSTIFICA       DES_JUSTIFICATIVA,
+       PRO_FAT.CD_PRO_FAT CD_PRO_FAT,
+       GRU_PRO.CD_GRU_PRO    CD_GRU_PRO,
+       REG_AMB.CD_CONVENIO CD_CONVENIO,
+       REG_AMB.CD_REMESSA  CD_REMESSA,
+       GLOSAS.CD_REMESSA_GLOSA,
+       GLOSAS.CD_GLOSAS,
+       atendime.cd_atendimento,
+       'A' tp_atendimento
+       ,reg_amb.cd_reg_amb cd_conta
+       ,atendime.nr_guia_envio_principal
+       ,GLOSAS.QT_REAPRESENTADA QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+FROM DBAMV.REG_AMB,
+      DBAMV.GRU_PRO,
+      DBAMV.PRO_FAT,
+      DBAMV.PACIENTE,
+      DBAMV.GLOSAS,
+      DBAMV.JUSTIFICA_GLOSA,
+      DBAMV.ATENDIME,
+      DBAMV.REMESSA_GLOSA
+WHERE  GLOSAS.CD_REMESSA_GLOSA     =      :CAMPO_CD_REMESSA_GLOSA
+      AND  GLOSAS.CD_REG_AMB                   =      REG_AMB.CD_REG_AMB(+)
+      AND GLOSAS.CD_JUSTIFICA_GLOSA    =       JUSTIFICA_GLOSA.CD_JUSTIFICA_GLOSA(+)
+      AND GLOSAS.CD_ATENDIMENTO          =       ATENDIME.CD_ATENDIMENTO
+      AND GLOSAS.CD_GRU_PRO                   =      GRU_PRO.CD_GRU_PRO
+      AND GLOSAS.CD_PRO_FAT                    =      PRO_FAT.CD_PRO_FAT(+)
+      AND GLOSAS.CD_REMESSA_GLOSA = REMESSA_GLOSA.CD_REMESSA_GLOSA
+      AND ATENDIME.CD_PACIENTE              =      PACIENTE.CD_PACIENTE
+      AND REG_AMB.CD_REMESSA               =      :CAMPO_CD_REMESSA
+      AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND GLOSAS.CD_GRU_PRO IS NOT NULL
+UNION ALL
+select 000 CD_PACIENTE,
+       'DIVERGENCIA NAO IDENTIFICADO' NM_PACIENTE,
+       'PROCEDIMENTO NAO IDENTIFICADO' DS_PRO_FAT,
+       'GRUPO NAO IDENTIFICADO' DS_GRU_PRO,
+       sum(nvl(glosas.vl_glosa,0)) vl_glosa,
+       remessa_glosa.vl_total_remessa VL_REAPRESENTADO,
+       remessa_glosa.ds_justificativa JUSTIFICATIVA,
+       glosas.ds_observacao DES_JUSTIFICATIVA,
+       '00000000' CD_PRO_FAT,
+       0 CD_GRU_PRO,
+       convenio.cd_convenio,
+       remessa.cd_remessa cd_remessa,
+       remessa_glosa.CD_REMESSA_GLOSA,
+       0 CD_GLOSAS,
+       0 CD_ATENDIMENTO,
+       null tp_atendimento
+       ,to_number(null) cd_conta
+       ,to_char(null) nr_guia_envio_principal
+       ,0 QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+from   dbamv.remessa_glosa,
+       dbamv.remessa_fatura  remessa,
+       dbamv.fatura,
+       dbamv.convenio,
+       dbamv.empresa_convenio,
+       dbamv.glosas
+where  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and remessa_glosa.cd_remessa_glosa = :CAMPO_CD_REMESSA_GLOSA
+and    remessa_glosa.cd_remessa_glosa = glosas.cd_remessa_glosa
+and    remessa_glosa.cd_remessa = :CAMPO_CD_REMESSA
+and    fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    remessa_glosa.cd_remessa = remessa.cd_remessa
+and    remessa.cd_fatura         =  fatura.cd_fatura
+and    fatura.cd_convenio = convenio.cd_convenio
+and    convenio.tp_convenio <> 'H'
+and    glosas.cd_atendimento is null
+and    glosas.cd_gru_pro is null
+and    glosas.cd_pro_fat is null
+group by
+       000,
+       'DIVERGENCIA NAO IDENTIFICADO',
+       'PROCEDIMENTO NAO IDENTIFICADO',
+       'GRUPO NAO IDENTIFICADO',
+       remessa_glosa.vl_total_remessa,
+       glosas.ds_observacao,
+       remessa_glosa.ds_justificativa,
+       NULL,
+       '00000000',
+       0,
+       convenio.cd_convenio,
+       remessa.cd_remessa,
+       remessa_glosa.CD_REMESSA_GLOSA,
+       0,
+       0,
+       NULL,
+       0,
+       remessa_glosa.dt_entrega,
+       remessa_glosa.dt_prevista_para_pgto
+UNION ALL
+select 000 CD_PACIENTE,
+       'DIVERGENCIA NAO IDENTIFICADO' NM_PACIENTE,
+       'PROCEDIMENTO NAO IDENTIFICADO' DS_PRO_FAT,
+       'GRUPO NAO IDENTIFICADO' DS_GRU_PRO,
+       remessa_glosa.vl_glosa_nao_identificada vl_glosa,
+       remessa_glosa.vl_glosa_nao_identificada VL_REAPRESENTADO,
+       remessa_glosa.ds_justificativa JUSTIFICATIVA,
+       NULL DES_JUSTIFICATIVA,
+       '00000000' CD_PRO_FAT,
+       0 CD_GRU_PRO,
+       convenio.cd_convenio,
+       remessa.cd_remessa cd_remessa,
+       remessa_glosa.CD_REMESSA_GLOSA,
+       0 CD_GLOSAS,
+       0 CD_ATENDIMENTO,
+       null tp_atendimento
+       ,to_number(null) cd_conta
+       ,to_char(null) nr_guia_envio_principal
+       ,0 QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+from   dbamv.remessa_glosa,
+       dbamv.remessa_fatura  remessa,
+       dbamv.fatura,
+       dbamv.convenio,
+       dbamv.empresa_convenio
+where  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and remessa_glosa.cd_remessa_glosa = :CAMPO_CD_REMESSA_GLOSA
+and    remessa_glosa.cd_remessa = :CAMPO_CD_REMESSA
+AND    fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    remessa_glosa.cd_remessa = remessa.cd_remessa
+and    remessa_glosa.tp_glosa in ('N','I')
+and    remessa.cd_fatura         =  fatura.cd_fatura
+and    fatura.cd_convenio = convenio.cd_convenio
+and    fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    convenio.tp_convenio <> 'H'
+UNION ALL
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+       PACIENTE.NM_PACIENTE NM_PACIENTE,
+       PRO_FAT.DS_PRO_FAT DS_PRO_FAT,
+       NULL DS_GRU_PRO,
+       GLOSA_RETRO.VL_GLOSA VL_GLOSA ,
+       GLOSA_RETRO.VL_REAPRESENTADO VL_REAPRESENTADO,
+       JUSTIFICA_GLOSA.DS_JUSTIFICA_GLOSA     JUSTIFICATIVA,
+       GLOSA_RETRO.DS_COMPLEMENTO_JUSTIFICA       DES_JUSTIFICATIVA,
+       PRO_FAT.CD_PRO_FAT CD_PRO_FAT,
+       to_number(NULL) CD_GRU_PRO,
+       REG_FAT.CD_CONVENIO CD_CONVENIO,
+       REG_FAT.CD_REMESSA  CD_REMESSA,
+       GLOSA_RETRO.CD_REMESSA_GLOSA,
+       GLOSA_RETRO.CD_GLOSA_RETRO CD_GLOSAS,
+       reg_fat.cd_atendimento,
+       'H' tp_atendimento
+       ,reg_fat.cd_reg_fat cd_conta
+       ,Nvl(reg_fat.nr_guia_envio_principal,atendime.nr_guia_envio_principal) nr_guia_envio_principal
+       ,GLOSA_RETRO.QT_REAPRESENTADA QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+FROM  DBAMV.REG_FAT,
+      DBAMV.PRO_FAT,
+      DBAMV.PACIENTE,
+      DBAMV.GLOSA_RETRO,
+      DBAMV.JUSTIFICA_GLOSA,
+      DBAMV.ATENDIME,
+      DBAMV.REMESSA_GLOSA
+WHERE  GLOSA_RETRO.CD_REMESSA_GLOSA = :CAMPO_CD_REMESSA_GLOSA
+      AND GLOSA_RETRO.CD_REG_FAT              =     REG_FAT.CD_REG_FAT(+)
+      AND GLOSA_RETRO.CD_PRO_FAT              =     PRO_FAT.CD_PRO_FAT(+)
+      AND GLOSA_RETRO.CD_REMESSA_GLOSA = REMESSA_GLOSA.CD_REMESSA_GLOSA
+      AND ATENDIME.CD_PACIENTE        =     PACIENTE.CD_PACIENTE
+      AND JUSTIFICA_GLOSA.CD_JUSTIFICA_GLOSA(+) = GLOSA_RETRO.CD_JUSTIFICA_GLOSA
+      AND REG_FAT.CD_ATENDIMENTO =      ATENDIME.CD_ATENDIMENTO
+      AND REG_FAT.CD_REMESSA           =     :CAMPO_CD_REMESSA
+      AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+UNION ALL
+SELECT PACIENTE.CD_PACIENTE CD_PACIENTE,
+       PACIENTE.NM_PACIENTE NM_PACIENTE,
+       PRO_FAT.DS_PRO_FAT DS_PRO_FAT,
+       NULL DS_GRU_PRO,
+       GLOSA_RETRO.VL_GLOSA VL_GLOSA ,
+       GLOSA_RETRO.VL_REAPRESENTADO VL_REAPRESENTADO,
+       JUSTIFICA_GLOSA.DS_JUSTIFICA_GLOSA     JUSTIFICATIVA,
+       GLOSA_RETRO.DS_COMPLEMENTO_JUSTIFICA       DES_JUSTIFICATIVA,
+       PRO_FAT.CD_PRO_FAT CD_PRO_FAT,
+       to_number(NULL) CD_GRU_PRO,
+       REG_AMB.CD_CONVENIO CD_CONVENIO,
+       REG_AMB.CD_REMESSA  CD_REMESSA,
+       GLOSA_RETRO.CD_REMESSA_GLOSA,
+       GLOSA_RETRO.CD_GLOSA_RETRO CD_GLOSAS,
+       atendime.cd_atendimento,
+       'A' tp_atendimento
+       ,reg_amb.cd_reg_amb cd_conta
+       ,atendime.nr_guia_envio_principal
+       ,GLOSA_RETRO.QT_REAPRESENTADA QT_REAPRESENTADA
+       ,remessa_glosa.dt_entrega
+       ,remessa_glosa.dt_prevista_para_pgto
+FROM DBAMV.REG_AMB,
+      DBAMV.PRO_FAT,
+      DBAMV.PACIENTE,
+      DBAMV.GLOSA_RETRO,
+      DBAMV.JUSTIFICA_GLOSA,
+      DBAMV.ATENDIME,
+      DBAMV.REMESSA_GLOSA
+WHERE  GLOSA_RETRO.CD_REMESSA_GLOSA     =      :CAMPO_CD_REMESSA_GLOSA
+      AND  GLOSA_RETRO.CD_REG_AMB                   =      REG_AMB.CD_REG_AMB(+)
+      AND GLOSA_RETRO.CD_JUSTIFICA_GLOSA    =       JUSTIFICA_GLOSA.CD_JUSTIFICA_GLOSA(+)
+      AND GLOSA_RETRO.CD_ATENDIMENTO          =       ATENDIME.CD_ATENDIMENTO
+      AND GLOSA_RETRO.CD_PRO_FAT                    =      PRO_FAT.CD_PRO_FAT(+)
+      AND GLOSA_RETRO.CD_REMESSA_GLOSA = REMESSA_GLOSA.CD_REMESSA_GLOSA
+      AND ATENDIME.CD_PACIENTE              =      PACIENTE.CD_PACIENTE
+      AND REG_AMB.CD_REMESSA               =      :CAMPO_CD_REMESSA
+      AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+)
+GROUP BY CD_PACIENTE,
+         NM_PACIENTE,
+         DS_PRO_FAT,
+         DS_GRU_PRO,
+         JUSTIFICATIVA,
+         DES_JUSTIFICATIVA,
+         CD_PRO_FAT,
+         CD_GRU_PRO,
+         CD_CONVENIO,
+         CD_REMESSA,
+         CD_REMESSA_GLOSA,
+         CD_GLOSAS,
+         cd_atendimento,
+         tp_atendimento
+         ,cd_conta
+       ,nr_guia_envio_principal
+       , QT_REAPRESENTADA
+       ,DT_ENTREGA
+       ,DT_PREVISTA_PARA_PGTO
+HAVING SUM(VL_GLOSA)>0
+ORDER BY  nm_paciente
+)
+WHERE CD_REMESSA_GLOSA = :CAMPO_CD_REMESSA_GLOSA
+)
+ORDER BY QUEBRA_PAC,
+CD_ATENDIMENTO,CD_CONTA,CD_PACIENTE,NM_PACIENTE,TP_ATENDIMENTO,NR_GUIA_ENVIO_PRINCIPAL

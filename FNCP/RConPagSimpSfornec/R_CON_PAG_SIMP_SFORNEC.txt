@@ -1,0 +1,296 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC
+select  *  
+FROM   (SELECT  cnta.cd_multi_empresa                                                                   cd_multi_empresa
+               ,pgto.dt_pagamento                                                                       dt_pagamento
+               ,pgto.dt_baixa                                                                           dt_baixa
+               ,cnta.dt_emissao                                                                         dt_emissao
+               ,dbamv.fnc_moeda_depara(pgto.cd_moeda,'',pgto.vl_pago,pgto.vl_moeda)      vl_pago
+               ,dbamv.fnc_moeda_depara(cnta.cd_moeda,'',parc.vl_duplicata,parc.vl_moeda) vl_duplicata
+               ,cnta.nr_documento || '/' || to_char( parc.nr_parcela)                                   nr_documento
+               ,Decode(pgto.cd_cheque,NULL,pgto.cd_bordero,(SELECT x.nr_cheque FROM dbamv.cheque x WHERE x.cd_cheque = pgto.cd_cheque AND ROWNUM = 1))  che_bord
+               ,pgto.tp_pagamento                                                                       tp_pagamento
+               ,To_Number(Decode(pgto.cd_con_cor,NULL,NULL,(SELECT x.cd_banco FROM dbamv.con_cor x WHERE x.cd_con_cor = pgto.cd_con_cor AND ROWNUM = 1)))  cd_banco
+               ,Decode(pgto.cd_con_cor,NULL,NULL,(SELECT b.nm_banco FROM dbamv.con_cor x, dbamv.banco b WHERE x.cd_con_cor = pgto.cd_con_cor AND x.cd_banco = b.cd_banco AND ROWNUM = 1)) nm_banco
+               ,(SELECT x.dt_compensacao FROM dbamv.cheque x WHERE x.cd_cheque = pgto.cd_cheque AND ROWNUM = 1)                                                                           dt_compensacao
+               ,cnta.cd_fornecedor                                                                      cd_fornecedor_pag
+               ,cnta.ds_fornecedor                                                                      nm_fantasia_pag
+               ,pgto.tp_pagamento                                                                       tp_pagamento_q
+        FROM    dbamv.con_pag cnta,
+                dbamv.itcon_pag parc,
+                dbamv.pagcon_pag pgto
+        WHERE   cnta.cd_con_pag = parc.cd_con_pag
+          AND   parc.cd_itcon_pag = pgto.cd_itcon_pag
+          AND   cnta.cd_processo NOT IN (SELECT p.cd_processo
+                                         FROM   dbamv.processo p
+                                         WHERE  p.cd_estrutural = '1.2.1.1.5'
+                                           AND  p.cd_multi_empresa = cnta.cd_multi_empresa)
+          :CAMPO_CF_FILTROS
+)
+ORDER BY CD_MULTI_EMPRESA, DT_PAGAMENTO, NR_DOCUMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC_R_11_Q_LANC_EXTRATO
+SELECT Sum((dbamv.fnc_moeda_depara(mov_concor.cd_moeda,'',mov_concor.vl_movimentacao - Nvl(mov_concor.vl_conciliado,0),mov_concor.vl_moeda))) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And  Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          :CAMPO_CF_MULTI_EMPRESA) )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC_R_15_Q_LANC_EXTRATO
+SELECT Sum((dbamv.fnc_moeda_depara(mov_concor.cd_moeda,'',mov_concor.vl_movimentacao - Nvl(mov_concor.vl_conciliado,0),mov_concor.vl_moeda))) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And  Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC_R_19_Q_LANC_EXTRATO
+SELECT Sum((dbamv.fnc_moeda_depara(mov_concor.cd_moeda,'',mov_concor.vl_movimentacao - Nvl(mov_concor.vl_conciliado,0),mov_concor.vl_moeda))) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And  Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC_R_2_Q_LANC_EXTRATO
+SELECT Sum((dbamv.fnc_moeda_depara(mov_concor.cd_moeda,'',mov_concor.vl_movimentacao - Nvl(mov_concor.vl_conciliado,0),mov_concor.vl_moeda))) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND con_cor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND empresa_lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And  Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                          AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC_R_3_Q_LANC_EXTRATO
+SELECT sum( ( dbamv.fnc_moeda_depara(mov_concor.cd_moeda,'',mov_concor.vl_movimentacao - Nvl(mov_concor.vl_conciliado,0),mov_concor.vl_moeda) ) ) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And  Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                           :CAMPO_CF_MULTI_EMPRESA) )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC_R_5_Q_LANC_EXTRATO
+SELECT sum( ( dbamv.fnc_moeda_depara(mov_concor.cd_moeda,'',mov_concor.vl_movimentacao - Nvl(mov_concor.vl_conciliado,0),mov_concor.vl_moeda) ) ) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And  Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                           :CAMPO_CF_MULTI_EMPRESA) )
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_SIMP_SFORNEC_R_6_Q_LANC_EXTRATO
+SELECT sum( ( dbamv.fnc_moeda_depara(mov_concor.cd_moeda,'',mov_concor.vl_movimentacao - Nvl(mov_concor.vl_conciliado,0),mov_concor.vl_moeda) ) ) vl_total_extrato
+  FROM dbamv.mov_concor
+      ,dbamv.con_cor
+      ,dbamv.lan_concor
+      ,dbamv.empresa_lan_concor
+      ,dbamv.item_res
+      ,dbamv.gru_res
+  WHERE mov_concor.dt_movimentacao >= :CAMPO_DT_INIC
+    AND mov_concor.dt_movimentacao <= :CAMPO_DT_FIM
+    AND mov_concor.cd_con_cor = con_cor.cd_con_cor
+    AND lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+    AND lan_concor.cd_lan_concor = empresa_lan_concor.cd_lan_concor
+    AND item_res.cd_gru_res = gru_res.cd_gru_res (+)
+    AND empresa_lan_concor.cd_item_res = item_res.cd_item_res(+)
+    AND ( (     mov_concor.cd_aplicacao IS NOT NULL
+            AND lan_concor.tp_operacao_saldo_conta = '+' )
+             OR mov_concor.cd_aplicacao IS NULL )
+    AND mov_concor.cd_bordero IS NULL
+    AND mov_concor.cd_con_cor_transferencia IS NULL
+    AND Mov_concor.cd_mov_concor_transferencia IS NULL
+    AND Mov_concor.cd_mov_caixa IS NULL
+    AND Mov_concor.cd_pagcon_pag IS NULL
+    AND Mov_concor.cd_cheque IS NULL
+    And  Lan_concor.tp_operacao_saldo_conta = '-'
+    AND Mov_concor.vl_movimentacao - nvl(Mov_concor.vl_conciliado,0) > 0
+    AND (    not exists( SELECT cd_mov_concor
+                           FROM    dbamv.rec_mov_con r
+                           WHERE   r.cd_mov_concor = Mov_concor.cd_mov_concor)
+          OR  exists ( SELECT  'x'
+                        FROM  dbamv.config_financ
+                        WHERE cd_lanca_credito_convenio = lan_concor.cd_lan_concor
+                           :CAMPO_CF_MULTI_EMPRESA
+) )

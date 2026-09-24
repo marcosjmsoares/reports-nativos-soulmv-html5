@@ -1,0 +1,136 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_CAIXA
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOV_CAIXA_R_1_Q_CAIXA
+SELECT c.cd_caixa
+      , ltrim(Rtrim(c.ds_caixa))                            ds_caixa ,
+       Decode( '', 'S', e.cd_multi_empresa, null )   cd_multi_empresa_Cx,
+       Decode( '', 'S', e.ds_multi_empresa, null )   ds_multi_empresa_Cx,
+       Decode( '', 'S', ltrim(Rtrim(c.ds_caixa)), ltrim(Rtrim(c.ds_caixa))||'    Empresa: '||e.Ds_Multi_Empresa ) Ds_Caixa_Empresa
+      , l.cd_lote_caixa
+      , l.dt_abertura
+      , l.dt_fechamento
+      , l.vl_saldo_inicial                          saldo_anterior
+      , m.cd_mov_caixa
+      ,m.tp_movimentacao   tp_movimentacao_mov
+      , nvl(m.vl_moeda,m.vl_movimentacao)   vl_movimentacao
+      , m.cd_doc_caixa
+      , m.cd_caucao
+      , m.dt_movimentacao                    data
+      , nvl(m.ds_mov_caixa,'-')                     historico
+      , nvl(m.vl_moeda,m.vl_movimentacao)                    valor
+      , decode(m.tp_movimentacao,'E','C','S','D')   tp_movimentacao
+      , x.cd_banco
+      , Rtrim(x.nm_banco)                            nm_banco
+      , x.cd_doc_caixa
+      , x.docto                                     docto
+      , Nvl((SELECT Decode(pix.tp_recebimento_pix,'1','PIX','2','PIM','3','PIT',null) FROM 
+             dbamv.pix_movimento_finan pix WHERE pix.cd_mov_caixa IS NOT NULL AND pix.cd_mov_caixa = m.cd_mov_caixa),Nvl(x.tipo,'DIN'))    tipo
+      , m.tp_origem_mov
+      ,itimp.cd_importa_mov_caixa
+      ,itimp.nr_sequencial
+      ,( SELECT cr.nr_documento ||'/'|| cr.nr_serie
+          FROM con_rec cr,itcon_rec it, reccon_rec rr, mov_caixa mc
+         WHERE rr.cd_mov_caixa = mc.cd_mov_caixa
+           AND rr.cd_itcon_rec = it.cd_itcon_rec
+           AND it.cd_con_Rec = cr.cd_con_rec
+           AND mc.cd_mov_caixa = m.cd_mov_caixa
+           AND mc.tp_origem_mov IN ('RE')
+	   AND ROWNUM = 1
+      ) nota_fiscal_serie
+       ,Nvl(c.cd_moeda,dbamv.moeda_padrao(e.cd_multi_empresa)) cd_moeda
+      ,m.Cd_Multi_Empresa_Origem
+      ,m.Cd_Multi_Empresa_Destino
+from    dbamv.multi_empresas        E
+        , dbamv.mov_caixa           m
+        , dbamv.itimporta_mov_caixa itimp
+        , dbamv.lote_caixa          l
+        , dbamv.caixa               c
+      , ( select  b.nm_banco
+                , C.cd_doc_caixa
+            	, C.cd_caixa
+            	, C.cd_banco
+            	, C.nr_documento                   docto
+            	, decode(C.tp_doc_caixa
+                		,'1','DIN'
+                		,'2','CHE'
+                		,'3','CAR'
+                		,'4','TEF'
+                		,'5','PRO'
+                		,'6','DUP'
+                		,'8','PIX'
+                		,'DIN')                    tipo
+          from  dbamv.doc_caixa C
+            	 ,dbamv.banco     b
+          where C.cd_banco = b.cd_banco(+)) x
+where  c.cd_caixa           = l.cd_caixa
+and    c.Cd_Multi_Empresa   = E.Cd_Multi_Empresa
+and     m.cd_doc_caixa      = x.cd_doc_caixa (+)
+and  ( exists
+       ( select  'x'
+         from    dbamv.atendime     a
+               , dbamv.con_rec      cr
+               , dbamv.itcon_rec    i
+               , dbamv.reccon_rec   r
+         where   r.cd_itcon_rec       = i.cd_itcon_rec
+         and     i.cd_con_rec         = cr.cd_con_rec
+         and     cr.cd_atendimento    = a.cd_atendimento(+)
+         and     r.cd_mov_caixa       = m.cd_mov_caixa
+         and     cr.cd_multi_empresa  = c.cd_multi_empresa
+         :CAMPO_CF_COND_ORI_ATE
+         )
+         or nvl(:CAMPO_CD_ORI_ATE,'%') = '%' )
+and     m.cd_itimporta_mov_caixa = itimp.cd_itimporta_mov_caixa(+)
+order by cd_moeda,ltrim(Rtrim(c.ds_caixa)), l.dt_abertura , m.dt_movimentacao, m.tp_movimentacao
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOV_CAIXA_R_1_Q_CAIXA_TOT_CRED
+SELECT Sum(Nvl(CP_DEB_DIN,0)) CP_DEB_DIN,
+Sum(Nvl(CP_DEB_CHE,0)) CP_DEB_CHE,
+Sum(Nvl(CP_DEB_CART,0)) CP_DEB_CART,
+Sum(Nvl(CP_DEB_TEF,0)) CP_DEB_TEF,
+Sum(Nvl(CP_DEB_PROM,0)) CP_DEB_PROM,
+Sum(Nvl(CP_DEB_PIX,0)) CP_DEB_PIX,
+Sum(Nvl(CP_DEB_DUPL,0)) CP_DEB_DUPL,
+Sum(Nvl(CP_CRED_DIN,0)) CP_CRED_DIN,
+Sum(Nvl(CP_CRED_CHE,0)) CP_CRED_CHE,
+Sum(Nvl(CP_CRED_CART,0)) CP_CRED_CART,
+Sum(Nvl(CP_CRED_TEF,0)) CP_CRED_TEF,
+Sum(Nvl(CP_CRED_PROM,0)) CP_CRED_PROM,
+Sum(Nvl(CP_CRED_PIX,0)) CP_CRED_PIX,
+Sum(Nvl(CP_CRED_DUPL,0)) CP_CRED_DUPL 
+FROM (SELECT 
+Decode(m.tp_movimentacao,'S',Decode(nvl(d.tp_doc_caixa, 1),1,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_DEB_DIN,
+Decode(m.tp_movimentacao,'S',Decode(nvl(d.tp_doc_caixa, 1),2,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_DEB_CHE,
+Decode(m.tp_movimentacao,'S',Decode(nvl(d.tp_doc_caixa, 1),3,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_DEB_CART,
+Decode(m.tp_movimentacao,'S',Decode(nvl(d.tp_doc_caixa, 1),4,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_DEB_TEF,
+Decode(m.tp_movimentacao,'S',Decode(nvl(d.tp_doc_caixa, 1),5,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),7,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_DEB_PROM,
+Decode(m.tp_movimentacao,'S',Decode(nvl(d.tp_doc_caixa, 1),8,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_DEB_PIX,
+Decode(m.tp_movimentacao,'S',Decode(nvl(d.tp_doc_caixa, 1),6,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_DEB_DUPL,
+Decode(m.tp_movimentacao,'E',Decode(nvl(d.tp_doc_caixa, 1),1,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_CRED_DIN,
+Decode(m.tp_movimentacao,'E',Decode(nvl(d.tp_doc_caixa, 1),2,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_CRED_CHE,
+Decode(m.tp_movimentacao,'E',Decode(nvl(d.tp_doc_caixa, 1),3,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_CRED_CART,
+Decode(m.tp_movimentacao,'E',Decode(nvl(d.tp_doc_caixa, 1),4,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_CRED_TEF,
+Decode(m.tp_movimentacao,'E',Decode(nvl(d.tp_doc_caixa, 1),5,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),7,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_CRED_PROM,
+Decode(m.tp_movimentacao,'E',Decode(nvl(d.tp_doc_caixa, 1),8,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_CRED_PIX,
+Decode(m.tp_movimentacao,'E',Decode(nvl(d.tp_doc_caixa, 1),6,Sum(Nvl(m.VL_MOEDA,m.VL_MOVIMENTACAO)),0),0) CP_CRED_DUPL
+FROM mov_caixa m, lote_caixa l, doc_caixa d
+WHERE m.cd_lote_caixa = l.cd_lote_caixa  
+AND ((instr(Upper(''), 'NOT IN,') = 1 AND Instr('', To_Char(L.Cd_Lote_Caixa)) = 0) 
+      OR ('' <> '%' AND Instr('', To_char(L.Cd_Lote_Caixa)) <> 0) 
+      OR ('' = '%'))
+AND ((instr(Upper(''), 'NOT IN,') = 1  AND Instr('', m.tp_origem_mov) = 0) 
+      OR ('' <> '%' AND Instr('', m.tp_origem_mov) <> 0)  
+      OR ('' = '%'))  
+AND m.cd_doc_caixa = d.cd_doc_caixa(+) 
+and l.cd_caixa = :CAMPO_CD_CAIXA_TOT  
+AND m.dt_cancelamento IS NULL  
+AND trunc(m.dt_movimentacao) BETWEEN trunc(:CAMPO_DATA_INIC) AND trunc(:CAMPO_DATA_FIM) 
+GROUP BY d.tp_doc_caixa,  m.tp_movimentacao
+)

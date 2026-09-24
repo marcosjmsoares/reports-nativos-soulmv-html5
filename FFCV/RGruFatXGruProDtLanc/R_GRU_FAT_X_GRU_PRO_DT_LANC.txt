@@ -1,0 +1,74 @@
+/*----------------------------------------------------------------------------*/
+--R_GRU_FAT_X_GRU_PRO_DT_LANC
+SELECT * FROM (
+SELECT CD_GRU_FAT
+              ,DS_GRU_FAT
+              ,CD_GRU_PRO
+              ,DS_GRU_PRO
+              ,SUM(NVL(VL_TOTAL_CONTA, 0))     VL_TOTAL_CONTA
+FROM  ( SELECT ITREG_FAT.CD_GRU_FAT                           CD_GRU_FAT
+                            ,GRU_FAT.DS_GRU_FAT                              DS_GRU_FAT
+                            ,PRO_FAT.CD_GRU_PRO                             CD_GRU_PRO
+                            ,GRU_PRO.DS_GRU_PRO                            DS_GRU_PRO                            
+							 ,nvl(ITLAN_MED.VL_LIQUIDO,ITREG_FAT.VL_TOTAL_CONTA)     VL_TOTAL_CONTA
+                            ,REG_FAT.CD_CONVENIO                            CD_CONVENIO
+               FROM    DBAMV.REG_FAT                                         REG_FAT
+                            ,DBAMV.ITREG_FAT                                      ITREG_FAT
+                            ,DBAMV.GRU_FAT                                         GRU_FAT
+                            ,DBAMV.PRO_FAT                                         PRO_FAT
+                            ,DBAMV.GRU_PRO                                        GRU_PRO
+                            ,DBAMV.CONVENIO                                       CONVENIO
+							              ,Dbamv.Empresa_Convenio 
+	                          ,DBAMV.ITLAN_MED 
+             Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+               And Empresa_Convenio.Cd_Multi_Empresa =  :CAMPO_CD_MULTI_EMPRESA						
+               and REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+			   AND REG_fat.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND       ITREG_FAT.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+               AND       ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND       PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND       ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+               AND       NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+               and       nvl( nvl( itlan_med.tp_pagamento, itreg_fat.tp_pagamento ) ,'X') <> 'C'  
+               AND       ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  AND (to_date ( :CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               AND       REG_FAT.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+               AND       CONVENIO.TP_CONVENIO <> 'H'
+			         AND        ITLAN_MED.CD_REG_FAT(+) = ITREG_FAT.CD_REG_FAT
+               AND        ITLAN_MED.CD_LANCAMENTO(+) = ITREG_FAT.CD_LANCAMENTO
+               UNION ALL
+               SELECT ITREG_AMB.CD_GRU_FAT                     CD_GRU_FAT
+                             ,GRU_FAT.DS_GRU_FAT               DS_GRU_FAT
+                             ,PRO_FAT.CD_GRU_PRO               CD_GRU_PRO
+                             ,GRU_PRO.DS_GRU_PRO               DS_GRU_PRO
+                             ,ITREG_AMB.VL_TOTAL_CONTA         VL_TOTAL_CONTA
+                             ,ITREG_AMB.CD_CONVENIO            CD_CONVENIO
+                FROM   DBAMV.REG_AMB                           REG_AMB
+                            ,DBAMV.ITREG_AMB                   ITREG_AMB
+                            ,DBAMV.ATENDIME                    ATENDIME
+                            ,DBAMV.GRU_FAT                     GRU_FAT
+                            ,DBAMV.PRO_FAT                     PRO_FAT
+                            ,DBAMV.GRU_PRO                     GRU_PRO
+                            ,DBAMV.CONVENIO                    CONVENIO
+							              ,Dbamv.Empresa_Convenio
+               Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+                 And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA					
+                and REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                AND       ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+                AND       ITREG_AMB.CD_GRU_FAT = GRU_FAT.CD_GRU_FAT
+                AND       ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND       PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND       ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+                AND       NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND       ATENDIME.DT_ATENDIMENTO  BETWEEN to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')  AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)                AND                                     REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND       ITREG_AMB.CD_CONVENIO  = CONVENIO.CD_CONVENIO
+                AND       CONVENIO.TP_CONVENIO <> 'H'                  
+                :CAMPO_CF_CONTA_FECHADA_AMB)
+              GROUP BY CD_GRU_FAT
+                   ,DS_GRU_FAT
+                   ,CD_GRU_PRO
+                   ,DS_GRU_PRO
+)
+ORDER BY CD_GRU_FAT,DS_GRU_FAT

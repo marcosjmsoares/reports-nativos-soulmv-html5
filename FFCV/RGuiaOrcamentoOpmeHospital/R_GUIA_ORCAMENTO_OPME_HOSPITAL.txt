@@ -1,0 +1,108 @@
+/*----------------------------------------------------------------------------*/
+--R_GUIA_ORCAMENTO_OPME_HOSPITAL
+SELECT dt_solicitacao,
+       cd_atendimento,
+       cd_convenio,
+       cd_aviso_cirurgia,
+       nm_convenio,
+       nm_paciente,
+       cd_paciente,
+       nr_matricula_titular,
+       tp_sexo,
+       cd_senha,
+       cd_prestador,
+       nm_prestador,
+       nr_fone_comercial,
+       nr_fone_contato,
+       crm,
+       cpf_prestador,
+       ds_observacao,
+       cd_con_pla,
+       tp_atendimento
+FROM (
+SELECT guia.dt_solicitacao,
+       atendime.cd_atendimento,
+       guia.cd_convenio  cd_convenio,
+       aviso.cd_aviso_cirurgia cd_aviso_cirurgia,
+       convenio.nm_convenio nm_convenio,
+       nvl( paciente.nm_paciente, aviso.nm_paciente )  nm_paciente,
+       paciente.cd_paciente,
+       carteira.nr_matricula_titular,
+       paciente.tp_sexo,
+       guia.cd_senha cd_senha,
+       prestador.cd_prestador cd_prestador,
+       prestador.nm_prestador nm_prestador,
+       prestador.nr_fone_comercial,
+       prestador.nr_fone_contato,
+       prestador.ds_codigo_conselho crm,
+       prestador.nr_cpf_cgc cpf_prestador,
+       guia.ds_observacao ds_observacao,
+       atendime.cd_con_pla cd_con_pla,
+       atendime.tp_atendimento tp_atendimento
+  from dbamv.guia,
+       dbamv.aviso_cirurgia aviso,
+       dbamv.convenio,
+       dbamv.atendime,
+       dbamv.paciente,
+       dbamv.carteira,
+       (select prestador_aviso.cd_aviso_cirurgia, prestador_aviso.cd_prestador, prestador_aviso.cd_ati_med
+         from dbamv.guia,
+                 dbamv.cirurgia_aviso,
+                 dbamv.prestador_aviso
+ where guia.cd_guia = :CAMPO_CD_GUIA
+   and guia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+   and cirurgia_aviso.sn_principal = 'S'
+   and guia.cd_aviso_cirurgia = prestador_aviso.cd_aviso_cirurgia
+   and cirurgia_aviso.cd_cirurgia = prestador_aviso.cd_cirurgia
+   and prestador_aviso.sn_principal = 'S') prestador_aviso,
+       dbamv.ati_med,
+       dbamv.prestador,
+       dbamv.age_cir
+ where guia.cd_guia               = :CAMPO_CD_GUIA
+   and carteira.cd_paciente(+) = paciente.cd_paciente
+   and aviso.cd_aviso_cirurgia    = guia.cd_aviso_cirurgia
+   and convenio.cd_convenio(+)    = guia.cd_convenio
+   and atendime.cd_atendimento(+) = guia.cd_atendimento
+   and paciente.cd_paciente(+)     = aviso.cd_paciente
+   and prestador_aviso.cd_aviso_cirurgia = guia.cd_aviso_cirurgia
+   and ati_med.cd_ati_med(+)      = prestador_aviso.cd_ati_med
+   and ati_med.tp_funcao          = 'C'
+   and prestador.cd_prestador(+)  = prestador_aviso.cd_prestador
+   and age_cir.cd_aviso_cirurgia(+)  = aviso.cd_aviso_cirurgia
+   and  aviso.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+union
+SELECT guia.dt_solicitacao,
+       atendime.cd_atendimento,
+       guia.cd_convenio  cd_convenio,
+       to_number(null)    cd_aviso_cirurgia,
+       convenio.nm_convenio nm_convenio,
+       paciente.nm_paciente nm_paciente,
+       paciente.cd_paciente,
+       carteira.nr_matricula_titular,
+       paciente.tp_sexo,
+       guia.cd_senha cd_senha,
+       prestador.cd_prestador cd_prestador,
+       prestador.nm_prestador nm_prestador,
+       prestador.nr_fone_comercial,
+       prestador.nr_fone_contato,
+       prestador.ds_codigo_conselho crm,
+       prestador.nr_cpf_cgc cpf_prestador,
+       guia.ds_observacao ds_observacao,
+       atendime.cd_con_pla cd_con_pla,
+       atendime.tp_atendimento tp_atendimento
+  from dbamv.guia,
+       dbamv.convenio,
+       dbamv.atendime,
+       dbamv.paciente,
+       dbamv.prestador,
+       dbamv.carteira
+ where guia.cd_guia               = :CAMPO_CD_GUIA
+   and carteira.cd_paciente(+) = paciente.cd_paciente
+   and convenio.cd_convenio(+)    = guia.cd_convenio
+   and atendime.cd_atendimento(+) = guia.cd_atendimento
+   and paciente.cd_paciente(+)     = atendime.cd_paciente
+   and prestador.cd_prestador(+)  = atendime.cd_prestador
+   and guia.cd_aviso_cirurgia is null
+   and guia.cd_atendimento is not null
+)
+ORDER BY CD_CONVENIO,CD_AVISO_CIRURGIA,NM_CONVENIO,NM_PACIENTE,CD_ATENDIMENTO,CD_SENHA,CD_PRESTADOR,NM_PRESTADOR,DS_OBSERVACAO,CD_CON_PLA,TP_ATENDIMENTO

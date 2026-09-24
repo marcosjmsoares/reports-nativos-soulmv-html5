@@ -1,0 +1,70 @@
+/*----------------------------------------------------------------------------*/
+--R_SALDO_ADIANTAMENTO
+SELECT cd_con_pag,
+      Decode (Rank() OVER(PARTITION BY cd_con_pag ORDER BY prestacao), 1, dt_pagamento, null) dt_pagamento,
+      cd_fornecedor,
+      ds_fornecedor,
+      Decode (Rank() OVER(PARTITION BY cd_con_pag ORDER BY prestacao),1,nr_documento, null)  nr_documento,
+      sn_prestacao_realizada,
+      cd_con_rec_prest,
+      Decode (Rank() OVER(PARTITION BY cd_con_pag ORDER BY prestacao), 1, nvl(vl_adiantamento,0),NULL) vl_adiantamento,
+      cd_con_pag_prest,
+      cd_multi_empresa,
+      dt_prestacao_contas,
+      prestacao,
+      nvl(vl_prestacao, 0) vl_prestacao,
+      Decode (Rank() OVER(PARTITION BY cd_con_pag ORDER BY prestacao), 1,nvl(vl_recebido,0),NULL) vl_recebido,
+      Decode (Rank() OVER(PARTITION BY cd_con_pag ORDER BY prestacao), 1,nvl(vl_imposto,0), NULL) vl_imposto,
+      Decode (Rank() OVER(PARTITION BY cd_con_pag ORDER BY prestacao), 1,nvl(vl_pago,0), NULL) VL_PAGO,
+      vl_saldo - Nvl(vl_recebido,0) - Nvl(vl_prest_acumulado,0) + Nvl(vl_pago, 0) AS vl_saldo
+from
+(SELECT distinct c.cd_con_pag,
+      p.dt_pagamento dt_pagamento,
+      c.cd_fornecedor,
+      c.ds_fornecedor,
+      c.nr_documento || '/' || i.nr_parcela nr_documento,
+      c.sn_prestacao_realizada,
+      c.cd_con_rec_prest,
+      dbamv.fnc_fnfi_calcula_moeda(sysdate, :CAMPO_CD_MULTI_EMPRESA,dbamv.moeda_padrao(c.cd_multi_empresa),:CAMPO_CD_MOEDA,nvl(i.vl_duplicata,0)) vl_adiantamento,
+      c.cd_con_pag_prest,
+      c.cd_multi_empresa,
+      d.dt_prestacao_contas,
+      d.prestacao,
+      nvl(d.vl_prestacao, 0) vl_prestacao,
+Sum(nvl(d.vl_prestacao, 0)) OVER (PARTITION BY c.cd_con_pag ORDER BY d.prestacao) vl_prest_acumulado,
+      (SELECT SUM(rr.vl_recebido)
+	 FROM con_rec cr, itcon_rec ir, reccon_rec rr
+	 WHERE cr.cd_con_rec = c.cd_con_rec_prest AND cr.cd_con_rec = ir.cd_con_rec AND ir.cd_itcon_rec = rr.cd_itcon_rec :CAMPO_CF_COND_PERIODO_VL_RECEBIDO) vl_recebido,
+(SELECT sum(vl_detalhamento) FROM tip_detcon_pag WHERE cd_con_pag_pai = c.cd_con_pag) vl_imposto,
+(SELECT SUM(it.vl_duplicata) FROM con_pag cp, itcon_pag it WHERE cp.cd_con_pag = c.cd_con_pag_prest AND cp.cd_con_pag = it.cd_con_pag :CAMPO_CF_COND_PERIODO_VL_PAGO) VL_PAGO,
+      Nvl(( SELECT sum(nvl(vl_duplicata,0))vl_duplicata
+		            FROM dbamv.con_pag cp, dbamv.itcon_pag ip, dbamv.pagcon_pag pp
+		            WHERE cp.cd_con_pag   = ip.cd_con_pag
+		            AND ip.cd_itcon_pag = pp.cd_itcon_pag
+		            AND tp_adiantamento is not null
+		            AND pp.dt_estorno is null
+		            AND nvl(pp.sn_estorno,'N') <> 'S'
+		            AND cp.cd_con_pag = c.cd_con_pag),0) vl_saldo
+  FROM dbamv.con_pag c,
+       dbamv.itcon_pag i,
+       dbamv.pagcon_pag p,
+      ( SELECT d.cd_con_pag    cd_con_pag_prest
+              ,d.dt_prestacao_contas dt_prestacao_contas
+              ,nvl(d.vl_prestacao, 0) vl_prestacao
+		          ,d.cd_prestacao_contas prestacao
+         FROM dbamv.prestacao_de_contas  d,
+              dbamv.con_pag c
+        Where c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+          And d.cd_con_pag = c.cd_con_pag
+          :CAMPO_COND_FORNECEDOR
+       ) d
+WHERE c.cd_con_pag   = i.cd_con_pag
+  AND i.cd_itcon_pag = p.cd_itcon_pag
+  AND tp_adiantamento is not null
+  and p.dt_estorno is NULL
+  AND d.cd_con_pag_prest(+) = c.cd_con_pag
+  and c.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+  and nvl(p.sn_estorno,'N') <> 'S'
+ORDER BY c.ds_fornecedor ,c.cd_con_pag, d.dt_prestacao_contas, d.prestacao
+)
+ORDER BY ds_fornecedor ,cd_con_pag, dt_prestacao_contas, prestacao

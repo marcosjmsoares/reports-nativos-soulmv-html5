@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_POS_PENDENCIA_EMP_ANA_ENT
+SELECT * FROM (
+  select
+          decode(pkg_mges_emprestimo.retorna_tp_emprestimo_ent(itent_pro.cd_itent_pro),'ER','ER','PER','ER') tp_emprestimo
+         ,nvl(fornecedor.cd_fornecedor,0) cd_fornecedor
+         ,nvl(fornecedor.nm_fornecedor,'') nm_fornecedor
+         ,dbamv.pkg_mges_emprestimo.fnc_total_pagto_recebido(itent_pro.cd_itent_pro,:CAMPO_DT_FIM) vl_debito
+         ,nvl(itent_pro.vl_total,0) vl_credito   
+         ,ent_pro.cd_ent_pro cd_mvto
+         ,itent_pro.cd_itent_pro cd_itmvto
+         ,dbamv.pkg_mges_emprestimo.fnc_total_pend_concd_for(fornecedor.cd_fornecedor, :CAMPO_DT_INIC) saldo_anterior
+    from dbamv.ent_pro
+          ,dbamv.itent_pro
+          ,dbamv.estoque
+          ,dbamv.produto
+		  ,dbamv.empresa_produto
+          ,dbamv.uni_pro
+          ,dbamv.fornecedor
+          ,dbamv.tip_doc
+  where ent_pro.cd_ent_pro  = itent_pro.cd_ent_pro
+     and itent_pro.cd_produto = produto.cd_produto
+	 and produto.cd_produto = empresa_produto.cd_produto
+	 and empresa_produto.cd_multi_empresa = estoque.cd_multi_empresa
+     and ent_pro.cd_estoque = estoque.cd_estoque
+     and uni_pro.cd_uni_pro = itent_pro.cd_uni_pro
+     and estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     and ent_pro.cd_fornecedor	= fornecedor.cd_fornecedor
+     and tip_doc.cd_tip_doc = ent_pro.cd_tip_doc
+     and ent_pro.tp_documento_entrada = 'E'
+     and tip_doc.tp_entrada = 'E'
+     and ent_pro.dt_entrada >= :CAMPO_DT_INIC
+     and ent_pro.dt_entrada <= :CAMPO_DT_FIM
+     and pkg_mges_emprestimo.retorna_tp_emprestimo_ent(itent_pro.cd_itent_pro) in ('ER','PER')
+     :CAMPO_CF_SUBCLASSE
+) WHERE 1 = 1
+ORDER BY TP_EMPRESTIMO,
+CD_FORNECEDOR,NM_FORNECEDOR

@@ -1,0 +1,24 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_PROVISORIO_SERVICO
+Select remessa_fatura.cd_remessa Codigo,
+          fatura.ds_fatura Descricao,
+	 nf.nr_nota_fiscal_nfe,
+	 nf.vl_total_nota,
+	 nf.hr_emissao_nfe,
+	 nf.nr_id_nota_fiscal,
+	 decode(nf.cd_status,'C','CANCELADA','ABERTA') SITUACAO
+  from dbamv.remessa_fatura ,
+          dbamv.fatura,
+	 dbamv.nota_fiscal nf
+ where remessa_fatura.cd_fatura = fatura.cd_fatura
+    and remessa_fatura.cd_remessa = decode(:CAMPO_CD_REMESSA,'%', remessa_fatura.cd_remessa,:CAMPO_CD_REMESSA)
+   and ((   nf.NR_ID_NOTA_FISCAL = nvl(:CAMPO_NR_NFE,nf.NR_ID_NOTA_FISCAL) and  is not null) or
+          (:CAMPO_NR_NFE is null))
+and (( nf.NR_NOTA_FISCAL_NFE = nvl(:CAMPO_NR_RPS,nf.NR_NOTA_FISCAL_NFE) and  is not null) or
+    (  :CAMPO_NR_RPS is null))
+and nf.dt_emissao between to_date(:CAMPO_DATA_INI,'dd/mm/yyyy') and to_date( :CAMPO_DATA_FIM,'dd/mm/yyyy')
+and (   (:CAMPO_TIPONOTA = 'N' and nf.sn_nota_fiscal_enviada = 'N') or
+           (:CAMPO_TIPONOTA = 'E'   and nf.sn_nota_fiscal_enviada = 'S'  and  nf.NR_NOTA_FISCAL_NFE is null) or
+         (:CAMPO_TIPONOTA = 'R' and nf.sn_nota_fiscal_enviada = 'S'  and  nf.NR_NOTA_FISCAL_NFE is not null   )   )
+    and remessa_fatura.cd_remessa = nf.cd_remessa
+order by remessa_fatura.cd_remessa

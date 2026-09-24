@@ -1,0 +1,111 @@
+/*----------------------------------------------------------------------------*/
+--R_MOVIMENTO_ESTOQ
+Select mvto_estoque.cd_usuario                   cd_usuario,
+            mvto_estoque.cd_mvto_estoque        cd_mvto_estoque,
+            mvto_estoque.dt_mvto_estoque         dt_mvto_estoque,
+            to_char(mvto_estoque.hr_mvto_estoque, 'hh24') hr_mvto_estoque,
+            estoque_origem.cd_estoque               cd_estoque_o,
+            estoque_origem.ds_estoque               ds_estoque_o,
+             paciente.cd_paciente                         cd_paciente135,
+             nvl(paciente.nm_paciente,aviso_cirurgia.nm_paciente) ds_paciente135,
+             mot_dev.ds_mot_dev                         ds_mot_dev12,
+             unid_int.cd_unid_int                           cd_unid_int35,
+             unid_int.ds_unid_int                           ds_unid_int135,
+             atendime.cd_atendimento                  cd_atendimento15,
+             estoque_destino.cd_estoque            cd_estoque_dest4,
+             estoque_destino.ds_estoque             ds_estoque_dest4,
+             mvto_estoque.cd_solsai_pro             cd_solsai_pro,
+             setor.cd_setor                                    cd_setor235,
+             setor.nm_setor                                   ds_setor235,
+             prestador.cd_prestador                      cd_prestador35,
+             prestador.nm_mnemonico                  nm_mnemonico35,
+             prestador.ds_codigo_conselho || ' - ' || nm_prestador crm3,
+             mvto_estoque.nr_documento             nr_documento35,
+             mvto_paciente.nm_mae                     nm_mae3,
+             mvto_paciente.dt_nascimento           dt_nascimento3,
+             leito.cd_leito                                       cd_leito5,
+             leito.ds_leito                                       ds_leito5,
+             convenio.cd_convenio                      cd_convenio5,
+             convenio.nm_convenio                     ds_convenio5,
+             mvto_estoque.cd_aviso_cirurgia       cd_aviso_cirurgia
+    From dbamv.mvto_estoque                         mvto_estoque,
+            dbamv.estoque                                   estoque_origem,
+            dbamv.estoque                                   estoque_destino,
+            dbamv.mvto_paciente                         mvto_paciente,
+            dbamv.prestador                                  prestador,
+            dbamv.unid_int                                    unid_int,
+            dbamv.setor                                        setor,
+            dbamv.atendime                                  atendime,
+            dbamv.leito                                          leito,
+            dbamv.convenio                                  convenio,
+            dbamv.mot_dev                                   mot_dev,
+            dbamv.paciente                                   paciente,
+           dbamv.aviso_cirurgia                            aviso_cirurgia
+  Where mvto_estoque.tp_mvto_estoque        = nvl(:CAMPO_TP_MVTO,mvto_estoque.tp_mvto_estoque)
+      And estoque_origem.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA 
+      And mvto_estoque.cd_mvto_estoque       = :CAMPO_CD_MVTO_ESTOQUE
+      And mvto_estoque.cd_estoque                 = estoque_origem.cd_estoque
+      And mvto_estoque.cd_estoque_destino   = estoque_destino.cd_estoque (+)
+      And mvto_paciente.cd_mvto_estoque (+) = mvto_estoque.cd_mvto_estoque
+      And mvto_estoque.cd_setor                     = setor.cd_setor(+)
+      And mvto_estoque.cd_unid_int                = unid_int.cd_unid_int(+)
+      And mvto_estoque.cd_atendimento         = atendime.cd_atendimento(+)
+      And atendime.cd_convenio                      = convenio.cd_convenio(+)
+      And atendime.cd_paciente                       = paciente.cd_paciente(+)
+      And atendime.cd_leito                              = leito.cd_leito(+)
+      And mvto_estoque.cd_prestador              = prestador.cd_prestador(+)
+      And mvto_estoque.cd_mot_dev               = mot_dev.cd_mot_dev (+)
+      And aviso_cirurgia.cd_aviso_cirurgia (+) = mvto_estoque.cd_aviso_cirurgia
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOVIMENTO_ESTOQ_R_PRODUTO_KIT_Q_2
+SELECT * FROM (
+SELECT * FROM (
+Select  mvto_estoque.cd_mvto_estoque        cd_mvto_estoque,
+            itmvto_estoque.cd_produto                 cd_produto,
+            produto.ds_produto                             ds_produto,
+            itmvto_estoque.cd_lote                       cd_lote,
+            uni_pro.ds_unidade                             ds_unidade,
+            itmvto_estoque.dt_validade                 dt_validade,
+            SUM( ITMVTO_ESTOQUE.QT_MOVIMENTACAO )  QT_MOVIMENTACAO,
+            verif_vl_custo_medio(itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque, 'H', NULL,
+                                                mvto_estoque.hr_mvto_estoque) * uni_pro.vl_fator vl_unitario,
+             itmvto_estoque.qt_perda                   qt_perda35,
+             itmvto_estoque.cd_produto_kit         cd_produto_kit,
+             produto_kit.ds_produto                      ds_produto_kit,
+             solsai_pro.ds_obs                              ds_obs
+    From dbamv.mvto_estoque                         mvto_estoque,
+            dbamv.itmvto_estoque                        itmvto_estoque,
+            dbamv.uni_pro                                    uni_pro,
+            dbamv.produto                                    produto,
+            dbamv.produto                                    produto_kit,
+            dbamv.estoque,  
+            dbamv.solsai_pro
+  Where mvto_estoque.tp_mvto_estoque        = :CAMPO_TP_MVTO
+      And mvto_estoque.cd_mvto_estoque       = itmvto_estoque.cd_mvto_estoque(+)
+      And itmvto_estoque.cd_produto               = produto.cd_produto(+)
+      And itmvto_estoque.cd_uni_pro               = uni_pro.cd_uni_pro(+)
+      And itmvto_estoque.cd_produto_kit         = produto_kit.cd_produto(+)
+      AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+      AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      and mvto_estoque.cd_solsai_pro = solsai_pro.cd_solsai_pro(+) 
+Group by mvto_estoque.cd_mvto_estoque,
+            itmvto_estoque.cd_produto,
+            produto.ds_produto,
+            itmvto_estoque.cd_lote,
+            uni_pro.ds_unidade,
+            itmvto_estoque.dt_validade,
+            verif_vl_custo_medio(itmvto_estoque.cd_produto, mvto_estoque.dt_mvto_estoque, 'H', NULL,
+                                                mvto_estoque.hr_mvto_estoque) * uni_pro.vl_fator,
+             itmvto_estoque.qt_perda,
+             itmvto_estoque.cd_produto_kit,
+             produto_kit.ds_produto,
+             solsai_pro.ds_obs
+ORDER BY MVTO_ESTOQUE.CD_MVTO_ESTOQUE,
+         PRODUTO.DS_PRODUTO
+)
+WHERE CD_MVTO_ESTOQUE = :CAMPO_CD_MVTO_ESTOQUE
+)
+ORDER BY CD_PRODUTO_KIT,DS_PRODUTO_KIT

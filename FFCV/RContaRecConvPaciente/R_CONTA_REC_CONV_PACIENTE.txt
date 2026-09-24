@@ -1,0 +1,102 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTA_REC_CONV_PACIENTE
+SELECT * FROM (
+Select Convenio.Cd_Convenio CD_CONVENIO,
+       Convenio.Nm_Convenio,
+       Nota_Fiscal.Nr_Id_Nota_Fiscal,
+       ItFat_Nota_Fiscal.Cd_Remessa CD_REMESSA,
+       'Hospitalar' Tp_Conta,
+       Reg_Fat.Cd_Reg_Fat Cd_Conta,
+       Reg_Fat.Cd_Atendimento,
+       Paciente.Nm_Paciente NM_PACIENTE,
+       atendime.dt_atendimento,
+       atendime.cd_con_pla,
+       atendime.cd_paciente,
+       atendime.tp_atendimento,
+       Nota_Fiscal.Cd_Nota_Fiscal,
+       Sum( ItFat_Nota_Fiscal.Vl_ItFat_Nf ) Vl_Conta
+From Dbamv.Reg_Fat
+    ,Dbamv.Convenio
+    ,Dbamv.Nota_Fiscal
+    ,Dbamv.ItFat_Nota_Fiscal
+    ,Dbamv.Remessa_fatura
+    ,Dbamv.Atendime
+    ,Dbamv.Paciente
+	,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And  atendime.Cd_Multi_Empresa = Empresa_Convenio.Cd_Multi_Empresa
+And Reg_Fat.Cd_Convenio              = Convenio.Cd_Convenio
+  And ItFat_Nota_Fiscal.cd_nota_fiscal = Nota_fiscal.cd_nota_fiscal
+  And ItFat_Nota_Fiscal.Cd_Reg_Fat     = Reg_Fat.Cd_Reg_Fat
+  And Reg_Fat.Cd_Atendimento           = Atendime.Cd_Atendimento
+  And Atendime.Cd_Paciente             = Paciente.Cd_Paciente
+  And  atendime.Cd_Multi_Empresa = Nota_Fiscal.cd_multi_empresa
+  And ItFat_Nota_Fiscal.Cd_Remessa     = Remessa_Fatura.cd_remessa
+  And ((:CAMPO_TP_PERIODO = 'A' AND REG_FAT.DT_INICIO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FIM)
+         OR (:CAMPO_TP_PERIODO = 'B' AND REG_FAT.DT_FINAL BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FIM)
+         OR (:CAMPO_TP_PERIODO = 'C' AND REMESSA_FATURA.DT_ENTREGA_DA_FATURA BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FIM))
+Group By Convenio.Cd_Convenio,
+       Convenio.Nm_Convenio,
+       Paciente.Nm_Paciente,
+       Nota_Fiscal.Nr_Id_Nota_Fiscal,
+       ItFat_Nota_Fiscal.Cd_Remessa,
+       Reg_Fat.Cd_Reg_Fat,
+       Reg_Fat.Cd_Atendimento,
+       Atendime.dt_atendimento,
+       atendime.cd_con_pla,
+       atendime.cd_paciente,
+       atendime.tp_atendimento,
+       Nota_Fiscal.Cd_Nota_Fiscal
+Union All
+Select Convenio.Cd_Convenio,
+       Convenio.Nm_Convenio,
+       Nota_Fiscal.Nr_Id_Nota_Fiscal,
+       ItFat_Nota_Fiscal.Cd_Remessa,
+       'Ambulatorial' Tp_Conta,
+       ItReg_Amb.Cd_Reg_Amb Cd_Conta,
+       ItReg_Amb.Cd_Atendimento,
+       Paciente.Nm_Paciente,
+       atendime.dt_atendimento,
+       atendime.cd_con_pla,
+       atendime.cd_paciente,
+       atendime.tp_atendimento,
+       Nota_Fiscal.Cd_Nota_Fiscal,
+       Sum( ItFat_Nota_Fiscal.Vl_ItFat_Nf ) Vl_Conta
+From Dbamv.ItReg_Amb
+    ,Dbamv.Convenio
+    ,Dbamv.Nota_Fiscal
+    ,Dbamv.ItFat_Nota_Fiscal
+    ,Dbamv.Remessa_Fatura
+    ,Dbamv.Atendime
+    ,Dbamv.Paciente
+     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = atendime.cd_multi_empresa
+and atendime.cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+And ItReg_Amb.Cd_Convenio            = Convenio.Cd_Convenio
+  And ItFat_Nota_Fiscal.cd_nota_fiscal = Nota_fiscal.cd_nota_fiscal
+  And ItFat_Nota_Fiscal.Cd_Reg_Amb     = ItReg_Amb.Cd_Reg_Amb
+  And ItFat_Nota_Fiscal.Cd_lancamento_Amb = ItReg_Amb.Cd_Lancamento
+  And ItReg_Amb.Cd_Atendimento         = Atendime.Cd_Atendimento
+  And Atendime.Cd_Paciente             = Paciente.Cd_Paciente
+  And ItFat_Nota_Fiscal.Cd_Remessa     = Remessa_Fatura.Cd_Remessa
+  AND Nota_Fiscal.cd_multi_empresa     = atendime.cd_multi_empresa
+  And ((:CAMPO_TP_PERIODO = 'A' AND ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FIM)
+         OR (:CAMPO_TP_PERIODO = 'B' AND ATENDIME.DT_ATENDIMENTO BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FIM)
+         OR (:CAMPO_TP_PERIODO = 'C' AND REMESSA_FATURA.DT_ENTREGA_DA_FATURA BETWEEN :CAMPO_DT_INICIO AND :CAMPO_DT_FIM))
+Group By Convenio.Cd_Convenio,
+       Convenio.Nm_Convenio,
+       Paciente.Nm_Paciente,
+       Nota_Fiscal.Nr_Id_Nota_Fiscal,
+       ItFat_Nota_Fiscal.Cd_Remessa,
+       ItReg_Amb.Cd_Reg_Amb,
+       ItReg_Amb.Cd_Atendimento,
+       Atendime.Dt_Atendimento,
+       atendime.cd_con_pla,
+       atendime.cd_paciente,
+       atendime.tp_atendimento,
+       Nota_Fiscal.Cd_Nota_Fiscal
+order by 1, 4, 8
+)
+ORDER BY CD_CONVENIO,CD_REMESSA, NM_PACIENTE

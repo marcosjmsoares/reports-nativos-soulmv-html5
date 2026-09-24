@@ -1,0 +1,134 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_CC_SERVICO_DT_LANC
+SELECT * FROM (
+SELECT  NM_SETOR, DS_ORI_ATE, SUM(VL_TOTAL) VL_TOTAL
+FROM  ( SELECT DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR) NM_SETOR
+                ,DECODE(NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS), NULL, ' NÃO INFORMADO', NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS))  DS_ORI_ATE 
+                            ,SUM(ITREG_FAT.VL_TOTAL_CONTA)       VL_TOTAL
+                FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.SERVICO
+			    ,Dbamv.Empresa_Convenio
+                ,DBAMV.SER_DIS
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+            AND ATENDIME.CD_SER_DIS = SER_DIS.CD_SER_DIS(+)
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        nvl(ITREG_FAT.SN_PERTENCE_PACOTE,'N') = 'N'
+               AND        NVL(REG_FAT.SN_DIAGNO,'N' ) =  'N'
+               and       nvl(itreg_fat.tp_pagamento,'X') <> 'C'
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+          GROUP BY SETOR.NM_SETOR, SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS
+               UNION ALL
+               SELECT DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR) NM_SETOR
+                ,DECODE(NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS), NULL, ' NÃO INFORMADO', NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS))  DS_ORI_ATE
+                             ,SUM(ITREG_AMB.VL_TOTAL_CONTA)          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                ,DBAMV.SERVICO
+                ,DBAMV.EMPRESA_CONVENIO
+                ,DBAMV.SER_DIS
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+             AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+             AND ATENDIME.CD_SER_DIS = SER_DIS.CD_SER_DIS(+)
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        nvl(ITREG_AMB.SN_PERTENCE_PACOTE,'N') = 'N'
+                AND        NVL(REG_AMB.SN_DIAGNO,'N' ) =  'N'
+                AND        ITREG_AMB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+               AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+           GROUP BY  SETOR.NM_SETOR, SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS
+               UNION ALL
+               SELECT DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR) NM_SETOR
+                ,DECODE(NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS), NULL, ' NÃO INFORMADO', NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS))  DS_ORI_ATE
+                            ,SUM(ITREG_FAT.VL_TOTAL_CONTA)       VL_TOTAL
+                FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.SERVICO
+			    ,Dbamv.Empresa_Convenio
+                ,DBAMV.SER_DIS
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+             AND ATENDIME.CD_SER_DIS = SER_DIS.CD_SER_DIS(+)
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND        PRO_FAT.SN_PACOTE = 'N'
+              AND        NVL( ITREG_FAT.TP_PAGAMENTO, 'X' ) <> 'C'
+               AND        NVL(REG_FAT.SN_DIAGNO,'N' ) =  'N'
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           GROUP BY  SETOR.NM_SETOR, SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS
+               UNION ALL
+               SELECT DECODE(SETOR.NM_SETOR, NULL, ' Não Informado', SETOR.NM_SETOR) NM_SETOR
+                 ,DECODE(NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS), NULL, ' NÃO INFORMADO', NVL(SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS))  DS_ORI_ATE
+                             ,SUM(ITREG_AMB.VL_TOTAL_CONTA)          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.SERVICO
+			     ,Dbamv.Empresa_Convenio
+                 ,DBAMV.SER_DIS
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+              AND ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+              AND ATENDIME.CD_SER_DIS = SER_DIS.CD_SER_DIS(+)
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        PRO_FAT.SN_PACOTE = 'N'
+              AND        NVL( ITREG_AMB.TP_PAGAMENTO, 'X' ) <> 'C'
+                AND        NVL(REG_AMB.SN_DIAGNO,'N' ) =  'N'
+                AND        ITREG_AMB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND        CONVENIO.TP_CONVENIO <> 'H'
+               and        atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+               AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            GROUP BY  SETOR.NM_SETOR, SERVICO.DS_SERVICO, SER_DIS.DS_SER_DIS)
+WHERE VL_TOTAL IS NOT NULL
+  GROUP BY  NM_SETOR, DS_ORI_ATE
+)
+ORDER BY NM_SETOR,
+DS_ORI_ATE

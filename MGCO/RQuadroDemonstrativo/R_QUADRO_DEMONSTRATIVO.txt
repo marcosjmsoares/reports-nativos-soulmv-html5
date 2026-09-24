@@ -1,0 +1,68 @@
+/*----------------------------------------------------------------------------*/
+--R_QUADRO_DEMONSTRATIVO
+SELECT * FROM (
+			 Select Sol_com.cd_sol_com                                                               Sol_com,
+			            Sol_com.nm_solicitante                                                            Nm_solicitante,
+			            Sol_com.dt_maxima                                                                 Dt_maxima,
+			            Sol_com.dt_sol_com                                                                Dt_solicitacao,
+			            Estoque.cd_estoque          || ' - ' || Estoque.ds_estoque            Estoque,
+			            Fornecedor.cd_fornecedor                                                       Cd_fornecedor,
+			            lpad(Fornecedor.cd_fornecedor,6,0) || ' - ' || Fornecedor.nm_fornecedor Fornecedor,
+			            Condicoes_pagamento.ds_condicao_pagamento                   Condicao_pag,
+			            Coleta.nr_dias_entrega                                                            Nr_dias_entrega,
+			            dbamv.converte_moeda_entrada(nvl(:CAMPO_CONVERTE,'0'),coleta.vl_total_coleta,coleta_moeda.vl_total_moeda,:CAMPO_CD_MOEDA,coleta_moeda.cd_moeda_indice,coleta_moeda.SN_CAMBIO_SUGERIDO,Nvl(coleta_moeda.dt_indice_moeda,coleta.dt_coleta) ,coleta_moeda.VL_INDICE_COLETA)                                                         Vl_total_coleta
+			   From Dbamv.sol_com                             Sol_com,
+			            Dbamv.estoque                             Estoque,
+			            Dbamv.coleta                                Coleta,
+			            Dbamv.Fornecedor                        Fornecedor,
+			            Dbamv.condicoes_pagamento      Condicoes_pagamento,
+			            dbamv.coleta_moeda   coleta_moeda
+			Where Sol_com.cd_estoque                   = Estoque.cd_estoque
+			    And Estoque.Cd_Multi_empresa          = :CAMPO_CD_MULTI_EMPRESA
+			    And Sol_com.cd_sol_com                   = Coleta.cd_sol_com
+			    And coleta.cd_coleta                   = Coleta_moeda.cd_coleta(+)
+			    And Coleta.cd_fornecedor                  = Fornecedor.cd_fornecedor
+			    And Coleta.cd_condicao_pagamento = Condicoes_pagamento.cd_condicao_pagamento
+			Order by Fornecedor.nm_fornecedor
+			)
+			ORDER BY SOL_COM,DT_SOLICITACAO,DT_MAXIMA,NM_SOLICITANTE
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_QUADRO_DEMONSTRATIVO_X_G_CROSS2
+SELECT * FROM (
+			SELECT * FROM (
+			 Select Itsol_com.cd_sol_com  Sol_com,
+			            Decode( sign(length(Produto.cd_produto) - 6) , 1, SUBSTR(Produto.cd_produto, 1, 6), 0, Produto.cd_produto,rpad (Produto.cd_produto, 6, ' ')) Produto,
+			            Decode( sign(length(Produto.ds_produto) - 24) , 1, SUBSTR(Produto.ds_produto, 1, 24), 0, Produto.ds_produto,rpad (Produto.ds_produto, 24, ' ')) DsProduto,
+			            Fornecedor.nm_fantasia     Fornecedor,
+			           Itsol_com.qt_solic         Qt_solicitada,
+                       nvl(coleta_moeda.dt_indice_moeda, coleta.dt_coleta) dt_coleta,
+			           Itcol_pro.vl_real Vl_real,
+			           Decode( sign(length(Uni_pro.ds_unidade) - 18) , 1, SUBSTR(Uni_pro.ds_unidade, 1, 18), 0, Uni_pro.ds_unidade,rpad (Uni_pro.ds_unidade, 18, ' ')) Ds_Unidade,
+			           Decode( sign(length(Produto.cd_produto) - 6) , 1, SUBSTR(Produto.cd_produto, 1, 6), 0, Produto.cd_produto,rpad (Produto.cd_produto, 6, ' '))||' '||
+			           Decode( sign(length(Produto.ds_produto) - 24) , 1, SUBSTR(Produto.ds_produto, 1, 24), 0, Produto.ds_produto,rpad (Produto.ds_produto, 24, ' '))||' '||
+			           Decode( sign(length(Uni_pro.ds_unidade) - 28) , 1, SUBSTR(Uni_pro.ds_unidade, 1, 28), 0, Uni_pro.ds_unidade,rpad (Uni_pro.ds_unidade, 28, ' '))||' '||
+			          Itsol_com.qt_solic||Chr(10)||'     Obs: '||Itcol_pro.ds_observacao tudo
+			   From Dbamv.produto                   Produto,
+			            Dbamv.itsol_com                Itsol_com,
+			            Dbamv.coleta                     Coleta,
+			            Dbamv.fornecedor              Fornecedor,
+			            Dbamv.itcol_pro                  Itcol_pro,
+			            Dbamv.Uni_Pro                  Uni_pro,
+			            Dbamv.Coleta_Moeda                     Coleta_Moeda
+			Where Produto.cd_produto         = Itsol_com.cd_produto
+			    AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+			    And Itsol_com.cd_sol_com      = Coleta.cd_sol_com
+			    And Coleta.cd_fornecedor       = Fornecedor.cd_fornecedor
+			    And Coleta.cd_coleta              = Itcol_pro.cd_coleta
+				And Coleta.cd_coleta              = Coleta_Moeda.cd_coleta(+)
+			    And Itcol_pro.cd_produto        = Produto.cd_produto
+			    And Itsol_com.Cd_Uni_pro      = Uni_pro.cd_uni_pro
+			Order by Produto.cd_produto
+			)
+			WHERE SOL_COM = :CAMPO_SOL_COM
+			)
+			ORDER BY SOL_COM,PRODUTO,DSPRODUTO,DS_UNIDADE,QT_SOLICITADA,
+			FORNECEDOR

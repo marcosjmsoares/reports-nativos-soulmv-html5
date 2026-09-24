@@ -1,0 +1,103 @@
+/*----------------------------------------------------------------------------*/
+--R_MATRIX_CONS_SETOR_PROD
+Select Hospital.Ds_Razao, Hospital.Ds_Rodape_Reports,
+ 'N' Sn_Imprime_Logotipo, Hospital.Logotipo
+  From Dbamv.Hospital
+ Where Hospital.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MATRIX_CONS_SETOR_PROD_R_ATENDIMENTO_Q_CONSUMO
+SELECT * FROM (
+Select Mvto_Estoque.Cd_Atendimento
+	,Paciente.Nm_Paciente
+	,InitCap( produto.Ds_produto) Ds_produto
+	,InitCap( Setor.Nm_Setor ) Nm_Setor
+	,Sum( To_Number(Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'P', 1, 'C', -1 ))
+		* ItMvto_Estoque.Qt_Movimentacao * Uni_Pro.Vl_Fator
+		* Verif_Vl_Custo_Medio( Produto.Cd_Produto, Mvto_Estoque.Dt_Mvto_Estoque, 'R', Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ) )	Vl_Consumo
+                ,VERIF_DS_UNID_PROD(ITMVTO_ESTOQUE.CD_PRODUTO)  DS_UNIDADE
+                ,SUM(To_Number(Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'P', 1, 'C', -1 ))
+		*((ITMVTO_ESTOQUE.QT_MOVIMENTACAO * UNI_PRO.VL_FATOR) / VERIF_VL_FATOR_PROD(ITMVTO_ESTOQUE.CD_PRODUTO))) QT_CONSUMO
+  From Dbamv.Setor
+	,Dbamv.Especie
+	,Dbamv.Uni_Pro
+	,Dbamv.Produto
+	,Dbamv.ItMvto_Estoque
+	,Dbamv.Paciente
+	,Dbamv.Atendime
+	,Dbamv.Mvto_Estoque
+	,Dbamv.Estoque 
+ Where Mvto_Estoque.Dt_Mvto_Estoque	 between To_date(to_char(:CAMPO_DTINI,'dd/mm/yyyy')||' '||'00', 'dd/mm/yyyy hh24') AND  To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' '||'23', 'dd/mm/yyyy hh24')
+      AND MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+      AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      and Mvto_Estoque.Tp_Mvto_Estoque	In ( 'P', 'C' )
+      and Atendime.Cd_Atendimento		= Mvto_Estoque.Cd_Atendimento
+      and Paciente.Cd_Paciente		        = Atendime.Cd_Paciente
+      and ItMvto_Estoque.Cd_Mvto_Estoque	= Mvto_Estoque.Cd_Mvto_Estoque
+      and Produto.Cd_Produto			= ItMvto_Estoque.Cd_Produto
+      and Uni_Pro.Cd_Uni_Pro			= ItMvto_Estoque.Cd_Uni_Pro
+      and Especie.Cd_Especie			= Produto.Cd_Especie
+      and Setor.Cd_Setor			= Mvto_Estoque.Cd_Setor
+      and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+Having Round(SUM(To_Number(Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'P', 1, 'C', -1 ))
+		*((ITMVTO_ESTOQUE.QT_MOVIMENTACAO * UNI_PRO.VL_FATOR) / VERIF_VL_FATOR_PROD(ITMVTO_ESTOQUE.CD_PRODUTO))),2) <> 0
+ Group By Mvto_Estoque.Cd_Atendimento
+	,Paciente.Nm_Paciente
+	,produto.Ds_produto
+                ,VERIF_DS_UNID_PROD(ITMVTO_ESTOQUE.CD_PRODUTO)
+	,Setor.Nm_Setor
+)
+ORDER BY CD_ATENDIMENTO,NM_PACIENTE,
+DS_PRODUTO,DS_UNIDADE,
+NM_SETOR
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MATRIX_CONS_SETOR_PROD_X_MATRIX
+SELECT * FROM (
+Select Mvto_Estoque.Cd_Atendimento
+	,Paciente.Nm_Paciente
+	,InitCap( produto.Ds_produto) Ds_produto
+	,InitCap( Setor.Nm_Setor ) Nm_Setor
+	,Sum( To_Number(Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'P', 1, 'C', -1 ))
+		* ItMvto_Estoque.Qt_Movimentacao * Uni_Pro.Vl_Fator
+		* Verif_Vl_Custo_Medio( Produto.Cd_Produto, Mvto_Estoque.Dt_Mvto_Estoque, 'R', Produto.Vl_Custo_Medio, Mvto_Estoque.Hr_Mvto_Estoque ) )	Vl_Consumo
+                ,VERIF_DS_UNID_PROD(ITMVTO_ESTOQUE.CD_PRODUTO)  DS_UNIDADE
+                ,SUM(To_Number(Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'P', 1, 'C', -1 ))
+		*((ITMVTO_ESTOQUE.QT_MOVIMENTACAO * UNI_PRO.VL_FATOR) / VERIF_VL_FATOR_PROD(ITMVTO_ESTOQUE.CD_PRODUTO))) QT_CONSUMO
+  From Dbamv.Setor
+	,Dbamv.Especie
+	,Dbamv.Uni_Pro
+	,Dbamv.Produto
+	,Dbamv.ItMvto_Estoque
+	,Dbamv.Paciente
+	,Dbamv.Atendime
+	,Dbamv.Mvto_Estoque
+	,Dbamv.Estoque 
+ Where Mvto_Estoque.Dt_Mvto_Estoque	 between To_date(to_char(:CAMPO_DTINI,'dd/mm/yyyy')||' '||'00', 'dd/mm/yyyy hh24') AND  To_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' '||'23', 'dd/mm/yyyy hh24')
+   And MVTO_ESTOQUE.CD_ESTOQUE  = ESTOQUE.CD_ESTOQUE
+      AND ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      and Mvto_Estoque.Tp_Mvto_Estoque	In ( 'P', 'C' )
+      and Atendime.Cd_Atendimento = :CAMPO_CD_ATENDIMENTO
+      and Atendime.Cd_Atendimento		= Mvto_Estoque.Cd_Atendimento
+      and Paciente.Cd_Paciente		        = Atendime.Cd_Paciente
+      and ItMvto_Estoque.Cd_Mvto_Estoque	= Mvto_Estoque.Cd_Mvto_Estoque
+      and Produto.Cd_Produto			= ItMvto_Estoque.Cd_Produto
+      and Uni_Pro.Cd_Uni_Pro			= ItMvto_Estoque.Cd_Uni_Pro
+      and Especie.Cd_Especie			= Produto.Cd_Especie
+      and Setor.Cd_Setor			= Mvto_Estoque.Cd_Setor
+      and atendime.Cd_Multi_Empresa             = :CAMPO_CD_MULTI_EMPRESA
+Having Round(SUM(To_Number(Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'P', 1, 'C', -1 ))
+		*((ITMVTO_ESTOQUE.QT_MOVIMENTACAO * UNI_PRO.VL_FATOR) / VERIF_VL_FATOR_PROD(ITMVTO_ESTOQUE.CD_PRODUTO))),2) <> 0
+ Group By Mvto_Estoque.Cd_Atendimento
+	,Paciente.Nm_Paciente
+	,produto.Ds_produto
+                ,VERIF_DS_UNID_PROD(ITMVTO_ESTOQUE.CD_PRODUTO)
+	,Setor.Nm_Setor
+)
+ORDER BY CD_ATENDIMENTO,NM_PACIENTE,
+DS_PRODUTO,DS_UNIDADE,
+NM_SETOR

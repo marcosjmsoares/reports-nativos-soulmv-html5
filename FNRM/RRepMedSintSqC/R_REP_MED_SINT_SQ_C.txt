@@ -1,0 +1,134 @@
+/*----------------------------------------------------------------------------*/
+--R_REP_MED_SINT_SQ_C
+select * from (SELECT	dt_competencia,cd_gru_rep
+		  ,ds_gru_rep
+		  ,cd_pro_fat
+		  ,ds_pro_fat
+		  ,SUM (vl_repasse) vl_repasse
+		  ,SUM (qt_lancamento) qt_lancamento
+		  ,SUM (vl_total_conta) vl_total_conta
+		  ,tipo
+		  ,vl_faturado
+		  ,cd_convenio_sia
+		  ,cd_reg_repasse_sia
+		  ,cd_especialid
+		  ,cd_tip_ate
+		  ,cd_ori_ate
+		  ,sn_medico
+		  ,vl_anestesista
+		  ,vl_outros
+		  ,vl_auxiliar
+		  ,vl_geral
+		  ,SUM (vl_base_repassado) vl_base_repassado
+		  ,tp_atendimento
+		  ,SUM (vl_filme) vl_filme
+		  ,SUM (qt_ch) qt_ch
+		  ,SUM (vl_recebido) vl_recebido
+		  ,cd_repasse cd_repasse
+		  ,cd_convenio cd_convenio
+        ,DECODE (sn_horario_contratado, 'S', 'N', 'N', 'S', sn_horario_contratado)
+sn_horario_contratado
+	 FROM (
+			 SELECT   rep_cons.dt_competencia_rep dt_competencia
+                     ,rep_cons.cd_prestador_repasse cd_gru_rep
+					 ,rep_cons.nm_prestador_repasse ds_gru_rep
+					 ,rep_cons.cd_prestador cd_prestador
+					 ,rep_cons.nm_prestador nm_prestador
+,decode(rep_cons.cd_tipo,'S',rep_cons.cd_ssm,rep_cons.cd_pro_fat) cd_pro_fat
+,decode(rep_cons.cd_tipo,'S',rep_cons.ds_titulo,rep_cons.ds_pro_fat) ds_pro_fat
+					 ,decode(rep_cons.cd_tipo,'G',rep_cons.vl_repasse *
+(-1),rep_cons.vl_repasse) vl_repasse
+,decode(rep_cons.cd_tipo,'S',rep_cons.qt_lancada,'G',rep_cons.qt_lancada,'R',rep_cons.qt_lancada,
+rep_cons.qt_lancamento) qt_lancamento
+					 ,decode(rep_cons.cd_tipo,'G',rep_cons.vl_total_conta *
+(-1),rep_cons.vl_total_conta) vl_total_conta
+					 ,rep_cons.nm_convenio
+					 ,rep_cons.cd_convenio cd_convenio
+					 ,rep_cons.ds_tipo tipo
+					 ,rep_cons.vl_total_conta vl_faturado
+,decode(rep_cons.cd_tipo,'S',rep_cons.cd_convenio,to_number(null)) cd_convenio_sia
+					 ,rep_cons.cd_reg_repasse_sia
+					 ,rep_cons.cd_especialid
+					 ,rep_cons.cd_tip_ate
+					 ,rep_cons.cd_ori_ate
+					 ,rep_cons.sn_medico
+					  ,rep_cons.vl_anestesista
+					 ,rep_cons.vl_outros
+					 ,rep_cons.vl_auxiliar
+					 ,rep_cons.vl_geral
+					 ,rep_cons.vl_base_repassado
+					 ,rep_cons.tp_atendimento
+					,rep_cons.vl_filme vl_filme
+					 ,rep_cons.qt_ch_unitario qt_ch
+					 ,rep_cons.cd_repasse
+					 ,rep_cons.vl_recebido
+,rep_cons.sn_horario_contratado
+                                                        FROM dbamv.repasse_consolidado rep_cons
+			    WHERE
+                 rep_cons.cd_multi_empresa = 1
+			 UNION ALL
+			 SELECT   repasse.dt_competencia dt_competencia
+                     ,gru_rep.cd_prestador cd_gru_rep
+					 ,gru_rep.nm_prestador ds_gru_rep
+					 ,repasse_prestador.cd_prestador cd_prestador
+					 ,prestador.nm_prestador nm_prestador
+					 ,'	  ' cd_pro_fat
+					 ,repasse.ds_repasse ds_pro_fat
+					 , (NVL (repasse_prestador.vl_repasse, 0) - NVL
+(repasse_prestador.vl_desconto, 0) ) vl_repasse
+					 ,0 qt_lancamento
+					 ,0 vl_total_conta
+					 ,'							 '
+nm_convenio
+					 ,TO_NUMBER (NULL) cd_convenio
+					 ,'SEM' tipo
+					 ,NVL (repasse_prestador.vl_faturado, 0) vl_faturado
+					 ,TO_NUMBER (NULL) cd_convenio_sia
+					 ,TO_NUMBER (NULL) cd_reg_repasse_sia
+					 ,TO_NUMBER (NULL) cd_especialid
+					 ,TO_NUMBER (NULL) cd_tip_ate
+					 ,TO_NUMBER (NULL) cd_ori_ate
+					 ,' ' sn_medico
+					 ,0 vl_anestesista
+					 ,0 vl_outros
+					 ,0 vl_auxiliar
+					 ,0 vl_geral
+					 ,0 vl_base_repassado
+					 ,'M' tp_atendimento
+					 ,0 vl_filme
+					 ,TO_NUMBER (NULL) qt_ch
+					 ,repasse.cd_repasse
+					 ,TO_NUMBER (NULL) vl_recebido
+                 ,'RM' sn_horario_contratado
+				FROM dbamv.repasse_prestador
+					 ,dbamv.prestador
+					 ,dbamv.prestador gru_rep
+					 ,dbamv.repasse
+			  WHERE  repasse.cd_multi_empresa = 1
+				 AND repasse_prestador.cd_prestador = prestador.cd_prestador
+             AND repasse.cd_repasse = repasse_prestador.cd_repasse
+				 AND repasse_prestador.cd_prestador_repasse = gru_rep.cd_prestador
+             AND repasse.tp_repasse in ('M','F','N')   
+			) tabela
+GROUP BY   dt_competencia
+          ,cd_gru_rep
+		  ,ds_gru_rep
+		  ,cd_pro_fat
+		  ,ds_pro_fat
+		  ,tipo
+		  ,vl_faturado
+		  ,cd_convenio_sia
+		  ,cd_reg_repasse_sia
+		  ,cd_especialid
+		  ,cd_tip_ate
+		  ,cd_ori_ate
+		  ,sn_medico
+		  ,vl_anestesista
+		  ,vl_outros
+		  ,vl_auxiliar
+		  ,vl_geral
+		  ,tp_atendimento
+		  ,cd_repasse
+		  ,cd_convenio
+        ,DECODE (sn_horario_contratado, 'S', 'N', 'N', 'S', sn_horario_contratado))
+        where cd_gru_rep in (134) and dt_competencia = TO_DATE ('01/' || '07/2007', 'DD/MM/YYYY')

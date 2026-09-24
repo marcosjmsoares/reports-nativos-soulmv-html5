@@ -1,0 +1,116 @@
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_ATENDIMENTO_OS
+SELECT * FROM (
+SELECT 1 Numrec
+     , solicitacao_os.cd_oficina Setor_Executante
+     , Ofi.ds_oficina
+     , Tipo.ds_Tipo_Os
+     , solicitacao_os.cd_os
+     , solicitacao_os.dt_pedido
+     , solicitacao_os.nm_solicitante Solicitante
+     , solicitacao_os.ds_ramal
+     , solicitacao_os.ds_servico
+     , solicitacao_os.dt_entrega Prazo_Entrega
+     , '' Aprovado_Por
+     , '' Data_Aprovada
+     , solicitacao_os.dt_ultima_atualizacao Ultima_Atualizacao
+     , (CASE
+                WHEN (:CAMPO_FILTRO_TEMPO = 'S'  AND Solicitacao_OS.Dt_Usuario_Cadastro_OS > :CAMPO_DATA_FIM )  THEN NULL
+                WHEN (solicitacao_os.TP_SITUACAO <> 'C') Then NULL
+                ELSE Solicitacao_OS.Dt_Usuario_Cadastro_OS
+               END
+        )  DATA_INICIO
+     , (SELECT
+               CASE
+                WHEN (:CAMPO_FILTRO_TEMPO = 'S'  AND Min(TRUNC(hr_inicio)) > :CAMPO_DATA_FIM )  THEN NULL
+                WHEN (solicitacao_os.TP_SITUACAO <> 'C') Then NULL
+                ELSE Max(hr_final)
+               END
+          FROM dbamv.ITsolicitacao_os
+         WHERE cd_os = solicitacao_os.cd_os
+           AND hr_final IS NOT NULL
+         GROUP BY cd_os)  DATA_FIM
+FROM dbamv.solicitacao_os
+   , dbasgu.usuarios
+   , DBAMV.oficina Ofi
+   , dbamv.tipo_os tipo
+   , dbamv.Bens
+   , dbamv.plano_manutencao
+WHERE solicitacao_os.cd_responsavel = usuarios.cd_usuario(+)
+      AND solicitacao_os.cd_oficina = Ofi.cd_oficina
+      AND solicitacao_os.cd_tipo_os = tipo.cd_tipo_os
+      AND solicitacao_os.cd_bem = bens.cd_bem(+)
+      AND solicitacao_os.cd_plano = plano_manutencao.cd_plano(+)
+  AND ( ( :CAMPO_FUNCIONARIO = '%' )   OR
+             ( :CAMPO_FUNCIONARIO <> '%'   :CAMPO_CF_EXECUTANTE )
+          )
+  AND (         ( :CAMPO_OPCAO_PERIODO = 'S'  AND solicitacao_os.dt_pedido BETWEEN  to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')  )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'P'  AND solicitacao_os.dt_prev_exec BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'T'  AND solicitacao_os.dt_execucao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+           )
+ORDER BY solicitacao_os.cd_os, solicitacao_os.dt_pedido
+)
+ORDER BY SETOR_EXECUTANTE,DS_OFICINA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_TEMPO_ATENDIMENTO_OS_R_1_Q_3
+SELECT a.ds_tipo_os, Sum(a.numrec) Quantidade
+FROM (
+   SELECT 1 Numrec
+     , solicitacao_os.cd_oficina Setor_Executante
+     , Ofi.ds_oficina
+     , Tipo.ds_Tipo_Os
+     , solicitacao_os.cd_os
+     , solicitacao_os.dt_pedido
+     , solicitacao_os.nm_solicitante Solicitante
+     , solicitacao_os.ds_ramal
+     , solicitacao_os.ds_servico
+     , solicitacao_os.dt_entrega Prazo_Entrega
+     , '' Aprovado_Por
+     , '' Data_Aprovada
+     , solicitacao_os.dt_ultima_atualizacao Ultima_Atualizacao
+     , (CASE
+                WHEN (:CAMPO_FILTRO_TEMPO = 'S'  AND Solicitacao_OS.Dt_Usuario_Cadastro_OS > :CAMPO_DATA_FIM )  THEN NULL
+                WHEN (solicitacao_os.TP_SITUACAO <> 'C') Then NULL
+                ELSE Solicitacao_OS.Dt_Usuario_Cadastro_OS
+               END
+        )  DATA_INICIO
+     , (SELECT
+               CASE
+                WHEN (:CAMPO_FILTRO_TEMPO = 'S'  AND Min(TRUNC(hr_inicio)) > :CAMPO_DATA_FIM )  THEN NULL
+                WHEN (solicitacao_os.TP_SITUACAO <> 'C') Then NULL
+                ELSE Max(hr_final)
+               END
+          FROM dbamv.ITsolicitacao_os
+         WHERE cd_os = solicitacao_os.cd_os
+           AND hr_final IS NOT NULL
+         GROUP BY cd_os)  DATA_FIM
+FROM dbamv.solicitacao_os
+   , dbasgu.usuarios
+   , DBAMV.oficina Ofi
+   , dbamv.tipo_os tipo
+   , dbamv.Bens
+   , dbamv.plano_manutencao
+WHERE solicitacao_os.cd_responsavel = usuarios.cd_usuario(+)
+      AND solicitacao_os.cd_oficina = Ofi.cd_oficina
+      AND solicitacao_os.cd_tipo_os = tipo.cd_tipo_os
+      AND solicitacao_os.cd_bem = bens.cd_bem(+)
+      AND solicitacao_os.cd_plano = plano_manutencao.cd_plano(+)
+  AND ( ( :CAMPO_FUNCIONARIO = '%' )   OR
+             ( :CAMPO_FUNCIONARIO <> '%'   :CAMPO_CF_EXECUTANTE )
+          )
+  AND (         ( :CAMPO_OPCAO_PERIODO = 'S'  AND solicitacao_os.dt_pedido BETWEEN  to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')  )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'P'  AND solicitacao_os.dt_prev_exec BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+             OR  ( :CAMPO_OPCAO_PERIODO = 'T'  AND solicitacao_os.dt_execucao BETWEEN to_date( to_char(:CAMPO_DATA_INI,'dd/mm/yyyy')|| ' 00','dd/mm/yyyy hh24')
+                                                                                                                                     AND to_date( to_char(:CAMPO_DATA_FIM,'dd/mm/yyyy')|| ' 23','dd/mm/yyyy hh24')   )
+           )
+:CAMPO_CF_SITUACAO
+) a
+GROUP BY a.ds_tipo_os

@@ -1,0 +1,97 @@
+/*----------------------------------------------------------------------------*/
+--R_AJUSTE_PRODUTOS
+Select ITMVTO.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       Trunc(Sum(Nvl(ITMVTO.QT_MOVIMENTO,
+                     0)),
+             4) As QT_MOVIMENTO,
+       Trunc(Decode(Sign(Sum(ITMVTO.VL_MOVIMENTO_TOTAL)),
+                    1,
+                    Sum(Nvl(ITMVTO.VL_MOVIMENTO_TOTAL,
+                            0)),
+                    0),
+             4) As VL_MOVIMENTO_TOTAL_ENTRADA,
+       Trunc(Decode(Sign(Sum(ITMVTO.VL_MOVIMENTO_TOTAL)),
+                    -1,
+                    Sum(Nvl(ITMVTO.VL_MOVIMENTO_TOTAL,
+                            0)),
+                    0),
+             4) As VL_MOVIMENTO_TOTAL_SAIDA
+  From DBAMV.MVTO_AJUSTE_CONTABIL MVTO
+Inner Join DBAMV.ITMVTO_AJUSTE_CONTABIL ITMVTO On
+       ITMVTO.CD_MVTO_AJUSTE_CONTABIL = MVTO.CD_MVTO_AJUSTE_CONTABIL
+   And (
+   		(mvto.tp_ajuste <> 'C')
+   		OR
+   		(SubStr(ITMVTO.DS_MOTIVO_AJUSTE,1,24) = 'AJUSTE DO C.M DO PRODUTO'
+   			And Upper(ITMVTO.DS_MOTIVO_AJUSTE) Not Like '%SEM TRANSFERENCIA%')
+   		)
+Inner Join DBAMV.PRODUTO On
+       PRODUTO.CD_PRODUTO = ITMVTO.CD_PRODUTO
+   And Nvl(PRODUTO.SN_MESTRE,
+           'N') = 'N'
+Inner Join DBAMV.ESTOQUE On
+       ESTOQUE.CD_ESTOQUE = MVTO.CD_ESTOQUE
+ Where MVTO.DH_MVTO_AJUSTE_CONTABIL Between Trunc(To_Date('',
+                                                          'MM/YYYY'),
+                                                  'MM')
+                                        And Last_Day(To_Date('',
+                                                             'MM/YYYY')) + 0.99999
+   And ((Nvl(DBAMV.PKG_MV2000.Le_Configuracao('MGES', 'SN_CONS_EST_CORP'),
+             'N') = 'N'
+     And ESTOQUE.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa())
+     Or (Nvl(DBAMV.PKG_MV2000.Le_Configuracao('MGES', 'SN_CONS_EST_CORP'),
+             'N') <> 'N'
+     And ESTOQUE.CD_MULTI_EMPRESA In (Select MUEM.CD_MULTI_EMPRESA
+                                        From DBAMV.MULTI_EMPRESAS MUEM
+                                       Where MUEM.CD_MULTI_EMPRESA_CONSOL = DBAMV.PKG_MV2000.Le_Empresa()
+                                          Or MUEM.CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa()
+                                   Union All
+                                      Select MUEM.CD_MULTI_EMPRESA
+                                        From DBAMV.MULTI_EMPRESAS MUEM
+                                       Where MUEM.CD_MULTI_EMPRESA_CONSOL = (Select CD_MULTI_EMPRESA_CONSOL
+                                                                               From DBAMV.MULTI_EMPRESAS
+                                                                              Where CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa())
+                                          Or MUEM.CD_MULTI_EMPRESA = (Select CD_MULTI_EMPRESA_CONSOL
+                                                                        From DBAMV.MULTI_EMPRESAS
+                                                                       Where CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.Le_Empresa()))))
+Group By ITMVTO.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO
+Order By 2
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_AJUSTE_PRODUTOS_R_5_Q_3
+SELECT * FROM (
+select mvto.cd_Estoque     Cd_Estoque
+      ,estoque.ds_Estoque  Ds_Estoque
+      ,especie.ds_especie  Ds_especie
+      ,Sum(Round((c_conest.vl_estoque_final - itmvto.vl_movimento_total),4)) Sum_Vl_Final_Sem_Ajsute
+      ,Sum(c_conest.vl_estoque_final) Sum_Vl_Final_Com_Ajsute
+      ,Sum(itmvto.vl_movimento_total) Sum_Vl_Ajuste
+from dbamv.mvto_ajuste_contabil   mvto
+     ,dbamv.itmvto_ajuste_contabil itmvto
+     ,dbamv.produto                produto
+     ,dbamv.especie                especie
+     ,dbamv.estoque                estoque
+     ,dbamv.C_conest               c_conest
+ where mvto.cd_mvto_ajuste_contabil = itmvto.cd_mvto_ajuste_contabil
+   and itmvto.cd_produto            = produto.cd_produto
+   and produto.cd_especie           = especie.cd_especie
+   and mvto.cd_estoque              = estoque.cd_estoque
+   and itmvto.cd_produto            = c_conest.cd_produto
+   and estoque.cd_estoque           = c_conest.cd_estoque
+   and estoque.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+   and c_conest.cd_mes              = To_Char(to_date('','MM/YYYY'), 'MM')
+   and c_conest.cd_ano              = To_Char(to_date('','MM/YYYY'), 'YYYY')
+   and mvto.dh_mvto_ajuste_contabil between trunc(to_date('','MM/YYYY'),'MM') and last_day(to_date('','MM/YYYY')) + 0.99999
+   and itmvto.ds_motivo_ajuste is not null
+   and nvl(sn_mestre,'N') = 'N'
+   and mvto.tp_ajuste = 'C'
+   and Substr(ds_motivo_ajuste,1,24) = 'AJUSTE DO C.M DO PRODUTO'
+GROUP BY mvto.cd_Estoque
+        ,estoque.ds_Estoque
+        ,especie.ds_especie
+)
+ORDER BY CD_ESTOQUE,DS_ESTOQUE

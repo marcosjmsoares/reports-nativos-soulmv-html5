@@ -1,0 +1,524 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTA_REC_PAC
+SELECT   *
+    FROM (SELECT DISTINCT con_rec.nm_cliente nm_cliente1,
+                          con_rec.ds_con_rec ds_con_rec1,
+                          con_rec.cd_con_rec cd_con_rec1,
+                          NVL (con_rec.vl_desconto, 0) vl_desconto1,
+                          NVL (con_rec.vl_acrescimo, 0) vl_acrescimo1,
+                          itcon_rec.cd_itcon_rec,
+                          itcon_rec.dt_prevista_recebimento dt_prevista_pagamento1,
+                          reccon_rec.tp_recebimento tp_recebimento1,
+                          DECODE (reccon_rec.tp_recebimento,
+                                  '1', 'CHEQUE',
+                                  '3', 'DINHEIRO',
+                                  '4', 'CREDITO C/C',
+                                  '2', 'CARTAO',
+                                  '5', 'BORDERO',
+                                  '6', 'BOLETO',
+                                  '7', 'DOC',
+                                  '8', 'DUPLICATA',
+                                  '9', 'PROMISSÓRIA',
+                                  'E', 'ENCONTRO CONTA',
+                                  'B', 'BAIXA CONTABIL'
+                                 ) recebimento1,
+                          Decode(Rank() OVER ( PARTITION BY con_rec.cd_con_rec ORDER BY reccon_rec.cd_reccon_rec),1,itcon_rec.vl_duplicata,0) vl_previsto1,
+                          DECODE (itcon_rec.dt_cancelamento,
+                                  NULL, reccon_rec.vl_recebido,
+                                  0
+                                 ) vl_recebido1,
+                          con_rec.nr_documento nr_documento1,
+                          con_rec.cd_atendimento cd_atendimento1,
+                          atendime.tp_atendimento tp_atendimento1,
+                          DECODE (con_rec.dt_cancelamento,
+                                  NULL, itcon_rec.tp_quitacao,
+                                  'L'
+                                 ) status1,
+                          itcon_rec.cd_moeda cd_moeda_prev1,
+                          itcon_rec.vl_moeda vl_moeda_prev1,
+                          reccon_rec.cd_moeda cd_moeda_rec1,
+                          reccon_rec.vl_moeda vl_moeda_rec1,
+                          con_rec.dt_lancamento dt_lancamento1,
+                          reccon_rec.dt_recebimento dt_recebimento1,
+                          reccon_rec.cd_reccon_rec cd_reccon_rec1,
+                          itcon_rec.nr_codigo_barra codbarra1,
+                          (SELECT nr_cpf
+                             FROM dbamv.paciente
+                            WHERE cd_paciente =
+                                          (SELECT cd_paciente
+                                             FROM dbamv.atendime
+                                            WHERE cd_atendimento = con_rec.cd_atendimento))
+                                                                                      cpf,
+                          (SELECT ds_endereco || ' - ' || nm_bairro
+                             FROM dbamv.paciente
+                            WHERE cd_paciente =
+                                          (SELECT cd_paciente
+                                             FROM dbamv.atendime
+                                            WHERE cd_atendimento = con_rec.cd_atendimento))
+                                                                                 endereco
+                     FROM dbamv.itcon_rec, dbamv.con_rec,
+                          dbamv.atendime,
+			 (SELECT DISTINCT
+						r.cd_atendimento
+					   ,r.cd_convenio
+								FROM dbamv.reg_fat r
+									,dbamv.atendime a
+							WHERE r.cd_atendimento = a.cd_atendimento
+								AND tp_atendimento = 'I'
+                                 UNION ALL
+				SELECT DISTINCT r.cd_atendimento,r.cd_convenio
+								FROM dbamv.itreg_amb r
+									 ,dbamv.atendime a
+                            WHERE r.cd_atendimento = a.cd_atendimento
+                                AND tp_atendimento <> 'I') amb,
+			  (SELECT cd_itcon_rec,
+                                  cd_moeda,
+                                  vl_moeda,
+                                  dt_recebimento,
+                                  vl_recebido,
+                                  cd_reccon_rec,
+                                  tp_recebimento,
+                                  cd_caixa,
+                                  CD_DOC_CAIXA
+                             FROM dbamv.reccon_rec
+                            WHERE dt_estorno IS NULL
+                      	      AND Trunc(dt_recebimento) <= :CAMPO_DATA_BASE
+                              AND ((dt_estorno IS NULL) OR ((dt_estorno IS NOT NULL )
+                              AND (Trunc(dt_estorno)    > :CAMPO_DATA_BASE)))
+                             ) reccon_rec
+                    WHERE con_rec.tp_con_rec = 'P'
+                      AND con_rec.cd_previsao IS NULL
+                      AND con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                      AND con_rec.cd_atendimento = atendime.cd_atendimento(+)
+                      AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+                      AND reccon_rec.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+					  AND con_rec.cd_atendimento(+) = amb.cd_atendimento
+                      AND :CAMPO_ORDEM = 'PACIENTE'
+                  ORDER BY tp_atendimento,
+                           nm_cliente1,
+                           cd_atendimento1,
+                           dt_prevista_pagamento1)
+ORDER BY tp_atendimento1,
+         nm_cliente1,
+         ds_con_rec1,
+         cd_con_rec1,
+         dt_lancamento1,
+         cd_moeda_prev1,
+         vl_moeda_prev1,
+         cd_atendimento1,
+         dt_prevista_pagamento1,
+         nr_documento1,
+         cd_itcon_rec,
+         status1,
+         codbarra1,
+         dt_recebimento1,
+         cd_reccon_rec1
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTA_REC_PAC_R_TP_ATENDIMENTO1_Q_CONTA_REC_PAC2
+SELECT   *
+    FROM (SELECT DISTINCT dbamv.con_rec.nm_cliente nm_cliente3,
+                          dbamv.con_rec.ds_con_rec ds_con_rec3,
+                          dbamv.con_rec.cd_con_rec cd_con_rec3,
+                          NVL (dbamv.con_rec.vl_desconto, 0) vl_desconto3,
+                          NVL (dbamv.con_rec.vl_acrescimo, 0) vl_acrescimo3,
+                          dbamv.itcon_rec.cd_itcon_rec cd_itcon_rec3,
+                          dbamv.itcon_rec.dt_prevista_recebimento dt_prevista_pagamento3,
+                          reccon_rec.tp_recebimento tp_recebimento3,
+                          DECODE (reccon_rec.tp_recebimento,
+                                  '1', 'CHEQUE',
+                                  '3', 'DINHEIRO',
+                                  '4', 'CREDITO C/C',
+                                  '2', 'CARTAO',
+                                  '5', 'BORDERO',
+                                  '6', 'BOLETO',
+                                  '7', 'DOC',
+                                  '8', 'DUPLICATA',
+                                  '9', 'PROMISSÃ“RIA',
+                                  'E', 'ENC. CONTA',
+                                  'B', 'BAIXA CONTABIL'
+                                 ) recebimento3,
+                          Decode(Rank() OVER ( PARTITION BY dbamv.con_rec.cd_con_rec ORDER BY reccon_rec.tp_recebimento, reccon_rec.cd_reccon_rec),1,dbamv.itcon_rec.vl_duplicata,0) vl_previsto3,
+                          DECODE (dbamv.itcon_rec.dt_cancelamento,
+                                  NULL, reccon_rec.vl_recebido,
+                                  0
+                                 ) vl_recebido3,
+                          dbamv.con_rec.nr_documento nr_documento3,
+                          dbamv.con_rec.cd_atendimento cd_atendimento3,
+                          atendime.tp_atendimento tp_atendimento3,
+                          DECODE (dbamv.con_rec.dt_cancelamento,
+                                  NULL, dbamv.itcon_rec.tp_quitacao,
+                                  'L'
+                                 ) status3,
+                          dbamv.itcon_rec.cd_moeda cd_moeda_prev3,
+                          dbamv.itcon_rec.vl_moeda vl_moeda_prev3,
+                          reccon_rec.cd_moeda cd_moeda_rec3,
+                          reccon_rec.vl_moeda vl_moeda_rec3,
+                          dbamv.con_rec.dt_lancamento dt_lancamento3,
+                          reccon_rec.dt_recebimento dt_recebimento3,
+                          reccon_rec.cd_reccon_rec cd_reccon_rec3,
+                          dbamv.itcon_rec.nr_codigo_barra codbarra3
+                     FROM dbamv.itcon_rec, dbamv.con_rec, dbamv.atendime,
+						  (SELECT DISTINCT 
+						r.cd_atendimento
+					   ,r.cd_convenio 
+								FROM dbamv.reg_fat r
+									,dbamv.atendime a 
+							WHERE r.cd_atendimento = a.cd_atendimento 
+								AND tp_atendimento = 'I' 
+                                 UNION ALL 
+				SELECT DISTINCT r.cd_atendimento,r.cd_convenio 
+								FROM dbamv.itreg_amb r
+									,dbamv.atendime a 
+                            WHERE r.cd_atendimento = a.cd_atendimento 
+                                AND tp_atendimento <> 'I') amb,					 
+                          (SELECT cd_itcon_rec,
+                                  cd_moeda,
+                                  vl_moeda,
+                                  dt_recebimento,
+                                  vl_recebido,
+                                  cd_reccon_rec,
+                                  tp_recebimento,
+                                  cd_caixa,
+                                  CD_DOC_CAIXA
+                             FROM dbamv.reccon_rec
+                            WHERE dt_estorno IS NULL
+                      	      AND Trunc(dt_recebimento) <= :CAMPO_DATA_BASE
+                              AND ((dt_estorno IS NULL) OR ((dt_estorno IS NOT NULL )
+                              AND (Trunc(dt_estorno)    > :CAMPO_DATA_BASE)))
+                             ) reccon_rec
+                    WHERE dbamv.con_rec.tp_con_rec = 'P'
+                      AND dbamv.con_rec.cd_previsao IS NULL
+                      AND dbamv.con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                      AND dbamv.con_rec.cd_atendimento = atendime.cd_atendimento(+)
+                      AND dbamv.itcon_rec.cd_con_rec = dbamv.con_rec.cd_con_rec
+                      AND dbamv.itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec(+)
+					  AND dbamv.con_rec.cd_atendimento(+) = amb.cd_atendimento 
+                      AND :CAMPO_ORDEM   = 'PAGAMENTO'
+                      :CAMPO_CF_CONVENIO
+         )
+ORDER BY tp_atendimento3,
+         codbarra3,
+         dt_lancamento3,
+         cd_moeda_prev3,
+         vl_moeda_prev3,
+         nm_cliente3,
+         ds_con_rec3,
+         cd_con_rec3,
+         dt_prevista_pagamento3,
+         nr_documento3,
+         status3,
+         cd_itcon_rec3,
+         cd_atendimento3,
+		 tp_recebimento3,
+         dt_recebimento3,
+         cd_reccon_rec3
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTA_REC_PAC_R_TP_ATENDIMENTO4_Q_CONTA_REC_PAC3
+SELECT   *
+    FROM (SELECT DISTINCT dbamv.con_rec.nm_cliente nm_cliente4,
+                          dbamv.con_rec.ds_con_rec ds_con_rec4,
+                          dbamv.con_rec.cd_con_rec cd_con_rec4,
+                          NVL (dbamv.con_rec.vl_desconto, 0) vl_desconto4,
+                          NVL (dbamv.con_rec.vl_acrescimo, 0) vl_acrescimo4,
+                          dbamv.itcon_rec.cd_itcon_rec,
+                          dbamv.mov_concor.dt_movimentacao dt_movimentacao4,
+                          reccon_rec.tp_recebimento tp_recebimento4,
+                          DECODE (reccon_rec.tp_recebimento,
+                                  '1', 'CHEQUE',
+                                  '3', 'DINHEIRO',
+                                  '4', 'CREDITO C/C',
+                                  '2', 'CARTAO',
+                                  '5', 'BORDERO',
+                                  '6', 'BOLETO',
+                                  '7', 'DOC',
+                                  '8', 'DUPLICATA',
+                                  '9', 'PROMISSÓRIA',
+                                  'E', 'ENC. CONTA',
+                                  'B', 'BAIXA CONTABIL'
+                                 ) recebimento4,
+                          Decode(Rank() OVER ( PARTITION BY dbamv.con_rec.cd_con_rec ORDER BY reccon_rec.cd_reccon_rec),1,dbamv.itcon_rec.vl_duplicata,0) vl_previsto4,
+                          DECODE (dbamv.itcon_rec.dt_cancelamento,
+                                  NULL, reccon_rec.vl_recebido,
+                                  0
+                                 ) vl_recebido4,
+                          dbamv.con_rec.nr_documento nr_documento4,
+                          dbamv.con_rec.cd_atendimento cd_atendimento4,
+                          atendime.tp_atendimento tp_atendimento4,
+                          DECODE (dbamv.con_rec.dt_cancelamento,
+                                  NULL, dbamv.itcon_rec.tp_quitacao,
+                                  'L'
+                                 ) status4,
+                          dbamv.itcon_rec.cd_moeda cd_moeda_prev4,
+                          dbamv.itcon_rec.vl_moeda vl_moeda_prev4,
+                          reccon_rec.cd_moeda cd_moeda_rec4,
+                          reccon_rec.vl_moeda vl_moeda_rec4,
+                          dbamv.con_rec.dt_lancamento dt_lancamento4,
+                          reccon_rec.dt_recebimento dt_recebimento4,
+                          reccon_rec.cd_reccon_rec cd_reccon_rec4,
+                          dbamv.itcon_rec.nr_codigo_barra codbarra4
+                     FROM dbamv.itcon_rec,
+                          dbamv.con_rec,
+                          dbamv.mov_concor,
+                          dbamv.atendime,
+						  (SELECT DISTINCT 
+						r.cd_atendimento
+					   ,r.cd_convenio 
+								FROM dbamv.reg_fat r
+									,dbamv.atendime a 
+							WHERE r.cd_atendimento = a.cd_atendimento 
+								AND tp_atendimento = 'I' 
+                                 UNION ALL 
+				SELECT DISTINCT r.cd_atendimento,r.cd_convenio 
+								FROM dbamv.itreg_amb r,dbamv.atendime a 
+                            WHERE r.cd_atendimento = a.cd_atendimento 
+                                AND tp_atendimento <> 'I') amb,
+                          (SELECT cd_itcon_rec,
+                                  cd_moeda,
+                                  vl_moeda,
+                                  dt_recebimento,
+                                  vl_recebido,
+                                  cd_reccon_rec,
+                                  tp_recebimento,
+                                  cd_caixa,
+                                  CD_DOC_CAIXA
+                             FROM dbamv.reccon_rec
+                            WHERE dt_estorno IS NULL
+                      	      AND Trunc(dt_recebimento) <= :CAMPO_DATA_BASE
+                              AND ((dt_estorno IS NULL) OR ((dt_estorno IS NOT NULL )
+                              AND (Trunc(dt_estorno)    > :CAMPO_DATA_BASE)))
+                             ) reccon_rec,
+                          dbamv.rec_mov_con
+                    WHERE dbamv.mov_concor.cd_mov_concor = dbamv.rec_mov_con.cd_mov_concor
+                      AND reccon_rec.cd_reccon_rec = dbamv.rec_mov_con.cd_reccon_rec
+                      AND dbamv.con_rec.cd_atendimento = dbamv.atendime.cd_atendimento(+)
+                      AND dbamv.itcon_rec.cd_con_rec = dbamv.con_rec.cd_con_rec
+                      AND dbamv.itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec(+)
+                      AND dbamv.con_rec.tp_con_rec = 'P'
+                      AND dbamv.con_rec.cd_previsao IS NULL
+					  AND dbamv.con_rec.cd_atendimento(+) = amb.cd_atendimento 
+                      AND dbamv.con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                      AND :CAMPO_ORDEM  = 'RECEBIMENTO'
+          ORDER BY        dt_movimentacao4 ASC)
+ORDER BY tp_atendimento4,
+         dt_movimentacao4,
+         dt_lancamento4,
+         cd_moeda_prev4,
+         vl_moeda_prev4,
+         nm_cliente4,
+         ds_con_rec4,
+         cd_con_rec4,
+         status4,
+         cd_itcon_rec,
+         nr_documento4,
+         cd_atendimento4,
+         codbarra4,
+         dt_recebimento4,
+         cd_reccon_rec4
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTA_REC_PAC_R_TP_ATENDIMENTO5_Q_CONTA_REC_PAC5
+SELECT   *
+    FROM (SELECT DISTINCT dbamv.con_rec.nm_cliente nm_cliente5,
+                          dbamv.con_rec.ds_con_rec ds_con_rec5,
+                          dbamv.con_rec.cd_con_rec cd_con_rec5,
+                          NVL (dbamv.con_rec.vl_desconto, 0) vl_desconto5,
+                          NVL (dbamv.con_rec.vl_acrescimo, 0) vl_acrescimo5,
+                          dbamv.itcon_rec.cd_itcon_rec,
+                          dbamv.con_rec.dt_emissao dt_emissao5,
+                          reccon_rec.tp_recebimento tp_recebimento5,
+                          DECODE (reccon_rec.tp_recebimento,
+                                  '1', 'CHEQUE',
+                                  '3', 'DINHEIRO',
+                                  '4', 'CREDITO C/C',
+                                  '2', 'CARTAO',
+                                  '5', 'BORDERO',
+                                  '6', 'BOLETO',
+                                  '7', 'DOC',
+                                  '8', 'DUPLICATA',
+                                  '9', 'PROMISSÃ“RIA',
+                                  'E', 'ENC. CONTA',
+                                  'B', 'BAIXA CONTABIL'
+                                 ) recebimento5,
+                          Decode(Rank() OVER ( PARTITION BY con_rec.cd_con_rec ORDER BY reccon_rec.cd_reccon_rec),1,itcon_rec.vl_duplicata,0) vl_previsto5,
+                          DECODE (dbamv.itcon_rec.dt_cancelamento,
+                                  NULL, reccon_rec.vl_recebido,
+                                  0
+                                 ) vl_recebido5,
+                          dbamv.con_rec.nr_documento nr_documento5,
+                          dbamv.con_rec.cd_atendimento cd_atendimento5,
+                          dbamv.atendime.tp_atendimento tp_atendimento5,
+                          DECODE (dbamv.con_rec.dt_cancelamento,
+                                  NULL, dbamv.itcon_rec.tp_quitacao,
+                                  'L'
+                                 ) status5,
+                          dbamv.itcon_rec.cd_moeda cd_moeda_prev5,
+                          dbamv.itcon_rec.vl_moeda vl_moeda_prev5,
+                          reccon_rec.cd_moeda cd_moeda_rec5,
+                          reccon_rec.vl_moeda vl_moeda_rec5,
+                          dbamv.con_rec.dt_lancamento dt_lancamento5,
+                          reccon_rec.dt_recebimento dt_recebimento5,
+                          reccon_rec.cd_reccon_rec cd_reccon_rec5,
+                          dbamv.itcon_rec.nr_codigo_barra codbarra5
+                     FROM dbamv.itcon_rec, dbamv.con_rec, dbamv.atendime,
+						 (SELECT DISTINCT 
+						r.cd_atendimento
+					   ,r.cd_convenio 
+								FROM dbamv.reg_fat r
+									,dbamv.atendime a 
+							WHERE r.cd_atendimento = a.cd_atendimento 
+								AND tp_atendimento = 'I' 
+                                 UNION ALL 
+				SELECT DISTINCT r.cd_atendimento,r.cd_convenio 
+								FROM dbamv.itreg_amb r
+									,dbamv.atendime a 
+                            WHERE r.cd_atendimento = a.cd_atendimento 
+                                AND tp_atendimento <> 'I') amb,
+                          (SELECT cd_itcon_rec,
+                                  cd_moeda,
+                                  vl_moeda,
+                                  dt_recebimento,
+                                  vl_recebido,
+                                  cd_reccon_rec,
+                                  tp_recebimento,
+                                  cd_caixa,
+                                  CD_DOC_CAIXA
+                             FROM dbamv.reccon_rec
+                            WHERE dt_estorno IS NULL
+                      	      AND Trunc(dt_recebimento) <= :CAMPO_DATA_BASE
+                              AND ((dt_estorno IS NULL) OR ((dt_estorno IS NOT NULL )
+                              AND (Trunc(dt_estorno)    > :CAMPO_DATA_BASE)))
+                             ) reccon_rec
+                    WHERE dbamv.con_rec.tp_con_rec = 'P'
+                      AND dbamv.con_rec.cd_previsao IS NULL
+                      AND dbamv.con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                      AND dbamv.con_rec.cd_atendimento = dbamv.atendime.cd_atendimento(+)
+                      AND dbamv.itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec(+)
+                      AND dbamv.itcon_rec.cd_con_rec = dbamv.con_rec.cd_con_rec
+					  AND dbamv.con_rec.cd_atendimento(+) = amb.cd_atendimento 			
+                      AND (:CAMPO_ORDEM = 'EMISSAO' OR :CAMPO_ORDEM = 'LANCAMENTO')
+                      :CAMPO_CF_CONVENIO
+         )
+ORDER BY tp_atendimento5,
+         dt_lancamento5,
+         dt_emissao5,
+         cd_moeda_prev5,
+         vl_moeda_prev5,
+         status5,
+         nm_cliente5,
+         ds_con_rec5,
+         cd_con_rec5,
+         nr_documento5,
+         cd_atendimento5,
+         cd_itcon_rec,
+         codbarra5,
+         dt_recebimento5,
+         cd_reccon_rec5
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTA_REC_PAC_R_TP_VENCIMENTO_Q_CONTA_REC_PAC1
+SELECT   *
+    FROM (SELECT DISTINCT con_rec.nm_cliente nm_cliente2,
+                          con_rec.ds_con_rec ds_con_rec2,
+                          con_rec.cd_con_rec cd_con_rec2,
+                          NVL (dbamv.con_rec.vl_desconto, 0) vl_desconto2,
+                          NVL (dbamv.con_rec.vl_acrescimo, 0) vl_acrescimo2,
+                          itcon_rec.dt_prevista_recebimento dt_prevista_pagamento2,
+                          reccon_rec.tp_recebimento tp_recebimento2,
+                          DECODE (reccon_rec.tp_recebimento,
+                                  '1', 'CHEQUE',
+                                  '3', 'DINHEIRO',
+                                  '4', 'CREDITO C/C',
+                                  '2', 'CARTAO',
+                                  '5', 'BORDERO',
+                                  '6', 'BOLETO',
+                                  '7', 'DOC',
+                                  '8', 'DUPLICATA',
+                                  '9', 'PROMISSÓRIA',
+                                  'E', 'ENC. CONTA',
+                                  'B', 'BAIXA CONTABIL'
+                                 ) recebimento2,
+                          Decode(Rank() OVER ( PARTITION BY con_rec.cd_con_rec ORDER BY reccon_rec.cd_reccon_rec),1,itcon_rec.vl_duplicata,0) vl_previsto2,
+                          DECODE (itcon_rec.dt_cancelamento,
+                                  NULL, reccon_rec.vl_recebido,
+                                  0
+                                 ) vl_recebido2,
+                          con_rec.nr_documento nr_documento2,
+                          con_rec.cd_atendimento cd_atendimento2,
+                          atendime.tp_atendimento tp_atendimento2,
+                          DECODE (con_rec.dt_cancelamento,
+                                  NULL, itcon_rec.tp_quitacao,
+                                  'L'
+                                 ) status2,
+                          itcon_rec.cd_moeda cd_moeda_prev2,
+                          itcon_rec.vl_moeda vl_moeda_prev2,
+                          reccon_rec.cd_moeda cd_moeda_rec2,
+                          NVL (reccon_rec.vl_moeda, 0) vl_moeda_rec2,
+                          con_rec.dt_lancamento dt_lancamento2,
+                          reccon_rec.dt_recebimento dt_recebimento2,
+                          reccon_rec.cd_reccon_rec cd_reccon_rec2,
+                          itcon_rec.nr_codigo_barra codbarra2,
+                          itcon_rec.cd_itcon_rec
+                     FROM dbamv.itcon_rec, dbamv.con_rec, dbamv.atendime,
+					      			 (SELECT DISTINCT 
+						r.cd_atendimento
+					   ,r.cd_convenio 
+								FROM dbamv.reg_fat r
+									,dbamv.atendime a 
+							WHERE r.cd_atendimento = a.cd_atendimento 
+								AND tp_atendimento = 'I' 
+                                 UNION ALL 
+				SELECT DISTINCT r.cd_atendimento,r.cd_convenio 
+								FROM dbamv.itreg_amb r
+									,dbamv.atendime a 
+                            WHERE r.cd_atendimento = a.cd_atendimento 
+                                AND tp_atendimento <> 'I') amb,					 
+                          (SELECT cd_itcon_rec,
+                                  cd_moeda,
+                                  vl_moeda,
+                                  dt_recebimento,
+                                  vl_recebido,
+                                  cd_reccon_rec,
+                                  tp_recebimento,
+                                  cd_caixa,
+                                  CD_DOC_CAIXA
+                             FROM dbamv.reccon_rec
+                            WHERE dt_estorno IS NULL
+                      	      AND Trunc(dt_recebimento) <= :CAMPO_DATA_BASE
+                              AND ((dt_estorno IS NULL) OR ((dt_estorno IS NOT NULL )
+                              AND (Trunc(dt_estorno)    > :CAMPO_DATA_BASE)))
+                             ) reccon_rec
+                    WHERE con_rec.tp_con_rec = 'P'
+                      AND con_rec.cd_previsao IS NULL
+                      AND con_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                      AND con_rec.cd_atendimento = atendime.cd_atendimento(+)
+                      AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+					  AND con_rec.cd_atendimento(+) = amb.cd_atendimento 	
+                      AND itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec(+)
+                      AND :CAMPO_ORDEM = 'VENCIMENTO'
+                      :CAMPO_CF_CONVENIO
+         )
+ORDER BY tp_atendimento2,
+         dt_prevista_pagamento2,
+         codbarra2,
+         dt_lancamento2,
+         cd_moeda_prev2,
+         vl_moeda_prev2,
+         nm_cliente2,
+         ds_con_rec2,
+         cd_con_rec2,
+         nr_documento2,
+         status2,
+         cd_atendimento2,
+         cd_itcon_rec,
+         dt_recebimento2,
+         cd_reccon_rec2

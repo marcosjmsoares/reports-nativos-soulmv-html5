@@ -1,0 +1,124 @@
+/*----------------------------------------------------------------------------*/
+--R_LOTE_PGTO
+SELECT cd_itcon_pag,
+                  cd_multi_empresa,
+                  cd_lote_remessa,
+                   ds_lote_remessa,
+                   cd_processo,
+                   dt_pagamento,
+                   cd_con_pag,
+                   cd_fornecedor,
+                   ds_fornecedor,
+                   nr_documento,
+                   nr_parcela,
+                   dt_vencimento,
+                   (vl_duplicata - soma_ant) vl_duplicata, 
+                   (vl_duplicata - soma_ant - vl_total_desconto + vl_total_acrescimo ) vl_enviado,
+                   cd_pagcon_pag,
+                  soma_ant,
+                  tp_quitacao,
+                   decode(tp_quitacao,'Q',vl_tot_rem - soma_ant,0) vl_tot_rem, 
+                   Decode(tp_quitacao,'Q',vl_tot_pago - soma_ant,0) vl_tot_pago, 
+                   sn_rejeitada,
+                   (vl_total_acrescimo - vl_total_desconto) Vl_Dsc_Acre,
+                   cd_banco,
+                   lote_agencia,
+                   ds_agencia,
+                   nr_conta, 
+                   forn_banco,
+                   forn_agencia,
+                   forne_conta,  
+                   cd_arquivo_retorno_pgto,
+                   dt_arquivo_retorno_pgto,
+                   cd_con_cor,
+                   cd_ocorrencia_lay_arq,
+                   nr_cgc_cpf,
+                   ds_con_cor,
+                   NR_CODIGO_BARRA, 
+                   nm_banco,
+                   cd_estrutural
+ FROM (
+   select  Distinct(lote_rem.cd_itcon_pag)
+          , lr.cd_multi_empresa
+          , lr.cd_lote_remessa
+          , lr.ds_lote_remessa
+          , lr.cd_processo
+          , p.dt_pagamento
+          , con.cd_con_pag
+          , con.cd_fornecedor
+          , con.ds_fornecedor
+          , con.nr_documento
+          , it.nr_parcela
+          , it.dt_vencimento
+          , it.vl_duplicata
+          	  , p.cd_pagcon_pag 
+                   , Nvl(( SELECT
+                       Sum(p2.vl_pago)
+                     FROM
+                       dbamv.pagcon_pag p2
+                     WHERE
+                       p2.dt_estorno IS NULL
+                       AND p2.cd_itcon_pag = it.cd_itcon_pag
+                       AND p2.dt_baixa IS NOT NULL
+                       AND p2.cd_pagcon_pag <> Nvl(p.cd_pagcon_pag,0)),0) soma_ant  
+          , it.tp_quitacao   
+          , Decode(nvl(it.vl_duplicata,0) - nvl(p.vl_pago,0),0 ,nvl(p.vl_pago,0),nvl(it.vl_duplicata,0))
+                + (nvl(lote_rem.vl_total_acrescimo,0) - nvl(lote_rem.vl_total_desconto, 0))
+                - dbamv.fnc_fiea_valor_devolucao( lote_rem.cd_itcon_pag ) vl_tot_rem
+           ,Decode(nvl(it.vl_duplicata,0) - nvl(p.vl_pago,0),0 ,nvl(p.vl_pago,0),nvl(it.vl_duplicata,0))
+                + (nvl(lote_rem.vl_total_acrescimo,0) - nvl(lote_rem.vl_total_desconto, 0))
+                - dbamv.fnc_fiea_valor_devolucao( lote_rem.cd_itcon_pag )vl_tot_pago
+          , nvl(lote_rem.sn_rejeitada,'N') sn_rejeitada
+          , nvl(lote_rem.vl_total_acrescimo,0) vl_total_acrescimo
+          , nvl(lote_rem.vl_total_desconto,0) vl_total_desconto
+          , lote_rem.cd_banco
+          , lote_rem.cd_agencia lote_agencia
+          , lote_rem.ds_agencia
+          , lote_rem.nr_conta
+          , fornecedor.cd_banco  forn_banco
+          , fornecedor.cd_agencia forn_agencia
+          , fornecedor.nr_conta     forne_conta
+          , arq_ret.cd_arquivo_retorno_pgto
+          , arq_ret.dt_arquivo_retorno_pgto
+          , arq_ret.cd_con_cor
+          , oc.cd_ocorrencia_lay_arq
+          , fornecedor.nr_cgc_cpf
+          , cc.ds_con_cor
+	      , it.NR_CODIGO_BARRA
+	      , banco.nm_banco
+		  , processo.cd_estrutural
+   from dbamv.lote_remessa lr
+        ,dbamv.EXP_ARQUIVO_REMESSA ear
+        , dbamv.lote_rem_itcon_pag lote_rem
+        , dbamv.con_pag con
+        , dbamv.itcon_pag it
+        , dbamv.arquivo_retorno_pgto arq_ret
+        , dbamv.ocorrencia_arq_ret_pgto ocor_arq
+        , dbamv.Ocorrencia_Lay_Arq   oc
+        , dbamv.fornecedor
+        , dbamv.pagcon_pag p
+        , dbamv.mov_concor m
+        , dbamv.con_cor cc
+		, dbamv.banco
+		, dbamv.processo
+		, dbamv.retorno_pagcon_pag rp 
+   where lr.cd_lote_remessa = lote_rem.cd_lote_remessa
+     and banco.cd_banco(+) = fornecedor.cd_banco
+	 and lr.cd_processo =  processo.cd_processo
+	 AND LR.CD_EXP_ARQUIVO_REMESSA = ear.CD_EXP_ARQUIVO_REMESSA(+)
+     and lote_rem.cd_itcon_pag = it.cd_itcon_pag
+     and con.cd_con_pag = it.cd_con_pag
+	 and it.cd_itcon_pag = p.cd_itcon_pag(+)
+     AND ear.cd_con_cor = cc.cd_con_cor(+)
+     AND p.cd_pagcon_pag = rp.cd_pagcon_pag(+)  
+     AND ( (p.dt_baixa IS NOT NULL AND p.dt_estorno IS NULL AND p.cd_pagcon_pag = rp.cd_pagcon_pag) OR p.dt_baixa IS NULL ) 
+	 and lote_rem.cd_arquivo_retorno_pgto = arq_ret.cd_arquivo_retorno_pgto(+)
+     and arq_ret.cd_arquivo_retorno_pgto = ocor_arq.cd_arquivo_retorno_pgto(+)
+     and p.cd_pagcon_pag = m.cd_pagcon_pag(+)
+     and fornecedor.cd_fornecedor = con.cd_fornecedor
+     AND oc.cd_layout_arquivo(+) = arq_ret.cd_layout_arquivo
+     and Nvl(oc.tp_acao,'B') = 'B'
+    :CAMPO_CF_REJEITADA
+)
+ORDER BY CD_MULTI_EMPRESA,
+CD_LOTE_REMESSA,DS_LOTE_REMESSA,CD_PROCESSO,DS_FORNECEDOR

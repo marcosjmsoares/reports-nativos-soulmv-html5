@@ -1,0 +1,96 @@
+/*----------------------------------------------------------------------------*/
+--R_PACIENTES_A_FATURAR
+SELECT * FROM (
+SELECT 'POR SESSÃO' tp_cobranca
+      ,it_agenda_central.cd_convenio
+      ,it_agenda_central.cd_paciente
+      ,it_agenda_central.nm_paciente
+      ,solic_agendamento.cd_tratamento
+      ,solic_agendamento.nr_ciclo
+      ,ciclo_tratamento.qt_sessao
+      ,solic_agendamento.nr_sessao
+      ,agenda_central.dt_agenda
+      ,it_agenda_central.cd_atendimento
+  FROM dbamv.it_agenda_central
+      ,dbamv.solic_agendamento
+      ,dbamv.agenda_central
+      ,dbamv.ciclo_tratamento
+ WHERE it_agenda_central.cd_it_agenda_central = solic_agendamento.cd_it_agenda_central
+   AND agenda_central.cd_agenda_central       = it_agenda_central.cd_agenda_central
+   AND ciclo_tratamento.cd_tratamento         = solic_agendamento.cd_tratamento
+   AND ciclo_tratamento.nr_ciclo              = solic_agendamento.nr_ciclo
+   AND it_agenda_central.cd_atendimento IS NOT NULL
+   AND cd_paciente || nm_paciente IS NOT NULL
+   AND cd_it_agenda_pai IS NULL
+   AND cd_convenio IN (SELECT cd_convenio
+                         FROM dbamv.convenio
+                        WHERE tp_cobranca_oncologia = 'S'
+                      )
+   AND agenda_central.dt_agenda BETWEEN :CAMPO_DT_INICIAL UNION ALL
+SELECT 'POR CICLO' tp_cobranca
+      ,it_agenda_central.cd_convenio
+      ,it_agenda_central.cd_paciente
+      ,it_agenda_central.nm_paciente
+      ,solic_agendamento.cd_tratamento
+      ,solic_agendamento.nr_ciclo
+      ,ciclo_tratamento.qt_sessao
+      ,solic_agendamento.nr_sessao
+      ,agenda_central.dt_agenda
+      ,it_agenda_central.cd_atendimento
+  FROM dbamv.it_agenda_central
+      ,dbamv.solic_agendamento
+      ,dbamv.agenda_central
+      ,dbamv.ciclo_tratamento
+ WHERE it_agenda_central.cd_it_agenda_central = solic_agendamento.cd_it_agenda_central
+   AND agenda_central.cd_agenda_central       = it_agenda_central.cd_agenda_central
+   AND ciclo_tratamento.cd_tratamento         = solic_agendamento.cd_tratamento
+   AND ciclo_tratamento.nr_ciclo              = solic_agendamento.nr_ciclo
+   AND it_agenda_central.cd_atendimento IS NOT NULL
+   AND it_agenda_central.cd_paciente || it_agenda_central.nm_paciente IS NOT NULL
+   AND it_agenda_central.cd_it_agenda_pai IS NULL
+   AND it_agenda_central.cd_convenio IN (SELECT cd_convenio
+                                           FROM dbamv.convenio
+                                          WHERE tp_cobranca_oncologia = 'C'
+                                         )
+   AND agenda_central.dt_agenda BETWEEN :CAMPO_DT_INICIAL AND 
+   AND agenda_central.cd_setor = Decode(:CAMPO_CD_SETOR,'%',agenda_central.cd_setor,:CAMPO_CD_SETOR)
+   AND it_agenda_central.cd_convenio = Decode(:CAMPO_CD_CONVENIO,'%',it_agenda_central.cd_convenio,to_number(:CAMPO_CD_SETOR))
+   AND solic_agendamento.nr_sessao = ciclo_tratamento.qt_sessao
+UNION ALL
+SELECT 'POR TRATAMENTO' tp_cobranca
+      ,it_agenda_central.cd_convenio
+      ,it_agenda_central.cd_paciente
+      ,it_agenda_central.nm_paciente
+      ,solic_agendamento.cd_tratamento
+      ,solic_agendamento.nr_ciclo
+      ,ciclo_tratamento.qt_sessao
+      ,solic_agendamento.nr_sessao
+      ,agenda_central.dt_agenda
+      ,it_agenda_central.cd_atendimento
+  FROM dbamv.it_agenda_central
+      ,dbamv.solic_agendamento
+      ,dbamv.agenda_central
+      ,dbamv.ciclo_tratamento
+      ,dbamv.tratamento
+ WHERE it_agenda_central.cd_it_agenda_central = solic_agendamento.cd_it_agenda_central
+   AND agenda_central.cd_agenda_central       = it_agenda_central.cd_agenda_central
+   AND ciclo_tratamento.cd_tratamento         = solic_agendamento.cd_tratamento
+   AND ciclo_tratamento.nr_ciclo              = solic_agendamento.nr_ciclo
+   AND tratamento.cd_tratamento               = solic_agendamento.cd_tratamento
+   AND it_agenda_central.cd_atendimento IS NOT NULL
+   AND it_agenda_central.cd_paciente || it_agenda_central.nm_paciente IS NOT NULL
+   AND it_agenda_central.cd_it_agenda_pai IS NULL
+   AND it_agenda_central.cd_convenio IN (SELECT cd_convenio
+                                           FROM dbamv.convenio
+                                          WHERE tp_cobranca_oncologia = 'T'
+                                         )
+   AND agenda_central.dt_agenda BETWEEN :CAMPO_DT_INICIAL AND 
+   AND agenda_central.cd_setor = Decode(:CAMPO_CD_SETOR,'%',agenda_central.cd_setor,:CAMPO_CD_SETOR)
+   AND it_agenda_central.cd_convenio = Decode(:CAMPO_CD_CONVENIO,'%',it_agenda_central.cd_convenio,to_number(:CAMPO_CD_SETOR))
+   AND solic_agendamento.nr_sessao = ciclo_tratamento.qt_sessao
+   AND ciclo_tratamento.nr_ciclo   = tratamento.qt_ciclo
+   order by tp_cobranca, cd_convenio, nm_paciente, cd_tratamento, nr_ciclo, nr_sessao, dt_agenda
+)
+ORDER BY TP_COBRANCA, CD_ATENDIMENTO,
+CD_CONVENIO,
+CD_PACIENTE,NM_PACIENTE

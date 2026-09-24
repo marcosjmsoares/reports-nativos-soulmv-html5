@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_COMPRO_REC_CONV
+select con_rec.nm_cliente sacado
+       ,con_cor.ds_con_cor banco
+       ,con_rec.cd_con_rec processo
+       ,reccon_rec.vl_recebido recebido
+       ,reccon_rec.dt_recebimento dt_recebido
+       ,con_rec.vl_previsto vl_nota
+       ,nvl(reccon_rec.vl_imposto_retido,0) vl_Imposto_Retido
+       ,con_rec.nr_documento nota
+       ,con_rec.dt_emissao emissao
+       ,itcon_rec.dt_vencimento vencimento
+       ,itcon_rec.vl_glosa     glosas
+       ,( nvl(nvl(itcon_rec.vl_duplicata,0) - nvl(itcon_rec.vl_soma_recebido,0), 0) ) a_receber
+       ,usuarios.nm_usuario usuario
+       ,nvl(reccon_rec.dt_baixa, reccon_rec.dt_recebimento) baixa
+       ,reccon_rec.cd_reccon_rec cd_reccon_rec
+       ,(Select count(cd_reccon_rec) From dbamv.reccon_rec a Where a.cd_itcon_rec = itcon_rec.cd_itcon_rec and a.dt_estorno is null and a.cd_motivo_canc is null
+         and to_number(to_char(a.dt_recebimento, 'YYYYMMDD') || a.cd_reccon_rec) <= to_number(to_char(reccon_rec.dt_recebimento, 'YYYYMMDD') || reccon_rec.cd_reccon_rec)) nr_baixa
+        ,itcon_rec.tp_quitacao
+       ,(Select nvl(sum(vl_recebido),0) From dbamv.reccon_rec a Where a.cd_itcon_rec = itcon_rec.cd_itcon_rec and a.dt_estorno is null and a.cd_motivo_canc is null
+         and to_number(to_char(a.dt_recebimento, 'YYYYMMDD') || a.cd_reccon_rec) < to_number(to_char(reccon_rec.dt_recebimento, 'YYYYMMDD') || reccon_rec.cd_reccon_rec)) ja_recebido
+       ,nvl(reccon_rec.vl_desconto,0) desconto
+       ,(Select ds_desc_acres From dbamv.descontos_acrescimos
+         where nvl(reccon_rec.cd_desconto,0) = cd_desc_acres) mov_desc
+       ,nvl(reccon_rec.vl_acrescimo,0) acrescimo
+       ,(Select ds_desc_acres From dbamv.descontos_acrescimos
+         where nvl(reccon_rec.cd_acrescimo,0) = cd_desc_acres) mot_acre
+       ,reccon_rec.vl_imposto_retido zero
+       ,reccon_rec.cd_moeda moeda
+From  dbamv.reccon_rec
+          ,dbamv.con_rec
+          ,dbamv.itcon_rec
+          ,dbasgu.usuarios
+          ,dbamv.con_cor
+Where  itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec
+    and  con_rec.cd_con_rec = itcon_rec.cd_con_rec
+    and  reccon_rec.nm_usuario = usuarios.cd_usuario (+)
+    and  reccon_rec.cd_con_cor = con_cor.cd_con_cor(+)
+    and  reccon_rec.cd_reccon_rec = :CAMPO_CD_RECCON_REC
+    and  reccon_rec.dt_estorno is null
+    and  reccon_rec.cd_motivo_canc is null
+    and  reccon_rec.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA1

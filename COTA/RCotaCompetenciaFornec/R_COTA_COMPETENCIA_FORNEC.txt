@@ -1,0 +1,102 @@
+/*----------------------------------------------------------------------------*/
+--R_COTA_COMPETENCIA_FORNEC
+select cota.cd_cota,
+          cota.ds_cota,
+          cota.cd_usuario,
+          cota_competencia.cd_competencia,
+          cota_competencia.vl_orcado
+  from dbamv.cota,
+         dbamv.cota_competencia
+where cota.cd_cota = cota_competencia.cd_cota
+  and  cota_competencia.dt_competencia = :CAMPO_COMPET
+  and Cota.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_COTA_COMPETENCIA_FORNEC_R_DATA_Q_ITMVTO_COTAS
+SELECT * FROM (
+SELECT * FROM (
+SELECT a.data,
+       a.descricao ,
+       a.vl_debito,
+       a.cd_competencia,
+       a.fornecedor,
+       a.documento,
+       a.vl_credito,
+       a.valor
+from (
+select TRUNC(itmvto_cotas.dh_itmvto_cotas)  data,
+       'ENTRADA DE PRODUTO Nº '||ent_pro.cd_ent_pro ||' '||produto.ds_produto  descricao,
+       itmvto_cotas.vl_itmvto_cotas  vl_debito,
+       itmvto_cotas.cd_competencia   cd_competencia,
+       fornecedor.nm_fornecedor fornecedor,
+       ent_pro.nr_documento documento,
+       0    vl_credito,
+       itmvto_cotas.cd_itmvto_cotas  valor
+  from dbamv.cota_competencia,
+       dbamv.itmvto_cotas,
+       dbamv.itent_pro,
+       dbamv.ent_pro,
+       dbamv.produto,
+       dbamv.fornecedor,
+       dbamv.estoque
+ where itmvto_cotas.cd_itent_pro is not null
+   and cota_competencia.cd_competencia = itmvto_cotas.cd_competencia
+   and itmvto_cotas.cd_produto   = produto.cd_produto
+   and itmvto_cotas.cd_itent_pro = itent_pro.cd_itent_pro
+   and itent_pro.cd_ent_pro      = ent_pro.cd_ent_pro
+   and ent_pro.cd_fornecedor = fornecedor.cd_fornecedor (+)
+   and Estoque.Cd_Estoque       = Ent_Pro.Cd_Estoque
+   and Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+union
+select TRUNC(itmvto_cotas.dh_itmvto_cotas)  data,
+       ltrim(decode(con_pag.ds_con_pag,'',con_pag.ds_fornecedor ||' Nº '||con_pag.cd_con_pag,con_pag.ds_con_pag)) descricao,
+       itmvto_cotas.vl_itmvto_cotas vl_debito,
+       itmvto_cotas.cd_competencia   cd_competencia,
+       fornecedor.nm_fornecedor fornecedor,
+       con_pag.nr_documento documento ,
+       0    vl_credito,
+       itmvto_cotas.cd_itmvto_cotas  valor
+  from dbamv.cota_competencia,
+       dbamv.itmvto_cotas,
+       dbamv.con_pag,
+       dbamv.ratcon_pag,
+       dbamv.fornecedor
+ where itmvto_cotas.cd_ratcon_pag is not null
+   and cota_competencia.cd_competencia = itmvto_cotas.cd_competencia
+   and itmvto_cotas.cd_ratcon_pag   = ratcon_pag.cd_ratcon_pag
+   and ratcon_pag.cd_con_pag        = con_pag.cd_con_pag
+   and con_pag.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+   and con_pag.cd_previsao is null
+   and con_pag.cd_fornecedor = fornecedor.cd_fornecedor (+)
+union
+select TRUNC(dt_movimentacao)  data,
+       ds_movimentacao  descricao,
+       0                vl_credito,
+       cd_competencia_transf   cd_competencia,
+       ' ' fornecedor,
+       ' ' documento ,
+       vl_movimentacao  vl_debito,
+       mov_cota_competencia.cd_mov_cota  valor
+  from dbamv.mov_cota_competencia
+union
+select TRUNC(dt_movimentacao)  data,
+       ds_movimentacao  descricao,
+       vl_movimentacao  vl_credito,
+       cd_competencia   cd_competencia,
+       ' ' fornecedor,
+       ' ' documento ,
+       0                vl_debito ,
+       mov_cota_competencia.cd_mov_cota  valor
+  from dbamv.mov_cota_competencia
+) a
+order by
+   a.data,
+   a.fornecedor,
+   a.documento
+)
+WHERE CD_COMPETENCIA = :CAMPO_CD_COMPETENCIA
+)
+ORDER BY DATA,CD_COMPETENCIA,
+FORNECEDOR

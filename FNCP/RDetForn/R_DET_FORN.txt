@@ -1,0 +1,153 @@
+/*----------------------------------------------------------------------------*/
+--R_DET_FORN
+SELECT * FROM (
+   SELECT 
+          MIN(PG.CD_PAGCON_PAG) OVER (PARTITION BY I.CD_ITCON_PAG ) MIN_CD_PAGCON_PAG, 
+          I.CD_ITCON_PAG,  
+           I.TP_QUITACAO,
+          V.CD_PAGCON_PAG V_CD_PAGCON_PAG,
+          PG.CD_PAGCON_PAG,  
+          DECODE(PR.CD_ESTRUTURAL,'5.1.1.4.1','E',T.TP_DATA) TP_DATA, 
+          V.CD_CON_PAG ,
+          V.CD_FORNECEDOR ,
+          V.DS_FORNECEDOR ,
+          V.CD_MOEDA ,
+          V.VL_MOEDA ,
+          V.DT_EMISSAO ,
+          I.DT_VENCIMENTO ,
+          V.NR_DOCUMENTO ,
+          V.NR_SERIE ,
+          V.CD_TIP_DOC ,
+          V.DS_TIP_DOC ,
+          H.DS_HISTORICO_PADRAO||' '||V.DS_CON_PAG DS_CON_PAG ,
+          V.VL_BRUTO_CONTA ,
+          V.CD_DETALHAMENTO ,
+          T.SN_ACUMULA ,
+          T.TP_DETALHAMENTO ,
+          T.DS_DETALHAMENTO ,
+          SUM(V.VL_DETALHAMENTO) VL_DETALHAMENTO ,
+          C.DT_LANCAMENTO ,
+          DECODE(F.TP_FORNECEDOR , 'F', SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 0, 3)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 4, 3)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 7, 3)||'-'||SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 10, 2) , 'J', SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 0, 2)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 3, 3)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 6, 3)||'/'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 9, 4)||'-'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 13, 2)) NR_CPF_CNPJ ,
+          CD.CD_UF
+   FROM DBAMV.V_FORNECEDOR_IMPOSTO V,
+        DBAMV.ITCON_PAG I,
+        DBAMV.TIP_DETALHE T,
+        DBAMV.HISTORICO_PADRAO H,
+        DBAMV.CON_PAG C,
+        DBAMV.FORNECEDOR F,
+        DBAMV.CIDADE CD, 
+        DBAMV.PAGCON_PAG PG,
+        DBAMV.PROCESSO PR,
+        DBAMV.USUARIO_MULTI_EMPRESA UME
+   WHERE V.CD_DETALHAMENTO = T.CD_DETALHAMENTO
+     AND H.CD_HISTORICO_PADRAO(+) = V.CD_HISTORICO_PADRAO
+     AND I.CD_CON_PAG = V.CD_CON_PAG
+     AND I.CD_ITCON_PAG = V.CD_ITCON_PAG
+     AND I.CD_CON_PAG = C.CD_CON_PAG
+     AND V.CD_FORNECEDOR = F.CD_FORNECEDOR(+)
+     AND F.CD_CIDADE = CD.CD_CIDADE(+) 
+     AND PG.CD_ITCON_PAG(+) = I.CD_ITCON_PAG
+     AND PR.CD_PROCESSO = C.CD_PROCESSO
+     AND C.CD_MULTI_EMPRESA = UME.CD_MULTI_EMPRESA
+     AND UME.CD_ID_USUARIO = USER
+     AND ( PG.CD_PAGCON_PAG IS NULL OR VL_PAGO > 0 )
+     AND ( TP_DATA = 'P' OR I.NR_PARCELA =1 )
+     AND ( (:CAMPO_DT_EMISSAO  = 'S' :CAMPO_CF_COND_DATA )
+     OR ( :CAMPO_DT_VENCIMENTO = 'S' :CAMPO_CF_COND_DATA_VENC )
+     OR ( :CAMPO_DT_LANCAMENTO = 'S' :CAMPO_CF_COND_DATA_LANC )
+     OR ( :CAMPO_DT_PAGAMENTO  = 'S'  :CAMPO_CF_COND_DATA_PAGAMENTO )
+     OR ( :CAMPO_DT_VENCIMENTO_IMPOSTO = 'S' :CAMPO_CF_COND_DATA_VENC_IMPOSTO ) )
+   GROUP BY PG.CD_PAGCON_PAG,    I.TP_QUITACAO,
+            DECODE(PR.CD_ESTRUTURAL,'5.1.1.4.1','E',T.TP_DATA),     
+            I.CD_ITCON_PAG,    
+            V.CD_PAGCON_PAG,
+            V.CD_CON_PAG,                                                              
+            V.CD_FORNECEDOR,                                                         
+            V.DS_FORNECEDOR,                                                         
+            V.CD_MOEDA,                                                              
+            V.VL_MOEDA,                                                              
+            V.DT_EMISSAO,                                                            
+            I.DT_VENCIMENTO,                                                         
+            V.NR_DOCUMENTO,                                                          
+            V.NR_SERIE,                                                              
+            V.CD_TIP_DOC,                                                            
+            V.DS_TIP_DOC,                                                            
+            H.DS_HISTORICO_PADRAO||' '||V.DS_CON_PAG,                                
+            V.VL_BRUTO_CONTA,                                                        
+            V.CD_DETALHAMENTO,                                                       
+            T.SN_ACUMULA,                                                            
+            T.TP_DETALHAMENTO,                                                       
+            T.DS_DETALHAMENTO,                                                       
+            C.DT_LANCAMENTO,                                                         
+            DECODE(F.TP_FORNECEDOR, 'F', SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 0, 3)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 4, 3)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 7, 3)||'-'||SUBSTR(LPAD(F.NR_CGC_CPF, 11, '0'), 10, 2), 'J', SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 0, 2)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 3, 3)||'.'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 6, 3)||'/'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 9, 4)||'-'||SUBSTR(LPAD(F.NR_CGC_CPF, 14, '0'), 13, 2)),
+            CD.CD_UF  )
+   WHERE 1=1
+  AND (tp_quitacao = 'C' or  (    ((TP_DATA= 'P' AND  CD_PAGCON_PAG= V_CD_PAGCON_PAG) OR  (TP_DATA<> 'P' AND MIN_CD_PAGCON_PAG  =  CD_PAGCON_PAG)) ))
+  ORDER BY DS_FORNECEDOR, DT_EMISSAO, DT_VENCIMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DET_FORN_R_1_Q_1
+SELECT * FROM (
+select
+   cp.cd_con_pag    cd_con_pag_ac
+  ,nvl(cp.vl_bruto_conta,0)     vl_bruto_conta
+  ,cp.nr_documento
+  , cp.ds_con_pag ds_con_pag
+  ,cp.dt_emissao      dt_emissao
+  ,cp.nr_serie
+  ,it.dt_vencimento  dt_vencimento
+from
+  dbamv.con_pag  cp
+, dbamv.itcon_pag it
+, dbamv.tip_doc    d
+, dbamv.usuario_multi_empresa ume
+where
+       cp.cd_con_pag = it.cd_con_pag
+and cp.cd_tip_doc  =  d.cd_tip_doc
+and :CAMPO_CD_FORNECEDOR = cp.cd_fornecedor
+and :CAMPO_SN_ACUMULA = 'S'
+and  not exists (select  'X'   from  dbamv.tip_detcon_pag t  where  cp.cd_con_pag  = t.cd_con_pag_pai  and t.cd_detalhamento = :CAMPO_CD_DETALHAMENTO)
+and cp.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and cp.cd_multi_empresa = ume.cd_multi_empresa
+and ume.cd_id_usuario = USER
+and not exists (select  de.cd_fornecedor
+                        from
+                            dbamv.documento_entrada de
+	      where
+                             de.cd_fornecedor = cp.cd_fornecedor
+	      and de.cd_multi_empresa = PKG_MV2000.LE_EMPRESA
+	      and de.nr_documento  = cp.nr_documento
+	      and de.nr_serie  = cp.nr_serie )
+and    not exists  (Select 'X' from dbamv.itcon_pag where itcon_pag.cd_con_pag_agrup = cp.cd_con_pag   )
+and    trunc(it.dt_vencimento,'MM') = trunc(:CAMPO_DT_VENCIMENTO,'MM')
+and    not exists (  SELECT
+                                c.cd_fornecedor,
+                                Sum(t.vl_detalhamento)
+                             FROM
+                                dbamv.con_pag c,
+                                dbamv.tip_detcon_pag t,
+                                dbamv.itcon_pag i
+                             WHERE
+                                          t.cd_con_pag_pai = c.cd_con_pag
+                               and     c.cd_fornecedor = :CAMPO_CD_FORNECEDOR
+                               and     c.cd_con_pag    < :CAMPO_CD_CON_PAG
+                               and     t.cd_detalhamento = :CAMPO_CD_DETALHAMENTO
+                               and     c.cd_con_pag = i.cd_con_pag
+                               and     trunc(i.dt_vencimento,'MM')  = trunc(:CAMPO_DT_VENCIMENTO,'MM')
+                               and     Not Exists ( Select '*'
+                                                            From
+                                                              dbamv.documento_entrada e
+                                                            where
+                                                                      e.cd_fornecedor  = c.cd_fornecedor
+                                                            and    e.nr_serie             = c.nr_serie
+                                                            and    e.nr_documento   = c.nr_documento )
+                             GROUP BY
+                                        c.cd_fornecedor
+                             HAVING
+                             Sum(t.vl_detalhamento) > 0  )
+and :CAMPO_CF_2 = 1
+order by cp.cd_con_pag desc
+)
+WHERE CD_CON_PAG_AC >= :CAMPO_CD_CON_PAG

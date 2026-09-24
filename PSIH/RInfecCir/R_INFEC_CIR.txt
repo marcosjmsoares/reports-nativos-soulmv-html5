@@ -1,0 +1,85 @@
+/*----------------------------------------------------------------------------*/
+--R_INFEC_CIR
+SELECT * FROM (
+SELECT
+       cen.cd_cen_cir
+     , cen.ds_cen_cir
+     , Decode(Nvl(ate.cd_ser_dis,0),0, Nvl(ser.cd_servico,0) ,ate.cd_ser_dis) cd_servico
+     , Decode(Nvl(ate.cd_ser_dis,0),0, nvl(ser.ds_servico,'Serviço Não informado'),dis.ds_ser_dis) ds_servico
+     , To_Number(Substr(pre.cd_prestador,1,12)) cd_prestador 
+     , pre.nm_prestador
+     , 0 Limpa_Inf
+     , 0 Contaminada_Inf
+     , 0 Infectada_Inf
+     , 0 Pot_Infectada_Inf
+     , Decode(cir.TP_NATUREZA,'L',1,0) Limpa
+     , Decode(cir.TP_NATUREZA,'C',1,0) Contaminada
+     , Decode(cir.TP_NATUREZA,'I',1,0) Infectada
+     , Decode(cir.TP_NATUREZA,'P',1,0) Pot_Infectada
+  FROM dbamv.atendime ate
+      ,dbamv.servico  ser
+      ,dbamv.ser_dis  dis
+      ,dbamv.aviso_cirurgia  avi
+      ,dbamv.cirurgia_aviso  cir
+      ,dbamv.cen_cir         cen
+      ,dbamv.prestador_aviso pre_avi
+      ,dbamv.ati_med         ati
+      ,dbamv.prestador pre
+      ,dbamv.cirurgia ci
+WHERE ate.cd_servico = ser.cd_servico(+)
+  AND ate.cd_ser_dis = dis.cd_ser_dis(+)
+  AND avi.tp_situacao = 'R'
+  AND ci.cd_cirurgia  = cir.cd_cirurgia
+  AND avi.cd_atendimento = ate.cd_atendimento
+  AND avi.cd_aviso_cirurgia =  cir.cd_aviso_cirurgia
+  AND avi.cd_cen_cir = cen.cd_cen_cir
+  AND cir.cd_cirurgia_aviso = pre_avi.cd_cirurgia_aviso
+  AND pre_avi.cd_ati_med = ati.cd_ati_med
+  AND pre_avi.sn_principal = 'S'
+  AND pre_avi.cd_prestador = pre.cd_prestador
+  AND avi.dt_realizacao between :CAMPO_DT_INICIAL UNION ALL
+SELECT cen.cd_cen_cir
+     , cen.ds_cen_cir
+     , Decode(Nvl(ate.cd_ser_dis,0),0, Nvl(ser.cd_servico,0) ,ate.cd_ser_dis) cd_servico
+     , Decode(Nvl(ate.cd_ser_dis,0),0, nvl(ser.ds_servico,'Serviço Não informado'),dis.ds_ser_dis) ds_servico
+     , To_Number(Substr(pre.cd_prestador,1,12)) cd_prestador 
+     , pre.nm_prestador
+     , Decode(cir.TP_NATUREZA,'L',1,0) Limpa_Inf
+     , Decode(cir.TP_NATUREZA,'C',1,0) Contaminada_Inf
+     , Decode(cir.TP_NATUREZA,'I',1,0) Infectada_Inf
+     , Decode(cir.TP_NATUREZA,'P',1,0) Pot_Infectada_Inf
+     , 0 Limpa
+     , 0 Contaminada
+     , 0 Infectada
+     , 0 Pot_Infectada
+  FROM dbamv.atendime ate
+      ,dbamv.servico  ser
+      ,dbamv.ser_dis  dis
+      ,dbamv.aviso_cirurgia  avi
+      ,dbamv.cirurgia_aviso  cir
+      ,dbamv.cen_cir         cen
+      ,dbamv.prestador_aviso pre_avi
+      ,dbamv.ati_med         ati
+      ,dbamv.prestador pre
+      ,dbamv.reg_inf reg
+      ,dbamv.cirurgia ci
+WHERE ate.cd_servico = ser.cd_servico(+)
+  AND ate.cd_ser_dis = dis.cd_ser_dis(+)
+  AND avi.tp_situacao = 'R'
+  AND avi.cd_atendimento = ate.cd_atendimento
+  AND avi.cd_aviso_cirurgia =  cir.cd_aviso_cirurgia
+  AND avi.cd_cen_cir = cen.cd_cen_cir
+  AND cir.cd_cirurgia_aviso = pre_avi.cd_cirurgia_aviso
+  AND pre_avi.cd_ati_med = ati.cd_ati_med
+  AND ci.cd_cirurgia  = cir.cd_cirurgia
+  AND pre_avi.sn_principal = 'S'
+  AND pre_avi.cd_prestador = pre.cd_prestador
+  AND reg.tp_sit = 'C'
+  and reg.tp_infec = 'H'
+  AND reg.cd_aviso_cirurgia = avi.cd_aviso_cirurgia
+  AND avi.dt_realizacao between :CAMPO_DT_INICIAL and 
+  :CAMPO_CF_TP_CLASSIF_PSIH
+)
+ORDER BY CD_CEN_CIR,DS_CEN_CIR,
+CD_SERVICO,DS_SERVICO,
+CD_PRESTADOR,NM_PRESTADOR

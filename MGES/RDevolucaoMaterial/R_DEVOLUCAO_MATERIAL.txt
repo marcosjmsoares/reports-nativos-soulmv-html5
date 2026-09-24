@@ -1,0 +1,48 @@
+/*----------------------------------------------------------------------------*/
+--R_DEVOLUCAO_MATERIAL
+SELECT * FROM (
+SELECT Dev_for.dt_devolucao dt_devolucao,
+               Dev_for.cd_devolucao cd_devolucao,
+               Ent_pro.cd_fornecedor cd_fornecedor,
+               Fornecedor.nm_fornecedor nm_fornecedor,
+               Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', nota_cre_deb_supri.NR_NCF, Dev_for.nr_documento  || '-'   || dev_for.nr_serie) Nota_fiscal,
+               Produto.cd_especie cd_especie,
+               Especie.ds_especie ds_especie,
+               Sum(itent_pro.vl_custo_real * itdev_for.qt_devolvida) vl_total
+  FROM Dbamv.fornecedor         Fornecedor,
+             Dbamv.ent_pro              Ent_pro,
+             Dbamv.itent_pro            Itent_pro,
+             Dbamv.dev_for              Dev_for,
+             Dbamv.itdev_for            Itdev_for,
+             Dbamv.produto              Produto,
+             Dbamv.especie              Especie,
+             Dbamv.Estoque             Estoque
+             ,dbamv.nota_cre_deb_supri  nota_cre_deb_supri
+             ,DBAMV.CONFIGEST
+WHERE  Ent_pro.cd_ent_pro                             = Itent_pro.cd_ent_pro
+      AND  Ent_pro.cd_fornecedor                        = Fornecedor.cd_fornecedor
+      AND  Ent_pro.cd_fornecedor                        = Fornecedor.cd_fornecedor
+      AND  Itdev_for.cd_itent_pro                         = Itent_pro.cd_itent_pro
+      AND  Fornecedor.Tp_Cliente_Forn In  ( 'F', 'A', 'R', 'T' )
+      AND  Dev_for.cd_ent_pro                             = Ent_pro.cd_ent_pro
+      AND  Dev_for.cd_devolucao                        = Itdev_for.cd_devolucao
+      AND  Ent_pro.cd_fornecedor                        is not null
+      AND  Itent_pro.cd_produto                           = Produto.cd_produto
+      AND  Produto.cd_especie                            = Especie.cd_especie
+      AND  Ent_pro.cd_estoque                            = Estoque.cd_estoque
+      AND  trunc(dev_for.dt_emissao) BETWEEN :CAMPO_DTINIC  AND 
+      AND  Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND CONFIGEST.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND Dev_for.CD_NOTA_CRE_DEB  = nota_cre_deb_supri.CD_NOTA_CRE_DEB  (+)
+ Group by Dev_for.dt_devolucao,
+                Dev_for.cd_devolucao,
+                Ent_pro.cd_fornecedor,
+                Fornecedor.nm_fornecedor,
+               Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', nota_cre_deb_supri.NR_NCF, Dev_for.nr_documento  || '-'   || dev_for.nr_serie),
+               Produto.cd_especie,
+               Especie.ds_especie,
+               Estoque.cd_reduzido_credito,
+               Estoque.cd_reduzido_debito
+Order by Dev_for.dt_devolucao
+)
+ORDER BY DT_DEVOLUCAO,CD_DEVOLUCAO,CD_FORNECEDOR,NM_FORNECEDOR,NOTA_FISCAL

@@ -1,0 +1,96 @@
+/*----------------------------------------------------------------------------*/
+--R_RECIBO_TESOURARIA_ADIANT
+SELECT '1' VIA
+       ,'1ª VIA CLIENTE' DS_VIA
+       ,(SELECT 'Este documento não poderá ser utilizado para efeito de Imposto de Renda, por gentileza retirar nota fiscal na quitação da conta.' TEXTO
+           FROM DBAMV.VDIC_RECIBO_TESOURARIA
+          WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+            AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+            AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND CD_TIPO_RECEB = 1
+            AND ROWNUM = 1) TEXTO
+       ,NM_RESPONSAVEL NOME
+       ,RPS
+       ,DT_EMISSAO
+       ,VL_DUPLICATA VL_TITULO
+       ,(VL_DUPLICATA - VL_RECEBIDO - VL_DESCONTO ) SALDO
+       ,VL_RECEBIDO VL_RECEBIDO_CAB
+       ,VL_RECEBIDO VL_RECEBIDO_CAB1
+       ,NVL(VL_ACRESCIMO, 0) VL_ACRESCIMO
+       ,NVL(VL_DESCONTO, 0) VL_DESCONTO
+       ,dbamv.PACK_FNCP.EXTENSOS((SELECT SUM(VL_RECEBIDO)
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA
+                                   WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) EXTENSO
+       ,(SELECT SUM(VL_RECEBIDO)
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA
+                                   WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))) VL_TOTAL
+FROM (SELECT Nvl(NM_CLIENTE, NM_RESPONSAVEL) NM_RESPONSAVEL
+            ,RPS
+            ,DT_EMISSAO
+            ,(SELECT Sum(VL_DUPLICATA) FROM (SELECT DISTINCT CD_CON_REC, CD_ITCON_REC, Nvl(VL_DUPLICATA,0) VL_DUPLICATA
+                                               FROM DBAMV.VDIC_RECIBO_TESOURARIA
+                                              WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+                                                AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                                AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) VL_DUPLICATA
+            ,SUM(VL_RECEBIDO) VL_RECEBIDO
+            ,SUM(VL_DESCONTO) VL_DESCONTO
+            ,SUM(VL_ACRESCIMO) VL_ACRESCIMO
+       FROM DBAMV.VDIC_RECIBO_TESOURARIA
+       WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+         AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+         AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+       GROUP BY Nvl(NM_CLIENTE, NM_RESPONSAVEL)
+                ,RPS
+                ,DT_EMISSAO)
+UNION ALL
+SELECT '2' VIA
+       ,'2ª VIA FINANCEIRO' DS_VIA
+       ,(SELECT 'Este recibo só terá valor de quitação após compensação bancária do cheque mencionado neste documento.' TEXTO
+           FROM DBAMV.VDIC_RECIBO_TESOURARIA
+          WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+            AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+            AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+            AND CD_TIPO_RECEB = 1
+            AND ROWNUM = 1) TEXTO
+       ,NM_RESPONSAVEL NOME
+       ,RPS
+       ,DT_EMISSAO
+       ,VL_DUPLICATA VL_TITULO
+       ,(VL_DUPLICATA - VL_RECEBIDO - VL_DESCONTO ) SALDO
+       ,VL_RECEBIDO VL_RECEBIDO_CAB
+       ,VL_RECEBIDO VL_RECEBIDO_CAB1
+       ,NVL(VL_ACRESCIMO, 0) VL_ACRESCIMO
+       ,NVL(VL_DESCONTO, 0) VL_DESCONTO
+       ,dbamv.PACK_FNCP.EXTENSOS((SELECT SUM(VL_RECEBIDO)
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA
+                                   WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) EXTENSO
+       ,(SELECT SUM(VL_RECEBIDO)
+                                    FROM DBAMV.VDIC_RECIBO_TESOURARIA
+                                   WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+                                     AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                     AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))) VL_TOTAL
+FROM (SELECT Nvl(NM_CLIENTE, NM_RESPONSAVEL) NM_RESPONSAVEL
+            ,RPS
+            ,DT_EMISSAO
+            ,(SELECT Sum(VL_DUPLICATA) FROM (SELECT DISTINCT CD_CON_REC, CD_ITCON_REC, Nvl(VL_DUPLICATA,0) VL_DUPLICATA
+                                               FROM DBAMV.VDIC_RECIBO_TESOURARIA
+                                              WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+                                                AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+                                                AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0)))) VL_DUPLICATA
+            ,SUM(VL_RECEBIDO) VL_RECEBIDO
+            ,SUM(VL_DESCONTO) VL_DESCONTO
+            ,SUM(VL_ACRESCIMO) VL_ACRESCIMO
+       FROM DBAMV.VDIC_RECIBO_TESOURARIA
+       WHERE CD_CONTRATO_ADIANT = :CAMPO_CD_CONTRATO_ADIANT
+         AND (Nvl(:CAMPO_CD_RECCON_REC,0) = 0 OR CD_RECCON_REC = Nvl(:CAMPO_CD_RECCON_REC,0))
+         AND (Nvl(:CAMPO_CD_ITCON_REC,0) = 0 OR CD_ITCON_REC = Nvl(:CAMPO_CD_ITCON_REC,0))
+       GROUP BY Nvl(NM_CLIENTE, NM_RESPONSAVEL)
+                ,RPS
+                ,DT_EMISSAO)
+ORDER BY VIA, DT_EMISSAO

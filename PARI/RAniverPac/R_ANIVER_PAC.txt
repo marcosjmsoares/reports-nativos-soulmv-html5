@@ -1,0 +1,41 @@
+/*----------------------------------------------------------------------------*/
+--R_ANIVER_PAC
+SELECT * FROM (
+SELECT     PACIENTE.CD_PACIENTE
+                  ,UNID_INT.DS_UNID_INT
+                  ,to_char( PACIENTE.DT_NASCIMENTO, 'DD/MM' ) DT_NASC
+                  ,to_char( PACIENTE.DT_NASCIMENTO, 'MM/DD' ) DT_NASCIMENTO
+                  ,PACIENTE.NM_PACIENTE
+                  ,(SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  CD_PACIENTE) NM_SOCIAL_PACIENTE
+                  ,LEITO.DS_RESUMO
+                  ,ATENDIME.DT_ATENDIMENTO
+                  ,ATENDIME.HR_ATENDIMENTO
+                  ,(  trunc( (SYSDATE - PACIENTE.DT_NASCIMENTO ) / 365.25 ) ) IDADE
+   FROM    dbamv.ATENDIME
+          ,dbamv.PACIENTE
+          ,dbamv.LEITO
+          ,dbamv.PRESTADOR
+          ,dbamv.CONVENIO
+          ,dbamv.UNID_INT
+     WHERE   ATENDIME.DT_ALTA         IS NULL
+     AND     ATENDIME.TP_ATENDIMENTO  IN ( 'I', 'H')
+     AND     PACIENTE.CD_PACIENTE     =  ATENDIME.CD_PACIENTE
+     AND     PRESTADOR.CD_PRESTADOR   =  ATENDIME.CD_PRESTADOR
+     AND     LEITO.CD_LEITO(+)        =  ATENDIME.CD_LEITO
+     AND     UNID_INT.CD_UNID_INT     =  LEITO.CD_UNID_INT
+     AND     ATENDIME.CD_CONVENIO     =  CONVENIO.CD_CONVENIO
+     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+           GROUP BY      PACIENTE.CD_PACIENTE
+                                   ,UNID_INT.DS_UNID_INT
+                                   ,to_char( PACIENTE.DT_NASCIMENTO, 'DD/MM' )
+                                   ,to_char( PACIENTE.DT_NASCIMENTO, 'MM/DD' )
+                                   ,PACIENTE.NM_PACIENTE
+                                   ,LEITO.DS_RESUMO
+                                   ,ATENDIME.DT_ATENDIMENTO
+                                   ,ATENDIME.HR_ATENDIMENTO
+                                   ,(  trunc( (SYSDATE - PACIENTE.DT_NASCIMENTO ) / 365.25 ) )
+                 ORDER BY    UNID_INT.DS_UNID_INT
+                                       ,to_char( PACIENTE.DT_NASCIMENTO, 'MM/DD' )
+                                       ,PACIENTE.NM_PACIENTE
+)
+ORDER BY DT_NASCIMENTO,DS_UNID_INT,NM_PACIENTE,IDADE

@@ -1,0 +1,56 @@
+/*----------------------------------------------------------------------------*/
+--R_CONFERE_DMED
+SELECT CD_ATENDIMENTO,
+  cd_beneficiario,
+  beneficiario,
+  vl_recebido VALOR_DMED_REC,
+  SUM (NVL (vl_total_nota, 0)) VALOR_DMED_NF,
+  SUM (NVL (vl_total_nota, 0)) VALOR_FATURADO
+FROM
+  (SELECT dbamv.ATENDIME.CD_ATENDIMENTO,
+    dbamv.paciente.CD_PACIENTE cd_beneficiario,
+    paciente.nm_paciente beneficiario ,
+    SUM(NVL(reccon_rec.vl_recebido,0)) vl_recebido,
+    nf.vl_total_nota
+  FROM dbamv.con_rec ,
+    dbamv.itcon_rec ,
+    dbamv.reccon_rec ,
+    dbamv.atendime ,
+    dbamv.paciente ,
+    dbamv.processo ,
+    dbamv.responsavel,
+    dbamv.doc_caixa,
+    dbamv.nota_fiscal nf
+  WHERE con_rec.cd_con_rec   = itcon_rec.cd_con_rec
+  AND itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec
+  AND con_rec.cd_atendimento = atendime.cd_atendimento
+  AND atendime.cd_paciente   = paciente.cd_paciente
+  AND con_rec.cd_processo    = processo.cd_processo
+  AND nf.cd_atendimento      = atendime.cd_atendimento
+  AND con_rec.tp_con_rec     = 'P'
+  AND reccon_rec.dt_estorno IS NULL
+  AND reccon_rec.nr_id_responsavel NOT LIKE '%CPF%'
+  AND reccon_rec.nm_responsavel NOT LIKE '%CPF%'
+  AND NVL(reccon_rec.vl_recebido,0)                                                        > 0
+  AND reccon_rec.tp_recebimento                                                           <> 'B'
+  AND responsavel.TP_RESPONSAVEL                                                           = 'F'
+  AND reccon_rec.cd_resposavel                                                             = responsavel.cd_resposavel
+  AND processo.cd_estrutural                                                              IN ('3.1.1.2.2','1.4.1.1.5','1.4.1.1.12')
+  AND ( ( reccon_rec.cd_multi_empresa                                                      = :CAMPO_EMPRESA)
+  OR ( Dbamv.Pkg_Transacao_Entre_Empresas.IsFilial(reccon_rec.cd_multi_empresa, :CAMPO_EMPRESA )        = 1
+  AND Dbamv.Pkg_Transacao_Entre_Empresas.CompartilhaPlContas(reccon_rec.cd_multi_empresa)  = 'S'
+  AND Dbamv.Pkg_Transacao_Entre_Empresas.UtilizaCtTransitoria(reccon_rec.cd_multi_empresa) = 'N' ))
+  AND reccon_rec.cd_doc_caixa                                                              = doc_caixa.cd_doc_caixa (+)
+  AND responsavel.TP_RESPONSAVEL                                                           = 'F'
+  AND NVL(reccon_rec.vl_recebido,0)                                                        > 0
+  AND reccon_rec.dt_recebimento BETWEEN to_date(:CAMPO_DT_INI, 'dd/MM/yyyy') AND to_date(:CAMPO_DTFIM, 'dd/MM/yyyy')
+  GROUP BY atendime.CD_ATENDIMENTO,
+    paciente.CD_PACIENTE,
+    paciente.nm_paciente ,
+    nf.vl_total_nota
+  )
+GROUP BY cd_atendimento,
+  cd_beneficiario,
+  beneficiario,
+  vl_recebido
+ORDER BY cd_atendimento

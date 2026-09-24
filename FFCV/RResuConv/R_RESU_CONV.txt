@@ -1,0 +1,99 @@
+/*----------------------------------------------------------------------------*/
+--R_RESU_CONV
+SELECT   cd_convenio
+        ,ds_convenio
+        ,tp_convenio
+        ,cd_con_pla
+        ,ds_con_pla
+        ,cd_regra
+        ,cd_indice
+        ,ds_regra
+        ,nm_indice
+        ,sn_ativo
+        ,sn_paga_acompanhante
+        ,sn_permite_ambulatorio
+        ,sn_permite_externo
+        ,sn_permite_hoca
+        ,sn_permite_urgencia
+        ,sn_permite_internacao
+        ,DS_OBSERVACAO
+ FROM (
+SELECT   convenio.cd_convenio cd_convenio
+        ,convenio.nm_convenio ds_convenio
+        ,convenio.tp_convenio tp_convenio
+        ,con_pla.cd_con_pla cd_con_pla
+        ,con_pla.ds_con_pla ds_con_pla
+        ,empresa_con_pla.cd_regra cd_regra 
+        ,empresa_con_pla.cd_indice cd_indice 
+        ,regra.ds_regra ds_regra
+        ,indice.nm_indice nm_indice
+        ,empresa_con_pla.sn_ativo sn_ativo 
+        ,con_pla.sn_paga_acompanhante sn_paga_acompanhante
+        ,empresa_con_pla.sn_permite_ambulatorio sn_permite_ambulatorio
+        ,empresa_con_pla.sn_permite_externo sn_permite_externo
+        ,empresa_con_pla.sn_permite_hoca sn_permite_hoca
+        ,empresa_con_pla.sn_permite_urgencia sn_permite_urgencia
+        ,empresa_con_pla.sn_permite_internacao sn_permite_internacao
+                                                           DS_OBSERVACAO
+FROM     dbamv.convenio convenio
+        ,dbamv.con_pla con_pla
+        ,dbamv.regra regra
+        ,dbamv.indice indice
+        ,dbamv.empresa_convenio
+        ,dbamv.empresa_con_pla
+   WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+     AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND convenio.cd_convenio = con_pla.cd_convenio(+)
+     AND empresa_con_pla.cd_regra = regra.cd_regra(+) 
+     AND empresa_con_pla.cd_indice = indice.cd_indice(+) 
+     and empresa_con_pla.cd_con_pla = con_pla.cd_con_pla
+     and empresa_con_pla.cd_convenio = con_pla.cd_convenio
+     and empresa_con_pla.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ORDER BY convenio.nm_convenio
+        ,con_pla.cd_con_pla
+)
+ORDER BY CD_CONVENIO,DS_CONVENIO,TP_CONVENIO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_RESU_CONV_R_PROIBICAO_GRUPO_Q_PROIBICAO_GRUPO
+SELECT DISTINCT proibicao.cd_convenio
+               ,proibicao.cd_con_pla
+               ,gru_pro.cd_gru_pro
+               ,proibicao.tp_proibicao
+               ,proibicao.tp_atendimento
+               ,proibicao.dt_inicial_proibicao
+               ,gru_pro.ds_gru_pro
+      From Dbamv.Proibicao
+               ,dbamv.gru_pro
+          ,( Select grpr.cd_gru_pro,
+                    pro.cd_multi_empresa,
+                      pro.dt_inicial_proibicao,
+                      pro.cd_setor,
+                    Count( distinct pro.cd_pro_fat ) qt_pro_fat
+               From dbamv.proibicao pro,
+                    dbamv.gru_pro grpr,
+                    dbamv.pro_fat prft
+              Where pro.cd_convenio = :CAMPO_CD_CONVENIO
+                and pro.cd_con_pla = :CAMPO_CD_CON_PLA
+                and grpr.cd_gru_pro = prft.cd_gru_pro
+                and prft.cd_pro_fat = pro.cd_pro_fat
+                and prft.cd_sus is null
+                And Pro.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+             Group by grpr.cd_gru_pro,
+                      pro.cd_multi_empresa,
+                      pro.dt_inicial_proibicao,
+                      pro.cd_setor ) qtpro,
+           dbamv.pro_fat
+     Where Proibicao.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+       and proibicao.cd_convenio = :CAMPO_CD_CONVENIO
+       and proibicao.cd_con_pla = :CAMPO_CD_CON_PLA
+       and qtpro.cd_gru_pro = pro_fat.cd_gru_pro
+       and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+       and proibicao.cd_pro_fat = pro_fat.cd_pro_fat
+       and qtpro.cd_multi_empresa = proibicao.cd_multi_empresa
+       and qtpro.qt_pro_fat = ( Select count( pro_fat.cd_pro_fat )
+                                  From dbamv.pro_fat
+                                 Where pro_fat.cd_gru_pro = qtpro.cd_gru_pro
+                                   and pro_fat.cd_sus is null)

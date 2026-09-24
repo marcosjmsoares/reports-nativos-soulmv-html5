@@ -1,0 +1,31 @@
+/*----------------------------------------------------------------------------*/
+--R_CIR_REALIZ_PREV
+select distinct decode(length(c.dia),1,'0' || c.dia,c.dia) dia
+ , nvl(d.prev,0) Previstas, nvl(d.real,0) Realizadas
+ , nvl(acum_cir_realiz_prev('01',decode(length(c.dia),1,'0' || c.dia,c.dia),:CAMPO_MES_ANO,:CAMPO_CONV),0) Acumulada
+from
+(select b.dia, sum(nvl(b.prevista,0)) Prev, sum(nvl(b.realizada,0)) Real
+  from
+  (select to_char(a.dt_realizacao, 'dd') dia, 0 prevista, count(a.dt_realizacao) realizada
+    from dbamv.aviso_cirurgia a,
+            dbamv.cirurgia_aviso b
+    where to_char(a.dt_realizacao,'mm/yyyy')  = :CAMPO_MES_ANO and
+             a.tp_situacao = 'R' and
+             a.cd_aviso_cirurgia = b.cd_aviso_cirurgia and
+             a.cd_multi_empresa = DBAMV.pkg_mv2000.le_empresa
+    group by to_char(a.dt_realizacao, 'dd')
+   union all
+   select to_char(b.dt_inicio_age_cir, 'dd') dia, count(b.dt_inicio_age_cir) prevista, 0 realizada
+    from dbamv.aviso_cirurgia a
+       , dbamv.age_cir b
+       , dbamv.cirurgia_aviso c
+    where a.cd_aviso_cirurgia = b.cd_aviso_cirurgia and
+          to_char(b.dt_inicio_age_cir,'mm/yyyy')  = :CAMPO_MES_ANO and
+          a.cd_aviso_cirurgia = c.cd_aviso_cirurgia and
+          a.cd_multi_empresa = DBAMV.pkg_mv2000.le_empresa 
+    group by to_char(b.dt_inicio_age_cir, 'dd')) b
+ group by b.dia) d
+ , dbamv.dia_aux c
+ where d.dia (+) = decode(length(c.dia),1,'0' || c.dia,c.dia)
+  and decode(length(c.dia),1,'0' || c.dia,c.dia) <= to_char(last_day(to_date('01/'||:CAMPO_MES_ANO,'dd/mm/yyyy')),'dd')
+order by decode(length(c.dia),1,'0' || c.dia,c.dia)

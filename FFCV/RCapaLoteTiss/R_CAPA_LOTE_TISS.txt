@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_CAPA_LOTE_TISS
+SELECT distinct * FROM (
+SELECT decode(tiss_guia.nm_xml,
+              'guiaSP_SADT', 'Lote de SP/SADT',
+              'guiaConsulta', 'Lote de Consultas',
+              'guiaResumoInternacao', 'Lote de Resumo de Internacao', ' ') tipo_lote,
+       tiss_lote.nr_lote,
+       tiss_mensagem.cd_seq_transacao,
+       To_Number(tiss_mensagem.nr_documento) cd_remessa,
+       To_Char(fatura.dt_competencia,'mm/yyyy') dt_competencia,
+       nvl(reg_fat.dt_inicio,atendime.dt_atendimento) dt_atendimento,
+       nvl(reg_fat.dt_final ,atendime.dt_atendimento) dt_final,
+       nvl(tiss_guia.nr_guia_operadora,tiss_guia.nr_guia) nr_guia_tiss,
+       nvl(tiss_guia.cd_reg_fat,tiss_guia.cd_reg_amb) cd_conta,
+       tiss_guia.cd_atendimento,
+       tiss_guia.nm_paciente,
+       tiss_guia.cd_convenio,
+       convenio.nm_convenio,
+       To_Number(Nvl(tiss_guia.vl_tot_geral, tiss_guia.VL_PROCEDIMENTO_CO) ,'99999999999.99') vl_total_conta,
+       reg_fat.dt_remessa dt_remessa
+  FROM dbamv.atendime,
+       dbamv.tiss_guia,
+       dbamv.tiss_lote,
+       dbamv.tiss_mensagem,
+       dbamv.remessa_fatura,
+       dbamv.fatura,
+       dbamv.reg_fat,
+       dbamv.convenio
+ WHERE tiss_mensagem.id  = :CAMPO_ID_TISS_MENSAGEM
+   AND atendime.cd_atendimento = tiss_guia.cd_atendimento
+   AND remessa_fatura.cd_remessa = To_Number(tiss_mensagem.nr_documento)
+   AND fatura.cd_fatura = remessa_fatura.cd_fatura
+   AND reg_fat.cd_reg_fat(+) = tiss_guia.cd_reg_fat
+   AND tiss_lote.id = tiss_guia.id_pai
+   AND tiss_mensagem.id = tiss_lote.id_pai
+   and convenio.cd_convenio = tiss_guia.cd_convenio
+)

@@ -1,0 +1,2012 @@
+/*----------------------------------------------------------------------------*/
+--R_POSICAO_PATRIMONIO_SC
+SELECT * FROM (
+SELECT TP_REGISTRO,
+       Cd_Reduzido,
+       Cd_Contabil,
+       Ds_Conta,
+       Decode(:CAMPO_TP_EXIBICAO_SALDO,'R', Sum(Nvl(Valor_Anterior,0)), Abs(Sum(Nvl(Valor_Anterior,0)))) Valor_Anterior,
+        Sum(Nvl(Round(Valor_Compra,2),0)) Valor_Compra,
+        Sum(Nvl(Valor_Reavaliacao,0)) Valor_Reavaliacao,
+        Sum(Nvl(Valor_Baixado,0)) Valor_Baixado,
+        Sum(Nvl(Valor_Baixado_Canc,0)) Valor_Baixado_Canc,
+        Sum(Nvl(Valor_Transferencia,0)) Valor_Transferencia,
+        Sum(Nvl(Valor_Inventario,0)) Valor_Inventario,
+        Sum(Nvl(Valor_Depreciacoes,0)) Valor_Depreciacoes
+FROM (
+Select 'ATIVO IMOBILIZADO'    TP_REGISTRO,
+       Pl.Cd_Reduzido,
+       Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Sum( Nvl(Sl_Ant.Valor_Anterior,0) ) Valor_Anterior,
+       Sum( Nvl(Sl_Aqui.Valor_Compra,0) ) Valor_Compra,
+       Sum( 0 ) Valor_Reavaliacao,
+       Sum( Nvl(Sl_Baix.Valor_Baixado,0) ) Valor_Baixado,
+       Sum( Nvl(Sl_BaixC.Valor_Baixado,0) ) Valor_Baixado_Canc,
+       Sum( Nvl(Sl_Transf.Valor_Transferencia,0) ) Valor_Transferencia,
+       Sum( 0 ) Valor_Inventario,
+       Sum( 0 ) Valor_Depreciacoes
+From   Dbamv.V_PLANO_CONTAS_DE_PARA  Pl,
+       Dbamv.Sub_Iob_Empresa       Sb,
+       ( Select Distinct be.Cd_Capitulo, be.Cd_Sub_Cap
+         From   Dbamv.Bens be
+         Where  Trunc(be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'MM')
+           and be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Union
+         Select Distinct Al.Cd_Capitulo_Atual, Al.Cd_Sub_Cap_Atual
+         From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.Bens  Be
+         Where Al.cd_bem = Be.cd_bem
+           And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+           And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         ) Be, 
+       ( Select Cd_Capitulo, Cd_Sub_Cap, Round(Sum(Valor_Anterior),2) Valor_Anterior
+         From   (  Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Round( Sum(Be.Vl_Compra),2 ) Valor_Anterior
+                     From dbamv.bens be,
+               ( Select lp.cd_lancamento_patrimonio,
+                                     Lp.Cd_Bem,
+                                     Lp.dt_lancamento
+                                From Dbamv.Lancamento_Patrimonio Lp
+                               Where lp.Tp_Lancamento = 'B'
+                               and  trunc(Lp.Dt_Lancamento) > :CAMPO_PDTREFERENCIA and rownum = 1 order by 3) Baix
+                  where   Be.Cd_Bem                         = Baix.Cd_Bem(+)
+                   And    Nvl(trunc(Be.Dt_Baixa),nvl(trunc(Baix.Dt_Lancamento),:CAMPO_PDTREFERENCIA+1))  >= :CAMPO_PDTREFERENCIA
+                   And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+           and    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+           UNION all
+            	Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Nvl(Sum(Agreg.Vl_Compra),0) Valor_Compra
+                     From Dbamv.Bens  Be,
+				              ( Select Lp.Cd_Bem,
+                                       Lp.dt_lancamento,
+                                       lp.vl_lancamento Vl_Compra
+                                 From Dbamv.Lancamento_Patrimonio Lp
+                                Where lp.Tp_Lancamento = 'X'
+                                  AND TRUNC(lp.DT_LANCAMENTO,'MM' )< TRUNC(:CAMPO_PDTREFERENCIA, 'MM')) Agreg
+                Where be.cd_bem = agreg.cd_bem
+                And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+           UNION all
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Round( Sum(Nvl(Estbaix.Vl_Compra,0)),2 ) * (-1) Valor_Anterior
+                   From  dbamv.bens be,
+                        (SELECT DISTINCT lp.cd_bem, Round(bn.vl_compra,2) vl_compra
+                           FROM dbamv.lancamento_patrimonio lp, dbamv.bens bn
+                          WHERE bn.cd_bem = lp.cd_bem
+                            And lp.tp_lancamento = 'O'
+                            And TRUNC (lp.dt_lancamento) >= :CAMPO_PDTREFERENCIA
+                            AND exists (select 'X'
+                                               from dbamv.lancamento_patrimonio pt
+                                              where Trunc(pt.dt_lancamento,'MM') <= TRUNC (lp.dt_lancamento,'MM')
+                          and Trunc(pt.dt_lancamento,'MM') < TRUNC (:CAMPO_PDTREFERENCIA,'MM')
+                                                and pt.cd_bem = bn.cd_bem
+                                                and pt.tp_lancamento = 'B')) Estbaix
+                  where   Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                   AND    Be.cd_bem                         = Estbaix.cd_bem
+                   and    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION all
+                    SELECT   cd_capitulo, cd_sub_cap,
+                             Round (Sum(NVL (valor_anterior, 0)),2) valor_anterior
+                        FROM (SELECT   be.cd_capitulo, be.cd_sub_cap,
+                                        Nvl(Sum(Round(Be.Vl_Compra,2)),0) valor_anterior
+                                  FROM dbamv.bens be, dbamv.mov_bens mb
+                                 WHERE be.cd_bem = mb.cd_bem
+                                   AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                   And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                   AND mb.cd_multi_empresa_origem <>
+                                                   mb.cd_multi_empresa_destino
+                                   AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                              GROUP BY be.cd_capitulo, be.cd_sub_cap
+                              UNION ALL
+                              SELECT   be.cd_capitulo, be.cd_sub_cap,
+                                       - Nvl(Round(Sum(Be.Vl_Compra),2),0) valor_anterior
+                                  FROM dbamv.bens be, dbamv.mov_bens mb
+                                 WHERE be.cd_bem = mb.cd_bem
+                                   AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                   And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                   AND mb.cd_multi_empresa_origem <>
+                                                   mb.cd_multi_empresa_destino
+                                   AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                              GROUP BY be.cd_capitulo, be.cd_sub_cap)
+                    GROUP BY cd_capitulo, cd_sub_cap
+                   UNION all
+                   select Cd_Capitulo, Cd_Sub_Cap,
+                             Round(Sum(nvl(Valor_Anterior,0)),2) Valor_Anterior
+                   from (
+                   Select Al.Cd_Capitulo_Atual   Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Atual    Cd_Sub_Cap,
+                          Round(Sum((dbamv.Pkg_Patrimonio.Fn_RetDadosBem( Be.Cd_Bem, Trunc(DT_ALTERACAO_SUB_IOB_BEM), 'V', 'S', 'C' ))),2) Valor_Anterior
+                   From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.Bens  Be
+                   Where Al.cd_bem = Be.cd_bem
+                     And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+           And Trunc(Be.Dt_Tombamento,'MM')       < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                     And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Atual,
+                            Al.Cd_Sub_Cap_Atual
+                   UNION all
+                   Select Al.Cd_Capitulo_Nova  Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Nova   Cd_Sub_Cap,
+                          - Round(Sum((dbamv.Pkg_Patrimonio.Fn_RetDadosBem( Be.Cd_Bem, Trunc(DT_ALTERACAO_SUB_IOB_BEM), 'V', 'S', 'C' ))),2) Valor_Anterior
+                   From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.Bens  Be
+                    Where Al.cd_bem = Be.cd_bem
+                      And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+            AND Trunc(Be.Dt_Tombamento,'MM')       < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                      And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Nova,
+                            Al.Cd_Sub_Cap_Nova)
+                   Group by Cd_Capitulo, Cd_Sub_Cap)
+         Group By Cd_Capitulo, Cd_Sub_Cap
+         Having Sum(Valor_Anterior) <> 0    ) Sl_Ant, 
+       (Select Cd_Capitulo,
+               Cd_Sub_Cap,
+               Round(Nvl(Sum(Valor_Compra),0),2) Valor_Compra
+          from (Select Be.Cd_Capitulo,
+                       Be.Cd_Sub_Cap,
+                       Nvl(Sum(Be.Vl_Compra),0) Valor_Compra
+                From   Dbamv.Bens  Be
+                Where  To_Char(Be.Dt_Tombamento,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+                And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                UNION ALL
+                Select Be.Cd_Capitulo,
+                       Be.Cd_Sub_Cap,
+                       Nvl(Sum(Agreg.Vl_Compra),0) Valor_Compra
+                  From Dbamv.Bens  Be,
+			         ( Select Lp.Cd_Bem,
+                              Lp.dt_lancamento,
+					          lp.vl_lancamento Vl_Compra
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'X'
+                          AND TRUNC(lp.DT_LANCAMENTO,'MM' )= TRUNC(:CAMPO_PDTREFERENCIA, 'MM')) Agreg
+                Where be.cd_bem = agreg.cd_bem
+                And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                UNION ALL
+                SELECT   be.cd_capitulo, be.cd_sub_cap,
+                          NVL (SUM (be.vl_compra), 0) valor_compra
+                    FROM dbamv.bens be, dbamv.mov_bens mb
+                    WHERE be.cd_bem = mb.cd_bem
+                      AND TRUNC (mb.dt_mov_bem) >=  :CAMPO_PDTREFERENCIA
+                      AND TRUNC (be.dt_tombamento, 'MM') =  TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+              AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                      AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)  
+                GROUP BY be.cd_capitulo, be.cd_sub_cap
+                UNION ALL
+                SELECT   be.cd_capitulo, be.cd_sub_cap,
+                          -NVL (SUM (be.vl_compra), 0) valor_compra
+                    FROM dbamv.bens be, dbamv.mov_bens mb
+                    WHERE be.cd_bem = mb.cd_bem
+                      AND TRUNC (mb.dt_mov_bem) >=  :CAMPO_PDTREFERENCIA
+                      AND TRUNC (be.dt_tombamento, 'MM') = TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+                      AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                      AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL) 
+                GROUP BY be.cd_capitulo, be.cd_sub_cap
+                UNION ALL
+                select Cd_Capitulo, Cd_Sub_Cap,
+                       sum(nvl(valor_compra,0)) valor_compra
+                   from (
+                   Select Al.Cd_Capitulo_Atual   Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Atual    Cd_Sub_Cap,
+                          Sum(dbamv.Pkg_Patrimonio.Fn_RetDadosBem( Be.Cd_Bem, Trunc(DT_ALTERACAO_SUB_IOB_BEM), 'V', 'S', 'C' )) valor_compra
+                   From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.Bens  Be
+                   Where Al.cd_bem = Be.cd_bem
+                     And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                     AND TRUNC (be.dt_tombamento, 'MM')     = TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+                     And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Atual,
+                            Al.Cd_Sub_Cap_Atual
+                   UNION all
+                   Select Al.Cd_Capitulo_Nova  Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Nova   Cd_Sub_Cap,
+                          - Sum(dbamv.Pkg_Patrimonio.Fn_RetDadosBem( Be.Cd_Bem, Trunc(DT_ALTERACAO_SUB_IOB_BEM), 'V', 'S', 'C' )) valor_compra
+                   From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.Bens  Be
+                    Where Al.cd_bem = Be.cd_bem
+                      And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                      AND TRUNC (be.dt_tombamento, 'MM') = TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+                      And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Nova,
+                            Al.Cd_Sub_Cap_Nova)
+                   Group by Cd_Capitulo, Cd_Sub_Cap
+                    )
+        group by cd_capitulo, cd_sub_cap) Sl_Aqui,
+       ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Sum(Nvl(Baix.vl_lancamento,0)) Valor_Baixado
+         From   Dbamv.Bens   Be,
+                ( Select Lp.Cd_Bem,
+                         Lp.dt_lancamento,
+                         Lp.vl_lancamento
+                    From Dbamv.Lancamento_Patrimonio Lp
+                   Where lp.Tp_Lancamento = 'B'
+                   :CAMPO_CF_EMPRESA_LANCAMENTO) Baix
+         Where  Be.Cd_Bem                         = Baix.Cd_Bem
+         And    trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap  ) Sl_Baix,
+         ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Sum(Nvl(Baix.vl_lancamento,0)) Valor_Baixado
+         From   Dbamv.Bens   Be,
+                ( Select Lp.Cd_Bem,
+                         Lp.dt_lancamento,
+                         Lp.vl_lancamento
+                    From Dbamv.Lancamento_Patrimonio Lp
+                   Where lp.Tp_Lancamento = 'O'
+                   :CAMPO_CF_EMPRESA_LANCAMENTO
+                   ) Baix
+         Where  Be.Cd_Bem                         = Baix.Cd_Bem
+         And    trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap  ) Sl_BaixC,
+       ( Select Cd_Capitulo, Cd_Sub_Cap,
+                    sum(nvl(Valor_Transferencia,0)) Valor_Transferencia
+          From
+          (Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                -Sum(dbamv.Pkg_Patrimonio.Fn_RetDadosBem( Be.Cd_Bem, Trunc(DT_ALTERACAO_SUB_IOB_BEM), 'V', 'S', 'C' )) Valor_Transferencia
+         From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al
+         Where  Al.Cd_Bem                      = Be.Cd_Bem
+         And    To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Al.Cd_Capitulo_Atual ,
+                  Al.Cd_Sub_Cap_Atual
+         Union All
+         Select Al.Cd_Capitulo_Nova,
+                Al.Cd_Sub_Cap_Nova,
+                Sum(dbamv.Pkg_Patrimonio.Fn_RetDadosBem( Be.Cd_Bem, Trunc(DT_ALTERACAO_SUB_IOB_BEM), 'V', 'S', 'C' )) Valor_Transferencia
+         From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al
+         Where  Al.Cd_Bem                      = Be.Cd_Bem
+         And    To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Al.Cd_Capitulo_Nova ,
+                  Al.Cd_Sub_Cap_Nova
+         UNION ALL
+         SELECT  be.cd_capitulo, be.cd_sub_cap,
+                 - Nvl(Sum(Be.Vl_Compra),0) Valor_Transferencia
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb
+         WHERE be.cd_bem = mb.cd_bem
+         AND   to_char(mb.dt_mov_bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         AND   mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+         AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION ALL
+         SELECT  be.cd_capitulo, be.cd_sub_cap,
+                 Nvl(Sum(Be.Vl_Compra),0) Valor_Transferencia
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb
+         WHERE be.cd_bem = mb.cd_bem
+         AND   to_char(mb.dt_mov_bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         AND   mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+         AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         GROUP BY be.cd_capitulo, be.cd_sub_cap)
+         Group By Cd_Capitulo, Cd_Sub_Cap     ) Sl_Transf
+Where  :CAMPO_TP_POSICAO    = 'C'                      And Be.Cd_Capitulo = Sb.Cd_Capitulo           And Be.Cd_Sub_Cap  = Sb.Cd_Sub_Cap
+And    Sb.Cd_Reduzido_Bem  = Pl.Cd_Reduzido_de           And Sb.Cd_Capitulo = Sl_Ant.Cd_Capitulo(+)    And Sb.Cd_Sub_Cap  = Sl_Ant.Cd_Sub_Cap(+)
+And    Sb.Cd_Capitulo      = Sl_Aqui.Cd_Capitulo(+)   And Sb.Cd_Sub_Cap  = Sl_Aqui.Cd_Sub_Cap(+)    And Sb.Cd_Capitulo = Sl_Baix.Cd_Capitulo(+)
+And    Sb.Cd_Sub_Cap       = Sl_Baix.Cd_Sub_Cap(+)    And Sb.Cd_Capitulo = Sl_BaixC.Cd_Capitulo(+)  And Sb.Cd_Sub_Cap  = Sl_BaixC.Cd_Sub_Cap(+)
+And    Sb.Cd_Capitulo      = Sl_Transf.Cd_Capitulo(+) And Sb.Cd_Sub_Cap  = Sl_Transf.Cd_Sub_Cap(+)  And :CAMPO_SN_IMPRIME in ('T','A')
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+Group By  'ATIVO IMOBILIZADO',
+          Pl.Cd_Reduzido,
+          Pl.Cd_Contabil,
+          Pl.Ds_Conta
+UNION ALL
+Select 'ATIVO IMOBILIZADO'    TP_REGISTRO,
+       Pl.Cd_Reduzido,
+       Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Sum( Nvl(Sl_Ant.Valor_Anterior,0) ) Valor_Anterior,
+       Sum( Nvl(0,0) ) Valor_Compra,
+       Sum( Nvl(Sl_Reav.Valor_Reavaliacao,0) ) Valor_Reavaliacao,
+       Sum( Nvl(Sl_Baix.Valor_Baixado,0) ) Valor_Baixado,
+       Sum( Nvl(Sl_BaixC.Valor_Baixado,0) ) Valor_Baixado_Canc,
+       Sum( Nvl(Sl_Transf.Valor_Transferencia,0) ) Valor_Transferencia,
+       Sum( 0 ) Valor_Inventario,
+       Sum( 0 ) Valor_Depreciacoes
+From   Dbamv.V_PLANO_CONTAS_DE_PARA  Pl,
+       Dbamv.Sub_Iob_Empresa       Sb,
+       ( Select Distinct be.Cd_Capitulo, be.Cd_Sub_Cap
+         From   Dbamv.Bens be
+         Where  Trunc(be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'MM')
+           and be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Union
+         Select Distinct Al.Cd_Capitulo_Atual, Al.Cd_Sub_Cap_Atual
+         From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.Bens  Be
+         Where Al.cd_bem = Be.cd_bem
+           And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+           And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         ) Be,
+       ( Select Cd_Capitulo, Cd_Sub_Cap, Sum(Valor_Anterior) Valor_Anterior
+         From   (  Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum( Nvl(Reav.Vl_Lancamento,0) ) Valor_Anterior
+                     From dbamv.bens be,
+                          ( Select Lc.Cd_Bem,
+                                   Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                            From   Dbamv.Lancamento_Patrimonio Lc
+                            Where  Tp_Lancamento = 'R'
+                              and  trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                            Group By Lc.Cd_Bem ) Reav,
+                            ( Select lp.cd_lancamento_patrimonio,
+                                     Lp.Cd_Bem,
+                                     Lp.dt_lancamento
+                                From Dbamv.Lancamento_Patrimonio Lp
+                               Where lp.Tp_Lancamento = 'B'
+                               and  trunc(Lp.Dt_Lancamento) > :CAMPO_PDTREFERENCIA ) Baix
+                    where  Be.Cd_Bem                         = Baix.Cd_Bem(+)
+                   And    Nvl(trunc(Be.Dt_Baixa),nvl(trunc(Baix.Dt_Lancamento),:CAMPO_PDTREFERENCIA+1))  >= :CAMPO_PDTREFERENCIA
+                   And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                   And    Be.Cd_Bem                         = Reav.Cd_Bem
+                   and    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION all
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum( Nvl(Reav.Vl_Lancamento,0) ) * (-1) Valor_Anterior
+                   From  dbamv.bens be,
+                        ( Select  Lc.Cd_Bem,
+                                   Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                            From   Dbamv.Lancamento_Patrimonio Lc
+                            Where  Tp_Lancamento = 'R'
+                              and  trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                            Group By Lc.Cd_Bem ) Reav,
+                        (SELECT lp.cd_bem, bn.vl_compra
+                           FROM dbamv.lancamento_patrimonio lp, dbamv.bens bn
+                          WHERE bn.cd_bem = lp.cd_bem
+                            And lp.tp_lancamento = 'O'
+                            And TRUNC (lp.dt_lancamento) >= :CAMPO_PDTREFERENCIA
+                            AND exists (select 'X'
+                                               from dbamv.lancamento_patrimonio pt
+                                              where pt.dt_lancamento < :CAMPO_PDTREFERENCIA
+                                                and pt.cd_bem = bn.cd_bem
+                                                and pt.tp_lancamento = 'B')) Estbaix
+                  where   Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                   AND    Be.cd_bem                         = Estbaix.cd_bem
+                   And    Be.Cd_Bem                         = Reav.Cd_Bem
+                   and    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION all
+                    SELECT   cd_capitulo, cd_sub_cap,
+                             SUM (NVL (valor_anterior, 0)) valor_anterior
+                        FROM (SELECT   be.cd_capitulo, be.cd_sub_cap,
+                                       Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(mb.dt_mov_bem), 'V')),0) valor_anterior
+                                  FROM dbamv.bens be, dbamv.mov_bens mb,
+                                       ( Select Lc.Cd_Bem,
+                                                Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                                          From   Dbamv.Lancamento_Patrimonio Lc
+                                          Where  Tp_Lancamento = 'R'
+                                            and  trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                                        Group By Lc.Cd_Bem ) Reav
+                                 WHERE be.cd_bem = mb.cd_bem
+                                   And Be.Cd_Bem = Reav.Cd_Bem
+                                   AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                   And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                   AND mb.cd_multi_empresa_origem <>
+                                                   mb.cd_multi_empresa_destino
+                                   AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                              GROUP BY be.cd_capitulo, be.cd_sub_cap
+                              UNION ALL
+                              SELECT   be.cd_capitulo, be.cd_sub_cap,
+                                       - Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(mb.dt_mov_bem), 'V')),0) valor_anterior
+                                  FROM dbamv.bens be, dbamv.mov_bens mb,
+                                       ( Select Lc.Cd_Bem,
+                                                Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                                          From   Dbamv.Lancamento_Patrimonio Lc
+                                          Where  Tp_Lancamento = 'R'
+                                            and  trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                                        Group By Lc.Cd_Bem ) Reav
+                                 WHERE be.cd_bem = mb.cd_bem
+                                   And Be.Cd_Bem = Reav.Cd_Bem
+                                   AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                   And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                   AND mb.cd_multi_empresa_origem <>
+                                                   mb.cd_multi_empresa_destino
+                                   AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                              GROUP BY be.cd_capitulo, be.cd_sub_cap)
+                    GROUP BY cd_capitulo, cd_sub_cap
+                   UNION all
+                   select Cd_Capitulo, Cd_Sub_Cap,
+                             sum(nvl(Valor_Anterior,0)) Valor_Anterior
+                   from (
+                   Select Al.Cd_Capitulo_Atual   Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Atual    Cd_Sub_Cap,
+                          Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(Al.Dt_Alteracao_Sub_Iob_Bem), 'V')),0) valor_anterior
+                   From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.Bens  Be,
+                          ( Select Lc.Cd_Bem,
+                                   Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                              From Dbamv.Lancamento_Patrimonio Lc
+                             Where Tp_Lancamento = 'R'
+                               and trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                          Group By Lc.Cd_Bem ) Reav
+                   Where Al.cd_bem = Be.cd_bem
+                     And Be.Cd_Bem = Reav.Cd_Bem
+                     And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                     And Trunc(Be.Dt_Tombamento,'MM')       < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                     And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Atual,
+                            Al.Cd_Sub_Cap_Atual
+                   UNION all
+                   Select Al.Cd_Capitulo_Nova  Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Nova   Cd_Sub_Cap,
+                          - Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(Al.Dt_Alteracao_Sub_Iob_Bem), 'V')),0) valor_anterior
+                   From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.Bens  Be,
+                           ( Select Lc.Cd_Bem,
+                                   Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                              From Dbamv.Lancamento_Patrimonio Lc
+                             Where Tp_Lancamento = 'R'
+                               and trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                          Group By Lc.Cd_Bem ) Reav
+                    Where Al.cd_bem = Be.cd_bem
+                      And Be.Cd_Bem = Reav.Cd_Bem
+                      And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                      AND Trunc(Be.Dt_Tombamento,'MM')       < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                      And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Nova,
+                            Al.Cd_Sub_Cap_Nova)
+                   Group by Cd_Capitulo, Cd_Sub_Cap)
+         Group By Cd_Capitulo, Cd_Sub_Cap
+         Having Sum(Valor_Anterior) <> 0    ) Sl_Ant,
+       ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Nvl(Sum(Lc.Vl_Lancamento),0) Valor_Reavaliacao
+         From   Dbamv.Bens                  Be,
+                Dbamv.Lancamento_Patrimonio Lc
+         Where  trunc(Lc.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Lc.Tp_Lancamento = 'R'
+         And    Lc.Cd_Bem        = Be.Cd_Bem
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+UNION ALL
+         SELECT   be.cd_capitulo, be.cd_sub_cap,
+                  Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(mb.dt_mov_bem), 'V')),0) Valor_Reavaliacao
+            FROM dbamv.bens be, dbamv.mov_bens mb ,
+                 ( Select Lc.Cd_Bem
+                     From Dbamv.Lancamento_Patrimonio Lc
+                    Where Tp_Lancamento = 'R'
+                      and trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA) Reav
+            WHERE be.cd_bem = mb.cd_bem
+              And Be.Cd_Bem = Reav.Cd_Bem
+              AND TRUNC (mb.dt_mov_bem) >=  :CAMPO_PDTREFERENCIA
+              AND TRUNC (be.dt_tombamento, 'MM') =  TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+              AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+              AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)  
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION ALL
+         SELECT   be.cd_capitulo, be.cd_sub_cap,
+                  -Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(mb.dt_mov_bem), 'V')),0) Valor_Reavaliacao
+            FROM dbamv.bens be, dbamv.mov_bens mb,
+                 ( Select Lc.Cd_Bem
+                     From Dbamv.Lancamento_Patrimonio Lc
+                    Where Tp_Lancamento = 'R'
+                      and trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA) Reav
+            WHERE be.cd_bem = mb.cd_bem
+              And Be.Cd_Bem = Reav.Cd_Bem
+              AND TRUNC (mb.dt_mov_bem) >=  :CAMPO_PDTREFERENCIA
+              AND TRUNC (be.dt_tombamento, 'MM') = TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+              AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+              AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+          GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION ALL
+         select Cd_Capitulo, Cd_Sub_Cap,
+                sum(nvl(Valor_Reavaliacao,0)) Valor_Reavaliacao
+            from (
+            Select Al.Cd_Capitulo_Atual   Cd_Capitulo,
+                  Al.Cd_Sub_Cap_Atual    Cd_Sub_Cap,
+                  Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(Al.Dt_Alteracao_Sub_Iob_Bem), 'V')),0) Valor_Reavaliacao
+            From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                  Dbamv.Bens  Be,
+                  ( Select Lc.Cd_Bem
+                     From Dbamv.Lancamento_Patrimonio Lc
+                    Where Tp_Lancamento = 'R'
+                      and trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA) Reav
+            Where Al.cd_bem = Be.cd_bem
+              And Be.Cd_Bem = Reav.Cd_Bem
+              And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+              AND TRUNC (be.dt_tombamento, 'MM')     = TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+              And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+            Group By Al.Cd_Capitulo_Atual,
+                    Al.Cd_Sub_Cap_Atual
+            UNION all
+            Select Al.Cd_Capitulo_Nova  Cd_Capitulo,
+                  Al.Cd_Sub_Cap_Nova   Cd_Sub_Cap,
+                  - Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(Al.Dt_Alteracao_Sub_Iob_Bem), 'V')),0) Valor_Reavaliacao
+            From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                  Dbamv.Bens  Be,
+                  ( Select Lc.Cd_Bem
+                     From Dbamv.Lancamento_Patrimonio Lc
+                    Where Tp_Lancamento = 'R'
+                      and trunc(Lc.Dt_Lancamento) < :CAMPO_PDTREFERENCIA) Reav
+            Where Al.cd_bem = Be.cd_bem
+              And Be.Cd_Bem = Reav.Cd_Bem
+              And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+              AND TRUNC (be.dt_tombamento, 'MM') = TRUNC (:CAMPO_PDTREFERENCIA, 'MM')
+              And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+            Group By Al.Cd_Capitulo_Nova,
+                    Al.Cd_Sub_Cap_Nova)
+            Group by Cd_Capitulo, Cd_Sub_Cap
+              ) Sl_Reav,
+       ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                sum(Nvl(Reav.Vl_Lancamento,0)) Valor_Baixado
+         From   Dbamv.Bens   Be,
+                ( Select Lc.Cd_Bem,
+                         Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                    From Dbamv.Lancamento_Patrimonio Lc
+                   Where Tp_Lancamento = 'R'
+                Group By Lc.Cd_Bem ) Reav,
+                ( Select Lp.Cd_Bem,
+                         Lp.dt_lancamento
+                    From Dbamv.Lancamento_Patrimonio Lp
+                   Where lp.Tp_Lancamento = 'B') Baix
+         Where  Be.Cd_Bem                         = Baix.Cd_Bem
+         And    trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Be.Cd_Bem                         = Reav.Cd_Bem
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap  ) Sl_Baix,
+         ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                sum(Nvl(Reav.Vl_Lancamento,0)) Valor_Baixado
+         From   Dbamv.Bens   Be,
+                ( Select Lc.Cd_Bem,
+                         Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                    From Dbamv.Lancamento_Patrimonio Lc
+                   Where Tp_Lancamento = 'R'
+                Group By Lc.Cd_Bem ) Reav,
+                ( Select Lp.Cd_Bem,
+                         Lp.dt_lancamento
+                    From Dbamv.Lancamento_Patrimonio Lp
+                   Where lp.Tp_Lancamento = 'O') Baix
+         Where  Be.Cd_Bem                         = Baix.Cd_Bem
+         And    trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Be.Cd_Bem                         = Reav.Cd_Bem
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap  ) Sl_BaixC,
+       ( Select Cd_Capitulo, Cd_Sub_Cap,
+                    sum(nvl(Valor_Transferencia,0)) Valor_Transferencia
+          From
+          (Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                -Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(Al.Dt_Alteracao_Sub_Iob_Bem), 'V')),0)  Valor_Transferencia
+         From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al
+         Where  Al.Cd_Bem                      = Be.Cd_Bem
+         And    To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Al.Cd_Capitulo_Atual ,
+                  Al.Cd_Sub_Cap_Atual
+         Union All
+         Select Al.Cd_Capitulo_Nova,
+                Al.Cd_Sub_Cap_Nova,
+                Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(Al.Dt_Alteracao_Sub_Iob_Bem), 'V')),0)  Valor_Transferencia
+         From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al
+         Where  Al.Cd_Bem                      = Be.Cd_Bem
+         And    To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Al.Cd_Capitulo_Nova ,
+                  Al.Cd_Sub_Cap_Nova
+         UNION ALL
+         SELECT  be.cd_capitulo, be.cd_sub_cap,
+                 - Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(mb.dt_mov_bem), 'V')),0)  Valor_Transferencia
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb
+         WHERE be.cd_bem = mb.cd_bem
+         AND   to_char(mb.dt_mov_bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         AND   mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+         AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION ALL
+         SELECT  be.cd_capitulo, be.cd_sub_cap,
+                 Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_Ret_Dados_ReavaliacaoBem( be.cd_bem,Trunc(mb.dt_mov_bem), 'V')),0)  Valor_Transferencia
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb
+         WHERE be.cd_bem = mb.cd_bem
+         AND   to_char(mb.dt_mov_bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         AND   mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+         AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         GROUP BY be.cd_capitulo, be.cd_sub_cap)
+         Group By Cd_Capitulo, Cd_Sub_Cap     ) Sl_Transf
+Where  :CAMPO_TP_POSICAO  = 'C'
+And Be.Cd_Capitulo = Sb.Cd_Capitulo
+And Be.Cd_Sub_Cap  = Sb.Cd_Sub_Cap
+And    Sb.cd_reduzido_ativo_reavaliacao  = Pl.Cd_Reduzido_de
+And Sb.Cd_Capitulo = Sl_Ant.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_Ant.Cd_Sub_Cap(+)
+And Sb.Cd_Capitulo = Sl_Reav.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_Reav.Cd_Sub_Cap(+)
+And Sb.Cd_Capitulo = Sl_Baix.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_Baix.Cd_Sub_Cap(+)
+And Sb.Cd_Capitulo = Sl_BaixC.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_BaixC.Cd_Sub_Cap(+)
+And Sb.Cd_Capitulo = Sl_Transf.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap = Sl_Transf.Cd_Sub_Cap(+)
+And :CAMPO_SN_IMPRIME in ('T','R')
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+Group By  'ATIVO IMOBILIZADO',
+          Pl.Cd_Reduzido,
+          Pl.Cd_Contabil,
+          Pl.Ds_Conta
+) WHERE (Valor_Anterior <> 0 OR Valor_Compra <> 0 OR Valor_Reavaliacao <> 0 OR Valor_Baixado <> 0 OR
+         Valor_Baixado_Canc <> 0 OR Valor_Transferencia <> 0 OR Valor_Inventario <> 0 OR  Valor_Depreciacoes <> 0 )
+Group By tp_registro,
+          Cd_Reduzido,
+          Cd_Contabil,
+          Ds_Conta
+Union All
+Select 'DEPRECIAÇÃO ACUMULADA' TP_REGISTRO,
+       Cd_Reduzido,
+     Cd_Contabil,
+       Ds_Conta,
+       Decode(:CAMPO_TP_EXIBICAO_SALDO,'R', Sum(Nvl(Valor_Anterior,0)), Abs(Sum(Nvl(Valor_Anterior,0)))) Valor_Anterior,
+       Sum( Valor_Compra )                     Valor_Compra,
+       Sum( Valor_Reavaliacao )                Valor_Reavaliacao,
+       Sum( Valor_Baixado )                    Valor_Baixado,
+       Sum( Valor_Baixado_Canc )               Valor_Baixado_Canc,
+       Sum( Valor_Transferencia )              Valor_Transferencia,
+       Sum( Valor_Inventario )                 Valor_Inventario,
+       Sum( Nvl(Valor_Depreciacoes,0) )        Valor_Depreciacoes
+From (
+Select 'DEPRECIAÇÃO ACUMULADA' TP_REGISTRO,
+       Pl.Cd_Reduzido,
+     Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Sum( 0 )                                Valor_Anterior,
+       Sum( 0 )                                Valor_Compra,
+       Sum( 0 )                                Valor_Reavaliacao,
+       Sum( Sl_Baix.Valor_Baixado )            Valor_Baixado,
+       Sum( Sl_BaixC.Valor_Baixado )           Valor_Baixado_Canc,
+       Sum( 0 )                                Valor_Transferencia,
+       Sum( 0 )                                Valor_Inventario,
+       Sum( Nvl(Sl_Dep.Valor_Depreciacao,0) )  Valor_Depreciacoes
+From   Dbamv.V_PLANO_CONTAS_DE_PARA    Pl,
+       Dbamv.Sub_Iob_Empresa Sb,
+       ( Select Distinct Be.Cd_Capitulo, Be.Cd_Sub_Cap
+         From   Dbamv.Bens Be
+         Where  Trunc(Be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'mm')
+         And    ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is null)) )
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         Select Distinct Al.Cd_Capitulo_Atual, Al.Cd_Sub_Cap_Atual
+         From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.Bens  Be
+         Where Al.cd_bem = Be.cd_bem
+           And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+           And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is null)) )
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is null)) )
+           ) Be,
+       ( select Cd_Capitulo,
+                Cd_Sub_Cap,
+                Sum( Valor_Depreciacao ) Valor_Depreciacao
+         from (
+         Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+         From   Dbamv.Bens        Be
+         Where  trunc(Be.Dt_Tombamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+         Union
+         Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+         From   Dbamv.Bens        Be,
+                Dbamv.ItDeprecia  It
+         Where  It.Cd_Bem         = Be.Cd_Bem
+         And    trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+     And    It.cd_bens_reavaliacao is null
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+         UNION
+         Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                (Nvl(Sum(Be.Vl_Depreciacao_Historica),0))  Valor_Depreciacao
+          From   Dbamv.Bens                   Be,
+                 Dbamv.Alteracao_Sub_Iob_Bem  Al
+          Where  Al.Cd_Bem                      = Be.Cd_Bem
+          And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+          And    trunc(Be.Dt_Tombamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+          And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+          And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+          Group By Al.Cd_Capitulo_Atual ,
+                    Al.Cd_Sub_Cap_Atual
+         UNION
+         Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                (Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Depreciacao
+          From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.ItDeprecia  It
+          Where  Al.Cd_Bem                      = Be.Cd_Bem
+          And    It.Cd_Bem = Be.Cd_Bem
+          And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+          And    Trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+          And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+          And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+          And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+          And    It.cd_bens_reavaliacao is null
+          Group By Al.Cd_Capitulo_Atual ,
+                    Al.Cd_Sub_Cap_Atual
+          UNION
+          Select Al.Cd_Capitulo_Nova,
+                  Al.Cd_Sub_Cap_Nova,
+                  -(Nvl(Sum(Be.Vl_Depreciacao_Historica),0))  Valor_Depreciacao
+          From   Dbamv.Bens                   Be,
+                 Dbamv.Alteracao_Sub_Iob_Bem  Al
+          Where  Al.Cd_Bem                      = Be.Cd_Bem
+          And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+          And    trunc(Be.Dt_Tombamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+          And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+          And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+          Group By Al.Cd_Capitulo_Nova ,
+                    Al.Cd_Sub_Cap_Nova
+         UNION
+          Select Al.Cd_Capitulo_Nova,
+                  Al.Cd_Sub_Cap_Nova,
+                  -(Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Depreciacao
+          From   Dbamv.Bens                   Be,
+                  Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                  Dbamv.ItDeprecia  It
+          Where  Al.Cd_Bem                      = Be.Cd_Bem
+          And    It.Cd_Bem = Be.Cd_Bem
+          And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+          And    Trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+          And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+          And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+          And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+          And    It.cd_bens_reavaliacao is null
+          Group By Al.Cd_Capitulo_Nova ,
+                    Al.Cd_Sub_Cap_Nova
+         UNION
+         select be.cd_capitulo, be.cd_sub_cap,
+                (NVL (SUM (be.Vl_Depreciacao_Historica), 0)) Valor_Depreciacao
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb
+          Where be.cd_bem = mb.cd_bem
+            And trunc(Be.Dt_Tombamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+            AND Trunc (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION
+         select be.cd_capitulo, be.cd_sub_cap,
+                (Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)) Valor_Depreciacao
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb,
+                Dbamv.ItDeprecia  It
+          Where It.Cd_Bem = Be.Cd_Bem
+            and be.cd_bem = mb.cd_bem
+            And trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+            AND Trunc (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+            And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            And It.cd_bens_reavaliacao is null
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION
+         select be.cd_capitulo, be.cd_sub_cap,
+                -(NVL (SUM (be.Vl_Depreciacao_Historica), 0)) Valor_Depreciacao
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb
+          Where be.cd_bem = mb.cd_bem
+            And trunc(Be.Dt_Tombamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+            AND Trunc (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION
+         select be.cd_capitulo, be.cd_sub_cap,
+                -(Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)) Valor_Depreciacao
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb,
+                Dbamv.ItDeprecia  It
+          Where It.Cd_Bem = Be.Cd_Bem
+            and be.cd_bem = mb.cd_bem
+            And trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+            AND Trunc (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+            And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            And It.cd_bens_reavaliacao is null
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+     )
+         group by Cd_Capitulo,
+                Cd_Sub_Cap    )  Sl_Dep,
+         (select Cd_Capitulo,
+                 Cd_Sub_Cap,
+                 Sum( Valor_Depreciacao ) valor_baixado
+            from
+              (Select distinct Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+               From   Dbamv.Bens        Be,
+                      ( Select Lp.Cd_Bem,
+                         Lp.dt_lancamento
+                    From Dbamv.Lancamento_Patrimonio Lp
+                   Where lp.Tp_Lancamento = 'B') Baix
+               Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                 And  trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+               UNION
+               Select Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)  Valor_Depreciacao
+               From   Dbamv.Bens        Be,
+                      Dbamv.ItDeprecia  It,
+                      ( Select Lp.Cd_Bem,
+                               Lp.dt_lancamento
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'B') Baix
+               Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                 And  trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And    trunc(it.Dt_Contabilidade) <=  trunc(Baix.Dt_Lancamento)
+         And    It.cd_bens_reavaliacao is null
+                 And  It.Cd_Bem         = Be.Cd_Bem
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap)
+            Group By Cd_Capitulo, Cd_Sub_Cap) Sl_Baix,
+            (select Cd_Capitulo,
+                 Cd_Sub_Cap,
+                 Sum( Valor_Depreciacao ) valor_baixado
+            from
+              (Select distinct Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+               From   Dbamv.Bens        Be,
+                      ( Select Lp.Cd_Bem,
+                         Lp.dt_lancamento
+                    From Dbamv.Lancamento_Patrimonio Lp
+                   Where lp.Tp_Lancamento = 'O') Baix
+               Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                 And  trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+               UNION
+               Select Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)  Valor_Depreciacao
+               From   Dbamv.Bens        Be,
+                      Dbamv.ItDeprecia  It,
+                      ( Select Lp.Cd_Bem,
+                               Lp.dt_lancamento
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'O') Baix
+               Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                 And  trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And  trunc(it.Dt_Contabilidade) <=  trunc(Baix.Dt_Lancamento)
+         And  It.cd_bens_reavaliacao is null
+                 And  It.Cd_Bem         = Be.Cd_Bem
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap)
+            Group By Cd_Capitulo, Cd_Sub_Cap) Sl_BaixC
+Where  :CAMPO_TP_POSICAO = 'C'
+And Be.Cd_Capitulo = Sb.Cd_Capitulo
+And Be.Cd_Sub_Cap  = Sb.Cd_Sub_Cap
+And Sb.Cd_Red_Bensdeprecacum  = Pl.Cd_Reduzido_de
+And Sb.Cd_Capitulo = Sl_Dep.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_Dep.Cd_Sub_Cap(+)
+And Sb.Cd_Capitulo            = Sl_Baix.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_Baix.Cd_Sub_Cap(+)
+And Sb.Cd_Capitulo = Sl_BaixC.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap             = Sl_BaixC.Cd_Sub_Cap(+)
+And :CAMPO_SN_IMPRIME in ('T','D')
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+Group By 'DEPRECIAÇÃO ACUMULADA', Pl.Cd_Reduzido, Pl.Cd_Contabil, Pl.Ds_Conta
+UNION
+Select 'DEPRECIAÇÃO ACUMULADA' TP_REGISTRO,
+       Pl.Cd_Reduzido,
+       Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Sum( Nvl(Sl_Ant.Valor_Depreciacao,0) ) Valor_Anterior,
+       Sum( 0 ) Valor_Compra,
+       Sum( 0 ) Valor_Reavaliacao,
+       Sum( 0 ) Valor_Baixado,
+       Sum( 0 ) Valor_Baixado_Canc,
+       Sum( Nvl(Sl_Transf.Valor_Transferencia,0) ) Valor_Transferencia,
+       Sum( 0 ) Valor_Inventario,
+     Sum( 0 ) Valor_Depreciacoes
+From   Dbamv.V_PLANO_CONTAS_DE_PARA  Pl,
+       Dbamv.Sub_Iob_Empresa      Sb,
+       ( Select Distinct Be.Cd_Capitulo, Be.Cd_Sub_Cap
+         From   Dbamv.Bens Be
+         Where  Trunc(Be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'mm')
+         And    ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem And I.cd_bens_reavaliacao is null )) )
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         Select Distinct Al.Cd_Capitulo_Atual, Al.Cd_Sub_Cap_Atual
+         From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.Bens  Be
+         Where Al.cd_bem = Be.cd_bem
+           And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+           And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is null)) )
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is null)) )
+           ) Be,
+       ( Select Cd_Capitulo, Cd_Sub_Cap, Sum(Valor_Depreciacao) Valor_Depreciacao
+         From   (  Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+                   From   Dbamv.Bens        Be
+                   Where  Trunc(Be.Dt_Tombamento) < :CAMPO_PDTREFERENCIA
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+AND NOT EXISTS (SELECT 'X'
+                                       From dbamv.mov_bens    mb
+                                      Where mb.cd_bem = be.cd_bem
+                                        AND TRUNC (mb.dt_mov_bem) < :CAMPO_PDTREFERENCIA
+                                        And mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                                        and mb.cd_multi_empresa_origem = be.cd_multi_empresa
+                                        :CAMPO_CF_EMPRESA_ORIGEM ) 
+                     AND NOT EXISTS (SELECT 'X'
+                                     From dbamv.alteracao_sub_iob_bem Al
+                                     Where Al.cd_bem = be.cd_bem
+                                     AND Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) > :CAMPO_PDTREFERENCIA)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION ALL
+                  Select   Alt_bem.Cd_Capitulo_atual cd_capitulo,
+                           Alt_bem.Cd_Sub_Cap_atual cd_sub_cap,
+                           Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+                                    From   Dbamv.Bens        Be,
+                                            Dbamv.alteracao_sub_iob_bem Alt_bem
+                                    Where  Trunc(Be.Dt_Tombamento) < :CAMPO_PDTREFERENCIA
+                                      And  Be.sn_desp_operacional in ('N','N')
+                                      AND Be.cd_bem = Alt_bem.cd_bem
+                                      AND NOT EXISTS (SELECT 'X'
+                                                        From dbamv.mov_bens    mb
+                                                        Where mb.cd_bem = be.cd_bem
+                                                          AND TRUNC (mb.dt_mov_bem) < :CAMPO_PDTREFERENCIA
+                                                          And mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                                                          and mb.cd_multi_empresa_origem = be.cd_multi_empresa
+                                                          :CAMPO_CF_EMPRESA_ORIGEM)
+                                      AND EXISTS (SELECT 'X'
+                                                        From dbamv.alteracao_sub_iob_bem Al
+                                                        Where Al.cd_bem = be.cd_bem
+                                                          AND Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) > :CAMPO_PDTREFERENCIA )
+                                    Group By Alt_bem.Cd_Capitulo_atual, Alt_bem.Cd_Sub_Cap_atual
+                   UNION ALL
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It
+                   Where  It.Cd_Bem         = Be.Cd_Bem
+                   And    trunc(it.Dt_Contabilidade) <  :CAMPO_PDTREFERENCIA
+                   And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+           And    It.cd_bens_reavaliacao is null
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION  ALL
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          ( Select Lp.Cd_Bem,
+                                   Lp.dt_lancamento
+                              From Dbamv.Lancamento_Patrimonio Lp
+                             Where lp.Tp_Lancamento = 'O') Baix
+                   Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                     And  Trunc(Baix.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION ALL
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It,
+                          ( Select Lp.Cd_Bem,
+                                   Lp.dt_lancamento
+                              From Dbamv.Lancamento_Patrimonio Lp
+                             Where lp.Tp_Lancamento = 'O') Baix
+                   Where  Be.Cd_Bem         = Baix.Cd_Bem
+                   And    It.Cd_Bem         = Be.Cd_Bem
+                   And    Trunc(Baix.Dt_Lancamento) <  :CAMPO_PDTREFERENCIA
+                   And    trunc(it.Dt_Contabilidade) <=  (trunc(Baix.Dt_Lancamento,'MM')-1)
+                   And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+           And    It.cd_bens_reavaliacao is null
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION ALL
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum( nvl(Be.Vl_Depreciacao_Historica,0) ) * (-1) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          ( Select Lp.Cd_Bem,
+                               Lp.dt_lancamento
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'B') Baix
+                   Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                     And   trunc(Baix.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION ALL
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum(nvl(It.Vl_Deprecia_Antes,0)-nvl(It.Vl_Deprecia_Atual,0))  * (-1) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It,
+                          ( Select Lp.Cd_Bem,
+                               Lp.dt_lancamento
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'B') Baix
+                   Where  Be.Cd_Bem                         = Baix.Cd_Bem
+           And  trunc(Baix.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                     And  It.cd_bens_reavaliacao is null
+                     And  trunc(it.Dt_Contabilidade) <=  trunc(Baix.Dt_Lancamento)
+                     And  It.Cd_Bem         = Be.Cd_Bem
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION ALL
+                    SELECT   cd_capitulo, cd_sub_cap,
+                             SUM (NVL (Valor_Depreciacao, 0)) Valor_Depreciacao
+                        FROM (Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                                     Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                                     (Nvl(Sum(Be.Vl_Depreciacao_Historica),0) + Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'C' )),0))  Valor_Depreciacao
+                                From   Dbamv.Bens                   Be,
+                                      Dbamv.Alteracao_Sub_Iob_Bem  Al
+                                Where  Al.Cd_Bem                      = Be.Cd_Bem
+                                And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                                And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                                And    Trunc(Be.Dt_Tombamento,'MM')       < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                                Group By Al.Cd_Capitulo_Atual ,
+                                          Al.Cd_Sub_Cap_Atual
+                                UNION
+                                Select Al.Cd_Capitulo_Nova,
+                                        Al.Cd_Sub_Cap_Nova,
+                                        -(Nvl(Sum(Be.Vl_Depreciacao_Historica),0) + Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'C' )),0))  Valor_Depreciacao
+                                From   Dbamv.Bens                   Be,
+                                        Dbamv.Alteracao_Sub_Iob_Bem  Al
+                                Where  Al.Cd_Bem                      = Be.Cd_Bem
+                                And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                                And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                                And    Trunc(Be.Dt_Tombamento,'MM')       < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                                Group By Al.Cd_Capitulo_Nova ,
+                                        Al.Cd_Sub_Cap_Nova
+                              UNION
+                              SELECT Be.Cd_Capitulo,
+                                     Be.Cd_Sub_Cap,
+                                     Nvl(Sum(Be.Vl_Depreciacao_Historica),0)+ Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'C' )),0) Valor_Depreciacao
+                                From Dbamv.Bens        Be,
+                                     dbamv.mov_bens    mb
+                                Where  Be.Cd_Bem         = mb.Cd_Bem
+                                  AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                  And Trunc(Be.Dt_Tombamento,'MM') < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                  AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                                  And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                              GROUP BY Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                              UNION
+                              SELECT Be.Cd_Capitulo,
+                                     Be.Cd_Sub_Cap,
+                                     -(Nvl(Sum(Be.Vl_Depreciacao_Historica),0)+ Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'C' )),0)) Valor_Depreciacao
+                                From Dbamv.Bens        Be,
+                                     dbamv.mov_bens    mb
+                                Where  Be.Cd_Bem         = mb.Cd_Bem
+                                  AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                  And Trunc(Be.Dt_Tombamento,'MM') < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                  AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                                  And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                              GROUP BY Be.Cd_Capitulo, Be.Cd_Sub_Cap )
+                    GROUP BY cd_capitulo, cd_sub_cap)
+         Group By Cd_Capitulo, Cd_Sub_Cap   )  Sl_Ant,
+         (SELECT   cd_capitulo, cd_sub_cap,
+                    SUM (NVL (Valor_Transferencia, 0)) Valor_Transferencia
+            FROM (Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                         Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                         -(Nvl(Sum(Be.Vl_Depreciacao_Historica),0))  Valor_Transferencia
+                  From   Dbamv.Bens                   Be,
+                         Dbamv.Alteracao_Sub_Iob_Bem  Al
+                  Where  Al.Cd_Bem                      = Be.Cd_Bem
+                  And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                  And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem,'MM') = :CAMPO_PDTREFERENCIA
+                  And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                  Group By Al.Cd_Capitulo_Atual ,
+                            Al.Cd_Sub_Cap_Atual
+                  UNION
+                  Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                         Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                         -(Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Transferencia
+                  From   Dbamv.Bens                   Be,
+                        Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                        Dbamv.ItDeprecia  It
+                  Where  Al.Cd_Bem                      = Be.Cd_Bem
+                  And    It.Cd_Bem = Be.Cd_Bem
+                  And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                  And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem,'MM') = :CAMPO_PDTREFERENCIA
+                  And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+                  And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                  And    It.cd_bens_reavaliacao is null
+                  Group By Al.Cd_Capitulo_Atual ,
+                            Al.Cd_Sub_Cap_Atual
+                  UNION
+                  Select Al.Cd_Capitulo_Nova  Cd_Capitulo,
+                         Al.Cd_Sub_Cap_Nova   Cd_Sub_Cap,
+                         (Nvl(Sum(Be.Vl_Depreciacao_Historica),0))  Valor_Transferencia
+                  From   Dbamv.Bens                   Be,
+                         Dbamv.Alteracao_Sub_Iob_Bem  Al
+                  Where  Al.Cd_Bem                      = Be.Cd_Bem
+                  And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                  And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem,'MM') = :CAMPO_PDTREFERENCIA
+                  And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                  Group By Al.Cd_Capitulo_Nova ,
+                            Al.Cd_Sub_Cap_Nova
+                  UNION
+                  Select Al.Cd_Capitulo_Nova  cd_capitulo,
+                          Al.Cd_Sub_Cap_Nova  cd_sub_cap,
+                          (Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Transferencia
+                  From   Dbamv.Bens                   Be,
+                          Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.ItDeprecia  It
+                  Where  Al.Cd_Bem                      = Be.Cd_Bem
+                  And    It.Cd_Bem = Be.Cd_Bem
+                  And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                  And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem,'MM') = :CAMPO_PDTREFERENCIA
+                  And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+                  And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                  And    It.cd_bens_reavaliacao is null
+                  Group By Al.Cd_Capitulo_Nova ,
+                            Al.Cd_Sub_Cap_Nova
+                UNION
+                select be.cd_capitulo, be.cd_sub_cap,
+                       -(NVL (SUM (be.Vl_Depreciacao_Historica), 0)) Valor_Transferencia
+                  FROM dbamv.bens be,
+                        dbamv.mov_bens mb
+                  Where be.cd_bem = mb.cd_bem
+                    AND Trunc (mb.dt_mov_bem,'MM') = :CAMPO_PDTREFERENCIA
+                    AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                    AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                GROUP BY be.cd_capitulo, be.cd_sub_cap
+                UNION
+                select be.cd_capitulo, be.cd_sub_cap,
+                       -(Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)) Valor_Transferencia
+                  FROM dbamv.bens be,
+                        dbamv.mov_bens mb,
+                        Dbamv.ItDeprecia  It
+                  Where It.Cd_Bem = Be.Cd_Bem
+                    and be.cd_bem = mb.cd_bem
+                    AND Trunc (mb.dt_mov_bem,'MM') = :CAMPO_PDTREFERENCIA
+                    And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+                    AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                    AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                    And It.cd_bens_reavaliacao is null
+                GROUP BY be.cd_capitulo, be.cd_sub_cap
+                UNION
+                select be.cd_capitulo, be.cd_sub_cap,
+                       (NVL (SUM (be.Vl_Depreciacao_Historica), 0)) Valor_Transferencia
+                  FROM dbamv.bens be,
+                        dbamv.mov_bens mb
+                  Where be.cd_bem = mb.cd_bem
+                    AND Trunc (mb.dt_mov_bem,'MM') = :CAMPO_PDTREFERENCIA
+                    AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                    AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                GROUP BY be.cd_capitulo, be.cd_sub_cap
+                UNION
+                select be.cd_capitulo, be.cd_sub_cap,
+                        (Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)) Valor_Transferencia
+                  FROM dbamv.bens be,
+                        dbamv.mov_bens mb,
+                        Dbamv.ItDeprecia  It
+                  Where It.Cd_Bem = Be.Cd_Bem
+                    and be.cd_bem = mb.cd_bem
+                    AND Trunc (mb.dt_mov_bem,'MM') = :CAMPO_PDTREFERENCIA
+                    And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+                    AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                    AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                    And It.cd_bens_reavaliacao is null
+            GROUP BY be.cd_capitulo, be.cd_sub_cap )
+            GROUP BY cd_capitulo, cd_sub_cap     ) Sl_Transf
+Where  :CAMPO_TP_POSICAO             = 'C'
+And Be.Cd_Capitulo = Sb.Cd_Capitulo
+And Be.Cd_Sub_Cap = Sb.Cd_Sub_Cap
+And    Sb.Cd_Red_Bensdeprecacum  = Pl.Cd_Reduzido_de
+And Sb.Cd_Capitulo = Sl_Ant.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap = Sl_Ant.Cd_Sub_Cap(+)
+And    Sb.Cd_Capitulo            = Sl_Transf.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_Transf.Cd_Sub_Cap(+)
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+And :CAMPO_SN_IMPRIME in ('T','D')
+Group By 'DEPRECIAÇÃO ACUMULADA', Pl.Cd_Reduzido, Pl.Cd_Contabil, Pl.Ds_Conta
+UNION
+Select 'DEPRECIAÇÃO ACUMULADA' TP_REGISTRO,
+       Pl.Cd_Reduzido,
+       Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Sum( 0 ) Valor_Anterior,
+       Sum( 0 ) Valor_Compra,
+       Sum( Nvl(Sl_Dep.Valor_Depreciacao,0) ) Valor_Reavaliacao,
+       Sum( Sl_Baix.Valor_Baixado ) Valor_Baixado,
+       Sum( Sl_BaixC.Valor_Baixado ) Valor_Baixado_Canc,
+       Sum( 0 ) Valor_Transferencia,
+       Sum( 0 ) Valor_Inventario,
+       Sum( 0 ) Valor_Depreciacoes
+From   Dbamv.V_PLANO_CONTAS_DE_PARA    Pl,
+       Dbamv.Sub_Iob_Empresa Sb,
+       ( Select Distinct Be.Cd_Capitulo, Be.Cd_Sub_Cap
+         From   Dbamv.Bens Be
+         Where  Trunc(Be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'mm')
+         And    ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is NOT null )) )
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Union
+         Select Distinct Al.Cd_Capitulo_Atual, Al.Cd_Sub_Cap_Atual
+         From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.Bens  Be
+         Where Al.cd_bem = Be.cd_bem
+           And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+           And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is NOT null)) )
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is NOT null)) )
+           ) Be,
+       ( select Cd_Capitulo,
+                Cd_Sub_Cap,
+                Sum( Valor_Depreciacao ) Valor_Depreciacao
+         from (
+         Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+         From   Dbamv.Bens        Be,
+                Dbamv.ItDeprecia  It
+         Where  It.Cd_Bem         = Be.Cd_Bem
+         And    trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         And    it.cd_bens_reavaliacao is not null
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+         UNION
+         Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                (Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Depreciacao
+          From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.ItDeprecia  It
+          Where  Al.Cd_Bem                      = Be.Cd_Bem
+          And    It.Cd_Bem = Be.Cd_Bem
+          And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+          And    Trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+          And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+          And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+          And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+          And    it.cd_bens_reavaliacao is not null
+          Group By Al.Cd_Capitulo_Atual ,
+                    Al.Cd_Sub_Cap_Atual
+          UNION
+          Select Al.Cd_Capitulo_Nova,
+                  Al.Cd_Sub_Cap_Nova,
+                  -(Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Depreciacao
+          From   Dbamv.Bens                   Be,
+                  Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                  Dbamv.ItDeprecia  It
+          Where  Al.Cd_Bem                      = Be.Cd_Bem
+          And    It.Cd_Bem = Be.Cd_Bem
+          And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+          And    Trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+          And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+          And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+          And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+          And    it.cd_bens_reavaliacao is not null
+          Group By Al.Cd_Capitulo_Nova ,
+                    Al.Cd_Sub_Cap_Nova
+         UNION
+         select be.cd_capitulo, be.cd_sub_cap,
+                Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb,
+                Dbamv.ItDeprecia  It
+          Where It.Cd_Bem = Be.Cd_Bem
+            and be.cd_bem = mb.cd_bem
+            And trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+            AND Trunc (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+            And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            And It.cd_bens_reavaliacao is not null
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         UNION
+         select be.cd_capitulo, be.cd_sub_cap,
+                -Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+           FROM dbamv.bens be,
+                dbamv.mov_bens mb,
+                Dbamv.ItDeprecia  It
+          Where It.Cd_Bem = Be.Cd_Bem
+            and be.cd_bem = mb.cd_bem
+            And trunc(It.Dt_Contabilidade) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+            AND Trunc (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+            And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            And It.cd_bens_reavaliacao is not null
+         GROUP BY be.cd_capitulo, be.cd_sub_cap
+         )
+         group by Cd_Capitulo,
+                Cd_Sub_Cap    )  Sl_Dep,
+         (select Cd_Capitulo,
+                 Cd_Sub_Cap,
+                 Sum( Valor_Depreciacao ) valor_baixado
+            from
+              (Select Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)  Valor_Depreciacao
+               From   Dbamv.Bens        Be,
+                      Dbamv.ItDeprecia  It,
+                      ( Select Lp.Cd_Bem,
+                               Lp.dt_lancamento
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'B') Baix
+               Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                 And  trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And  trunc(it.Dt_Contabilidade) <=  trunc(Baix.Dt_Lancamento)
+                 And  it.cd_bens_reavaliacao is not null
+                 And  It.Cd_Bem         = Be.Cd_Bem
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap)
+            Group By Cd_Capitulo, Cd_Sub_Cap) Sl_Baix,
+            (select Cd_Capitulo,
+                 Cd_Sub_Cap,
+                 Sum( Valor_Depreciacao ) valor_baixado
+            from
+              (Select Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)  Valor_Depreciacao
+               From   Dbamv.Bens        Be,
+                      Dbamv.ItDeprecia  It,
+                      ( Select Lp.Cd_Bem,
+                               Lp.dt_lancamento
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'O') Baix
+               Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                 And  trunc(Baix.Dt_Lancamento) Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And  trunc(it.Dt_Contabilidade) <=  trunc(Baix.Dt_Lancamento)
+                 And  it.cd_bens_reavaliacao is not null
+                 And  It.Cd_Bem         = Be.Cd_Bem
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap)
+            Group By Cd_Capitulo, Cd_Sub_Cap) Sl_BaixC
+Where  :CAMPO_TP_POSICAO = 'C'                                    And Be.Cd_Capitulo = Sb.Cd_Capitulo        And Be.Cd_Sub_Cap  = Sb.Cd_Sub_Cap
+And    Sb.cd_reduzido_depacum_reava  = Pl.Cd_Reduzido_de         And Sb.Cd_Capitulo = Sl_Dep.Cd_Capitulo(+) And Sb.Cd_Sub_Cap  = Sl_Dep.Cd_Sub_Cap(+)
+And    Sb.Cd_Capitulo                = Sl_Baix.Cd_Capitulo(+) And Sb.Cd_Sub_Cap  = Sl_Baix.Cd_Sub_Cap(+) And Sb.Cd_Capitulo = Sl_BaixC.Cd_Capitulo(+)
+And    Sb.Cd_Sub_Cap                 = Sl_BaixC.Cd_Sub_Cap(+) AND :CAMPO_SN_IMPRIME in ('T','D')
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+Group By 'DEPRECIAÇÃO ACUMULADA', Pl.Cd_Reduzido, Pl.Cd_Contabil, Pl.Ds_Conta
+UNION
+Select 'DEPRECIAÇÃO ACUMULADA' TP_REGISTRO,
+       Pl.Cd_Reduzido,
+       Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Sum( Nvl(Sl_Ant.Valor_Depreciacao,0) ) Valor_Anterior,
+       Sum( 0 ) Valor_Compra,
+       Sum( 0 ) Valor_Reavaliacao,
+       Sum( 0 ) Valor_Baixado,
+       Sum( 0 ) Valor_Baixado_Canc,
+       Sum( Nvl(Sl_Transf.Valor_Transferencia,0) ) Valor_Transferencia,
+       Sum( 0 ) Valor_Inventario,
+       Sum( 0 ) Valor_Depreciacoes
+From   Dbamv.V_PLANO_CONTAS_DE_PARA  Pl,
+       Dbamv.Sub_Iob_Empresa      Sb,
+       ( Select Distinct Be.Cd_Capitulo, Be.Cd_Sub_Cap
+         From   Dbamv.Bens Be
+         Where  Trunc(Be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'mm')
+         And    ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem And I.cd_bens_reavaliacao is NOT null)) )
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Union
+         Select Distinct Al.Cd_Capitulo_Atual, Al.Cd_Sub_Cap_Atual
+         From   Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                Dbamv.Bens  Be
+         Where Al.cd_bem = Be.cd_bem
+           And Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+           And Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is NOT null)) )
+         UNION
+         SELECT DISTINCT be.cd_capitulo, be.cd_sub_cap
+           FROM dbamv.mov_bens mb, dbamv.bens be
+          WHERE mb.cd_bem = be.cd_bem
+            AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+            AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+            AND ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem and I.cd_bens_reavaliacao is NOT null)) )
+         ) Be,
+       ( Select Cd_Capitulo, Cd_Sub_Cap, Sum(Valor_Depreciacao) Valor_Depreciacao
+         From   (  Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It
+                   Where  It.Cd_Bem         = Be.Cd_Bem
+                   And    trunc(it.Dt_Contabilidade) <  :CAMPO_PDTREFERENCIA
+                   And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   And    it.cd_bens_reavaliacao is not null
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It,
+                          ( Select Lp.Cd_Bem,
+                                   Lp.dt_lancamento
+                              From Dbamv.Lancamento_Patrimonio Lp
+                             Where lp.Tp_Lancamento = 'O') Baix
+                   Where  Be.Cd_Bem         = Baix.Cd_Bem
+                   And    It.Cd_Bem         = Be.Cd_Bem
+                   And    Trunc(Baix.Dt_Lancamento) <  :CAMPO_PDTREFERENCIA
+                   And    trunc(it.Dt_Contabilidade) <=  (trunc(Baix.Dt_Lancamento,'MM') - 1)
+                   And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   And    it.cd_bens_reavaliacao is not null
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Sum(nvl(It.Vl_Deprecia_Antes,0)-nvl(It.Vl_Deprecia_Atual,0))  * (-1) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It,
+                          ( Select Lp.Cd_Bem,
+                               Lp.dt_lancamento
+                         From Dbamv.Lancamento_Patrimonio Lp
+                        Where lp.Tp_Lancamento = 'B') Baix
+                   Where  Be.Cd_Bem                         = Baix.Cd_Bem
+                     And  trunc(Baix.Dt_Lancamento) < :CAMPO_PDTREFERENCIA
+                     And  it.cd_bens_reavaliacao is not null
+                     And  trunc(it.Dt_Contabilidade) <=  trunc(Baix.Dt_Lancamento)
+                     And  It.Cd_Bem         = Be.Cd_Bem
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                   UNION
+                    SELECT   cd_capitulo, cd_sub_cap,
+                             SUM (NVL (Valor_Depreciacao, 0)) Valor_Depreciacao
+                        FROM (Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                                     Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                                     (Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'R' )),0))  Valor_Depreciacao
+                                From   Dbamv.Bens                   Be,
+                                      Dbamv.Alteracao_Sub_Iob_Bem  Al
+                                Where  Al.Cd_Bem                      = Be.Cd_Bem
+                                And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                                And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                                And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                                Group By Al.Cd_Capitulo_Atual ,
+                                          Al.Cd_Sub_Cap_Atual
+                                Union All
+                                Select Al.Cd_Capitulo_Nova,
+                                        Al.Cd_Sub_Cap_Nova,
+                                        -(Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'R' )),0))  Valor_Depreciacao
+                                From   Dbamv.Bens                   Be,
+                                        Dbamv.Alteracao_Sub_Iob_Bem  Al
+                                Where  Al.Cd_Bem                      = Be.Cd_Bem
+                                And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                                And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem) >= :CAMPO_PDTREFERENCIA
+                                And    Trunc(Be.Dt_Tombamento,'MM')       < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                                Group By Al.Cd_Capitulo_Nova ,
+                                        Al.Cd_Sub_Cap_Nova
+                              UNION
+                              SELECT Be.Cd_Capitulo,
+                                     Be.Cd_Sub_Cap,
+                                     (Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'R' )),0))  Valor_Depreciacao
+                                From Dbamv.Bens        Be,
+                                     dbamv.mov_bens    mb
+                                Where  Be.Cd_Bem         = mb.Cd_Bem
+                                  AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                  And Trunc(Be.Dt_Tombamento,'MM')  < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                  AND mb.cd_multi_empresa_origem    <> mb.cd_multi_empresa_destino
+                                  And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                              Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap
+                              UNION
+                              SELECT Be.Cd_Capitulo,
+                                     Be.Cd_Sub_Cap,
+                                     -(Nvl(Sum(dbamv.Pkg_Patrimonio.Fn_RetTotalDeprecBem( be.cd_bem,Trunc(:CAMPO_PDTREFERENCIA,'MM'), Null, Null, 'R' )),0))  Valor_Depreciacao
+                                From Dbamv.Bens        Be,
+                                     dbamv.mov_bens    mb
+                                Where  Be.Cd_Bem         = mb.Cd_Bem
+                                  AND TRUNC (mb.dt_mov_bem) >= :CAMPO_PDTREFERENCIA
+                                  And Trunc(Be.Dt_Tombamento,'MM')  < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                                  AND mb.cd_multi_empresa_origem <>  mb.cd_multi_empresa_destino
+                                  And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                              Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap )
+                    GROUP BY cd_capitulo, cd_sub_cap)
+         Group By Cd_Capitulo, Cd_Sub_Cap   )  Sl_Ant,
+         (SELECT   cd_capitulo, cd_sub_cap,
+                  SUM (NVL (Valor_Transferencia, 0)) Valor_Transferencia
+            FROM ( Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                         Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                         -(Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Transferencia
+                  From   Dbamv.Bens                   Be,
+                        Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                        Dbamv.ItDeprecia  It
+                  Where  Al.Cd_Bem                      = Be.Cd_Bem
+                  And    It.Cd_Bem = Be.Cd_Bem
+                  And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                  And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem, 'MM') = :CAMPO_PDTREFERENCIA
+                  And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+                  And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                  And    It.cd_bens_reavaliacao is not null
+                  Group By Al.Cd_Capitulo_Atual ,
+                            Al.Cd_Sub_Cap_Atual
+                  UNION
+                  Select Al.Cd_Capitulo_Nova,
+                          Al.Cd_Sub_Cap_Nova,
+                          (Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual))  Valor_Transferencia
+                  From   Dbamv.Bens                   Be,
+                          Dbamv.Alteracao_Sub_Iob_Bem  Al,
+                          Dbamv.ItDeprecia  It
+                  Where  Al.Cd_Bem                      = Be.Cd_Bem
+                  And    It.Cd_Bem = Be.Cd_Bem
+                  And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+                  And    Trunc(Al.Dt_Alteracao_Sub_Iob_Bem,'MM') = :CAMPO_PDTREFERENCIA
+                  And    trunc(It.Dt_Contabilidade) <= Trunc (Al.Dt_Alteracao_Sub_Iob_Bem)
+                  And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                  And    It.cd_bens_reavaliacao is not null
+                  Group By Al.Cd_Capitulo_Nova ,
+                            Al.Cd_Sub_Cap_Nova
+                UNION
+                select be.cd_capitulo, be.cd_sub_cap,
+                        -(Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)) Valor_Transferencia
+                  FROM dbamv.bens be,
+                        dbamv.mov_bens mb,
+                        Dbamv.ItDeprecia  It
+                  Where It.Cd_Bem = Be.Cd_Bem
+                    and be.cd_bem = mb.cd_bem
+                    AND Trunc (mb.dt_mov_bem,'MM') = :CAMPO_PDTREFERENCIA
+                    And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+                    AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                    AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                    And It.cd_bens_reavaliacao is not null
+                GROUP BY be.cd_capitulo, be.cd_sub_cap
+                UNION
+                select be.cd_capitulo, be.cd_sub_cap,
+                        (Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)) Valor_Transferencia
+                  FROM dbamv.bens be,
+                        dbamv.mov_bens mb,
+                        Dbamv.ItDeprecia  It
+                  Where It.Cd_Bem = Be.Cd_Bem
+                    and be.cd_bem = mb.cd_bem
+                    AND Trunc (mb.dt_mov_bem,'MM') = :CAMPO_PDTREFERENCIA
+                    And trunc(It.Dt_Contabilidade) <= Trunc (mb.dt_mov_bem)
+                    AND mb.cd_multi_empresa_origem <> mb.cd_multi_empresa_destino
+                    AND be.sn_desp_operacional IN ('N', :CAMPO_SN_DESP_OPERACIONAL)
+                    And It.cd_bens_reavaliacao is not null
+            GROUP BY be.cd_capitulo, be.cd_sub_cap )
+          GROUP BY cd_capitulo, cd_sub_cap     ) Sl_Transf
+Where  :CAMPO_TP_POSICAO                 = 'C'
+And Be.Cd_Capitulo = Sb.Cd_Capitulo
+And Be.Cd_Sub_Cap = Sb.Cd_Sub_Cap
+And    Sb.cd_reduzido_depacum_reava  = Pl.Cd_Reduzido_de
+And Sb.Cd_Capitulo = Sl_Ant.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap = Sl_Ant.Cd_Sub_Cap(+)
+And    Sb.Cd_Capitulo                = Sl_Transf.Cd_Capitulo(+)
+And Sb.Cd_Sub_Cap  = Sl_Transf.Cd_Sub_Cap(+)
+And :CAMPO_SN_IMPRIME in ('T','R','D')
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+Group By 'DEPRECIAÇÃO ACUMULADA', Pl.Cd_Reduzido, Pl.Cd_Contabil, Pl.Ds_Conta)
+WHERE (Valor_Anterior <> 0 OR Valor_Compra <> 0 OR Valor_Reavaliacao <> 0 OR Valor_Baixado <> 0 OR
+         Valor_Baixado_Canc <> 0 OR Valor_Transferencia <> 0 OR Valor_Inventario <> 0 OR  Valor_Depreciacoes <> 0 )
+Group By tp_registro,
+          Cd_Reduzido,
+          Cd_Contabil,
+          Ds_Conta
+)
+ORDER BY TP_REGISTRO, Cd_Contabil
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_POSICAO_PATRIMONIO_SC_R_4_Q_2
+SELECT * FROM (
+Select 'ATIVO IMOBILIZADO'    TP_REGISTRO_Setor,
+       Pl.Cd_Reduzido			Cd_Reduzido_Setor,
+       Pl.Cd_Contabil				Cd_Contabil_Setor,
+       Pl.Ds_Conta				Ds_Conta_Setor,
+       Se.Cd_Setor,
+       Se.Nm_Setor,
+       Sum(Nvl(Sl_Ant.Valor_Anterior,0))         Valor_Anterior_Setor,
+       Sum(Nvl(Sl_Aqui.Valor_Compra,0))          Valor_Compra_Setor,
+       Sum(Nvl(Sl_Reav.Valor_Reavaliacao,0))     Valor_Reavaliacao_Setor,
+       Sum(Nvl(Sl_Baix.Valor_Baixado,0))         Valor_Baixado_Setor,
+       Sum(Nvl(Sl_Transf.Valor_Transferencia,0)) Valor_Transferencia_Setor,
+       Sum(0)                                    Valor_Inventario_Setor,
+       Sum(0)                                    Valor_Depreciacoes_Setor
+From   Dbamv.Plano_Contas       Pl,
+       Dbamv.Sub_Iob_Empresa    Sb,
+       Dbamv.Setor              Se,
+       ( Select Distinct be.Cd_Capitulo, be.Cd_Sub_Cap, be.Cd_Setor
+         From   Dbamv.Bens be
+         Where  Trunc(be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'MM')
+           and  be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Union
+         Select Distinct Al.Cd_Capitulo_Atual, Al.Cd_Sub_Cap_Atual, Be.Cd_Setor
+         From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al
+         Where  Al.Cd_Bem  = Be.Cd_Bem
+         And    To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)    ) Be,
+       ( Select Cd_Capitulo, Cd_Sub_Cap, Cd_Setor, Sum(Valor_Anterior) Valor_Anterior
+         From   (  Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Be.Cd_Setor,
+                          Sum( Be.Vl_Compra + Nvl(Reav.Vl_Lancamento,0) ) Valor_Anterior
+                   From   Dbamv.Bens  Be,
+                          ( Select Lc.Cd_Bem,
+                                   Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                              From Dbamv.Lancamento_Patrimonio Lc
+                             Where Tp_Lancamento = 'R'
+                               and Lc.Dt_Lancamento < :CAMPO_PDTREFERENCIA
+                            Group By Lc.Cd_Bem  ) Reav
+                   Where  Nvl(Be.Dt_Baixa,:CAMPO_PDTREFERENCIA+1)  >= :CAMPO_PDTREFERENCIA
+                   And    Trunc(Be.Dt_Tombamento,'MM')      < Trunc(:CAMPO_PDTREFERENCIA,'MM')
+                   And    Be.Cd_Bem                         = Reav.Cd_Bem(+)
+                   and    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor
+                   Union
+                   Select Al.Cd_Capitulo_Atual   Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Atual    Cd_Sub_Cap,
+                          Be.Cd_Setor,
+                          Sum(Dbamv.Pkg_Patrimonio.Fn_RetValorBem(Al.Cd_Bem,:CAMPO_PDTREFERENCIA-1)) Valor_Anterior
+                   From   Dbamv.Bens                   Be,
+                          Dbamv.Alteracao_Sub_Iob_Bem  Al
+                   Where  Al.cd_bem = Be.cd_bem
+                     And  To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Atual,
+                            Al.Cd_Sub_Cap_Atual,
+                            Be.Cd_Setor
+                   Union
+                   Select Al.Cd_Capitulo_Nova  Cd_Capitulo,
+                          Al.Cd_Sub_Cap_Nova   Cd_Sub_Cap,
+                          Be.Cd_Setor,
+                          -Sum(Dbamv.Pkg_Patrimonio.Fn_RetValorBem(Al.Cd_Bem,:CAMPO_PDTREFERENCIA-1)) Valor_Anterior
+                   From   Dbamv.Bens                   Be,
+                          Dbamv.Alteracao_Sub_Iob_Bem  Al
+                   Where  To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+                   And    Al.Cd_Bem  =  Be.Cd_Bem
+                   And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Al.Cd_Capitulo_Nova,
+                            Al.Cd_Sub_Cap_Nova,
+                            Be.Cd_Setor     )
+         Group By Cd_Capitulo, Cd_Sub_Cap, Cd_Setor
+         Having Sum(Valor_Anterior) > 0    ) Sl_Ant,
+       ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Be.Cd_Setor,
+                Nvl(Sum(Be.Vl_Compra),0) Valor_Compra
+         From   Dbamv.Bens  Be
+         Where  To_Char(Be.Dt_Tombamento,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+           And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor  ) Sl_Aqui,
+       ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Be.Cd_Setor,
+                Nvl(Sum(Lc.Vl_Lancamento),0) Valor_Reavaliacao
+         From   Dbamv.Bens                  Be,
+                Dbamv.Lancamento_Patrimonio Lc
+         Where  Lc.Dt_Lancamento Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Lc.Tp_Lancamento = 'R'
+         And    Lc.Cd_Bem        = Be.Cd_Bem
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor ) Sl_Reav,
+       ( Select Be.Cd_Capitulo,
+                Be.Cd_Sub_Cap,
+                Be.Cd_Setor,
+                sum(nvl(vl_compra,0) + Nvl(Reav.Vl_Lancamento,0)) Valor_Baixado
+         From   Dbamv.Bens   Be,
+                ( Select Lc.Cd_Bem,
+                         Nvl(Sum(Lc.Vl_Lancamento),0) Vl_Lancamento
+                    From Dbamv.Lancamento_Patrimonio Lc
+                   Where Tp_Lancamento = 'R'
+                Group By Lc.Cd_Bem ) Reav
+         Where  Be.Dt_Baixa Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+         And    Be.Cd_Bem                         = Reav.Cd_Bem(+)
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor  ) Sl_Baix,
+       ( Select Al.Cd_Capitulo_Atual  Cd_Capitulo,
+                Al.Cd_Sub_Cap_Atual   Cd_Sub_Cap,
+                Be.Cd_Setor,
+                -Sum(Dbamv.Pkg_Patrimonio.Fn_RetValorBem(Be.Cd_Bem,Trunc(DT_ALTERACAO_SUB_IOB_BEM))) Valor_Transferencia
+         From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al
+         Where  Al.Cd_Bem                      = Be.Cd_Bem
+         And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+         And    To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Al.Cd_Capitulo_Atual ,
+                	Al.Cd_Sub_Cap_Atual,
+                  Be.Cd_Setor
+         Union All
+         Select Al.Cd_Capitulo_Nova,
+                Al.Cd_Sub_Cap_Nova,
+                Be.Cd_Setor,
+                Sum(Dbamv.Pkg_Patrimonio.Fn_RetValorBem(Be.Cd_Bem,Trunc(DT_ALTERACAO_SUB_IOB_BEM)))
+         From   Dbamv.Bens                   Be,
+                Dbamv.Alteracao_Sub_Iob_Bem  Al
+         Where  Al.Cd_Bem                      = Be.Cd_Bem
+         And    Nvl(Al.Sn_Transfere_Saldo,'N') = 'S'
+         And    To_Char(Al.Dt_Alteracao_Sub_Iob_Bem,'mm/yyyy') = To_Char(:CAMPO_PDTREFERENCIA,'mm/yyyy')
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Al.Cd_Capitulo_Nova ,
+                	Al.Cd_Sub_Cap_Nova,
+                  Be.Cd_Setor     ) Sl_Transf
+Where  :CAMPO_TP_POSICAO  = 'S'
+And    Be.Cd_Capitulo      = Sb.Cd_Capitulo
+And    Be.Cd_Sub_Cap       = Sb.Cd_Sub_Cap
+And    Be.Cd_Setor         = Se.Cd_Setor
+And    Sb.Cd_Reduzido_Bem  = Pl.Cd_Reduzido
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+And    Be.Cd_Capitulo      = Sl_Ant.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap       = Sl_Ant.Cd_Sub_Cap(+)
+And    Be.Cd_Setor         = Sl_Ant.Cd_Setor(+)
+And    Be.Cd_Capitulo      = Sl_Aqui.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap       = Sl_Aqui.Cd_Sub_Cap(+)
+And    Be.Cd_Setor         = Sl_Aqui.Cd_Setor(+)
+And    Be.Cd_Capitulo      = Sl_Reav.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap       = Sl_Reav.Cd_Sub_Cap(+)
+And    Be.Cd_Setor         = Sl_Reav.Cd_Setor(+)
+And    Be.Cd_Capitulo      = Sl_Baix.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap       = Sl_Baix.Cd_Sub_Cap(+)
+And    Be.Cd_Setor         = Sl_Baix.Cd_Setor(+)
+And    Be.Cd_Capitulo      = Sl_Transf.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap       = Sl_Transf.Cd_Sub_Cap(+)
+And    Be.Cd_Setor         = Sl_Transf.Cd_Setor(+)
+Group By 'ATIVO IMOBILIZADO',
+         Pl.Cd_Reduzido,
+         Pl.Cd_Contabil,
+         Pl.Ds_Conta,
+         Se.Cd_Setor,
+         Se.Nm_Setor
+Union All
+Select 'DEPRECIAÇÃO ACUMULADA'    TP_REGISTRO,
+       Cd_Reduzido,
+       Cd_Contabil,
+       Ds_Conta,
+       Cd_Setor,
+       Nm_Setor,
+       Sum( Nvl(Valor_Anterior,0) )            Valor_Anterior,
+       Sum( Valor_Compra )                     Valor_Compra,
+       Sum( Valor_Reavaliacao )                Valor_Reavaliacao,
+       Sum( Valor_Baixado )                    Valor_Baixado,
+       Sum( Valor_Transferencia )              Valor_Transferencia,
+       Sum( Valor_Inventario )                 Valor_Inventario,
+       Sum( Nvl(Valor_Depreciacoes,0) )        Valor_Depreciacoes
+From (
+Select 'DEPRECIAÇÃO ACUMULADA'               TP_REGISTRO,
+       Pl.Cd_Reduzido,
+       Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Se.Cd_Setor,
+       Se.Nm_Setor,
+       Sum(0)                                Valor_Anterior,
+       Sum(0)                                Valor_Compra,
+       Sum(0)                                Valor_Reavaliacao,
+       Sum( Nvl(Sl_Baix.Valor_Baixado,0) )          Valor_Baixado,
+       Sum(0)                                Valor_Transferencia,
+       Sum(0)                                Valor_Inventario,
+       Sum(Nvl(Sl_Dep.Valor_Depreciacao,0))  Valor_Depreciacoes
+From   Dbamv.Plano_Contas     Pl,
+       Dbamv.Sub_Iob_Empresa  Sb,
+       Dbamv.Setor            Se,
+       ( Select Distinct Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor, Nvl(Sum(Vl_Depreciacao_Historica),0) Vl_Depreciacao_Historica
+         From   Dbamv.Bens Be
+         Where  Trunc(Be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'MM')
+         And    ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem )) )
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor    ) Be,
+       ( select Cd_Capitulo,
+                Cd_Sub_Cap,
+                Cd_Setor,
+                Sum( Valor_Depreciacao ) Valor_Depreciacao
+         from
+           ( Select Be.Cd_Capitulo,
+                    Be.Cd_Sub_Cap,
+                    Be.Cd_Setor,
+                    Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+             From   Dbamv.Bens        Be
+             Where  Be.Dt_Tombamento Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+             Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor
+             Union
+             Select Be.Cd_Capitulo,
+                    Be.Cd_Sub_Cap,
+                    Be.Cd_Setor,
+                    Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+             From   Dbamv.Bens        Be,
+                    Dbamv.ItDeprecia  It
+             Where  It.Cd_Bem         = Be.Cd_Bem
+               And  It.Dt_Competencia Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+               And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+             Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor    )
+             group by Cd_Capitulo, Cd_Sub_Cap, Cd_Setor) Sl_Dep,
+         (select Cd_Capitulo,
+                 Cd_Sub_Cap,
+                 Cd_setor,
+                 Sum( Valor_Depreciacao ) valor_baixado
+            from
+              (Select distinct Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      Be.cd_setor,
+                      Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+               From   Dbamv.Bens        Be
+               Where  be.Dt_Baixa Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.cd_setor
+               Union
+               Select Be.Cd_Capitulo,
+                      Be.Cd_Sub_Cap,
+                      be.cd_setor,
+                      Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual)  Valor_Depreciacao
+               From   Dbamv.Bens        Be,
+                      Dbamv.ItDeprecia  It
+               Where  It.Cd_Bem         = Be.Cd_Bem
+                 and  be.Dt_Baixa Between :CAMPO_PDTREFERENCIA And Last_Day(:CAMPO_PDTREFERENCIA)
+                 And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+               Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, be.cd_setor)
+            Group By Cd_Capitulo, Cd_Sub_Cap, Cd_Setor) Sl_Baix
+Where  :CAMPO_TP_POSICAO  = 'S'
+And    Be.Cd_Capitulo            = Sb.Cd_Capitulo
+And    Be.Cd_Sub_Cap             = Sb.Cd_Sub_Cap
+And    Be.Cd_Setor               = Se.Cd_Setor
+And    Sb.Cd_Red_Bensdeprecacum  = Pl.Cd_Reduzido
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+And    Be.Cd_Capitulo            = Sl_Dep.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap             = Sl_Dep.Cd_Sub_Cap(+)
+And    Be.Cd_Setor               = Sl_Dep.Cd_Setor(+)
+And    Be.Cd_Capitulo            = Sl_Baix.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap             = Sl_Baix.Cd_Sub_Cap(+)
+And    Be.Cd_Setor               = Sl_Baix.Cd_Setor(+)
+Group By 'DEPRECIAÇÃO ACUMULADA',
+         Pl.Cd_Reduzido,
+         Pl.Cd_Contabil,
+         Pl.Ds_Conta,
+         Se.Cd_Setor,
+         Se.Nm_Setor
+having Sum(Nvl(Sl_Dep.Valor_Depreciacao,0)) > 0
+UNION
+Select 'DEPRECIAÇÃO ACUMULADA'    TP_REGISTRO,
+       Pl.Cd_Reduzido,
+       Pl.Cd_Contabil,
+       Pl.Ds_Conta,
+       Se.Cd_Setor,
+       Se.Nm_Setor,
+       Sum( Nvl(Sl_Ant.Valor_Depreciacao,0) )  Valor_Anterior,
+       Sum( 0 )                                Valor_Compra,
+       Sum( 0 )                                Valor_Reavaliacao,
+       Sum( 0 )                                Valor_Baixado,
+       Sum( 0 )                                Valor_Transferencia,
+       Sum( 0 )                                Valor_Inventario,
+       Sum( 0 )                                Valor_Depreciacoes
+From   Dbamv.Plano_Contas  Pl,
+       Dbamv.Sub_Iob_Empresa Sb,
+       Dbamv.Setor          Se,
+       ( Select Distinct Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.Cd_Setor, Nvl(Sum(Vl_Depreciacao_Historica),0) Vl_Depreciacao_Historica
+         From   Dbamv.Bens Be
+         Where  Trunc(Be.Dt_Tombamento,'mm') <= Trunc(:CAMPO_PDTREFERENCIA,'mm')
+         And    ((Nvl(Be.Vl_Depreciacao_Historica,0) > 0) Or (Exists ( Select 1 From Dbamv.ItDeprecia I Where I.Cd_Bem = Be.Cd_Bem )) )
+         And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+         Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.cd_setor  ) Be,
+       ( Select Cd_Capitulo, Cd_Sub_Cap, Cd_setor, Sum(Valor_Depreciacao) Valor_Depreciacao
+         From   (  Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Be.cd_setor,
+                          Sum( Be.Vl_Depreciacao_Historica ) Valor_Depreciacao
+                   From   Dbamv.Bens        Be
+                   Where  Trunc(Be.Dt_Tombamento) < :CAMPO_PDTREFERENCIA
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.cd_setor
+                   Union
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Be.cd_setor,
+                          Sum(It.Vl_Deprecia_Antes-It.Vl_Deprecia_Atual) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It
+                   Where  It.Cd_Bem         = Be.Cd_Bem
+                   And    trunc(it.dt_competencia) <  :CAMPO_PDTREFERENCIA
+                   And    Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.cd_setor
+                   union
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Be.cd_setor,
+                          Sum( nvl(Be.Vl_Depreciacao_Historica,0) ) * (-1) Valor_Depreciacao
+                   From   Dbamv.Bens        Be
+                   Where  trunc(be.Dt_Baixa) < :CAMPO_PDTREFERENCIA
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.cd_setor
+                   Union
+                   Select Be.Cd_Capitulo,
+                          Be.Cd_Sub_Cap,
+                          Be.cd_setor,
+                          Sum(nvl(It.Vl_Deprecia_Antes,0)-nvl(It.Vl_Deprecia_Atual,0))  * (-1) Valor_Depreciacao
+                   From   Dbamv.Bens        Be,
+                          Dbamv.ItDeprecia  It
+                   Where  It.Cd_Bem         = Be.Cd_Bem
+                     and trunc(be.Dt_Baixa) < :CAMPO_PDTREFERENCIA
+                     And  Be.sn_desp_operacional in ('N',:CAMPO_SN_DESP_OPERACIONAL)
+                   Group By Be.Cd_Capitulo, Be.Cd_Sub_Cap, Be.cd_setor)
+         Group By Cd_Capitulo, Cd_Sub_Cap, cd_setor   )  Sl_Ant
+Where  :CAMPO_TP_POSICAO = 'S'
+And    Be.Cd_Capitulo            = Sb.Cd_Capitulo
+And    Be.Cd_Sub_Cap             = Sb.Cd_Sub_Cap
+And    Be.Cd_Setor               = Se.Cd_Setor
+And    Sb.Cd_Red_Bensdeprecacum  = Pl.Cd_Reduzido
+AND (PL.CD_PLANO_CRIACAO <= :CAMPO_CD_PLANO AND (CD_PLANO_REMOCAO IS NULL OR CD_PLANO_REMOCAO > :CAMPO_CD_PLANO))
+And    Be.Cd_Capitulo      = Sl_Ant.Cd_Capitulo(+)
+And    Be.Cd_Sub_Cap       = Sl_Ant.Cd_Sub_Cap(+)
+And    Be.Cd_Setor         = Sl_Ant.Cd_Setor(+)
+Group By 'DEPRECIAÇÃO ACUMULADA', Pl.Cd_Reduzido, Pl.Cd_Contabil, Pl.Ds_Conta,Se.Cd_Setor, Se.Nm_Setor
+Having Sum(Nvl(Sl_Ant.Valor_Depreciacao,0)) > 0)
+Group By 'DEPRECIAÇÃO ACUMULADA', Cd_Reduzido, Cd_Contabil, Ds_Conta, Cd_Setor, Nm_Setor
+)
+ORDER BY TP_REGISTRO_SETOR,
+CD_SETOR,NM_SETOR

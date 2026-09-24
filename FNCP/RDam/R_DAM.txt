@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_DAM
+SELECT NM_EMPRESA                           NM_EMPRESA
+     , TO_CHAR( max(DT_EMISSAO) ,'MM')      DT_EMISSAO_MES
+     , TO_CHAR( max(DT_EMISSAO) ,'YYYY')    DT_EMISSAO_ANO
+     , CD_CON_PAG                           CD_CON_PAG
+     , NR_CGC                               NR_CGC
+     , max(DT_VENC)                         DT_VENC
+     , sum(VL_TOTAL)                        VL_TOTAL
+     , CD_ATIVIDADE                         CD_ATIVIDADE
+     , DS_DETALHAMENTO                      DS_DETALHAMENTO
+     , sum(VL_DETALHAMENTO)                 VL_DETALHAMENTO
+ FROM (
+SELECT MULTI_EMP.DS_MULTI_EMPRESA                         NM_EMPRESA
+     , CON_PAG.DT_EMISSAO                                 DT_EMISSAO
+     , AGRUP.CD_CON_PAG                                   CD_CON_PAG
+     , nvl(to_char(MULTI_EMP.CD_CGC),MULTI_EMP.CD_IEST)   NR_CGC
+     , IT_AGRUP.DT_VENCIMENTO                             DT_VENC
+     , CPAI.VL_BRUTO_CONTA                                VL_TOTAL
+     , TIP_DETALHE.CD_ATIVIDADE                           CD_ATIVIDADE
+     , TIP_DETALHE.DS_DETALHAMENTO                        DS_DETALHAMENTO
+     , TIP_DETCON_PAG.VL_DETALHAMENTO                     VL_DETALHAMENTO
+  FROM DBAMV.CON_PAG            AGRUP
+     , DBAMV.ITCON_PAG          IT_AGRUP
+     , DBAMV.ITCON_PAG          ITCON_PAG
+     , DBAMV.CON_PAG            CON_PAG
+     , DBAMV.CON_PAG            CPAI
+     , DBAMV.MULTI_EMPRESAS     MULTI_EMP
+     , DBAMV.TIP_DETALHE        TIP_DETALHE
+     , DBAMV.TIP_DETCON_PAG     TIP_DETCON_PAG
+ WHERE AGRUP.CD_CON_PAG               = IT_AGRUP.CD_CON_PAG
+   AND IT_AGRUP.CD_CON_PAG            = ITCON_PAG.CD_CON_PAG_AGRUP(+)
+   AND ITCON_PAG.CD_CON_PAG           = CON_PAG.CD_CON_PAG(+)
+   AND AGRUP.CD_MULTI_EMPRESA         = MULTI_EMP.CD_MULTI_EMPRESA
+   AND MULTI_EMP.CD_MULTI_EMPRESA     =  :CAMPO_CD_MULTI_EMPRESA 
+   AND nvl(CON_PAG.CD_CON_PAG,AGRUP.CD_CON_PAG) = TIP_DETCON_PAG.CD_CON_PAG_FILHO
+   AND CPAI.CD_CON_PAG                = TIP_DETCON_PAG.CD_CON_PAG_PAI
+   AND TIP_DETCON_PAG.CD_DETALHAMENTO = TIP_DETALHE.CD_DETALHAMENTO
+:CAMPO_CF_CD_CON_PAG
+)
+GROUP BY NM_EMPRESA
+       , CD_CON_PAG
+       , NR_CGC
+       , CD_ATIVIDADE
+       , DS_DETALHAMENTO

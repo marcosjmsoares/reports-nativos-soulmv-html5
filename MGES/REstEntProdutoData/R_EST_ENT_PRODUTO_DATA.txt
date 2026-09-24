@@ -1,0 +1,85 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_ENT_PRODUTO_DATA
+SELECT * FROM (
+select ent_pro.cd_fornecedor,
+          fornecedor.nm_fornecedor,
+          tip_doc.ds_tip_doc,
+          Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento) nr_documento,
+          ent_pro.nr_serie,
+          ent_pro.dt_emissao,
+          sum(nvl( itent_pro.vl_custo_real, 0) * nvl( itent_pro.qt_entrada,0)) vl_total,
+          ent_pro.dt_entrada dt_entrada
+          ,itent_pro.cd_produto cd_produto
+          ,Iso_Avaliacao.Vl_Nota
+          ,Iso_Avaliacao.Vl_Media
+          ,Iso_Ranking.Ds_Ranking
+  from dbamv.fornecedor,
+          dbamv.tip_doc,
+          dbamv.itent_pro,
+          dbamv.ent_pro
+          ,Dbamv.Iso_Avaliacao
+          ,Dbamv.Iso_Ranking
+          ,Dbamv.estoque
+          ,Dbamv.produto
+          ,Dbamv.Uni_Pro
+          ,DBAMV.CONFIGEST
+Where ent_pro.cd_ent_pro    = itent_pro.cd_ent_pro
+     and  Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     and  fornecedor.tp_cliente_forn in ( 'F', 'A' , 'R', 'T')
+     and  ent_pro.cd_fornecedor = fornecedor.cd_fornecedor
+     and  ent_pro.cd_tip_doc = tip_doc.cd_tip_doc
+     AND  CONFIGEST.CD_MULTI_EMPRESA = PKG_MV2000.LE_EMPRESA
+      and ((ent_pro.dt_emissao is null And (ent_pro.dt_entrada between :CAMPO_DATA_INI   And :CAMPO_DATA_FIM))
+          Or (ent_pro.dt_emissao between :CAMPO_DATA_INI   And :CAMPO_DATA_FIM))
+   And itent_pro.cd_produto  = produto.cd_produto
+   And itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+  AND ent_pro.cd_estoque = estoque.cd_estoque
+     and  ent_pro.cd_fornecedor is not null
+     And Ent_Pro.Cd_Ent_Pro       = Iso_Avaliacao.Cd_Ent_Pro (+)
+     And Iso_Avaliacao.Cd_Ranking = Iso_Ranking.Cd_Ranking (+)
+     And Exists (Select Cd_Fornecedor
+                          From Dbamv.Tip_Ativ
+                                  ,Dbamv.Ati_For
+                      Where Tip_Ativ.Cd_Tip_Ativ = Ati_For.Cd_Tip_Ativ
+                          And Ati_For.Cd_Fornecedor = Fornecedor.Cd_Fornecedor
+                          :CAMPO_CF_TP_CRITERIO)
+Group by ent_pro.cd_fornecedor
+               ,fornecedor.nm_fornecedor
+               ,tip_doc.ds_tip_doc
+               , Decode((Nvl(CONFIGEST.SN_UTILIZA_NCF_COMO_NUMERO_NF, 'N')), 'S', ent_pro.nr_ncf, ent_pro.nr_documento)
+               ,ent_pro.nr_serie
+               ,ent_pro.dt_emissao
+               ,ent_pro.dt_entrada
+               ,itent_pro.cd_produto
+               ,Iso_Avaliacao.Vl_Nota
+               ,Iso_Avaliacao.Vl_Media
+               ,Iso_Ranking.Ds_Ranking
+Union All
+Select Fornecedor.Cd_Fornecedor
+           ,Fornecedor.Nm_Fornecedor
+           ,'Avaliação Sem Entrada'    Ds_Tip_Doc
+           ,Null                       Nr_Documento
+           ,Null                       Nr_Serie
+           ,Iso_Avaliacao.Dt_Avaliacao Dt_Emissao
+           ,0  vl_total
+           ,Iso_Avaliacao.Dt_Avaliacao Dt_Entrada
+          ,0 cd_produto
+           ,Iso_Avaliacao.Vl_Nota
+           ,Iso_Avaliacao.Vl_Media
+           ,Iso_Ranking.Ds_Ranking
+   From Dbamv.Iso_Avaliacao
+            ,Dbamv.Iso_Ranking
+            ,Dbamv.Fornecedor
+Where Iso_Avaliacao.Cd_Ranking    = Iso_Ranking.Cd_Ranking
+    And Iso_Avaliacao.Cd_Fornecedor = Fornecedor.Cd_Fornecedor
+    And Iso_Avaliacao.Cd_Ent_Pro Is Null
+    And Exists (Select Cd_Fornecedor
+                        From Dbamv.Tip_Ativ
+                                 ,Dbamv.Ati_For
+                      Where Tip_Ativ.Cd_Tip_Ativ = Ati_For.Cd_Tip_Ativ
+                          And Ati_For.Cd_Fornecedor = Fornecedor.Cd_Fornecedor
+                          :CAMPO_CF_TP_CRITERIO)
+   And Iso_Avaliacao.Dt_Avaliacao Between :CAMPO_DATA_INI And 
+ And  'S' = :CAMPO_SN_AVALIACAO
+:CAMPO_CF_TP_ORDEM
+)

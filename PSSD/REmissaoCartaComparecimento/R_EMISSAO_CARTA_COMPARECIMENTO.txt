@@ -1,0 +1,39 @@
+/*----------------------------------------------------------------------------*/
+--R_EMISSAO_CARTA_COMPARECIMENTO
+SELECT it.cd_ped_lab CD_PEDIDO,
+       e.nm_exa_lab NM_EXAME,
+       e.NM_MNEMONICO,
+       p.NM_PRESTADOR NM_PRESTADOR,
+       c.ds_conselho||': '||p.DS_CODIGO_CONSELHO DS_CRM,
+       s.NM_SET_EXA,
+       pa.NM_PACIENTE,
+       (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PA.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+       To_Char(it.dt_assinado,'dd/mm/yyyy') DT_INICIO_PERIODO,
+       To_Char(it.dt_assinado + 30,'dd/mm/yyyy') DT_FINAL_PERIODO,
+       (SELECT DS_ENDERECO FROM dbamv.hospital WHERE  cd_multi_empresa = 1)DS_ENDER_HOSP,
+        ca.ds_cabecalho, ca.ds_conteudo,ca.ds_rodape,rg.cd_registro_comparecimento,
+        SETOR.NM_SETOR NM_SETOR,
+       Nvl((SELECT nr_rghc FROM dbamv.paciente_rghc WHERE paciente_rghc.CD_PACIENTE = pa.cd_paciente),
+        (SELECT TO_CHAR(NR_MATRICULA_SAME) NR_MATRICULA_SAME FROM DBAmv.same WHERE
+		same.cd_paciente = pa.cd_paciente AND ROWNUM = 1)) MATRICULA_SAME
+  FROM DBAMV.REGISTRO_COMPARECIMENTO rg
+ INNER JOIN dbamv.CARTA_COMPARECIMENTO ca
+    ON (rg.cd_carta_comparecimento = ca.cd_carta_comparecimento)
+ INNER JOIN DBAMV.ITPED_LAB it
+    ON (it.cd_itped_lab = rg.cd_itped_lab)
+ INNER JOIN DBAMV.PED_LAB ped
+    ON (it.cd_ped_lab = ped.cd_ped_lab)
+ INNER JOIN DBAMV.SETOR
+    ON (setor.cd_setor = ped.cd_setor)
+ INNER JOIN DBAMV.EXA_LAB e
+    ON (e.cd_exa_lab = it.cd_exa_lab)
+ INNER JOIN DBAMV.PRESTADOR p
+    ON (it.cd_medico_exec = p.cd_prestador)
+INNER JOIN DBAMV.CONSELHO c
+    ON (c.cd_conselho = p.cd_conselho)
+ INNER JOIN DBAMV.SET_EXA s
+    ON (s.cd_set_exa = it.cd_set_exa)
+ INNER JOIN DBAMV.PACIENTE pa
+    ON (pa.cd_paciente = rg.cd_paciente)
+ WHERE rg.cd_itped_lab in (:CAMPO_CD_ITPED_LAB)
+ ORDER BY rg.cd_registro_comparecimento asc

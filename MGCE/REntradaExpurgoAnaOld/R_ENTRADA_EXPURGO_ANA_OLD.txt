@@ -1,0 +1,47 @@
+/*----------------------------------------------------------------------------*/
+--R_ENTRADA_EXPURGO_ANA_OLD
+SELECT * FROM (
+Select  It_Mvto_Cme.Cd_Mvto_Cme Movimentacao
+           ,It_Mvto_cme.Cd_Cancelamento Cancelamento
+           ,cx_kit.cd_kit
+           ,cx_kit.ds_res_kit
+           ,prestador.cd_identificacao RecebidoPorSim
+           ,it_mvto_cme.cd_usuario_inc RecebidoPorNao
+           ,to_char(it_mvto_cme.dt_inc_usuario, 'DD/MM/YYYY') DataRecebimento
+           ,produto.ds_produto_resumido
+           ,bens.cd_bem
+           ,bens.ds_bem
+           ,bens.ds_plaqueta
+           ,Config_Cme.Sn_identi_Geral
+           ,Mvto_Cme.cd_setor_rsp_ent SetorRspEntrega
+           ,Mvto_Cme.cd_colaborador_rsp_ent ColaboradorRspEntrega
+           ,mvto_cme.cd_aviso_cirurgia
+           ,mvto_cme.cd_atendimento
+           ,nvl(aviso_cirurgia.nm_paciente, paciente.nm_paciente) nm_paciente
+From Dbamv.It_mvto_Cme
+        ,Dbamv.Mvto_Cme
+        ,Dbamv.Cx_Kit
+        ,Dbamv.Prestador
+        ,Dbamv.Produto
+        ,Dbamv.Bens
+        ,Dbamv.Config_Cme
+        ,Dbamv.aviso_cirurgia
+        ,Dbamv.paciente
+Where It_mvto_Cme.Cd_Mvto_Cme = Mvto_Cme.cd_mvto_cme
+    And Cx_Kit.Cd_Kit = It_MVto_Cme.Cd_Kit
+    And Prestador.Cd_Prestador(+) = It_mvto_Cme.Cd_Prestador_Identifica
+    And Produto.Cd_Produto(+) = Cx_Kit.Cd_Produto
+    And Bens.Cd_Bem (+)= It_Mvto_Cme.Cd_Bem
+    And Config_Cme.Cd_Setor_Expurgo = It_Mvto_Cme.Cd_Setor
+    And Config_Cme.Cd_Localidade_expurgo = It_Mvto_Cme.Cd_Localidade
+    And Trunc(it_mvto_cme.dt_inc_usuario) BETWEEN :CAMPO_DATA_INI And 
+    And aviso_cirurgia.cd_paciente          = paciente.cd_paciente(+)
+    And aviso_cirurgia.cd_aviso_cirurgia (+)= mvto_cme.cd_aviso_cirurgia
+    And (config_cme.cd_setor_principal in (select cd_setor
+                                             from dbamv.setor
+                                            where cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+         or config_cme.cd_setor_principal is null)
+order by DataRecebimento
+)
+ORDER BY CD_KIT,
+DS_RES_KIT,RECEBIDOPORSIM,RECEBIDOPORNAO,DATARECEBIMENTO,DS_PRODUTO_RESUMIDO,MOVIMENTACAO,SN_IDENTI_GERAL

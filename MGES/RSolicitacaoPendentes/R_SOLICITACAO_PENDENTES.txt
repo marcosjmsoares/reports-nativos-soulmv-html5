@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_SOLICITACAO_PENDENTES
+SELECT * FROM (
+select  estoque.cd_estoque,
+           estoque.ds_estoque,
+           solsai_pro.cd_solsai_pro Solicitacao,
+           decode(solsai_pro.tp_situacao, 'P','Pend', 'S', 'Conf', 'C', 'Parc') Situacao,
+           decode(solsai_pro.tp_solsai_pro,'P', 'Saída de Paciente',
+                                           'S', 'Saída de Setor',
+                                           'E', 'Transf. de Estoque',
+                                           'C', 'Devolução de Paciente',
+                                           'D', 'Devolução de Setor',
+                                           'T', 'Transf. entre Empresas') Tipo_Solicitacao,
+           to_date (to_char (solsai_pro.dt_solsai_pro, 'dd/mm/yyyy') || to_char(solsai_pro.hr_solsai_pro, 'hh24'), 'dd/mm/yyyy hh24') dt_solsai_pro,
+           solsai_pro.tp_solsai_pro Solicitante,
+           solsai_pro.cd_setor,
+           setor.nm_setor,
+           solsai_pro.cd_estoque_solicitante,
+           solsai_pro.cd_atendimento,
+           solsai_pro.cd_unid_int,
+           unid_int.ds_unid_int,
+           solsai_pro.cd_empresa_destino
+   from dbamv.estoque,
+           dbamv.solsai_pro,
+           dbamv.setor,
+           dbamv.unid_int
+   where solsai_pro.cd_estoque   = estoque.cd_estoque
+   and  trunc(dt_solsai_pro) + (hr_solsai_pro - trunc(hr_solsai_pro))
+           between :CAMPO_DTINIC  and 
+   and solsai_pro.tp_situacao IN ( 'P', 'C' )
+   and solsai_pro.cd_unid_int = unid_int.cd_unid_int(+)
+   and solsai_pro.cd_setor = setor.cd_setor(+)
+   and estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+order by Solicitacao
+)
+ORDER BY CD_ESTOQUE,DS_ESTOQUE,
+CD_UNID_INT,DS_UNID_INT,
+CD_SETOR,NM_SETOR

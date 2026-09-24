@@ -1,0 +1,92 @@
+/*----------------------------------------------------------------------------*/
+--R_CULTURA_X_GERME
+select cd_material, ds_material, sum(qtd_exec) as QTD_EXEC, sum(qtd_solic) as QTD_SOLIC
+  from (
+                  select cultura.cd_material cd_material,
+                         material.ds_material ds_material,
+                         count(itped_lab.cd_ped_lab) qtd_exec,
+                         0 qtd_solic
+                    from dbamv.itped_lab,
+                         dbamv.cultura,
+                         dbamv.material,
+                         dbamv.ped_lab ,
+                         dbamv.atendime,
+                         dbamv.leito
+                  where itped_lab.cd_itped_lab = cultura.cd_itped_lab
+                    and trunc(ped_lab.dt_pedido) between TRUNC(:CAMPO_DT_INICIAL) and TRUNC(:CAMPO_DT_FINAL)
+                    and cultura.cd_material    = material.cd_material
+                    and cultura.tp_resultado IS NOT NULL
+                    and cultura.tp_resultado <> 'A'
+                    and ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+                    and ped_lab.cd_atendimento = atendime.cd_atendimento
+                    and leito.cd_leito in (
+                                      SELECT CD_LEITO
+                                        FROM DBAMV.MOV_INT
+                                      WHERE MOV_INT.CD_ATENDIMENTO = PED_LAB.CD_ATENDIMENTO
+                                        AND Trunc(PED_LAB.DT_PEDIDO) BETWEEN Trunc(MOV_INT.DT_MOV_INT) AND Nvl(Trunc(MOV_INT.DT_LIB_MOV),Trunc(SYSDATE))
+                                            )
+                  group by cultura.cd_material , material.ds_material
+ union all
+                select material.cd_material cd_material,
+                       material.ds_material ds_material,
+                       0 qtd_exec,
+                       count(itped_lab.cd_ped_lab) qtd_solic
+                  from dbamv.exa_lab,
+                       dbamv.ped_lab,
+                       dbamv.itped_lab,
+                       dbamv.material,
+                         dbamv.atendime,
+                         dbamv.leito
+                where exa_lab.cd_exa_lab           = itped_lab.cd_exa_lab
+                  and itped_lab.cd_ped_lab         = ped_lab.cd_ped_lab
+                  AND itped_lab.cd_material          = material.cd_material
+                  and exa_lab.tp_resultado         = 'C'
+                  and trunc(ped_lab.dt_pedido) between TRUNC(:CAMPO_DT_INICIAL) and TRUNC(:CAMPO_DT_FINAL)
+                    and ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+                    and ped_lab.cd_atendimento = atendime.cd_atendimento
+                    and leito.cd_leito in (
+                                      SELECT CD_LEITO
+                                        FROM DBAMV.MOV_INT
+                                      WHERE MOV_INT.CD_ATENDIMENTO = PED_LAB.CD_ATENDIMENTO
+                                        AND Trunc(PED_LAB.DT_PEDIDO) BETWEEN Trunc(MOV_INT.DT_MOV_INT) AND Nvl(Trunc(MOV_INT.DT_LIB_MOV),Trunc(SYSDATE))
+                                            )
+                group by material.cd_material , material.ds_material
+)
+group by cd_material, ds_material
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CULTURA_X_GERME_R_TIPO_RESULTADO1_Q_4
+SELECT * FROM ( SELECT Cd_material, Decode(TP_RESULTADO , 'P','Positivo','N','Negativo','A','Positivo em Andamento','B','Negativo em Andamento','F','Crescimento de Flora Mista','M','Crescimento de Flora Normal' ) culturas, Count(*) TOTAL_2
+FROM (
+        SELECT v_psih_cultura_cultura_manual.CD_ATENDIMENTO,
+              Decode(Nvl(v_psih_cultura_cultura_manual.CD_PED_LAB,0),0,'M','P') tipo,
+              Decode(v_psih_cultura_cultura_manual.CD_ITPED_LAB,0,v_psih_cultura_cultura_manual.CD_CULTURA_MANUAL,v_psih_cultura_cultura_manual.CD_ITPED_LAB),
+              v_psih_cultura_cultura_manual.cd_material,
+              v_psih_cultura_cultura_manual.TP_RESULTADO,
+              Count(*) sensibilidades
+        FROM dbamv.v_psih_cultura_cultura_manual,
+                    dbamv.atendime,
+                    dbamv.leito,
+                    dbamv.ped_lab
+       WHERE v_psih_cultura_cultura_manual.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+        AND v_psih_cultura_cultura_manual.cd_ped_lab = ped_lab.cd_ped_lab
+        AND v_psih_cultura_cultura_manual.TP_RESULTADO is not null
+        AND v_psih_cultura_cultura_manual.tp_resultado <> 'A'
+		AND PED_LAB.DT_PEDIDO between TRUNC(:CAMPO_DT_INICIAL) and TRUNC(:CAMPO_DT_FINAL)
+        AND Decode(Nvl(v_psih_cultura_cultura_manual.CD_PED_LAB,0),0,'M','P') <> 'M'
+        and leito.cd_leito in (
+                          SELECT CD_LEITO
+                            FROM DBAMV.MOV_INT
+                          WHERE MOV_INT.CD_ATENDIMENTO = PED_LAB.CD_ATENDIMENTO
+                            AND Trunc(PED_LAB.DT_PEDIDO) BETWEEN Trunc(MOV_INT.DT_MOV_INT) AND Nvl(Trunc(MOV_INT.DT_LIB_MOV),Trunc(SYSDATE))
+                                )
+       GROUP BY v_psih_cultura_cultura_manual.CD_ATENDIMENTO, Decode(Nvl(v_psih_cultura_cultura_manual.CD_PED_LAB,0),0,'M','P')  ,
+                          Decode(v_psih_cultura_cultura_manual.CD_ITPED_LAB,0,CD_CULTURA_MANUAL,CD_ITPED_LAB), v_psih_cultura_cultura_manual.cd_material, v_psih_cultura_cultura_manual.TP_RESULTADO
+)
+WHERE Decode(TP_RESULTADO , 'P','Positivo','N','Negativo','A','Positivo em Andamento','B','Negativo em Andamento','F','Crescimento de Flora Mista','M','Crescimento de Flora Normal' ) IS NOT null
+GROUP by cd_material, Decode(TP_RESULTADO , 'P','Positivo','N','Negativo','A','Positivo em Andamento','B','Negativo em Andamento','F','Crescimento de Flora Mista','M','Crescimento de Flora Normal' )
+ORDER BY Decode(TP_RESULTADO , 'P','Positivo','N','Negativo','A','Positivo em Andamento','B','Negativo em Andamento','F','Crescimento de Flora Mista','M','Crescimento de Flora Normal' )
+)
+WHERE CD_MATERIAL = :CAMPO_CD_MATERIAL

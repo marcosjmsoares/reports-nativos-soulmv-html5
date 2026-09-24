@@ -1,0 +1,63 @@
+/*----------------------------------------------------------------------------*/
+--R_NEGACAO_GUIA
+SELECT * FROM (
+select guia.nr_guia,
+       atendime.cd_paciente,
+       paciente.nm_paciente,
+       to_char( nvl( guia.dt_negacao, :CAMPO_DT_NEGACAO ), 'dd/mm/yyyy hh24') dt_negacao,
+       atendime.cd_atendimento,
+       reg_fat.cd_reg_fat cd_conta,
+       it_guia.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       guia.tp_situacao,
+       it_guia.qt_autorizado qt_solicitada,
+       it_guia.qt_autorizada_convenio qt_autorizada
+  from dbamv.guia,
+       dbamv.reg_fat,
+       dbamv.atendime,
+       dbamv.paciente,
+       dbamv.pro_fat,
+       dbamv.it_guia
+ where reg_fat.cd_atendimento = nvl(:CAMPO_CD_ATENDIMENTO, reg_fat.cd_atendimento)
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and atendime.cd_multi_empresa =  dbamv.Pkg_Mv2000.Le_Empresa
+   and guia.cd_guia = nvl(:CAMPO_GUIA, guia.cd_guia)
+   and reg_fat.cd_atendimento = guia.cd_atendimento
+   and atendime.cd_atendimento = reg_fat.cd_atendimento
+   and paciente.cd_paciente = atendime.cd_paciente
+   and it_guia.cd_guia(+) = guia.cd_guia
+   and pro_fat.cd_pro_fat(+) = it_guia.cd_pro_fat
+   and reg_fat.cd_convenio = guia.cd_convenio
+union all
+select distinct guia.nr_guia,
+       atendime.cd_paciente,
+       paciente.nm_paciente,
+       to_char( nvl( guia.dt_negacao, :CAMPO_DT_NEGACAO ), 'dd/mm/yyyy hh24') dt_negacao,
+       atendime.cd_atendimento,
+       reg_amb.cd_reg_amb cd_conta,
+       it_guia.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       guia.tp_situacao,
+       it_guia.qt_autorizado qt_solicitada,
+       it_guia.qt_autorizada_convenio qt_autorizada
+  from dbamv.guia,
+       dbamv.reg_amb,
+       dbamv.itreg_amb,
+       dbamv.atendime,
+       dbamv.paciente,
+       dbamv.pro_fat,
+       dbamv.it_guia
+ where itreg_amb.cd_atendimento = nvl(:CAMPO_CD_ATENDIMENTO, itreg_amb.cd_atendimento)
+   AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and atendime.cd_multi_empresa =  dbamv.Pkg_Mv2000.Le_Empresa
+   and guia.cd_guia = nvl(:CAMPO_GUIA, guia.cd_guia)
+   and reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+   and itreg_amb.cd_atendimento = guia.cd_atendimento
+   and atendime.cd_atendimento = guia.cd_atendimento
+   and paciente.cd_paciente = atendime.cd_paciente
+   and it_guia.cd_guia(+) = guia.cd_guia
+   and pro_fat.cd_pro_fat(+) = it_guia.cd_pro_fat
+   and reg_amb.cd_convenio = guia.cd_convenio
+   :CAMPO_CF_DATA_NEG_SUSP
+)
+ORDER BY NR_GUIA,CD_PACIENTE,NM_PACIENTE,DT_NEGACAO,CD_ATENDIMENTO,CD_CONTA,TP_SITUACAO

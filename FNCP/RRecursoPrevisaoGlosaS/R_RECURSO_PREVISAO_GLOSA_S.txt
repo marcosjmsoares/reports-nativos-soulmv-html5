@@ -1,0 +1,116 @@
+/*----------------------------------------------------------------------------*/
+--R_RECURSO_PREVISAO_GLOSA_S
+SELECT   *
+    FROM (SELECT   nm_convenio,
+                   cd_convenio,
+                   dt_prevista_pagamento,
+                   vl_previsto,
+                   NVL (vl_glosa_fnfi, 0) vl_glosa_fnfi,
+                   NVL (vl_recurso_fnfi, 0) vl_recurso_fnfi,
+                   NVL (vl_recebido, 0) vl_recebido,
+                   NVL (vl_recuperado, 0) vl_recuperado,
+                   SUM (NVL (vl_recurso, 0)) vl_recurso,
+                   vl_aceite,
+			cd_itcon_rec
+              FROM (SELECT   convenio.nm_convenio nm_convenio,
+                             convenio.cd_convenio cd_convenio,
+                             TRUNC (con_rec.dt_emissao) dt_emissao,
+                             TRUNC (itcon_rec.dt_prevista_recebimento)
+                                                                    dt_prevista_pagamento,
+                             itcon_rec.vl_duplicata vl_previsto,
+                             itcon_rec.vl_glosa vl_glosa_fnfi,
+                             NVL (itcon_rec.vl_recurso, 0) vl_recurso_fnfi,
+                             NVL (remessa_glosa.vl_total_remessa, 0) vl_recurso,
+                             NVL (remessa_glosa.vl_recurso_recebido, 0)
+                                                                      vl_recurso_recebido,
+                             nota_fiscal.nr_id_nota_fiscal nr_documento,
+                             con_rec.cd_con_rec cd_con_rec,
+                             itcon_rec.cd_itcon_rec cd_itcon_rec,
+                             remessa_fatura.cd_remessa cd_remessa,
+                             remessa_glosa.cd_remessa_glosa cd_remessa_glosa,
+                             TRUNC (remessa_glosa.dt_prevista_para_pgto)
+                                                                    dt_prevista_para_pgto,
+                             remessa_glosa.vl_total_remessa vl_total_remessa_glosa,
+                             recebimento.vl_recebido,
+                             recuperado.vl_recuperado,
+                             Nvl(itcon_rec.vl_glosa_aceita,0) vl_aceite
+                        FROM dbamv.itcon_rec,
+                             dbamv.con_rec,
+                             dbamv.convenio,
+                             dbamv.remessa_glosa,
+                             dbamv.nota_fiscal,
+                             dbamv.itfat_nota_fiscal,
+                             (SELECT   reccon_rec.cd_itcon_rec,
+                                       SUM ((  NVL (reccon_rec.vl_recebido, 0)
+                                             - NVL (reccon_rec.vl_acrescimo, 0)
+                                             + NVL (reccon_rec.vl_desconto, 0)
+                                             + NVL (reccon_rec.vl_imposto_retido, 0)
+                                            )
+                                           ) vl_recebido
+                                  FROM dbamv.reccon_rec, dbamv.con_rec, dbamv.itcon_rec
+                                 WHERE con_rec.cd_con_rec = itcon_rec.cd_con_rec
+                                   AND itcon_rec.cd_itcon_rec = reccon_rec.cd_itcon_rec
+                                   AND reccon_rec.cd_remessa_glosa IS NULL
+                                   AND dt_estorno IS NULL
+                              GROUP BY reccon_rec.cd_itcon_rec) recebimento,
+                             (SELECT   cd_itcon_rec,
+                                       SUM (  NVL (vl_recebido, 0)
+                                            - NVL (vl_acrescimo, 0)
+                                            + NVL (vl_desconto, 0)
+                                            + NVL (vl_imposto_retido, 0)
+                                           ) vl_recuperado
+                                  FROM dbamv.reccon_rec
+                                 WHERE reccon_rec.cd_remessa_glosa IS NOT NULL
+                                   AND dt_estorno IS NULL
+                              GROUP BY cd_itcon_rec) recuperado,
+                             (SELECT   MIN (itfat_nota_fiscal.cd_remessa) cd_remessa,
+                                       itfat_nota_fiscal.cd_nota_fiscal cd_nota_fiscal
+                                  FROM dbamv.itfat_nota_fiscal
+                              GROUP BY itfat_nota_fiscal.cd_nota_fiscal) remessa_fatura,
+                             dbamv.empresa_convenio
+                       WHERE empresa_convenio.cd_convenio = convenio.cd_convenio
+                         AND empresa_convenio.cd_multi_empresa =
+                                                               dbamv.pkg_mv2000.le_empresa
+                         AND con_rec.cd_nota_fiscal = nota_fiscal.cd_nota_fiscal
+                         AND nota_fiscal.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+                         AND nota_fiscal.cd_nota_fiscal = itfat_nota_fiscal.cd_nota_fiscal
+                         AND nota_fiscal.cd_convenio = convenio.cd_convenio
+                         AND con_rec.tp_con_rec = 'C'
+                         AND con_rec.cd_previsao IS NULL
+                         AND itcon_rec.cd_con_rec = con_rec.cd_con_rec
+                         AND itfat_nota_fiscal.cd_remessa = remessa_glosa.cd_remessa(+)
+                         AND con_rec.dt_cancelamento IS NULL
+                         AND recebimento.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+                         AND recuperado.cd_itcon_rec(+) = itcon_rec.cd_itcon_rec
+                         AND remessa_fatura.cd_nota_fiscal = itfat_nota_fiscal.cd_nota_fiscal
+                    GROUP BY convenio.nm_convenio,
+                             convenio.cd_convenio,
+                             remessa_fatura.cd_remessa,
+                             TRUNC (con_rec.dt_emissao),
+                             TRUNC (itcon_rec.dt_prevista_recebimento),
+                             itcon_rec.vl_duplicata,
+                             itcon_rec.vl_glosa,
+                             itcon_rec.vl_recurso,
+                             remessa_glosa.vl_total_remessa,
+                             remessa_glosa.vl_recurso_recebido,
+                             nota_fiscal.nr_id_nota_fiscal,
+                             con_rec.cd_con_rec,
+                             itcon_rec.cd_itcon_rec,
+                             remessa_glosa.cd_remessa_glosa,
+                             TRUNC (remessa_glosa.dt_prevista_para_pgto),
+                             remessa_glosa.vl_total_remessa,
+                             recebimento.vl_recebido,
+                             recuperado.vl_recuperado,
+                             itcon_rec.vl_glosa_aceita)
+          GROUP BY nm_convenio,
+                   cd_convenio,
+                   dt_prevista_pagamento,
+                   vl_previsto,
+                   vl_glosa_fnfi,
+                   vl_recurso_fnfi,
+                   vl_recebido,
+                   vl_recuperado,
+                   vl_aceite,
+cd_itcon_rec
+          ORDER BY nm_convenio, dt_prevista_pagamento)
+ORDER BY nm_convenio, cd_convenio, dt_prevista_pagamento

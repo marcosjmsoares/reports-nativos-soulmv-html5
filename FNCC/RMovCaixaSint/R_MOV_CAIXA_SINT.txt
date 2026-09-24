@@ -1,0 +1,141 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_CAIXA_SINT
+select  c.cd_caixa
+      , Rtrim(c.ds_caixa)                            ds_caixa ,
+       Decode( '', 'S', e.cd_multi_empresa, null )   cd_multi_empresa_Cx,
+       Decode( '', 'S', e.ds_multi_empresa, null )   ds_multi_empresa_Cx,
+       Decode( '', 'S', ltrim(Rtrim(c.ds_caixa)), ltrim(Rtrim(c.ds_caixa))||'    Empresa: '||e.Ds_Multi_Empresa ) Ds_Caixa_Empresa
+      , sum(nvl(m.vl_moeda,m.vl_movimentacao) )  vl_movimentacao
+      , sum(nvl(m.vl_moeda,m.vl_movimentacao) )  valor
+      , decode(m.tp_movimentacao,'E','C','S','D')   tp_movimentacao
+      , nvl(x.tipo,'DIN')                           tipo
+      , m.tp_origem_mov
+      ,Nvl(c.cd_moeda,dbamv.moeda_padrao(e.cd_multi_empresa)) cd_moeda
+from    dbamv.multi_empresas        E
+        , dbamv.mov_caixa           m
+        , dbamv.itimporta_mov_caixa itimp
+        , dbamv.lote_caixa          l
+        , dbamv.caixa               c
+      , ( select  b.nm_banco
+                , C.cd_doc_caixa
+            	, C.cd_caixa
+            	, C.cd_banco
+            	, C.nr_documento                   docto
+            	, decode(C.tp_doc_caixa
+                		,'1','DIN'
+                		,'2','CHE'
+                		,'3','CAR'
+                		,'4','TEF'
+                		,'5','PRO'
+                		,'6','DUP'
+                		,'DIN')                    tipo
+          from  dbamv.doc_caixa C
+            	 ,dbamv.banco     b
+          where C.cd_banco = b.cd_banco(+)) x
+where  c.cd_caixa           = l.cd_caixa
+and  c.Cd_Multi_Empresa  = E.Cd_Multi_Empresa
+and  m.cd_doc_caixa      = x.cd_doc_caixa (+)
+and  m.cd_lote_caixa      = l.cd_lote_caixa
+and  ( exists
+       ( select  'x'
+         from    dbamv.atendime     a
+               , dbamv.con_rec      cr
+               , dbamv.itcon_rec    i
+               , dbamv.reccon_rec   r
+         where   r.cd_itcon_rec       = i.cd_itcon_rec
+         and     i.cd_con_rec         = cr.cd_con_rec
+         and     cr.cd_atendimento    = a.cd_atendimento(+)
+         and     r.cd_mov_caixa       = m.cd_mov_caixa
+         and     cr.cd_multi_empresa  = c.cd_multi_empresa )
+    or nvl('','%') = '%' )
+and     m.cd_itimporta_mov_caixa = itimp.cd_itimporta_mov_caixa(+)
+GROUP BY
+       c.cd_caixa
+      ,Rtrim(c.ds_caixa)
+      , Decode( '', 'S', e.cd_multi_empresa, null )
+      , Decode( '', 'S', e.ds_multi_empresa, null )
+      , Decode( '', 'S', ltrim(Rtrim(c.ds_caixa)), ltrim(Rtrim(c.ds_caixa))||'    Empresa: '||e.Ds_Multi_Empresa )
+      , decode(m.tp_movimentacao,'E','C','S','D')
+      , nvl(x.tipo,'DIN')
+      , m.tp_origem_mov
+,Nvl(c.cd_moeda,dbamv.moeda_padrao(e.cd_multi_empresa))
+order by c.cd_caixa, Rtrim(c.ds_caixa), decode(m.tp_movimentacao,'E','C','S','D'), m.tp_origem_mov, nvl(x.tipo,'DIN')
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOV_CAIXA_SINT_R_3_Q_1
+SELECT origem_mov_res,
+       Sum(Nvl(CDIN,0)) CDIN,
+       Sum(Nvl(CCHE,0)) CCHE,
+       Sum(Nvl(CCAR,0)) CCAR,
+       Sum(Nvl(CTEF,0)) CTEF,
+       Sum(Nvl(CPRO,0)) CPRO,
+       Sum(Nvl(CDUP,0)) CDUP,
+       Sum(Nvl(DDIN,0)) DDIN,
+       Sum(Nvl(DCHE,0)) DCHE,
+       Sum(Nvl(DCAR,0)) DCAR,
+       Sum(Nvl(DTEF,0)) DTEF,
+       Sum(Nvl(DPRO,0)) DPRO,
+       Sum(Nvl(DDUP,0)) DDUP
+ FROM (SELECT origem_mov_res,
+       Decode(tipo_res,'DIN',Decode(tp_movimentacao_res,'C',vl_movimentacao_res,0),0) CDIN,
+       Decode(tipo_res,'CHE',Decode(tp_movimentacao_res,'C',vl_movimentacao_res,0),0) CCHE,
+       Decode(tipo_res,'CAR',Decode(tp_movimentacao_res,'C',vl_movimentacao_res,0),0) CCAR,
+       Decode(tipo_res,'TEF',Decode(tp_movimentacao_res,'C',vl_movimentacao_res,0),0) CTEF,
+       Decode(tipo_res,'PRO',Decode(tp_movimentacao_res,'C',vl_movimentacao_res,0),0) CPRO,
+       Decode(tipo_res,'DUP',Decode(tp_movimentacao_res,'C',vl_movimentacao_res,0),0) CDUP,
+       Decode(tipo_res,'DIN',Decode(tp_movimentacao_res,'D',vl_movimentacao_res,0),0) DDIN,
+       Decode(tipo_res,'CHE',Decode(tp_movimentacao_res,'D',vl_movimentacao_res,0),0) DCHE,
+       Decode(tipo_res,'CAR',Decode(tp_movimentacao_res,'D',vl_movimentacao_res,0),0) DCAR,
+       Decode(tipo_res,'TEF',Decode(tp_movimentacao_res,'D',vl_movimentacao_res,0),0) DTEF,
+       Decode(tipo_res,'PRO',Decode(tp_movimentacao_res,'D',vl_movimentacao_res,0),0) DPRO,
+       Decode(tipo_res,'DUP',Decode(tp_movimentacao_res,'D',vl_movimentacao_res,0),0) DDUP
+FROM (
+select    nvl(m.vl_movimentacao,0)  vl_movimentacao_res
+            , decode(m.tp_movimentacao,'E','C','S','D')   tp_movimentacao_res
+            , nvl(x.tipo,'DIN')                           tipo_res
+           , m.tp_origem_mov       origem_mov_res
+from    dbamv.multi_empresas        E
+        , dbamv.mov_caixa           m
+        , dbamv.itimporta_mov_caixa itimp
+        , dbamv.lote_caixa          l
+        , dbamv.caixa               c
+      , ( select  b.nm_banco
+                , C.cd_doc_caixa
+             , C.cd_caixa
+             , C.cd_banco
+             , C.nr_documento                   docto
+             , decode(C.tp_doc_caixa
+                  ,'1','DIN'
+                  ,'2','CHE'
+                  ,'3','CAR'
+                  ,'4','TEF'
+                  ,'5','PRO'
+                  ,'6','DUP'
+                  ,'DIN')                    tipo
+          from  dbamv.doc_caixa C
+              ,dbamv.banco     b
+          where C.cd_banco = b.cd_banco(+)) x
+where  c.cd_caixa           = l.cd_caixa
+and    m.cd_lote_caixa      = l.cd_lote_caixa 
+and    c.Cd_Multi_Empresa   = E.Cd_Multi_Empresa
+and     m.cd_doc_caixa      = x.cd_doc_caixa (+)
+and  ( exists
+       ( select  'x'
+         from    dbamv.atendime     a
+               , dbamv.con_rec      cr
+               , dbamv.itcon_rec    i
+               , dbamv.reccon_rec   r
+         where   r.cd_itcon_rec       = i.cd_itcon_rec
+         and     i.cd_con_rec         = cr.cd_con_rec
+         and     cr.cd_atendimento    = a.cd_atendimento(+)
+         and     r.cd_mov_caixa       = m.cd_mov_caixa
+         and     cr.cd_multi_empresa  = c.cd_multi_empresa )
+    or nvl(:CAMPO_CD_ORI_ATE,'%') = '%' )
+and     m.dt_cancelamento is null
+and     m.cd_itimporta_mov_caixa = itimp.cd_itimporta_mov_caixa(+)
+:CAMPO_CF_TP_ORIGEM
+))
+GROUP BY origem_mov_res
+ORDER BY origem_mov_res

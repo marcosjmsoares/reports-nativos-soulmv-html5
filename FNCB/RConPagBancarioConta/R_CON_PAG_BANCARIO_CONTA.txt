@@ -1,0 +1,236 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_BANCARIO_CONTA
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_BANCARIO_CONTA_R_10_Q_PREVISTA_PAG
+SELECT * FROM (
+select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_prev
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_oprev
+       , pagcon_pag.cd_pagcon_pag                                                      pagcon_pag
+       ,pagcon_pag.dt_pagamento                                                           dt_pagamento_prev
+       ,itcon_pag.dt_prevista_pag                                                               dt_prevista_pag_prev
+       ,pagcon_pag.dt_baixa                                                                       dt_baixa_prev
+       ,con_pag.dt_emissao                                                                         dt_emissao_prev
+       ,itcon_pag.vl_duplicata                                                                      vl_duplicata_prev
+       ,pagcon_pag.vl_pago                                                                        vl_pago_prev
+       ,con_pag.nr_documento || '/' || itcon_pag.nr_parcela                         nr_documento_prev
+      ,con_cor.ds_con_cor || ' - ' || con_cor.cd_banco || '/' || con_cor.cd_agencia || '/' || con_cor.nr_conta  nm_fantasia
+       ,decode(pagcon_pag.cd_cheque,'',pagcon_pag.cd_bordero,cheque.nr_cheque)  che_bord_prev
+       ,pagcon_pag.tp_pagamento                                                              tp_pagamento_prev
+       ,con_cor.cd_banco                                                                           cd_banco_prev
+       ,banco.nm_banco                                                                              nm_banco_prev
+       ,cheque.dt_compensacao        				dt_compensacao_prev
+from dbamv.con_pag
+       ,dbamv.itcon_pag
+       ,dbamv.pagcon_pag
+       ,dbamv.fornecedor
+       ,dbamv.con_cor
+       ,dbamv.banco
+       ,dbamv.cheque
+       ,dbamv.bordero
+       ,dbamv.tip_doc
+       ,dbamv.multi_empresas e
+where  con_pag.cd_con_pag                        = itcon_pag.cd_con_pag
+and cheque.cd_cheque(+)                             = pagcon_pag.cd_cheque
+and  bordero.cd_bordero(+)                            = pagcon_pag.cd_bordero
+and pagcon_pag.cd_itcon_pag                     = itcon_pag.cd_itcon_pag
+and pagcon_pag.cd_con_cor                       = con_cor.cd_con_cor
+and itcon_pag.cd_con_pag_agrup              is null
+and con_pag.cd_tip_doc                               =  tip_doc.cd_tip_doc
+and con_pag.cd_fornecedor                          = fornecedor.cd_fornecedor(+)
+and   CON_COR.cd_multi_empresa = e.cd_multi_empresa
+union
+select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_prev
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_oprev
+       ,0                                                      pagcon_pag
+       ,mov_concor.dt_movimentacao               dt_pagamento_prev
+     , mov_concor.dt_movimentacao                  dt_vencimento_prev
+     , mov_concor.dt_movimentacao                  dt_baixa_prev
+     , mov_concor.dt_movimentacao                  dt_emissao_prev
+     , mov_concor.vl_movimentacao                  vl_duplicata_prev
+     , mov_concor.vl_movimentacao                  vl_pago_prev
+     , mov_concor.nr_documento_identificacao  nr_documento_prev
+     , 'LANÇAMENTOS BANCÁRIOS'                      nm_fantasia
+     , 0                                                                 che_bord_prev
+     , 'LANCAMENTO'                                         tp_pagamento_prev
+     , 0                                                                 cd_banco_prev
+     ,mov_concor.ds_movimentacao                  nm_banco_prev
+     ,mov_concor.dt_movimentacao                   dt_compensacao_prev
+  from dbamv.mov_concor
+     , dbamv.lan_concor
+       ,dbamv.multi_empresas e
+ where lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+   and lan_concor.tp_operacao_saldo_conta = '-'
+   and lan_concor.tp_operacao_saldo_aplicacao = '0'
+   and mov_concor.cd_bordero is null
+   and mov_concor.cd_cheque is null
+   and mov_concor.cd_pagcon_pag is null
+   and mov_concor.cd_con_cor_transferencia is null
+   and mov_concor.cd_mov_concor_transferencia is null
+   and   lan_concor.cd_multi_empresa = e.cd_multi_empresa
+:CAMPO_CF_ORDER
+)
+ORDER BY EMPRESA_PREV,CD_MULTI_EMPRESA,
+EMPRESA_OPREV,PAGCON_PAG,NM_FANTASIA,
+DT_PREVISTA_PAG_PREV,
+NR_DOCUMENTO_PREV,VL_DUPLICATA_PREV,DT_EMISSAO_PREV
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_BANCARIO_CONTA_R_8_Q_ITCON_PAG
+SELECT * FROM (
+select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_pag
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_oPAG
+       , pagcon_pag.cd_pagcon_pag                                                      pagcon_pag
+       ,pagcon_pag.dt_pagamento                                                           dt_pagamento
+       ,pagcon_pag.dt_baixa                                                                       dt_baixa
+       ,con_pag.dt_emissao                                                                         dt_emissao
+       ,itcon_pag.vl_duplicata                                                                      vl_duplicata
+       ,pagcon_pag.vl_pago                                                                        vl_pago
+       ,con_pag.nr_documento || '/' || itcon_pag.nr_parcela                         nr_documento
+       ,con_cor.ds_con_cor || ' - ' || con_cor.cd_banco || '/' || con_cor.cd_agencia || '/' || con_cor.nr_conta  nm_fantasia
+        ,decode(pagcon_pag.cd_cheque,'',pagcon_pag.cd_bordero,cheque.nr_cheque)  che_bord
+       ,pagcon_pag.tp_pagamento                                                              tp_pagamento
+       ,con_cor.cd_banco                                                                           cd_banco
+       ,banco.nm_banco                                                                              nm_banco
+       ,cheque.dt_compensacao				dt_compensacao
+from dbamv.con_pag
+       ,dbamv.itcon_pag
+       ,dbamv.pagcon_pag
+       ,dbamv.fornecedor
+       ,dbamv.con_cor
+       ,dbamv.banco
+       ,dbamv.cheque
+       ,dbamv.bordero
+       ,dbamv.tip_doc
+       ,dbamv.multi_empresas e
+where  con_pag.cd_con_pag                        = itcon_pag.cd_con_pag
+and cheque.cd_cheque(+)                             = pagcon_pag.cd_cheque
+and  bordero.cd_bordero(+)                            = pagcon_pag.cd_bordero
+and pagcon_pag.cd_itcon_pag                     = itcon_pag.cd_itcon_pag
+and pagcon_pag.cd_con_cor                       = con_cor.cd_con_cor
+and itcon_pag.cd_con_pag_agrup              is null
+and con_pag.cd_tip_doc                               =  tip_doc.cd_tip_doc
+and con_pag.cd_fornecedor                          = fornecedor.cd_fornecedor(+)
+and   CON_COR.cd_multi_empresa = e.cd_multi_empresa
+union
+select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_pag
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_oPAG
+       ,0                                                      pagcon_pag
+       ,mov_concor.dt_movimentacao               dt_pagamento
+     , mov_concor.dt_movimentacao                  dt_baixa
+     , mov_concor.dt_movimentacao                  dt_emissao
+     , mov_concor.vl_movimentacao                  vl_duplicata
+     , mov_concor.vl_movimentacao                  vl_pago
+     , mov_concor.nr_documento_identificacao  nr_documento
+     , 'LANÇAMENTOS BANCÁRIOS'                      nm_fantasia
+     , 0                                                                 che_bord
+     , 'LANCAMENTO'                                         tp_pagamento
+     , 0                                                                 cd_banco
+     ,mov_concor.ds_movimentacao                   nm_banco
+     ,mov_concor.dt_movimentacao                   dt_compensacao
+  from dbamv.mov_concor
+     , dbamv.lan_concor
+       ,dbamv.multi_empresas e
+ where lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+   and lan_concor.tp_operacao_saldo_conta = '-'
+   and lan_concor.tp_operacao_saldo_aplicacao = '0'
+   and mov_concor.cd_bordero is null
+   and mov_concor.cd_cheque is null
+   and mov_concor.cd_pagcon_pag is null
+   and mov_concor.cd_con_cor_transferencia is null
+   and mov_concor.cd_mov_concor_transferencia is null
+and   lan_concor.cd_multi_empresa = e.cd_multi_empresa
+:CAMPO_CF_ORDER
+)
+ORDER BY EMPRESA_PAG,CD_MULTI_EMPRESA,
+EMPRESA_OPAG,PAGCON_PAG,NM_FANTASIA,
+DT_PAGAMENTO,
+NR_DOCUMENTO,DT_EMISSAO,VL_DUPLICATA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CON_PAG_BANCARIO_CONTA_R_9_Q_VENC
+SELECT * FROM (
+select  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_venc
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_ovenc
+       , pagcon_pag.cd_pagcon_pag                                                      pagcon_pag
+       ,pagcon_pag.dt_pagamento                                                           dt_pagamento_v
+       ,itcon_pag.dt_vencimento                                                                 dt_vencimento_v
+       ,pagcon_pag.dt_baixa                                                                       dt_baixa_v
+       ,con_pag.dt_emissao                                                                         dt_emissao_v
+       ,itcon_pag.vl_duplicata                                                                      vl_duplicata_v
+       ,pagcon_pag.vl_pago                                                                        vl_pago_v
+       ,con_pag.nr_documento || '/' || itcon_pag.nr_parcela                         nr_documento_v
+      ,con_cor.ds_con_cor || ' - ' || con_cor.cd_banco || '/' || con_cor.cd_agencia || '/' || con_cor.nr_conta  nm_fantasia
+       ,decode(pagcon_pag.cd_cheque,'',pagcon_pag.cd_bordero,cheque.nr_cheque)  che_bord_v
+       ,pagcon_pag.tp_pagamento                                                              tp_pagamento_v
+       ,con_cor.cd_banco                                                                           cd_banco_v
+       ,banco.nm_banco                                                                              nm_banco_v
+       ,cheque.dt_compensacao				dt_compensacao_v
+from dbamv.con_pag
+       ,dbamv.itcon_pag
+       ,dbamv.pagcon_pag
+       ,dbamv.fornecedor
+       ,dbamv.con_cor
+       ,dbamv.banco
+       ,dbamv.cheque
+       ,dbamv.bordero
+       ,dbamv.tip_doc
+       ,dbamv.multi_empresas e
+where  con_pag.cd_con_pag                        = itcon_pag.cd_con_pag
+and cheque.cd_cheque(+)                             = pagcon_pag.cd_cheque
+and bordero.cd_bordero(+)                            = pagcon_pag.cd_bordero
+and pagcon_pag.cd_itcon_pag                     = itcon_pag.cd_itcon_pag
+and pagcon_pag.cd_con_cor                       = con_cor.cd_con_cor
+and itcon_pag.cd_con_pag_agrup               is null
+and con_pag.cd_tip_doc                              = tip_doc.cd_tip_doc
+and con_pag.cd_fornecedor                         =  fornecedor.cd_fornecedor(+)
+and   CON_COR.cd_multi_empresa = e.cd_multi_empresa
+union
+select  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_venc
+      ,e.cd_multi_empresa  cd_multi_empresa
+      ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_ovenc
+       ,0                                                      pagcon_pag
+       ,mov_concor.dt_movimentacao               dt_pagamento_v
+     , mov_concor.dt_movimentacao                  dt_vencimento_v
+     , mov_concor.dt_movimentacao                  dt_baixa_v
+     , mov_concor.dt_movimentacao                  dt_emissao_v
+     , mov_concor.vl_movimentacao                  vl_duplicata_v
+     , mov_concor.vl_movimentacao                  vl_pago_v
+     , mov_concor.nr_documento_identificacao  nr_documento_v
+     , 'LANÇAMENTOS BANCÁRIOS'                      nm_fantasia
+     , 0                                                                 che_bord_v
+     , 'LANCAMENTO'                                         tp_pagamento_v
+     , 0                                                                 cd_banco_v
+     ,mov_concor.ds_movimentacao                   nm_banco_v
+     ,mov_concor.dt_movimentacao                   dt_compensacao_v
+  from dbamv.mov_concor
+     , dbamv.lan_concor
+       ,dbamv.multi_empresas e
+ where lan_concor.cd_lan_concor = mov_concor.cd_lan_concor
+   and lan_concor.tp_operacao_saldo_conta = '-'
+   and lan_concor.tp_operacao_saldo_aplicacao = '0'
+   and mov_concor.cd_bordero is null
+   and mov_concor.cd_cheque is null
+   and mov_concor.cd_pagcon_pag is null
+   and mov_concor.cd_con_cor_transferencia is null
+   and mov_concor.cd_mov_concor_transferencia is null
+and   lan_concor.cd_multi_empresa = e.cd_multi_empresa
+and lan_concor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_ORDER
+)
+ORDER BY CD_MULTI_EMPRESA,EMPRESA_VENC,
+EMPRESA_OVENC,PAGCON_PAG,NM_FANTASIA,
+DT_VENCIMENTO_V,
+NR_DOCUMENTO_V,VL_DUPLICATA_V,DT_EMISSAO_V

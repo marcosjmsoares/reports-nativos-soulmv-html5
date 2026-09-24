@@ -1,0 +1,45 @@
+/*----------------------------------------------------------------------------*/
+--R_MOV_PREPARO_ANA_OLD
+SELECT * FROM (
+select distinct
+         it_mvto_cme.cd_mvto_cme
+        ,it_mvto_cme.cd_cancelamento
+        ,cx_kit.cd_kit
+        ,cx_kit.ds_res_kit
+        ,produto.ds_produto_resumido TipodeCaixa
+        ,bens.cd_bem
+        ,bens.ds_bem
+        ,bens.ds_plaqueta
+        ,prestador.cd_identificacao RecebidoPorSim
+        ,it_mvto_cme.cd_usuario_inc RecebidoPorNao
+        ,to_char(it_mvto_cme.dt_inc_usuario,'DD/MM/YYYY') DataRecebimento
+        ,Config_Cme.Sn_Identi_Geral
+        ,mvto_cme.cd_aviso_cirurgia
+        ,mvto_cme.cd_atendimento
+        ,nvl(aviso_cirurgia.nm_paciente, paciente.nm_paciente) nm_paciente
+from dbamv.cx_kit
+      ,dbamv.it_mvto_cme
+      ,dbamv.produto
+      ,dbamv.bens
+      ,dbamv.prestador
+      ,dbamv.config_cme
+      ,dbamv.mvto_cme
+      ,Dbamv.aviso_cirurgia
+      ,Dbamv.paciente
+where it_mvto_cme.cd_kit = cx_kit.cd_kit
+   and trunc(it_mvto_cme.dt_inc_usuario) BETWEEN :CAMPO_DATA_INI AND 
+   and Produto.Cd_Produto(+) = Cx_Kit.Cd_Produto
+   and bens.cd_bem(+) = it_mvto_cme.cd_bem
+   and Prestador.Cd_Prestador(+) = It_mvto_Cme.Cd_Prestador_Identifica
+   and config_cme.cd_setor_preparo = it_mvto_cme.cd_setor
+   and config_cme.cd_localidade_preparo = it_mvto_cme.cd_localidade
+   and It_mvto_Cme.Cd_Mvto_Cme = Mvto_Cme.cd_mvto_cme
+   And aviso_cirurgia.cd_paciente          = paciente.cd_paciente(+)
+   And aviso_cirurgia.cd_aviso_cirurgia (+)= mvto_cme.cd_aviso_cirurgia
+   and (config_cme.cd_setor_principal in (select cd_setor
+                                            from dbamv.setor
+                                           where cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+        or config_cme.cd_setor_principal is null)
+Order by cx_kit.cd_kit
+)
+ORDER BY CD_KIT,DS_RES_KIT,CD_MVTO_CME,SN_IDENTI_GERAL, ds_plaqueta

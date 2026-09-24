@@ -1,0 +1,849 @@
+/*----------------------------------------------------------------------------*/
+--R_EST_HOSP_RESUMOS
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_HOSP_RESUMOS_R_SERVICO_Q_2
+SELECT * FROM (
+Select
+  CD_SERVICO  S_CD_SERVICO,
+  NVL( DS_SERVICO, 'SERVIÇO NÃO INFORMADO')  S_DS_SERVICO,
+  DECODE(  TP_CONVENIO , 'C' , 'CONVENIO' , 'P' , 'PARTICULAR' , 'A' , 'SUS' , 'H' , 'SUS' ) SE_TP_CONVENIO,
+  Sum( PAC_INT_00H)        SE_PAC_INT_00H,
+  Sum( ENT_INTERNADOS)     SE_ENT_INTERNADOS,
+  Sum( ENT_TRANSF)         SE_ENT_TRANSF,
+  Sum( SAI_ALTAS)          SE_SAI_ALTAS,
+  Sum( SAI_TRANSFPARA)     SE_SAI_TRANSFPARA,
+  Sum( SAI_OBITOS)         SE_SAI_OBITOS,
+  Sum( SAI_OBITOS48)       SE_SAI_OBITOS48,
+  Sum( SAI_OBITOS24)       SE_SAI_OBITOS24,
+  Sum( HOSP_DIA )          SE_HOSP_DIA,
+  Sum( OBITO_DIA )         SE_OBITO_DIA,
+  ( Sum(nvl(PAC_INT_00H,0)) + Sum(nvl(ENT_INTERNADOS,0)) + Sum(nvl(ENT_TRANSF,0))) -
+  ( Sum(nvl(SAI_ALTAS,0))   + Sum(nvl(SAI_TRANSFPARA,0)) + ( Sum(nvl(SAI_OBITOS,0)) )) SE_PAC_DIA
+From (
+ SELECT
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+   COUNT(*)              PAC_INT_00H,
+   0                     ENT_INTERNADOS,
+   0                     ENT_TRANSF,
+   0                     SAI_ALTAS,
+   0                     SAI_TRANSFPARA,
+   0                     SAI_OBITOS,
+   0                     SAI_OBITOS48,
+   0                     SAI_OBITOS24,
+   0                     HOSP_DIA,
+   0                     OBITO_DIA
+ From
+  DBAMV.MOV_INT
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.ATENDIME
+ ,DBAMV.CONVENIO
+ ,DBAMV.SERVICO
+ ,( SELECT ( :CAMPO_DTINIC  -1 ) + ROWNUM DATA
+      FROM DBAMV.CID
+      WHERE ( :CAMPO_DTINIC  -1 ) + ROWNUM <= :CAMPO_DTFIM ) CONTADOR
+ WHERE
+ Trunc(DT_MOV_INT)  <=  CONTADOR.DATA  -  1
+ And  TRUNC(NVL(DT_LIB_MOV, SYSDATE) ) >  CONTADOR.DATA -  1
+ And  TP_MOV IN('O', 'I')
+ And  LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ And  MOV_INT.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ And  MOV_INT.CD_LEITO =        LEITO.CD_LEITO
+ And  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+ AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+Union
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ Count(*)              ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOV_INT
+ ,DBAMV.CONVENIO
+ ,DBAMV.SERVICO
+ ,( SELECT ( :CAMPO_DTINIC  - 1  ) + ROWNUM DATA
+      FROM DBAMV.CID
+     WHERE ( :CAMPO_DTINIC  -1  ) + ROWNUM <= :CAMPO_DTFIM ) CONTADOR
+ WHERE
+ LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+ And  LEITO.CD_LEITO = MOV_INT.CD_LEITO
+ And  TRUNC(DT_MOV_INT) = TRUNC(  CONTADOR.DATA )
+ And  MOV_INT.TP_MOV = 'I'
+ And  ATENDIME.CD_ATENDIMENTO = MOV_INT.CD_ATENDIMENTO
+ and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ And  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+ AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ Count(*)              ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.MOV_INT
+ ,DBAMV.UNID_INT
+ ,DBAMV.UNID_INT UNID_INT1
+ ,DBAMV.LEITO
+ ,DBAMV.LEITO LEITO1
+ ,DBAMV.ATENDIME
+ ,DBAMV.CONVENIO
+ ,DBAMV.SERVICO
+ ,( SELECT (        :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE (        :CAMPO_DTINIC -1 ) + ROWNUM  <= :CAMPO_DTFIM ) CONTADOR
+ Where
+ MOV_INT.TP_MOV   =   'O'
+ And  Trunc(MOV_INT.DT_MOV_INT)  =   CONTADOR.DATA
+ And  MOV_INT.CD_LEITO    =   LEITO.CD_LEITO
+ And  MOV_INT.CD_LEITO_ANTERIOR  =  LEITO1.CD_LEITO
+ And  LEITO1.CD_UNID_INT  =   UNID_INT1.CD_UNID_INT
+ And  UNID_INT.CD_UNID_INT  <>   UNID_INT1.CD_UNID_INT
+ And  LEITO.CD_UNID_INT   =  UNID_INT.CD_UNID_INT
+ And  ATENDIME.CD_ATENDIMENTO  =   MOV_INT.CD_ATENDIMENTO
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+ And  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+ AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ Count(*)              SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.SERVICO
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE ( :CAMPO_DTINIC -1 ) + ROWNUM  <= :CAMPO_DTFIM ) CONTADOR
+ WHERE  LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+ And  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+ And  UNID_INT.CD_UNID_INT  =  LEITO.CD_UNID_INT
+ And  Trunc(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+ And  MOT_ALT.TP_MOT_ALTA  <>  'O'
+ And  ATENDIME.TP_ATENDIMENTO  IN ('I','U')
+ And  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+  AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ Count(*)              SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+  DBAMV.MOV_INT
+ ,dbamv.unid_int
+ ,dbamv.unid_int unid_int1
+ ,dbamv.leito
+ ,dbamv.leito leito1
+ ,dbamv.atendime
+ ,dbamv.convenio
+ ,dbamv.servico
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM DATA
+      FROM DBAMV.CID
+     WHERE ( :CAMPO_DTINIC -1 ) + ROWNUM <=  :CAMPO_DTFIM ) CONTADOR
+ Where
+  TRUNC(mov_int.dt_mov_int)       =  contador.data
+  And   mov_int.tp_mov            =  'O'
+  And   mov_int.cd_leito_anterior =  leito.cd_leito
+  and   mov_int.cd_leito          =  leito1.cd_leito
+  and   leito1.cd_unid_int        =  unid_int1.cd_unid_int
+  and   unid_int.cd_unid_int      <> unid_int1.cd_unid_int
+  and   leito.cd_unid_int         =  unid_int.cd_unid_int
+  and   atendime.cd_atendimento   =  mov_int.cd_atendimento
+  And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+  and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and mi.tp_mov   <> 'R'
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+  and   atendime.cd_convenio = convenio.cd_convenio
+  And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+  AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ Count(*)              SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.SERVICO
+ ,( SELECT (  :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE (  :CAMPO_DTINIC -1 ) + ROWNUM   <= :CAMPO_DTFIM ) CONTADOR
+ Where
+ LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+ AND MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+ AND LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ AND TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+ AND MOT_ALT.TP_MOT_ALTA   =  'O'
+ AND  ATENDIME.TP_ATENDIMENTO IN ('I','U')
+ AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+ AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+Union
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ Count(*)              SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.SERVICO
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     Where (  :CAMPO_DTINIC -1 ) + ROWNUM  <= :CAMPO_DTFIM ) CONTADOR
+ Where
+ LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+ AND  LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ AND  TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+ AND  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+ AND  MOT_ALT.TP_MOT_ALTA  =  'O'
+ AND ATENDIME.TP_ATENDIMENTO IN ('I','U')
+ AND dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ALTA,ATENDIME.HR_ALTA) - dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ATENDIMENTO,ATENDIME.HR_ATENDIMENTO) > 1
+ AND  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+  AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+Union
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ Count(*)              SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.SERVICO
+ ,( SELECT (  :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE (  :CAMPO_DTINIC  -1  )  +  ROWNUM  <=  :CAMPO_DTFIM )  CONTADOR
+ Where
+ LEITO.CD_LEITO  = ATENDIME.CD_LEITO
+ AND LEITO.CD_UNID_INT   =  UNID_INT.CD_UNID_INT
+ AND TRUNC(ATENDIME.DT_ALTA) = CONTADOR.DATA
+ AND MOT_ALT.CD_MOT_ALT  = ATENDIME.CD_MOT_ALT
+ AND MOT_ALT.TP_MOT_ALTA  =  'O'
+ AND  ATENDIME.TP_ATENDIMENTO IN ('I','U')
+ AND dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ALTA,ATENDIME.HR_ALTA) - dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ATENDIMENTO,ATENDIME.HR_ATENDIMENTO) <= 1
+ AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+ AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+Union
+ Select
+   SERVICO.CD_SERVICO CD_SERVICO,
+   SERVICO.DS_SERVICO DS_SERVICO,
+   CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ Count(*)              HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.LEITO
+ ,DBAMV.UNID_INT
+ ,DBAMV.CONVENIO
+ ,DBAMV.MOV_INT
+ ,DBAMV.SERVICO
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM DATA
+    FROM DBAMV.CID
+    WHERE ( :CAMPO_DTINIC  -1  ) + Rownum  <=  :CAMPO_DTFIM )  CONTADOR
+ Where  MOV_INT.TP_MOV  =  'I'
+ AND  MOV_INT.CD_LEITO  =  LEITO.CD_LEITO
+ AND  LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ AND  ATENDIME.CD_ATENDIMENTO  =  MOV_INT.CD_ATENDIMENTO
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+ AND  ATENDIME.DT_ALTA IS NOT NULL
+ AND  Trunc(ATENDIME.DT_ATENDIMENTO) = TRUNC(ATENDIME.DT_ALTA)
+ AND  Trunc(MOV_INT.DT_MOV_INT) = CONTADOR.DATA
+ AND  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  SERVICO.CD_SERVICO(+) = ATENDIME.CD_SERVICO
+ AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ SERVICO.CD_SERVICO,
+ SERVICO.DS_SERVICO,
+ CONVENIO.TP_CONVENIO
+)
+Group By
+  CD_SERVICO,
+  DS_SERVICO,
+  tp_convenio
+ORDER BY DS_SERVICO
+)
+ORDER BY S_DS_SERVICO, S_CD_SERVICO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EST_HOSP_RESUMOS_R_TIPO_INTERNACAO1_Q_1
+SELECT * FROM (
+Select
+  CD_TIPO_INTERNACAO,
+  nvl( DS_TIPO_INTERNACAO, 'TIPO DE INTERNACAO NÃO INFOMADO') DS_TIPO_INTERNACAO,
+  DECODE(  TP_CONVENIO , 'C' , 'CONVENIO' , 'P' , 'PARTICULAR' , 'A' , 'SUS' , 'H' , 'SUS' ) TP_CONVENIO,
+  Sum( PAC_INT_00H)        PAC_INT_00H,
+  Sum( ENT_INTERNADOS)     ENT_INTERNADOS,
+  Sum( ENT_TRANSF)         ENT_TRANSF,
+  Sum( SAI_ALTAS)          SAI_ALTAS,
+  Sum( SAI_TRANSFPARA)     SAI_TRANSFPARA,
+  Sum( SAI_OBITOS)         SAI_OBITOS,
+  Sum( SAI_OBITOS48)       SAI_OBITOS48,
+  Sum( SAI_OBITOS24)       SAI_OBITOS24,
+  Sum( HOSP_DIA )          HOSP_DIA,
+  Sum( OBITO_DIA )         OBITO_DIA,
+  ( Sum(nvl(PAC_INT_00H,0)) + Sum(nvl(ENT_INTERNADOS,0)) + Sum(nvl(ENT_TRANSF,0))) -
+  ( Sum(nvl(SAI_ALTAS,0))   + Sum(nvl(SAI_TRANSFPARA,0)) + ( Sum(nvl(SAI_OBITOS,0)) )) PAC_DIA
+From (
+ SELECT
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ COUNT(*)              PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+  DBAMV.MOV_INT
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.ATENDIME
+ ,DBAMV.CONVENIO
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT ( :CAMPO_DTINIC  -1 ) + ROWNUM DATA
+      FROM DBAMV.CID
+      WHERE ( :CAMPO_DTINIC  -1 ) + ROWNUM <= :CAMPO_DTFIM ) CONTADOR
+ WHERE
+ Trunc(DT_MOV_INT)  <=  CONTADOR.DATA  -  1
+ And  TRUNC(NVL(DT_LIB_MOV, SYSDATE) ) >  CONTADOR.DATA -  1
+ And  TP_MOV IN('O', 'I')
+ And  LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ And  MOV_INT.CD_ATENDIMENTO  =  ATENDIME.CD_ATENDIMENTO
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ And  MOV_INT.CD_LEITO =        LEITO.CD_LEITO
+ And  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+Union
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ Count(*)              ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOV_INT
+ ,DBAMV.CONVENIO
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT ( :CAMPO_DTINIC  - 1  ) + ROWNUM DATA
+      FROM DBAMV.CID
+     WHERE ( :CAMPO_DTINIC  -1  ) + ROWNUM <= :CAMPO_DTFIM ) CONTADOR
+ WHERE
+ LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT
+ And  LEITO.CD_LEITO = MOV_INT.CD_LEITO
+ And  TRUNC(DT_MOV_INT) = TRUNC(  CONTADOR.DATA )
+ And  MOV_INT.TP_MOV = 'I'
+ And  ATENDIME.CD_ATENDIMENTO = MOV_INT.CD_ATENDIMENTO
+ and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ And  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ Count(*)              ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.MOV_INT
+ ,DBAMV.UNID_INT
+ ,DBAMV.UNID_INT UNID_INT1
+ ,DBAMV.LEITO
+ ,DBAMV.LEITO LEITO1
+ ,DBAMV.ATENDIME
+ ,DBAMV.CONVENIO
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT (        :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE (        :CAMPO_DTINIC -1 ) + ROWNUM  <= :CAMPO_DTFIM ) CONTADOR
+ Where
+ MOV_INT.TP_MOV   =   'O'
+ And  Trunc(MOV_INT.DT_MOV_INT)  =   CONTADOR.DATA
+ And  MOV_INT.CD_LEITO    =   LEITO.CD_LEITO
+ And  MOV_INT.CD_LEITO_ANTERIOR  =  LEITO1.CD_LEITO
+ And  LEITO1.CD_UNID_INT  =   UNID_INT1.CD_UNID_INT
+ And  UNID_INT.CD_UNID_INT  <>   UNID_INT1.CD_UNID_INT
+ And  LEITO.CD_UNID_INT   =  UNID_INT.CD_UNID_INT
+ And  ATENDIME.CD_ATENDIMENTO  =   MOV_INT.CD_ATENDIMENTO
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+ And  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ Count(*)              SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE ( :CAMPO_DTINIC -1 ) + ROWNUM  <= :CAMPO_DTFIM ) CONTADOR
+ WHERE  LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+ And  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+ And  UNID_INT.CD_UNID_INT  =  LEITO.CD_UNID_INT
+ And  Trunc(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+ And  MOT_ALT.TP_MOT_ALTA  <>  'O'
+ And  ATENDIME.TP_ATENDIMENTO  IN ('I','U')
+ And  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ Count(*)              SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+  DBAMV.MOV_INT
+ ,dbamv.unid_int
+ ,dbamv.unid_int unid_int1
+ ,dbamv.leito
+ ,dbamv.leito leito1
+ ,dbamv.atendime
+ ,dbamv.convenio
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM DATA
+      FROM DBAMV.CID
+     WHERE ( :CAMPO_DTINIC -1 ) + ROWNUM <=  :CAMPO_DTFIM ) CONTADOR
+ Where
+  TRUNC(mov_int.dt_mov_int)       =  contador.data
+  And   mov_int.tp_mov            =  'O'
+  And   mov_int.cd_leito_anterior =  leito.cd_leito
+  and   mov_int.cd_leito          =  leito1.cd_leito
+  and   leito1.cd_unid_int        =  unid_int1.cd_unid_int
+  and   unid_int.cd_unid_int      <> unid_int1.cd_unid_int
+  and   leito.cd_unid_int         =  unid_int.cd_unid_int
+  and   atendime.cd_atendimento   =  mov_int.cd_atendimento
+  And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+  and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and mi.tp_mov   <> 'R'
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+  and   atendime.cd_convenio = convenio.cd_convenio
+  And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+UNION
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ Count(*)              SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT (  :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE (  :CAMPO_DTINIC -1 ) + ROWNUM   <= :CAMPO_DTFIM ) CONTADOR
+ Where
+ LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+ AND MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+ AND LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ AND TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+ AND MOT_ALT.TP_MOT_ALTA   =  'O'
+ AND  ATENDIME.TP_ATENDIMENTO IN ('I','U')
+ AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+Union
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ Count(*)              SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     Where (  :CAMPO_DTINIC -1 ) + ROWNUM  <= :CAMPO_DTFIM ) CONTADOR
+ Where
+ LEITO.CD_LEITO  =  ATENDIME.CD_LEITO
+ AND  LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ AND  TRUNC(ATENDIME.DT_ALTA)  =  CONTADOR.DATA
+ AND  MOT_ALT.CD_MOT_ALT  =  ATENDIME.CD_MOT_ALT
+ AND  MOT_ALT.TP_MOT_ALTA  =  'O'
+ AND  ATENDIME.TP_ATENDIMENTO IN ('I','U')
+and dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ALTA,ATENDIME.HR_ALTA) - dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ATENDIMENTO,ATENDIME.HR_ATENDIMENTO) > 1
+ AND  ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+  Union
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ Count(*)              SAI_OBITOS24,
+ 0                     HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.UNID_INT
+ ,DBAMV.LEITO
+ ,DBAMV.MOT_ALT
+ ,DBAMV.CONVENIO
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT (  :CAMPO_DTINIC -1 ) + ROWNUM  DATA
+      FROM DBAMV.CID
+     WHERE (  :CAMPO_DTINIC  -1  )  +  ROWNUM  <=  :CAMPO_DTFIM )  CONTADOR
+ Where
+ LEITO.CD_LEITO  = ATENDIME.CD_LEITO
+ AND LEITO.CD_UNID_INT   =  UNID_INT.CD_UNID_INT
+ AND TRUNC(ATENDIME.DT_ALTA) = CONTADOR.DATA
+ AND MOT_ALT.CD_MOT_ALT  = ATENDIME.CD_MOT_ALT
+ AND MOT_ALT.TP_MOT_ALTA  =  'O'
+ AND  ATENDIME.TP_ATENDIMENTO IN ('I','U')
+AND dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ALTA,ATENDIME.HR_ALTA) - dbamv.fnc_mv_recupera_data_hora(ATENDIME.DT_ATENDIMENTO,ATENDIME.HR_ATENDIMENTO) <= 1
+ AND ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+Union
+ Select
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO  CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO  DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO  TP_CONVENIO,
+ 0                     PAC_INT_00H,
+ 0                     ENT_INTERNADOS,
+ 0                     ENT_TRANSF,
+ 0                     SAI_ALTAS,
+ 0                     SAI_TRANSFPARA,
+ 0                     SAI_OBITOS,
+ 0                     SAI_OBITOS48,
+ 0                     SAI_OBITOS24,
+ Count(*)              HOSP_DIA,
+ 0                     OBITO_DIA
+ From
+ DBAMV.ATENDIME
+ ,DBAMV.LEITO
+ ,DBAMV.UNID_INT
+ ,DBAMV.CONVENIO
+ ,DBAMV.MOV_INT
+ ,DBAMV.TIPO_INTERNACAO
+ ,( SELECT ( :CAMPO_DTINIC -1 ) + ROWNUM DATA
+    FROM DBAMV.CID
+    WHERE ( :CAMPO_DTINIC  -1  ) + Rownum  <=  :CAMPO_DTFIM )  CONTADOR
+ Where  MOV_INT.TP_MOV  =  'I'
+ AND  MOV_INT.CD_LEITO  =  LEITO.CD_LEITO
+ AND  LEITO.CD_UNID_INT  =  UNID_INT.CD_UNID_INT
+ AND  ATENDIME.CD_ATENDIMENTO  =  MOV_INT.CD_ATENDIMENTO
+ And  ( ATENDIME.TP_ATENDIMENTO IN ('I','H','U'))
+ and not exists ( select 'X'  from dbamv.mov_int mi 
+                             where mi.cd_atendimento    = mov_int.cd_atendimento
+                                  and to_date(to_char(mi.dt_mov_int,'dd/mm/yyyy')      || to_char(mi.hr_mov_int,'hh24'     ), 'dd/mm/yyyyhh24')
+                               <     to_date(to_char(mov_int.dt_mov_int,'dd/mm/yyyy') || to_char(mov_int.hr_mov_int,'hh24'), 'dd/mm/yyyyhh24') 
+                               and mi.cd_leito          = mov_int.cd_leito
+                               and mi.cd_tip_acom     <> mov_int.cd_tip_acom
+                               and nvl(mi.cd_leito_anterior, mi.cd_leito) = nvl(mov_int.cd_leito_anterior, mov_int.cd_leito))
+ AND  ATENDIME.DT_ALTA IS NOT NULL
+ AND  Trunc(ATENDIME.DT_ATENDIMENTO) = TRUNC(ATENDIME.DT_ALTA)
+ AND  Trunc(MOV_INT.DT_MOV_INT) = CONTADOR.DATA
+ AND  ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+ And  TIPO_INTERNACAO.CD_TIPO_INTERNACAO(+) = ATENDIME.CD_TIPO_INTERNACAO
+AND    ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ Group BY
+ TIPO_INTERNACAO.CD_TIPO_INTERNACAO,
+ TIPO_INTERNACAO.DS_TIPO_INTERNACAO,
+ CONVENIO.TP_CONVENIO
+)
+Group By
+  CD_TIPO_INTERNACAO,
+  nvl( DS_TIPO_INTERNACAO, 'TIPO DE INTERNACAO NÃO INFOMADO'),
+  tp_convenio
+ORDER BY DS_TIPO_INTERNACAO
+)
+ORDER BY DS_TIPO_INTERNACAO, CD_TIPO_INTERNACAO

@@ -1,0 +1,30 @@
+/*----------------------------------------------------------------------------*/
+--R_COMP_CUSTO_PRATO
+SELECT * FROM (
+SELECT  distinct  FP.CD_PRATO
+        ,P.DS_PRATO
+        ,FP.CD_PRODUTO
+        ,PROD.DS_PRODUTO
+        ,U.DS_UNIDADE
+        ,FP.QT_FICHA_DE_PREPARO QUANT
+        ,VERIF_VL_CUSTO_MEDIO( FP.CD_PRODUTO, :CAMPO_DT_ANAL_1  ) * U.VL_FATOR  VL_CUSTO_1
+        ,VL_CUSTO_PER(  VERIF_VL_CUSTO_MEDIO(  FP.CD_PRODUTO, :CAMPO_DT_ANAL_1 ), FP.QT_FICHA_DE_PREPARO  ) * U.VL_FATOR  VL_TOT_CUST_1
+        ,VERIF_VL_CUSTO_MEDIO( FP.CD_PRODUTO, :CAMPO_DT_ANAL_2 ) * U.VL_FATOR VL_CUSTO_2
+        ,VL_CUSTO_PER(  VERIF_VL_CUSTO_MEDIO( FP.CD_PRODUTO,:CAMPO_DT_ANAL_2 ), FP.QT_FICHA_DE_PREPARO  ) * U.VL_FATOR VL_TOT_CUST_2
+FROM     DBAMV.FICHA_DE_PREPARO  FP
+        ,DBAMV.PRATO             P
+        ,DBAMV.PRODUTO           PROD
+        ,DBAMV.UNI_PRO           U
+        ,DBAMV.DIETA_PRATO       DP
+WHERE DP.CD_TIPO_DIETA   LIKE :CAMPO_CD_TP_DIETA
+AND      FP.CD_PRATO        = P.CD_PRATO
+AND      FP.CD_PRODUTO      = PROD.CD_PRODUTO
+AND      FP.CD_UNI_PRO      = U.Cd_UNI_PRO
+AND      P.CD_PRATO         = DP.CD_PRATO
+And Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Prod.Cd_Produto )
+:CAMPO_CF_PRATO
+)
+ORDER BY CD_PRATO, DS_PRODUTO, DS_UNIDADE, QUANT, VL_CUSTO_1, VL_TOT_CUST_1 , VL_CUSTO_2, VL_TOT_CUST_2

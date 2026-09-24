@@ -1,0 +1,115 @@
+/*----------------------------------------------------------------------------*/
+--R_PENDENCIA_SETOR
+SELECT * FROM (
+select setor.cd_setor,
+       setor.nm_setor,
+       atendime.cd_atendimento,
+       atendime.cd_paciente,
+       paciente.nm_paciente,
+       atendime.dt_atendimento dt_inicio,
+       atendime.dt_alta        dt_final,
+       reg_fat.cd_convenio,
+       convenio.nm_convenio,
+       reg_fat.cd_con_pla,
+       reg_fat.cd_reg_fat,
+       decode( gru_pro.tp_gru_pro, 'SH', 'Serviços Hospitalares',
+                                   'SP', 'Serviços Profissionais',
+                                   'SD', 'Serviços Diagnósticos',
+                                   'OP', 'Órteses e Próteses',
+                                   'MD', 'Medicamentos',
+                                   'MT', 'Materiais',
+                                   'MM', 'Materiais', 'Outros' ) ds_gru_pro,
+       decode( gru_pro.tp_gru_pro, 'SH', '1',
+                                   'SP', '2',
+                                   'SD', '3',
+                                   'OP', '4',
+                                   'MD', '5',
+                                   'MT', '6',
+                                   'MM', '6', '7' ) ordem,
+       itreg_fat.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       Decode(gru_pro.tp_gru_pro,'SD',to_char(itreg_fat.dt_lancamento,'dd/mm/yyyy'), null ) dt_lancamento,
+       max(Decode(gru_pro.tp_gru_pro,'SD',to_char(itreg_fat.hr_lancamento,'hh24'), null)) hr_lancamento,
+       setor_i.cd_setor cd_setor_item,
+       setor_i.nm_setor nm_setor_item,
+       setor_p.cd_setor cd_setor_produziu,
+       setor_p.nm_setor nm_setor_produziu,
+       sum( nvl(itreg_fat.qt_lancamento,0) ) qt_lancamento
+  from dbamv.mov_int,
+       dbamv.setor,
+       dbamv.leito,
+       dbamv.unid_int,
+       dbamv.atendime,
+       dbamv.paciente,
+       dbamv.itreg_fat,
+       dbamv.reg_fat,
+       dbamv.setor setor_i,
+       dbamv.setor setor_p,
+       dbamv.pro_fat,
+       dbamv.gru_pro,
+       dbamv.convenio,
+       ( select max( mov_int.cd_mov_int) cd_mov_int, mov_int.cd_atendimento, max(reg_fat.cd_reg_fat) cd_reg_fat
+           from dbamv.leito,
+                dbamv.unid_int,
+                dbamv.mov_int,
+                dbamv.reg_fat,
+              dbamv.atendime
+          where atendime.cd_atendimento = mov_int.cd_atendimento
+            AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+            and leito.cd_leito       = mov_int.cd_leito
+            and unid_int.cd_unid_int    = leito.cd_unid_int
+            and atendime.tp_atendimento = 'I'
+            and atendime.dt_alta        is null
+            and reg_fat.cd_atendimento = atendime.cd_atendimento
+            and reg_fat.cd_convenio    = atendime.cd_convenio
+          group by mov_int.cd_atendimento ) mov_int_atend
+ where mov_int.cd_mov_int      = mov_int_atend.cd_mov_int
+   AND REG_FAT.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and atendime.cd_atendimento = mov_int.cd_atendimento
+   and paciente.cd_paciente(+) = atendime.cd_paciente
+   and reg_fat.cd_reg_fat      = mov_int_atend.cd_reg_fat
+   and leito.cd_leito          = mov_int.cd_leito
+   and unid_int.cd_unid_int    = leito.cd_unid_int
+   and convenio.cd_convenio    = reg_fat.cd_convenio
+   and convenio.tp_convenio   = 'C'
+   and unid_int.cd_setor = setor.cd_setor
+   and reg_fat.cd_reg_fat   = itreg_fat.cd_reg_fat
+   and pro_fat.cd_pro_fat   = itreg_fat.cd_pro_fat
+   and gru_pro.cd_gru_pro   = pro_fat.cd_gru_pro
+   and itreg_fat.cd_setor = setor_i.cd_setor
+   and itreg_fat.cd_setor_produziu = setor_p.cd_setor
+   AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+ group by setor.cd_setor,
+       setor.nm_setor,
+       reg_fat.cd_reg_fat,
+       atendime.cd_atendimento,
+       atendime.cd_paciente,
+       paciente.nm_paciente,
+       atendime.dt_atendimento ,
+       atendime.dt_alta ,
+       reg_fat.cd_convenio,
+       convenio.nm_convenio,
+       reg_fat.cd_con_pla,
+       decode( gru_pro.tp_gru_pro, 'SH', 'Serviços Hospitalares',
+                                   'SP', 'Serviços Profissionais',
+                                   'SD', 'Serviços Diagnósticos',
+                                   'OP', 'Órteses e Próteses',
+                                   'MD', 'Medicamentos',
+                                   'MT', 'Materiais',
+                                   'MM', 'Materiais', 'Outros' ),
+       decode( gru_pro.tp_gru_pro, 'SH', '1',
+                                   'SP', '2',
+                                   'SD', '3',
+                                   'OP', '4',
+                                   'MD', '5',
+                                   'MT', '6',
+                                   'MM', '6', '7' ),
+       itreg_fat.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       Decode(gru_pro.tp_gru_pro,'SD',to_char(itreg_fat.dt_lancamento,'dd/mm/yyyy'), null ),
+       setor_i.cd_setor,
+       setor_i.nm_setor,
+       setor_p.cd_setor,
+       setor_p.nm_setor
+)
+ORDER BY NM_SETOR, CD_ATENDIMENTO, DT_INICIO, ORDEM, DS_GRU_PRO

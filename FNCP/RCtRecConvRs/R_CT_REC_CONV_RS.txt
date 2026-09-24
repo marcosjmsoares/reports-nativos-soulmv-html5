@@ -1,0 +1,1077 @@
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS
+select * from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_ATENDIMENTO1_Q_SEQUENCIAL_PRE_IMPRESSO
+SELECT cd_nota_fiscal      cd_nota_fiscal_seq,
+       cd_conta            cd_conta_seq,
+       cd_reg_fat          cd_reg_fat_seq,
+       cd_remessa          cd_remessa_seq,
+       cd_atendimento      cd_atendimento_seq,
+       nr_seq_preimpre     nr_seq_preimpre_ate,
+       tp_seq_preimpre,
+       nr_seq_preimpre_itamb,
+       nr_seq_preimpre_regf,
+       Sum(vl_itfat_nf)    vl_previsto_seq,
+       Sum(vl_recebido + vl_recebido_recurso)    vl_recebido_seq_proc,
+       Sum(vl_imposto)     vl_imposto_retido_seq_proc,
+       Sum(vl_desconto)    vl_desconto_seq_proc,
+       Sum(vl_acrescimo)   vl_acrescimo_seq_proc,
+       Sum(vl_glosa)       vl_glosa_seq,
+       Sum(vl_recurso)     vl_recurso_seq,
+       (CASE
+          WHEN (Trunc(Max(dt_recebimento))  >=  Nvl(Max(dt_recebido_recurso), Trunc(Max(dt_recebimento))))
+            THEN Max(dt_recebimento)
+          ELSE Max(dt_recebido_recurso)
+        END) dt_recebimento_seq_proc,
+       Sum(vl_aceite)      vl_aceite_seq_proc,
+       Sum(vl_itfat_nf - (vl_liquido + vl_aceite + vl_recebido_recurso)) vl_receber_seq_proc
+  FROM ( SELECT ifat.cd_nota_fiscal,
+                DECODE(ifat.cd_reg_fat, NULL, 'A', 'I') tp_conta,
+                NVL(ifat.cd_reg_fat, ifat.cd_reg_amb) cd_conta,
+                ifat.cd_reg_fat,
+                ifat.cd_atendimento,
+                ifat.cd_remessa,
+                ifat.cd_pro_fat,
+                ifat.cd_prestador,
+                prof.ds_pro_fat,
+                grup.cd_gru_pro,
+                grup.ds_gru_pro,
+                gruf.cd_gru_fat,
+                gruf.ds_gru_fat,
+                paci.nm_paciente,
+                conv.tp_seq_preimpre,
+                ated.nr_seq_preimpre,
+                (SELECT nr_seq_preimpre
+                   FROM dbamv.reg_fat
+                  WHERE cd_reg_fat = ifat.cd_reg_fat
+                    AND ROWNUM = 1) nr_seq_preimpre_regf,
+                (SELECT nr_seq_preimpre
+                   FROM dbamv.itreg_amb
+                  WHERE cd_reg_amb = ifat.cd_reg_fat
+                    AND cd_lancamento = ifat.cd_lancamento_amb
+                    AND cd_convenio = conv.cd_convenio
+                    AND ROWNUM = 1) nr_seq_preimpre_itamb,
+                Nvl(ifat.vl_itfat_nf,0)  vl_itfat_nf,
+                irec.dt_recebimento,
+                Nvl(irec.vl_recebido,0)  vl_recebido,
+                Nvl(irec.vl_acrescimo,0) vl_acrescimo,
+                Nvl(irec.vl_desconto,0)  vl_desconto,
+                Nvl(irec.vl_imposto,0)   vl_imposto,
+                Nvl(irec.vl_glosa,0)     vl_glosa,
+                Nvl(irec.vl_liquido,0)   vl_liquido,
+                Nvl((SELECT Sum(Nvl(vl_reapresentado,0))
+                        FROM dbamv.glosas
+                      WHERE NVL(cd_reg_fat, cd_reg_amb) = NVL(ifat.cd_reg_fat, ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_glosas_pai IS NULL
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recurso,
+                (SELECT Max(dt_recebido)
+                        FROM dbamv.glosas
+                      WHERE NVL(cd_reg_fat, cd_reg_amb) = NVL(ifat.cd_reg_fat, ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL) dt_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_recebido,0))
+                        FROM dbamv.glosas
+                      WHERE NVL(cd_reg_fat, cd_reg_amb) = NVL(ifat.cd_reg_fat, ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_glosa,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_aceite,
+                Nvl((SELECT Sum(Nvl(vl_retira_recurso,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_retira_recurso
+            FROM dbamv.itfat_nota_fiscal ifat,
+                 dbamv.nota_fiscal       nota,
+                 dbamv.convenio          conv,
+                 dbamv.pro_fat           prof,
+                 dbamv.gru_pro           grup,
+                 dbamv.gru_fat           gruf,
+                 dbamv.atendime          ated,
+                 dbamv.paciente          paci,
+                 (SELECT t.cd_itfat_nf,
+                         Max(r.dt_recebimento)         dt_recebimento,
+                         Sum(Nvl(t.vl_recebido,0))       vl_recebido,
+                         Sum(Nvl(t.vl_acrescimo,0))      vl_acrescimo,
+                         Sum(Nvl(t.vl_desconto,0))       vl_desconto,
+                         Sum(Nvl(t.vl_imposto_retido,0)) vl_imposto,
+                         Sum(Nvl(t.vl_glosa,0))          vl_glosa,
+                         Sum(  Nvl(t.vl_recebido,0)
+                             - Nvl(t.vl_acrescimo,0)
+                             + Nvl(t.vl_desconto,0))     vl_liquido
+                     FROM dbamv.it_recebimento t,
+                          dbamv.reccon_rec     r,
+                          dbamv.itcon_rec      i,
+                          dbamv.con_rec        c
+                    WHERE t.cd_reccon_rec  = r.cd_reccon_rec
+                      AND i.cd_itcon_rec   = r.cd_itcon_rec
+                      AND i.cd_con_rec     = c.cd_con_rec
+                      AND c.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA
+                 GROUP BY cd_itfat_nf)   irec
+           WHERE ifat.cd_atendimento = ated.cd_atendimento
+             AND ifat.cd_nota_fiscal = nota.cd_nota_fiscal
+             AND nota.cd_convenio    = conv.cd_convenio
+             AND ated.cd_paciente    = paci.cd_paciente
+             AND ifat.cd_pro_fat     = prof.cd_pro_fat
+             AND prof.cd_gru_pro     = grup.cd_gru_pro
+             AND grup.cd_gru_fat     = gruf.cd_gru_fat
+             AND ifat.cd_itfat_nf    = irec.cd_itfat_nf(+)
+             AND :CAMPO_TP_RELATORIO = 'A'
+             AND :CAMPO_TP_EXIBIR = 'S'
+             AND ifat.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA
+             AND (ifat.cd_reg_fat = :CAMPO_CD_CONTA OR ifat.cd_reg_amb = :CAMPO_CD_CONTA)
+             AND ifat.cd_remessa = :CAMPO_CD_REMESSA_CONTA
+             AND ifat.cd_atendimento = :CAMPO_CD_ATENDIMENTO_CONTA
+			 :CAMPO_CF_EMPRESA_ATENDIMENTO
+)
+GROUP BY  cd_nota_fiscal,
+          cd_conta,
+          cd_reg_fat,
+          cd_remessa,
+          cd_atendimento,
+          nr_seq_preimpre,
+          tp_seq_preimpre,
+          nr_seq_preimpre_itamb,
+          nr_seq_preimpre_regf
+ORDER BY  cd_nota_fiscal,
+          cd_conta,
+          cd_remessa,
+          cd_atendimento
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_ATENDIMENTO3_Q_SEQUENCIAL_PRE_IMPRESSO_VENC
+SELECT cd_nota_fiscal        cd_nota_fiscal_seq_venc,
+       cd_conta              cd_conta_seq_venc,
+       cd_reg_fat            cd_reg_fat_seq_venc,
+       cd_remessa            cd_remessa_seq_venc,
+       cd_atendimento        cd_atendimento_seq_venc,
+       nr_seq_preimpre       nr_seq_preimpre_ate_venc,
+       tp_seq_preimpre       tp_seq_preimpre_venc,
+       nr_seq_preimpre_itamb nr_seq_preimpre_itamb_venc,
+       nr_seq_preimpre_regf  nr_seq_preimpre_regf_venc,
+       Sum(vl_itfat_nf)      vl_previsto_seq_venc,
+       Sum(vl_recebido + vl_recebido_recurso)    vl_recebido_seq_venc,
+       Sum(vl_imposto)     vl_imposto_retido_seq_venc,
+       Sum(vl_desconto)    vl_desconto_seq_venc,
+       Sum(vl_acrescimo)   vl_acrescimo_seq_venc,
+       Sum(vl_glosa)       vl_glosa_seq_venc,
+       Sum(vl_recurso)     vl_recurso_seq_venc,
+       (CASE
+          WHEN (Trunc(Max(dt_recebimento))  >=  Nvl(Max(dt_recebido_recurso), Trunc(Max(dt_recebimento))))
+            THEN Max(dt_recebimento)
+          ELSE Max(dt_recebido_recurso)
+        END) dt_recebimento_seq_venc,
+       Sum(vl_aceite)      vl_aceite_seq_venc,
+       Sum(vl_itfat_nf - (vl_liquido + vl_aceite + vl_recebido_recurso)) vl_receber_seq_venc
+  FROM ( SELECT ifat.cd_nota_fiscal,
+                DECODE(ifat.cd_reg_fat, NULL, 'A', 'I') tp_conta,
+                NVL(ifat.cd_reg_fat, ifat.cd_reg_amb) cd_conta,
+                ifat.cd_reg_fat,
+                ifat.cd_atendimento,
+                ifat.cd_remessa,
+                ifat.cd_pro_fat,
+                ifat.cd_prestador,
+                prof.ds_pro_fat,
+                grup.cd_gru_pro,
+                grup.ds_gru_pro,
+                gruf.cd_gru_fat,
+                gruf.ds_gru_fat,
+                paci.nm_paciente,
+                conv.tp_seq_preimpre,
+                ated.nr_seq_preimpre,
+                (SELECT nr_seq_preimpre
+                   FROM dbamv.reg_fat
+                  WHERE cd_reg_fat = ifat.cd_reg_fat
+                    AND ROWNUM = 1) nr_seq_preimpre_regf,
+                (SELECT nr_seq_preimpre
+                   FROM dbamv.itreg_amb
+                  WHERE cd_reg_amb = ifat.cd_reg_fat
+                    AND cd_lancamento = ifat.cd_lancamento_amb
+                    AND cd_convenio = conv.cd_convenio
+                    AND ROWNUM = 1) nr_seq_preimpre_itamb,
+                Nvl(ifat.vl_itfat_nf,0)  vl_itfat_nf,
+                irec.dt_recebimento,
+                Nvl(irec.vl_recebido,0)  vl_recebido,
+                Nvl(irec.vl_acrescimo,0) vl_acrescimo,
+                Nvl(irec.vl_desconto,0)  vl_desconto,
+                Nvl(irec.vl_imposto,0)   vl_imposto,
+                Nvl(irec.vl_glosa,0)     vl_glosa,
+                Nvl(irec.vl_liquido,0)   vl_liquido,
+                Nvl((SELECT Sum(Nvl(vl_reapresentado,0))
+                        FROM dbamv.glosas
+                      WHERE NVL(cd_reg_fat, cd_reg_amb) = NVL(ifat.cd_reg_fat, ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_glosas_pai IS NULL
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recurso,
+                (SELECT Max(dt_recebido)
+                        FROM dbamv.glosas
+                      WHERE NVL(cd_reg_fat, cd_reg_amb) = NVL(ifat.cd_reg_fat, ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL) dt_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_recebido,0))
+                        FROM dbamv.glosas
+                      WHERE NVL(cd_reg_fat, cd_reg_amb) = NVL(ifat.cd_reg_fat, ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_glosa,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_aceite,
+                Nvl((SELECT Sum(Nvl(vl_retira_recurso,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_retira_recurso
+            FROM dbamv.itfat_nota_fiscal ifat,
+                 dbamv.nota_fiscal       nota,
+                 dbamv.convenio          conv,
+                 dbamv.pro_fat           prof,
+                 dbamv.gru_pro           grup,
+                 dbamv.gru_fat           gruf,
+                 dbamv.atendime          ated,
+                 dbamv.paciente          paci,
+                 (SELECT t.cd_itfat_nf,
+                         Max(r.dt_recebimento)         dt_recebimento,
+                         Sum(Nvl(t.vl_recebido,0))       vl_recebido,
+                         Sum(Nvl(t.vl_acrescimo,0))      vl_acrescimo,
+                         Sum(Nvl(t.vl_desconto,0))       vl_desconto,
+                         Sum(Nvl(t.vl_imposto_retido,0)) vl_imposto,
+                         Sum(Nvl(t.vl_glosa,0))          vl_glosa,
+                         Sum(  Nvl(t.vl_recebido,0)
+                             - Nvl(t.vl_acrescimo,0)
+                             + Nvl(t.vl_desconto,0))     vl_liquido
+                     FROM dbamv.it_recebimento t,
+                          dbamv.reccon_rec     r,
+                          dbamv.itcon_rec      i,
+                          dbamv.con_rec        c
+                    WHERE t.cd_reccon_rec  = r.cd_reccon_rec
+                      AND i.cd_itcon_rec   = r.cd_itcon_rec
+                      AND i.cd_con_rec     = c.cd_con_rec
+                      AND c.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA_VENC
+                 GROUP BY cd_itfat_nf)   irec
+           WHERE ifat.cd_atendimento = ated.cd_atendimento
+             AND ifat.cd_nota_fiscal = nota.cd_nota_fiscal
+             AND nota.cd_convenio    = conv.cd_convenio
+             AND ated.cd_paciente    = paci.cd_paciente
+             AND ifat.cd_pro_fat     = prof.cd_pro_fat
+             AND prof.cd_gru_pro     = grup.cd_gru_pro
+             AND grup.cd_gru_fat     = gruf.cd_gru_fat
+             AND ifat.cd_itfat_nf    = irec.cd_itfat_nf(+)
+             AND :CAMPO_TP_RELATORIO = 'A'
+             AND :CAMPO_TP_EXIBIR = 'S'
+             AND ifat.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA_VENC
+             AND (ifat.cd_reg_fat = :CAMPO_CD_CONTA_VENC OR ifat.cd_reg_amb = :CAMPO_CD_CONTA_VENC)
+             AND ifat.cd_remessa = :CAMPO_CD_REMESSA_VENC
+             AND ifat.cd_atendimento = :CAMPO_CD_ATENDIMENTO_VENC
+			 :CAMPO_CF_EMPRESA_ATENDIMENTO
+)
+GROUP BY  cd_nota_fiscal,
+          cd_conta,
+          cd_reg_fat,
+          cd_remessa,
+          cd_atendimento,
+          nr_seq_preimpre,
+          tp_seq_preimpre,
+          nr_seq_preimpre_itamb,
+          nr_seq_preimpre_regf
+ORDER BY  cd_nota_fiscal,
+          cd_conta,
+          cd_remessa,
+          cd_atendimento
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_ATENDIMENTO6_Q_DETALHAMENTO_CONTA
+SELECT cd_nota_fiscal      cd_nota_fiscal_conta,
+       tp_conta,
+       cd_conta,
+       cd_remessa          cd_remessa_conta,
+       cd_atendimento      cd_atendimento_conta,
+       vl_itfat_nf         vl_itfat_nf_conta,
+       nm_paciente         nm_paciente_conta,
+       vl_itfat_nf         vl_previsto_conta,
+       (vl_recebido + vl_recebido_recurso)         vl_recebido_conta,
+       vl_glosa            vl_glosa_conta,
+       vl_desconto         vl_desconto_conta,
+       vl_acrescimo        vl_acrescimo_conta,
+       vl_recurso          vl_recurso_conta,
+       vl_imposto          vl_imposto_retido_conta,
+       (CASE
+          WHEN (Trunc(dt_recebimento)  >=  Nvl(dt_recebido_recurso, Trunc(dt_recebimento)))
+            THEN dt_recebimento
+          ELSE dt_recebido_recurso
+        END) dt_recebimento_conta,
+       vl_aceite           vl_aceite_conta,
+       (vl_itfat_nf - (vl_liquido + vl_aceite + vl_recebido_recurso)) vl_receber_conta
+  FROM ( SELECT ifat.cd_nota_fiscal,
+                DECODE(ifat.cd_reg_fat, NULL, 'A', 'I') tp_conta,
+                NVL(ifat.cd_reg_fat, ifat.cd_reg_amb) cd_conta,
+                ifat.cd_atendimento,
+                ifat.cd_remessa,
+                paci.nm_paciente,
+                Nvl(Sum(ifat.vl_itfat_nf),0)  vl_itfat_nf,
+                Max(irec.dt_recebimento) dt_recebimento,
+                Nvl(Sum(irec.vl_recebido),0)  vl_recebido,
+                Nvl(Sum(irec.vl_acrescimo),0) vl_acrescimo,
+                Nvl(Sum(irec.vl_desconto),0)  vl_desconto,
+                Nvl(Sum(irec.vl_imposto),0)   vl_imposto,
+                Nvl(Sum(irec.vl_glosa),0)     vl_glosa,
+                Nvl(Sum(irec.vl_liquido),0)   vl_liquido,
+                Nvl((SELECT Sum(Nvl(vl_reapresentado,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_glosas_pai IS NULL
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recurso,
+                (SELECT Max(dt_recebido)
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_remessa_glosa IS NOT NULL) dt_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_recebido,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(a.vl_glosa,0))
+                        FROM dbamv.itmov_glosas a,
+                            dbamv.itfat_nota_fiscal b
+                      WHERE a.cd_itfat_nf = b.cd_itfat_nf
+                        AND (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND b.cd_remessa = ifat.cd_remessa),0) vl_aceite,
+                Nvl((SELECT Sum(Nvl(a.vl_retira_recurso,0))
+                        FROM dbamv.itmov_glosas a,
+                            dbamv.itfat_nota_fiscal b
+                      WHERE a.cd_itfat_nf = b.cd_itfat_nf
+                        AND (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND b.cd_remessa = ifat.cd_remessa),0) vl_retira_recurso
+            FROM dbamv.itfat_nota_fiscal ifat,
+                 dbamv.pro_fat           prof,
+                 dbamv.gru_pro           grup,
+                 dbamv.atendime          ated,
+                 dbamv.paciente          paci,
+                 (SELECT t.cd_itfat_nf,
+                         Max(r.dt_recebimento)         dt_recebimento,
+                         Sum(Nvl(t.vl_recebido,0))       vl_recebido,
+                         Sum(Nvl(t.vl_acrescimo,0))      vl_acrescimo,
+                         Sum(Nvl(t.vl_desconto,0))       vl_desconto,
+                         Sum(Nvl(t.vl_imposto_retido,0)) vl_imposto,
+                         Sum(Nvl(t.vl_glosa,0))          vl_glosa,
+                         Sum(  Nvl(t.vl_recebido,0)
+                             - Nvl(t.vl_acrescimo,0)
+                             + Nvl(t.vl_desconto,0))     vl_liquido
+                     FROM dbamv.it_recebimento t,
+                          dbamv.reccon_rec     r,
+                          dbamv.itcon_rec      i,
+                          dbamv.con_rec        c
+                    WHERE t.cd_reccon_rec  = r.cd_reccon_rec
+                      AND i.cd_itcon_rec   = r.cd_itcon_rec
+                      AND i.cd_con_rec     = c.cd_con_rec
+                      AND c.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL
+                 GROUP BY cd_itfat_nf)   irec
+           WHERE ifat.cd_atendimento = ated.cd_atendimento
+             AND ated.cd_paciente    = paci.cd_paciente
+             AND ifat.cd_pro_fat     = prof.cd_pro_fat
+             AND prof.cd_gru_pro     = grup.cd_gru_pro
+             AND ifat.cd_itfat_nf    = irec.cd_itfat_nf(+)
+             AND ifat.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL
+             AND :CAMPO_TP_RELATORIO  = 'A'
+        GROUP BY ifat.cd_nota_fiscal,
+                 DECODE(cd_reg_fat, NULL, 'A', 'I'),
+                 ifat.cd_reg_fat,
+                 ifat.cd_reg_amb,
+                 ifat.cd_atendimento,
+                 ifat.cd_remessa,
+                 paci.nm_paciente
+        :CAMPO_CF_ORDER_CONTAS
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_ATENDIMENTO7_Q_DETALHAMENTO_CONTA_ITEM
+SELECT cd_nota_fiscal      cd_nota_fiscal_proc,
+       cd_conta            cd_conta_proc,
+       cd_remessa          cd_remessa_proc,
+       cd_atendimento      cd_atendimento_proc,
+       Sum(vl_itfat_nf)    vl_itfat_nf,
+       cd_pro_fat          cd_pro_fat_proc,
+       ds_pro_fat          ds_pro_fat_proc,
+       cd_gru_pro,
+       ds_gru_pro,
+       cd_gru_fat,
+       ds_gru_fat,
+       nm_paciente         nm_paciente_proc,
+       Sum(vl_itfat_nf)    vl_previsto_proc,
+       Sum(vl_recebido + vl_recebido_recurso)    vl_recebido,
+       Sum(vl_recebido)    vl_recebido_proc,
+       Sum(vl_imposto)     vl_imposto_retido_proc,
+       Sum(vl_desconto)    vl_desconto_proc,
+       Sum(vl_acrescimo)   vl_acrescimo_proc,
+       Sum(vl_glosa)       vl_glosa_proc,
+       Sum(vl_recurso)     vl_recurso_proc,
+       (CASE
+          WHEN (Trunc(Max(dt_recebimento))  >=  Nvl(Max(dt_recebido_recurso), Trunc(Max(dt_recebimento))))
+            THEN Max(dt_recebimento)
+          ELSE Max(dt_recebido_recurso)
+        END)  dt_recebimento_proc,
+       Sum(vl_aceite)      vl_aceite_proc,
+       Sum(vl_itfat_nf - (vl_liquido + vl_aceite + vl_recebido_recurso)) vl_receber_proc
+  FROM ( SELECT ifat.cd_nota_fiscal,
+                DECODE(ifat.cd_reg_fat, NULL, 'A', 'I') tp_conta,
+                NVL(ifat.cd_reg_fat, ifat.cd_reg_amb) cd_conta,
+                ifat.cd_atendimento,
+                ifat.cd_remessa,
+                ifat.cd_pro_fat,
+                ifat.cd_prestador,
+                prof.ds_pro_fat,
+                grup.cd_gru_pro,
+                grup.ds_gru_pro,
+                gruf.cd_gru_fat,
+                gruf.ds_gru_fat,
+                paci.nm_paciente,
+                Nvl(ifat.vl_itfat_nf,0)  vl_itfat_nf,
+                irec.dt_recebimento,
+                Nvl(irec.vl_recebido,0)  vl_recebido,
+                Nvl(irec.vl_acrescimo,0) vl_acrescimo,
+                Nvl(irec.vl_desconto,0)  vl_desconto,
+                Nvl(irec.vl_imposto,0)   vl_imposto,
+                Nvl(irec.vl_glosa,0)     vl_glosa,
+                Nvl(irec.vl_liquido,0)   vl_liquido,
+                Nvl((SELECT Sum(Nvl(vl_reapresentado,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_glosas_pai IS NULL
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recurso,
+                (SELECT Max(dt_recebido)
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL) dt_recebido_recurso,
+     		        Nvl((SELECT Sum(Nvl(vl_recebido,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_glosa,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_aceite,
+                Nvl((SELECT Sum(Nvl(vl_retira_recurso,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_retira_recurso
+            FROM dbamv.itfat_nota_fiscal ifat,
+                 dbamv.pro_fat           prof,
+                 dbamv.gru_pro           grup,
+                 dbamv.gru_fat           gruf,
+                 dbamv.atendime          ated,
+                 dbamv.paciente          paci,
+                 (SELECT t.cd_itfat_nf,
+                         Max(r.dt_recebimento)         dt_recebimento,
+                         Sum(Nvl(t.vl_recebido,0))       vl_recebido,
+                         Sum(Nvl(t.vl_acrescimo,0))      vl_acrescimo,
+                         Sum(Nvl(t.vl_desconto,0))       vl_desconto,
+                         Sum(Nvl(t.vl_imposto_retido,0)) vl_imposto,
+                         Sum(Nvl(t.vl_glosa,0))          vl_glosa,
+                         Sum(  Nvl(t.vl_recebido,0)
+                             - Nvl(t.vl_acrescimo,0)
+                             + Nvl(t.vl_desconto,0))     vl_liquido
+                     FROM dbamv.it_recebimento t,
+                          dbamv.reccon_rec     r,
+                          dbamv.itcon_rec      i,
+                          dbamv.con_rec        c
+                    WHERE t.cd_reccon_rec  = r.cd_reccon_rec
+                      AND i.cd_itcon_rec   = r.cd_itcon_rec
+                      AND i.cd_con_rec     = c.cd_con_rec
+                      AND c.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA
+                 GROUP BY cd_itfat_nf)   irec
+           WHERE ifat.cd_atendimento = ated.cd_atendimento
+             AND ated.cd_paciente    = paci.cd_paciente
+             AND ifat.cd_pro_fat     = prof.cd_pro_fat
+             AND prof.cd_gru_pro     = grup.cd_gru_pro
+             AND grup.cd_gru_fat     = gruf.cd_gru_fat
+             AND ifat.cd_itfat_nf    = irec.cd_itfat_nf(+)
+             AND :CAMPO_TP_RELATORIO = 'A'
+             AND :CAMPO_TP_EXIBIR = 'P'
+             AND ifat.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA
+             AND (ifat.cd_reg_fat = :CAMPO_CD_CONTA OR ifat.cd_reg_amb = :CAMPO_CD_CONTA)
+             AND ifat.cd_remessa = :CAMPO_CD_REMESSA_CONTA
+             AND ifat.cd_atendimento = :CAMPO_CD_ATENDIMENTO_CONTA
+             :CAMPO_CF_ORDER_PROC
+)
+GROUP BY  cd_nota_fiscal,
+          cd_conta,
+          cd_remessa,
+          cd_atendimento,
+          cd_pro_fat,
+          ds_pro_fat,
+          cd_gru_pro,
+          ds_gru_pro,
+          cd_gru_fat,
+          ds_gru_fat,
+          nm_paciente,
+          cd_prestador
+ORDER BY  cd_nota_fiscal,
+          cd_conta,
+          cd_remessa,
+          cd_atendimento,
+          cd_pro_fat,
+          cd_prestador
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_ATENDIMENTO8_Q_DETALHAMENTO_CONTA_ITEM_VENC
+SELECT cd_nota_fiscal      cd_nota_fiscal_proc_venc,
+       cd_conta            cd_conta_proc_venc,
+       cd_remessa          cd_remessa_proc_venc,
+       cd_atendimento      cd_atendimento_proc_venc,
+       Sum(vl_itfat_nf)    vl_itfat_nf_venc,
+       cd_pro_fat          cd_pro_fat_proc_venc,
+       ds_pro_fat          ds_pro_fat_proc_venc,
+       cd_gru_pro          cd_gru_pro_venc,
+       ds_gru_pro          ds_gru_pro_venc,
+       cd_gru_fat          cd_gru_fat_venc,
+       ds_gru_fat          ds_gru_fat_venc,
+       nm_paciente         nm_paciente_proc_venc,
+       Sum(vl_itfat_nf)    vl_previsto_proc_venc,
+       Sum(vl_recebido + vl_recebido_recurso)    vl_recebido_venc,
+       Sum(vl_imposto)     vl_imposto_retido_proc_venc,
+       Sum(vl_desconto)    vl_desconto_proc_venc,
+       Sum(vl_acrescimo)   vl_acrescimo_proc_venc,
+       Sum(vl_glosa)       vl_glosa_proc_venc,
+       Sum(vl_recurso)     vl_recurso_proc_venc,
+       (CASE
+          WHEN (Trunc(Max(dt_recebimento))  >=  Nvl(Max(dt_recebido_recurso), Trunc(Max(dt_recebimento))))
+            THEN Max(dt_recebimento)
+          ELSE Max(dt_recebido_recurso)
+        END) dt_recebimento_proc_venc,
+       Sum(vl_aceite)      vl_aceite_proc_venc,
+       Sum(vl_itfat_nf - (vl_liquido + vl_aceite + vl_recebido_recurso)) vl_receber_proc_venc
+  FROM ( SELECT ifat.cd_nota_fiscal,
+                DECODE(ifat.cd_reg_fat, NULL, 'A', 'I') tp_conta,
+                NVL(ifat.cd_reg_fat, ifat.cd_reg_amb) cd_conta,
+                ifat.cd_atendimento,
+                ifat.cd_remessa,
+                ifat.cd_pro_fat,
+                ifat.cd_prestador,
+                prof.ds_pro_fat,
+                grup.cd_gru_pro,
+                grup.ds_gru_pro,
+                gruf.cd_gru_fat,
+                gruf.ds_gru_fat,
+                paci.nm_paciente,
+                Nvl(ifat.vl_itfat_nf,0)  vl_itfat_nf,
+                irec.dt_recebimento,
+                Nvl(irec.vl_recebido,0)  vl_recebido,
+                Nvl(irec.vl_acrescimo,0) vl_acrescimo,
+                Nvl(irec.vl_desconto,0)  vl_desconto,
+                Nvl(irec.vl_imposto,0)   vl_imposto,
+                Nvl(irec.vl_glosa,0)     vl_glosa,
+                Nvl(irec.vl_liquido,0)   vl_liquido,
+                Nvl((SELECT Sum(Nvl(vl_reapresentado,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_glosas_pai IS NULL
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recurso,
+                (SELECT Max(dt_recebido)
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL) dt_recebido_recurso,
+ 		            Nvl((SELECT Sum(Nvl(vl_recebido,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_itfat_nf = ifat.cd_itfat_nf
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_glosa,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_aceite,
+                Nvl((SELECT Sum(Nvl(vl_retira_recurso,0))
+                        FROM dbamv.itmov_glosas
+                      WHERE cd_itfat_nf = ifat.cd_itfat_nf),0) vl_retira_recurso
+            FROM dbamv.itfat_nota_fiscal ifat,
+                 dbamv.pro_fat           prof,
+                 dbamv.gru_pro           grup,
+                 dbamv.gru_fat           gruf,
+                 dbamv.atendime          ated,
+                 dbamv.paciente          paci,
+                 (SELECT t.cd_itfat_nf,
+                         Max(r.dt_recebimento)         dt_recebimento,
+                         Sum(Nvl(t.vl_recebido,0))       vl_recebido,
+                         Sum(Nvl(t.vl_acrescimo,0))      vl_acrescimo,
+                         Sum(Nvl(t.vl_desconto,0))       vl_desconto,
+                         Sum(Nvl(t.vl_imposto_retido,0)) vl_imposto,
+                         Sum(Nvl(t.vl_glosa,0))          vl_glosa,
+                         Sum(  Nvl(t.vl_recebido,0)
+                             - Nvl(t.vl_acrescimo,0)
+                             + Nvl(t.vl_desconto,0))     vl_liquido
+                     FROM dbamv.it_recebimento t,
+                          dbamv.reccon_rec     r,
+                          dbamv.itcon_rec      i,
+                          dbamv.con_rec        c
+                    WHERE t.cd_reccon_rec  = r.cd_reccon_rec
+                      AND i.cd_itcon_rec   = r.cd_itcon_rec
+                      AND i.cd_con_rec     = c.cd_con_rec
+                      AND c.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA_VENC
+                 GROUP BY cd_itfat_nf)   irec
+           WHERE ifat.cd_atendimento = ated.cd_atendimento
+             AND ated.cd_paciente    = paci.cd_paciente
+             AND ifat.cd_pro_fat     = prof.cd_pro_fat
+             AND prof.cd_gru_pro     = grup.cd_gru_pro
+             AND grup.cd_gru_fat     = gruf.cd_gru_fat
+             AND ifat.cd_itfat_nf    = irec.cd_itfat_nf(+)
+             AND :CAMPO_TP_RELATORIO = 'A'
+             AND :CAMPO_TP_EXIBIR = 'P'
+             AND ifat.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_CONTA_VENC
+             AND (ifat.cd_reg_fat = :CAMPO_CD_CONTA_VENC OR ifat.cd_reg_amb = :CAMPO_CD_CONTA_VENC)
+             AND ifat.cd_remessa = :CAMPO_CD_REMESSA_VENC
+             AND ifat.cd_atendimento = :CAMPO_CD_ATENDIMENTO_VENC
+             :CAMPO_CF_ORDER_PROC
+)
+GROUP BY  cd_nota_fiscal,
+          cd_conta,
+          cd_remessa,
+          cd_atendimento,
+          cd_pro_fat,
+          ds_pro_fat,
+          cd_gru_pro,
+          ds_gru_pro,
+          cd_gru_fat,
+          ds_gru_fat,
+          nm_paciente,
+          cd_prestador
+ORDER BY  cd_nota_fiscal,
+          cd_conta,
+          cd_remessa,
+          cd_atendimento,
+          cd_pro_fat,
+          cd_prestador
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_ATENDIMENTO9_Q_DETALHAMENTO_CONTA_VENC
+SELECT cd_nota_fiscal      cd_nota_fiscal_conta_venc,
+       cd_conta            cd_conta_venc,
+       cd_remessa          cd_remessa_venc,
+       cd_atendimento      cd_atendimento_venc,
+       nm_paciente         nm_paciente_venc,
+       vl_itfat_nf         vl_previsto_it_venc,
+       (vl_recebido + vl_recebido_recurso)         vl_recebido_receb_venc,
+       vl_glosa            vl_glosa_it_venc,
+       vl_desconto         vl_desconto_receb_venc,
+       vl_acrescimo        vl_acrescimo_receb_venc,
+       vl_recurso          vl_recurso_it_venc,
+       vl_imposto          vl_imposto_retido_receb_venc,
+       (CASE
+          WHEN (Trunc(dt_recebimento)  >=  Nvl(dt_recebido_recurso, Trunc(dt_recebimento)))
+            THEN dt_recebimento
+          ELSE dt_recebido_recurso
+        END) dt_recebimento_receb_venc,
+       vl_aceite           vl_aceite_venc,
+       (vl_itfat_nf - (vl_liquido + vl_aceite + vl_recebido_recurso)) vl_receber_venc
+  FROM ( SELECT ifat.cd_nota_fiscal,
+                DECODE(ifat.cd_reg_fat, NULL, 'A', 'I') tp_conta,
+                NVL(ifat.cd_reg_fat, ifat.cd_reg_amb) cd_conta,
+                ifat.cd_atendimento,
+                ifat.cd_remessa,
+                paci.nm_paciente,
+                Nvl(Sum(ifat.vl_itfat_nf),0)  vl_itfat_nf,
+                Max(irec.dt_recebimento) dt_recebimento,
+                Nvl(Sum(irec.vl_recebido),0)  vl_recebido,
+                Nvl(Sum(irec.vl_acrescimo),0) vl_acrescimo,
+                Nvl(Sum(irec.vl_desconto),0)  vl_desconto,
+                Nvl(Sum(irec.vl_imposto),0)   vl_imposto,
+                Nvl(Sum(irec.vl_glosa),0)     vl_glosa,
+                Nvl(Sum(irec.vl_liquido),0)   vl_liquido,
+                Nvl((SELECT Sum(Nvl(vl_reapresentado,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_glosas_pai IS NULL
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recurso,
+                (SELECT Max(dt_recebido)
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_remessa_glosa IS NOT NULL) dt_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(vl_recebido,0))
+                        FROM dbamv.glosas b
+                      WHERE (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND cd_atendimento = ifat.cd_atendimento
+                        AND cd_remessa_glosa IS NOT NULL),0) vl_recebido_recurso,
+                Nvl((SELECT Sum(Nvl(a.vl_glosa,0))
+                        FROM dbamv.itmov_glosas a,
+                            dbamv.itfat_nota_fiscal b
+                      WHERE a.cd_itfat_nf = b.cd_itfat_nf
+                        AND (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND b.cd_remessa = ifat.cd_remessa),0) vl_aceite,
+                Nvl((SELECT Sum(Nvl(a.vl_retira_recurso,0))
+                        FROM dbamv.itmov_glosas a,
+                            dbamv.itfat_nota_fiscal b
+                      WHERE a.cd_itfat_nf = b.cd_itfat_nf
+                        AND (b.cd_reg_fat = ifat.cd_reg_fat OR b.cd_reg_amb = ifat.cd_reg_amb)
+                        AND b.cd_remessa = ifat.cd_remessa),0) vl_retira_recurso
+            FROM dbamv.itfat_nota_fiscal ifat,
+                 dbamv.pro_fat           prof,
+                 dbamv.gru_pro           grup,
+                 dbamv.atendime          ated,
+                 dbamv.paciente          paci,
+                 (SELECT t.cd_itfat_nf,
+                         Max(r.dt_recebimento)         dt_recebimento,
+                         Sum(Nvl(t.vl_recebido,0))       vl_recebido,
+                         Sum(Nvl(t.vl_acrescimo,0))      vl_acrescimo,
+                         Sum(Nvl(t.vl_desconto,0))       vl_desconto,
+                         Sum(Nvl(t.vl_imposto_retido,0)) vl_imposto,
+                         Sum(Nvl(t.vl_glosa,0))          vl_glosa,
+                         Sum(  Nvl(t.vl_recebido,0)
+                             - Nvl(t.vl_acrescimo,0)
+                             + Nvl(t.vl_desconto,0))     vl_liquido
+                     FROM dbamv.it_recebimento t,
+                          dbamv.reccon_rec     r,
+                          dbamv.itcon_rec      i,
+                          dbamv.con_rec        c
+                    WHERE t.cd_reccon_rec  = r.cd_reccon_rec
+                      AND i.cd_itcon_rec   = r.cd_itcon_rec
+                      AND i.cd_con_rec     = c.cd_con_rec
+                      AND c.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_VENC
+                 GROUP BY cd_itfat_nf)   irec
+           WHERE ifat.cd_atendimento = ated.cd_atendimento
+             AND ated.cd_paciente    = paci.cd_paciente
+             AND ifat.cd_pro_fat     = prof.cd_pro_fat
+             AND prof.cd_gru_pro     = grup.cd_gru_pro
+             AND ifat.cd_itfat_nf    = irec.cd_itfat_nf(+)
+             AND ifat.cd_nota_fiscal = :CAMPO_CD_NOTA_FISCAL_VENC
+             AND :CAMPO_TP_RELATORIO = 'A'
+        GROUP BY ifat.cd_nota_fiscal,
+                 DECODE(cd_reg_fat, NULL, 'A', 'I'),
+                 ifat.cd_reg_fat,
+                 ifat.cd_reg_amb,
+                 ifat.cd_atendimento,
+                 ifat.cd_remessa,
+                 paci.nm_paciente
+        :CAMPO_CF_ORDER_CONTAS
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_CONVENIO_Q_CONTA_REC_CONV
+SELECT   nm_convenio_conv,
+         cd_remessa,
+         dt_emissao_conv,
+         dt_prevista_pagamento_conv,
+         Decode(cd_rank, 1, vl_previsto_conv, 0) vl_previsto_conv,
+         vl_previsto_conv vl_previsto_calculo_conv,
+         SUM (vl_movimentacao_conv) vl_movimentacao_conv,
+         SUM (vl_imposto_retido) vl_imposto_retido_conv,
+         MAX (dt_pagamento_conv) dt_pagamento_conv,
+         nr_documento_conv,
+         Decode(:CAMPO_DETALHE, 'S', Sum(vl_glosa_rec), vl_glosa_conv) vl_glosa_conv,
+         Decode(:CAMPO_DETALHE, 'S', Sum(vl_recurso_rec), vl_recurso_conv) vl_recurso_conv,
+         Decode(cd_rank, 1, vl_glosa_aceita_conv, 0) vl_glosa_aceita_conv,
+         status_conv,
+         cd_nota_fiscal,
+         cd_con_rec_conv,
+         vl_receber_conrec,
+         SUM (vl_acrescimo_conv) vl_acrescimo_conv,
+         SUM (vl_desconto_conv) vl_desconto_conv,
+         cd_itcon_rec,
+         cd_multi_empresa_conv,
+         ds_multi_empresa_conv
+    FROM ((SELECT co.nm_convenio nm_convenio_conv,
+                  c.dt_emissao dt_emissao_conv,
+                  c.cd_con_rec,
+                  c.cd_remessa,
+                  i.dt_prevista_recebimento dt_prevista_pagamento_conv,
+                  NVL (i.vl_duplicata, 0) vl_previsto_conv,
+                  NVL (r.vl_recebido, 0) + NVL (r.vl_imposto_retido, 0) vl_movimentacao_conv,
+                  NVL (r.vl_imposto_retido, 0) vl_imposto_retido,
+                  r.dt_recebimento dt_pagamento_conv,
+                  c.nr_documento nr_documento_conv,
+                  NVL (i.vl_glosa, 0) vl_glosa_conv,
+                  NVL (i.vl_glosa_aceita, 0) vl_glosa_aceita_conv,
+                  NVL (i.vl_recurso, 0) vl_recurso_conv,
+                  i.tp_quitacao status_conv,
+                  r.cd_reccon_rec cd_reccon_rec,
+                  c.cd_nota_fiscal,
+                  c.cd_con_rec cd_con_rec_conv,
+                  (i.vl_duplicata - i.vl_soma_recebido) vl_receber_conrec,
+                  NVL (r.vl_acrescimo, 0) vl_acrescimo_conv,
+                  NVL (r.vl_desconto, 0) vl_desconto_conv,
+                  i.cd_itcon_rec,
+                  0 vl_glosa_rec,
+                  0 vl_recurso_rec,
+                  Decode(:CAMPO_DETALHE,'S',(Rank() OVER ( PARTITION BY c.cd_con_rec ORDER BY r.cd_reccon_rec)),1) cd_rank,
+                  c.cd_multi_empresa cd_multi_empresa_conv,
+                  e.ds_multi_empresa ds_multi_empresa_conv
+             FROM dbamv.itcon_rec i,
+                  dbamv.con_rec c,
+                  dbamv.multi_empresas e,
+				  dbamv.USUARIO_MULTI_EMPRESA ume,
+                  dbamv.remessa_fatura,
+                  dbamv.fatura,
+                  dbamv.convenio co,
+                  dbamv.reccon_rec r
+            WHERE c.cd_remessa = remessa_fatura.cd_remessa
+              AND remessa_fatura.cd_fatura = fatura.cd_fatura
+              AND e.cd_multi_empresa = c.cd_multi_empresa
+			  and e.cd_multi_empresa = UME.cd_multi_empresa 
+			  AND ume.cd_id_usuario = USER
+              AND fatura.cd_convenio = co.cd_convenio
+              AND i.cd_con_rec = c.cd_con_rec
+              AND i.cd_con_rec_agrup IS NULL
+              AND i.cd_itcon_rec = r.cd_itcon_rec(+)
+              AND c.cd_nota_fiscal IS NULL
+              AND r.dt_estorno IS NULL
+              AND r.cd_motivo_canc IS NULL
+              AND c.vl_previsto > 0
+              AND :CAMPO_TP_DATA   = 'N'
+              AND UPPER(:CAMPO_ORDEM) in ('CONVENIO','RECEBIMENTO', 'PACIENTERECEBIMENTO', 'NOTAFISCAL')
+              :CAMPO_CF_SN_RECURSO
+          )
+          UNION
+          (SELECT   co.nm_convenio nm_convenio_conv,
+                    c.dt_emissao dt_emissao_conv,
+                    c.cd_con_rec,
+                    0 cd_remessa,
+                    i.dt_prevista_recebimento dt_prevista_pagamento_conv,
+                    c.vl_previsto vl_previsto_conv,
+                    r.vl_recebido + NVL (r.vl_imposto_retido, 0) vl_movimentacao_conv,
+                    NVL (r.vl_imposto_retido, 0) vl_imposto_retido,
+                    r.dt_recebimento dt_pagamento_conv,
+                    TO_CHAR (NVL (n.nr_nota_fiscal_nfe, n.nr_id_nota_fiscal)) nr_documento_conv,
+                    NVL (i.vl_glosa, 0) vl_glosa_conv,
+                    NVL (i.vl_glosa_aceita, 0) vl_glosa_aceita_conv,
+                    NVL (i.vl_recurso, 0) vl_recurso_conv,
+                    i.tp_quitacao status_conv,
+                    r.cd_reccon_rec cd_reccon_rec,
+                    c.cd_nota_fiscal,
+                    c.cd_con_rec cd_con_rec_conv,
+                    (i.vl_duplicata - i.vl_soma_recebido) vl_receber_conrec,
+                    NVL (r.vl_acrescimo, 0) vl_acrescimo_conv,
+                    NVL (r.vl_desconto, 0) vl_desconto_conv,
+                    i.cd_itcon_rec,
+                    Nvl((SELECT SUM(vl_glosa)
+                           FROM dbamv.it_recebimento
+                          WHERE cd_reccon_rec = r.cd_reccon_rec),0) vl_glosa_rec,
+                    Nvl((SELECT SUM(glosa.vl_reapresentado) vl_glosa
+                           FROM dbamv.it_recebimento    itrec,
+                                dbamv.itfat_nota_fiscal itfat,
+                                dbamv.glosas            glosa
+                          WHERE itrec.cd_reccon_rec = r.cd_reccon_rec
+                            AND itrec.cd_itfat_nf   = itfat.cd_itfat_nf
+                            AND itfat.cd_itfat_nf   = glosa.cd_itfat_nf
+                            AND glosa.cd_remessa_glosa IS NOT NULL
+                            AND glosa.cd_glosas_pai IS NULL),0)        vl_recurso_rec,
+                    Decode(:CAMPO_DETALHE,'S',(Rank() OVER ( PARTITION BY c.cd_con_rec ORDER BY r.cd_reccon_rec)),1) cd_rank,
+                    c.cd_multi_empresa cd_multi_empresa_conv,
+                    e.ds_multi_empresa ds_multi_empresa_conv
+               FROM dbamv.convenio co,
+                    dbamv.multi_empresas e,
+					dbamv.USUARIO_MULTI_EMPRESA ume,
+                    dbamv.nota_fiscal n,
+                    dbamv.con_rec c,
+                    dbamv.itcon_rec i,
+                    dbamv.reccon_rec r
+              WHERE co.cd_convenio = n.cd_convenio
+                AND n.cd_nota_fiscal = c.cd_nota_fiscal
+                AND e.cd_multi_empresa = c.cd_multi_empresa
+				and e.cd_multi_empresa = UME.cd_multi_empresa 
+				AND ume.cd_id_usuario = USER
+                AND c.cd_con_rec = i.cd_con_rec
+                AND i.cd_con_rec_agrup IS NULL
+                AND i.cd_itcon_rec = r.cd_itcon_rec(+)
+                AND c.cd_nota_fiscal IS NOT NULL
+                AND r.dt_estorno IS NULL
+                AND UPPER(:CAMPO_ORDEM) in ('CONVENIO','RECEBIMENTO', 'PACIENTERECEBIMENTO', 'NOTAFISCAL')
+                AND :CAMPO_TP_DATA   = 'N'
+		:CAMPO_CF_SN_NOTA_CANC
+                )
+:CAMPO_CF_ORDER_REMESSA
+         )
+GROUP BY nm_convenio_conv,
+         cd_remessa,
+         dt_emissao_conv,
+         dt_prevista_pagamento_conv,
+         vl_previsto_conv,
+         nr_documento_conv,
+         vl_glosa_conv,
+         vl_glosa_aceita_conv,
+         vl_recurso_conv,
+         status_conv,
+         cd_rank,
+         cd_nota_fiscal,
+         cd_con_rec_conv,
+         :CAMPO_CF_DETALHAMENTO_RECEBIMENTO
+         vl_receber_conrec,
+         cd_itcon_rec,
+         cd_multi_empresa_conv,
+         ds_multi_empresa_conv
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CT_REC_CONV_RS_R_DT_VENCIMENTO_Q_CONTA_REC_PAC
+SELECT   nm_convenio,
+         dt_emissao,
+         cd_remessa,
+         dt_prevista_pagamento,
+         Decode(cd_rank, 1, vl_previsto, 0) vl_previsto,
+         vl_previsto vl_previsto_calculo,
+         SUM (vl_movimentacao) vl_movimentacao,
+         MAX (dt_pagamento) AS dt_pagamento,
+         nr_documento,
+         Decode(:CAMPO_DETALHE, 'S', sum(vl_glosa_rec), vl_glosa) vl_glosa,
+         Decode(:CAMPO_DETALHE, 'S', sum(vl_recurso_rec), vl_recurso_venc) vl_recurso_venc,
+         Decode(cd_rank, 1, vl_glosa_aceita, 0) vl_glosa_aceita,
+         status,
+         cd_con_rec_venc,
+         cd_nota_fiscal_venc,
+         vl_receber_conrec_venc,
+         SUM (vl_acrescimo_venc) vl_acrescimo_venc,
+         SUM (vl_desconto_venc) vl_desconto_venc,
+         SUM (vl_imposto_retido_venc) vl_imposto_retido_venc,
+         cd_itcon_rec,
+         cd_multi_empresa_venc,
+         ds_multi_empresa_venc
+    FROM ((SELECT co.nm_convenio nm_convenio,
+                  TRUNC (c.dt_emissao) dt_emissao,
+                  c.cd_remessa,
+                  i.dt_vencimento dt_prevista_pagamento,
+                  c.vl_previsto,
+                  r.vl_recebido + NVL (r.vl_imposto_retido, 0) vl_movimentacao,
+                  r.dt_recebimento dt_pagamento,
+                  c.nr_documento nr_documento,
+                  NVL (i.vl_glosa, 0) vl_glosa,
+                  NVL (i.vl_glosa_aceita, 0) vl_glosa_aceita,
+                  NVL (i.vl_recurso, 0) vl_recurso_venc,
+                  i.tp_quitacao status,
+                  r.cd_reccon_rec cd_reccon_rec_venc,
+                  c.cd_con_rec cd_con_rec_venc,
+                  c.cd_nota_fiscal cd_nota_fiscal_venc,
+                  (NVL (i.vl_duplicata, 0) - NVL (i.vl_soma_recebido, 0)
+                  ) vl_receber_conrec_venc,
+                  NVL (r.vl_acrescimo, 0) vl_acrescimo_venc,
+                  NVL (r.vl_desconto, 0) vl_desconto_venc,
+                  NVL (r.vl_imposto_retido, 0) vl_imposto_retido_venc,
+                  i.cd_itcon_rec,
+                  0 vl_glosa_rec,
+                  0 vl_recurso_rec,
+                  Decode(:CAMPO_DETALHE,'S',(Rank() OVER ( PARTITION BY c.cd_con_rec ORDER BY r.cd_reccon_rec)),1) cd_rank,
+                  c.cd_multi_empresa cd_multi_empresa_venc,
+                  e.ds_multi_empresa ds_multi_empresa_venc
+             FROM dbamv.itcon_rec i,
+                  dbamv.con_rec c,
+                  dbamv.multi_empresas e,
+				  dbamv.USUARIO_MULTI_EMPRESA ume,
+                  dbamv.remessa_fatura,
+                  dbamv.fatura,
+                  dbamv.convenio co,
+                  dbamv.reccon_rec r
+            WHERE remessa_fatura.cd_fatura = fatura.cd_fatura
+              AND fatura.cd_convenio = co.cd_convenio
+              AND e.cd_multi_empresa = c.cd_multi_empresa
+			  and e.cd_multi_empresa = UME.cd_multi_empresa 
+			  AND ume.cd_id_usuario = USER
+              AND c.cd_remessa = remessa_fatura.cd_remessa
+              AND c.cd_nota_fiscal IS NULL
+              AND i.cd_con_rec = c.cd_con_rec
+              AND i.cd_con_rec_agrup IS NULL
+              AND r.cd_itcon_rec(+) = i.cd_itcon_rec
+              AND r.dt_estorno IS NULL
+              AND :CAMPO_ORDEM = 'Vencimento'
+              :CAMPO_CF_SN_RECURSO
+          )
+          UNION
+          (SELECT   co.nm_convenio nm_convenio,
+                    c.dt_emissao dt_emissao,
+                    0 cd_remessa,
+                    i.dt_vencimento dt_prevista_pagamento,
+                    c.vl_previsto,
+                    r.vl_recebido + NVL (r.vl_imposto_retido, 0) vl_movimentacao,
+                    r.dt_recebimento dt_pagamento,
+                    TO_CHAR (n.nr_id_nota_fiscal) nr_documento,
+                    NVL (i.vl_glosa, 0) vl_glosa,
+                    NVL (i.vl_glosa_aceita, 0) vl_glosa_aceita,
+                    NVL (i.vl_recurso, 0) vl_recurso_venc,
+                    i.tp_quitacao status,
+                    r.cd_reccon_rec cd_reccon_rec_venc,
+                    c.cd_con_rec cd_con_rec_venc,
+                    c.cd_nota_fiscal cd_nota_fiscal_venc,
+                    (NVL (i.vl_duplicata, 0) - NVL (i.vl_soma_recebido, 0)) vl_receber_conrec_venc,
+                    NVL (r.vl_acrescimo, 0) vl_acrescimo_venc,
+                    NVL (r.vl_desconto, 0) vl_desconto_venc,
+                    NVL (r.vl_imposto_retido, 0) vl_imposto_retido_venc,
+                    i.cd_itcon_rec,
+                    Nvl((SELECT SUM(vl_glosa)
+                           FROM dbamv.it_recebimento
+                          WHERE cd_reccon_rec = r.cd_reccon_rec),0) vl_glosa_rec,
+                    Nvl((SELECT SUM(glosa.vl_reapresentado) vl_glosa
+                           FROM dbamv.it_recebimento    itrec,
+                                dbamv.itfat_nota_fiscal itfat,
+                                dbamv.glosas            glosa
+                          WHERE itrec.cd_reccon_rec = r.cd_reccon_rec
+                            AND itrec.cd_itfat_nf   = itfat.cd_itfat_nf
+                            AND itfat.cd_itfat_nf   = glosa.cd_itfat_nf
+                            AND glosa.cd_remessa_glosa IS NOT NULL
+                            AND glosa.cd_glosas_pai IS NULL),0)        vl_recurso_rec,
+                    Decode(:CAMPO_DETALHE,'S',(Rank() OVER ( PARTITION BY c.cd_con_rec ORDER BY r.cd_reccon_rec)),1) cd_rank,
+                    c.cd_multi_empresa cd_multi_empresa_venc,
+                    e.ds_multi_empresa ds_multi_empresa_venc
+               FROM dbamv.convenio co,
+                    dbamv.multi_empresas e,
+					dbamv.USUARIO_MULTI_EMPRESA ume,
+                    dbamv.nota_fiscal n,
+                    dbamv.con_rec c,
+                    dbamv.itcon_rec i,
+                    dbamv.reccon_rec r
+              WHERE co.cd_convenio = n.cd_convenio
+                AND e.cd_multi_empresa = c.cd_multi_empresa
+				and e.cd_multi_empresa = UME.cd_multi_empresa 
+				AND ume.cd_id_usuario = USER
+                AND n.cd_nota_fiscal = c.cd_nota_fiscal
+                AND c.cd_con_rec = i.cd_con_rec
+                AND i.cd_con_rec_agrup IS NULL
+                AND i.cd_itcon_rec = r.cd_itcon_rec(+)
+                AND r.dt_estorno IS NULL
+                AND :CAMPO_ORDEM = 'Vencimento'
+		:CAMPO_CF_SN_NOTA_CANC
+)
+          ORDER BY dt_prevista_pagamento, nm_convenio, cd_reccon_rec_venc)
+GROUP BY nm_convenio,
+         dt_emissao,
+         dt_prevista_pagamento,
+         vl_previsto,
+         nr_documento,
+         vl_glosa,
+         vl_glosa_aceita,
+         vl_recurso_venc,
+         status,
+         cd_rank,
+         :CAMPO_CF_DETALHAMENTO_RECEBIMENTO_VENC
+         cd_con_rec_venc,
+         cd_nota_fiscal_venc,
+         vl_receber_conrec_venc,
+         cd_remessa,
+         cd_itcon_rec,
+         cd_multi_empresa_venc,
+         ds_multi_empresa_venc

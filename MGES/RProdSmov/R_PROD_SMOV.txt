@@ -1,0 +1,43 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_SMOV
+SELECT estoque.cd_estoque cd_estoque,
+               estoque.ds_estoque ds_estoque,
+               especie.cd_especie cd_especie,
+               especie.ds_especie ds_especie,
+               classe.cd_classe cd_classe,
+               classe.ds_classe ds_classe,
+               sub_clas.cd_sub_cla cd_sub_cla,
+               sub_clas.ds_sub_cla ds_sub_cla,
+               produto.cd_produto cd_produto,
+               verif_ds_unid_prod ( produto.cd_produto ) ds_unidade,
+               produto.ds_produto ds_produto,
+               empresa_produto.dt_ultima_entrada dt_ultima_entrada,
+               empresa_produto.qt_ultima_entrada qt_ultima_entrada,
+               est_pro.qt_estoque_maximo qt_estoque_maximo,
+               est_pro.qt_estoque_minimo qt_estoque_minimo,
+               est_pro.qt_ponto_de_pedido qt_ponto_de_pedido,
+               est_pro.dt_ultima_movimentacao dt_ultima_movimentacao,
+               (verif_vl_custo_medio(produto.cd_produto,sysdate,'H',produto.vl_custo_medio,sysdate) * verif_vl_fator_prod ( produto.cd_produto )) vl_custo_medio,
+               est_pro.qt_estoque_atual qt_estoque_atual
+FROM   dbamv.estoque,
+             dbamv.est_pro,
+             dbamv.produto,
+             dbamv.sub_clas,
+             dbamv.classe,
+             dbamv.especie,
+             dbamv.empresa_produto
+WHERE  estoque.cd_estoque  = est_pro.cd_estoque
+AND        est_pro.cd_produto  = produto.cd_produto
+AND        produto.cd_sub_cla  = sub_clas.cd_sub_cla
+AND        produto.cd_classe     = sub_clas.cd_classe
+AND        produto.cd_especie  = sub_clas.cd_especie
+AND        sub_clas.cd_classe   = classe.cd_classe
+AND        sub_clas.cd_especie = classe.cd_especie
+AND        classe.cd_especie     = especie.cd_especie
+AND        produto.cd_produto = empresa_produto.cd_produto
+AND        empresa_produto.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+AND        produto.sn_mestre = 'N'
+AND        produto.sn_kit    = 'N' 
+AND        estoque.cd_multi_empresa = dbamv.pkg_mv2000.le_empresa
+AND       ( est_pro.dt_ultima_movimentacao <= :CAMPO_ULT_MOV
+OR est_pro.dt_ultima_movimentacao is null )

@@ -1,0 +1,34 @@
+/*----------------------------------------------------------------------------*/
+--R_PREV_RECEITA
+SELECT * FROM (
+select  con_rec.cd_con_rec                  cd_con_rec
+       ,itcon_rec.dt_prevista_recebimento   dt_prev_pgto
+       ,con_rec.cd_fornecedor               cd_fornec
+       ,decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente,fornecedor.nm_fantasia)         nn_fornec
+       ,hist_p.ds_historico_padrao          ds_hist_p
+       ,con_rec.ds_con_rec                  ds_con_rec
+       ,con_rec.tp_con_rec                  tp_con_rec
+       ,itcon_rec.vl_duplicata              vl_previsto
+       ,itcon_rec.vl_soma_recebido          vl_recebido
+       ,con_rec.nr_documento                nr_doc
+       ,con_rec.nr_serie                    nr_serie
+        ,DECODE (:CAMPO_CONVERTE,1, :CAMPO_CD_MOEDA , ITCON_REC.CD_MOEDA)             CD_MOEDA_PREV
+      ,itcon_rec.vl_moeda                  vl_moeda_prev
+     ,con_rec.dt_lancamento                 dt_lancamento
+from  dbamv.itcon_rec
+    , dbamv.con_rec
+    , dbamv.fornecedor
+    , dbamv.historico_padrao hist_p
+where   con_rec.cd_historico_padrao          = hist_p.cd_historico_padrao (+)
+and     con_rec.cd_con_rec = itcon_rec.cd_con_rec
+and     itcon_rec.tp_quitacao                in ( 'V', 'C', 'P','G' )
+and     con_rec.cd_previsao is null
+and     con_rec.cd_multi_empresa             =   :CAMPO_CD_MULTI_EMPRESA
+and itcon_rec.vl_duplicata  > nvl(itcon_rec.vl_soma_recebido,0)
+and con_rec.dt_emissao <=To_date(To_char(:CAMPO_DT_FIM,'DD/MM/YYYY')||' 23','DD/MM/YYYY HH24')
+and con_rec.dt_emissao >=To_date(To_char(:CAMPO_DT_INIC,'DD/MM/YYYY')||' 00','DD/MM/YYYY HH24')
+and itcon_rec.dt_prevista_recebimento <=To_date(To_char(:CAMPO_DT_SITUACAO,'DD/MM/YYYY')||' 23','DD/MM/YYYY HH24')
+:CAMPO_CF_MOEDA
+)
+ORDER BY CD_MOEDA_PREV,
+DT_PREV_PGTO

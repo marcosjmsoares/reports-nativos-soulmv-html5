@@ -1,0 +1,154 @@
+/*----------------------------------------------------------------------------*/
+--R_FAT_SETOR_DT_LANC
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_SETOR_DT_LANC_R_2_Q_FAT_SETOR
+SELECT * FROM (SELECT  CD_SETOR
+                      ,NM_SETOR
+                      ,CD_GRU_PRO
+                      ,DS_GRU_PRO
+                      ,DS_ORI_ATE
+                      ,SUM(QT_LANCAMENTO) QT_LANCAMENTO
+                      ,SUM(VL_TOTAL)      VL_TOTAL
+FROM  ( SELECT DECODE(SETOR.CD_SETOR, NULL, 0, SETOR.CD_SETOR)                CD_SETOR
+              ,DECODE(SETOR.NM_SETOR, NULL, 'Nao Informado', SETOR.NM_SETOR)  NM_SETOR
+              ,GRU_PRO.CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO
+              ,CONVENIO.CD_CONVENIO
+              ,ORI_ATE.DS_ORI_ATE
+              ,ITREG_FAT.QT_LANCAMENTO
+              ,NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA)       VL_TOTAL
+          FROM DBAMV.REG_FAT
+              ,DBAMV.ITREG_FAT
+              ,DBAMV.PRO_FAT
+              ,DBAMV.GRU_PRO
+              ,DBAMV.SETOR
+              ,DBAMV.CONVENIO
+              ,DBAMV.ATENDIME
+              ,DBAMV.ORI_ATE
+              ,DBAMV.ITLAN_MED
+         Where REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+           AND REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+           AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+           AND ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+           AND PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+           AND ATENDIME.TP_ATENDIMENTO =  DECODE( '', 'T', ATENDIME.TP_ATENDIMENTO,'' )
+           AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO 
+           AND CONVENIO.TP_CONVENIO <> 'H'
+           AND ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+           AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+           AND ITLAN_MED.CD_REG_FAT(+) = ITREG_FAT.CD_REG_FAT
+           AND ITLAN_MED.CD_LANCAMENTO(+) = ITREG_FAT.CD_LANCAMENTO
+           AND NVL( NVL( ITLAN_MED.TP_PAGAMENTO,  ITREG_FAT.TP_PAGAMENTO ), 'P' ) <> 'C'
+         UNION ALL
+        SELECT DECODE(SETOR.CD_SETOR, NULL, 0, SETOR.CD_SETOR)               CD_SETOR
+        ,DECODE(SETOR.NM_SETOR, NULL, 'Nao Informado', SETOR.NM_SETOR) NM_SETOR
+              ,GRU_PRO.CD_GRU_PRO
+              ,GRU_PRO.DS_GRU_PRO
+              ,CONVENIO.CD_CONVENIO
+              ,ORI_ATE.DS_ORI_ATE
+              ,SUM(ITREG_AMB.QT_LANCAMENTO)                                  QT_LANCAMENTO
+              ,SUM(ITREG_AMB.VL_TOTAL_CONTA)                                 VL_TOTAL
+         FROM  DBAMV.REG_AMB
+              ,DBAMV.ITREG_AMB
+              ,DBAMV.PRO_FAT
+              ,DBAMV.GRU_PRO
+              ,DBAMV.SETOR
+              ,DBAMV.CONVENIO
+              ,DBAMV.ATENDIME
+              ,DBAMV.ORI_ATE
+        Where  REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+          AND  ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+          AND  PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+          AND  ATENDIME.TP_ATENDIMENTO =  DECODE('', 'T', ATENDIME.TP_ATENDIMENTO, '' )
+          AND  ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+          AND  ITREG_AMB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+          AND  ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+          AND  NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+          AND  CONVENIO.TP_CONVENIO <> 'H'
+          AND  REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+          AND  ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+        GROUP BY  SETOR.CD_SETOR
+            ,SETOR.NM_SETOR
+            ,GRU_PRO.CD_GRU_PRO
+            ,GRU_PRO.DS_GRU_PRO
+            ,CONVENIO.CD_CONVENIO
+            ,DS_ORI_ATE)
+GROUP BY  CD_SETOR
+                    ,NM_SETOR
+                    ,CD_GRU_PRO
+                    ,DS_GRU_PRO
+                    ,DS_ORI_ATE
+ORDER BY DS_ORI_ATE, CD_SETOR, VL_TOTAL DESC
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_SETOR_DT_LANC_R_SINT1_Q_FAT_SETOR_SINT
+SELECT * FROM (
+SELECT  CD_SETOR
+               ,NM_SETOR
+               ,DS_ORI_ATE
+               ,SUM(VL_TOTAL) VL_TOTAL
+FROM  ( SELECT DECODE(SETOR.CD_SETOR, NULL, 0, SETOR.CD_SETOR) CD_SETOR
+                            ,DECODE(SETOR.NM_SETOR, NULL, 'Não Informado', SETOR.NM_SETOR) NM_SETOR
+                            ,ORI_ATE.DS_ORI_ATE
+                            ,NVL(ITLAN_MED.VL_LIQUIDO, ITREG_FAT.VL_TOTAL_CONTA)       VL_TOTAL
+                FROM   DBAMV.REG_FAT
+                            ,DBAMV.ITREG_FAT
+                            ,DBAMV.PRO_FAT
+                            ,DBAMV.GRU_PRO
+                            ,DBAMV.SETOR
+                            ,DBAMV.CONVENIO
+                            ,DBAMV.ATENDIME
+                            ,DBAMV.ORI_ATE
+                            ,DBAMV.ITLAN_MED
+		Where REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+               AND        REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+               AND        ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+               AND        ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+               AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+               AND         ATENDIME.TP_ATENDIMENTO =  DECODE('', 'T', ATENDIME.TP_ATENDIMENTO, '' )
+               AND        REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+               AND       CONVENIO.TP_CONVENIO <> 'H'
+               AND        ITREG_FAT.DT_LANCAMENTO  BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+               AND        REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+               AND ITLAN_MED.CD_REG_FAT(+) = ITREG_FAT.CD_REG_FAT
+               AND ITLAN_MED.CD_LANCAMENTO(+) = ITREG_FAT.CD_LANCAMENTO
+               AND NVL( NVL( ITLAN_MED.TP_PAGAMENTO,  ITREG_FAT.TP_PAGAMENTO ), 'P' ) <> 'C'
+               UNION ALL
+               SELECT DECODE(SETOR.CD_SETOR, NULL, 0, SETOR.CD_SETOR) CD_SETOR
+                             ,DECODE(SETOR.NM_SETOR, NULL, 'Não Informado', SETOR.NM_SETOR) NM_SETOR
+                             ,ORI_ATE.DS_ORI_ATE
+                             ,ITREG_AMB.VL_TOTAL_CONTA          VL_TOTAL
+                FROM   DBAMV.REG_AMB
+                             ,DBAMV.ITREG_AMB
+                             ,DBAMV.PRO_FAT
+                             ,DBAMV.GRU_PRO
+                             ,DBAMV.SETOR
+                             ,DBAMV.CONVENIO
+                             ,DBAMV.ATENDIME
+                             ,DBAMV.ORI_ATE
+		Where	REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                AND        ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+                AND        ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+                AND        PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+                AND         ATENDIME.TP_ATENDIMENTO =  DECODE('', 'T', ATENDIME.TP_ATENDIMENTO,'' )
+                AND        ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                AND        ITREG_AMB.CD_ATENDIMENTO  = ATENDIME.CD_ATENDIMENTO
+                AND        CONVENIO.TP_CONVENIO <> 'H'
+                AND        REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                AND        ATENDIME.DT_ATENDIMENTO BETWEEN  to_date(:CAMPO_DT_INICIO, 'dd/mm/yyyy')   AND  (to_date(:CAMPO_DT_FINAL, 'dd/mm/yyyy') + 0.99999)
+                :CAMPO_CF_COND_GRUFAT_AMB
+    )
+GROUP BY  CD_SETOR
+                    ,NM_SETOR
+                    ,DS_ORI_ATE
+ORDER BY VL_TOTAL DESC
+)
+ORDER BY DS_ORI_ATE

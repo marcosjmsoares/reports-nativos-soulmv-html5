@@ -1,0 +1,170 @@
+/*----------------------------------------------------------------------------*/
+--R_PAC_AGENDADOS_DATA
+SELECT * FROM (
+SELECT DISTINCT
+        DATA_AGENDA                 DATA_AGENDA1
+     ,  HORA_AGENDA                 HORA_AGENDA1
+     ,  HORA_FIM                    HORA_FIM
+     ,  COD_HORARIO_AGENDA          COD_HORARIO_AGENDA
+     ,  COD_PACIENTE                COD_PACIENTE1
+     ,  NM_PACIENTE                 NM_PACIENTE1
+     ,(SELECT TO_CHAR(TRUNC((SYSDATE - DATA_NASCIMENTO)/365.25))
+            || 'A ' ||
+            TO_CHAR(TRUNC(MOD((SYSDATE - DATA_NASCIMENTO),365.25)/30.4))
+            || 'M ' ||
+            TO_CHAR(ROUND(MOD(MOD((SYSDATE - DATA_NASCIMENTO ),365.25),30.4)))
+            || 'D'
+       FROM   SYS.DUAL)             IDADE_PACIENTE
+     ,  DATA_NASCIMENTO             DATA_NASCIMENTO 
+     ,  PESO_PACIENTE               PESO_PACIENTE
+     ,  COD_CONVENIO                COD_CONVENIO1
+     ,  NM_CONVENIO                 NM_CONVENIO1
+     ,  COD_PRESTADOR               COD_PRESTADOR1
+     ,  NM_PRESTADOR                NM_PRESTADOR1
+     ,  COD_GRUPO_AGENDAMENTO       COD_GRUPO_AGENDAMENTO
+     ,  DS_GRUPO_AGENDAMENTO        DS_GRUPO_AGENDAMENTO
+     ,  COD_RECURSO                 COD_RECURSO1
+     ,  DS_RECURSO                  DS_RECURSO1
+     ,  COD_SETOR                   COD_SETOR
+     ,  NM_SETOR                    NM_SETOR
+     ,  FONE_PACIENTE               FONE_PACIENTE1
+     ,  OBSERVACAO                  OBSERVACAO1
+     ,  COD_UNIDADE_ATENDIMENTO     COD_UNIDADE_ATENDIMENTO1
+     ,  DS_UNIDADE_ATENDIMENTO      DS_UNIDADE_ATENDIMENTO1
+     ,  COD_SERVICO                 COD_SERVICO1
+     ,  DS_SERVICO                  DS_SERVICO1
+     ,  COD_ITEM_AGENDAMENTO        COD_ITEM_AGENDAMENTO
+     ,  DS_ITEM_AGENDAMENTO         DS_ITEM_AGENDAMENTO
+     ,  COD_TURMA                   COD_TURMA
+     ,  TIPO_SITUACAO               TIPO_SITUACAO
+     ,  COD_ATENDIMENTO             COD_ATENDIMENTO
+     ,  NR_CELULAR
+     ,  CD_IT_AGENDA_CENTRAL
+     ,  CD_AGENDA_CENTRAL
+     ,  SN_ENCAIXE
+     ,  DS_TIP_MAR
+     ,  NM_SOCIAL_PACIENTE
+  FROM (
+        SELECT VDIC.DATA_AGENDA                                                    DATA_AGENDA
+              ,VDIC.HORA_AGENDA                                                    HORA_AGENDA
+              ,(SELECT DBAMV.PKG_CENTRAL_MARCACOES.FNC_RETORNA_HR_FIM(COD_HORARIO_AGENDA) FROM  DUAL)  HORA_FIM              
+              ,VDIC.COD_HORARIO_AGENDA                                             COD_HORARIO_AGENDA
+              ,VDIC.COD_PACIENTE                                                   COD_PACIENTE
+              ,VDIC.NM_PACIENTE                                                    NM_PACIENTE
+              ,VDIC.DATA_NASCIMENTO                                                DATA_NASCIMENTO  
+              ,VDIC.PESO_PACIENTE                                                  PESO_PACIENTE
+              ,VDIC.COD_CONVENIO                                                   COD_CONVENIO
+              ,VDIC.NM_CONVENIO                                                    NM_CONVENIO
+              ,VDIC.COD_PRESTADOR                                                  COD_PRESTADOR
+              ,VDIC.NM_PRESTADOR                                                   NM_PRESTADOR
+              ,TO_NUMBER(NULL)                                                     COD_TURMA
+              ,VDIC.COD_GRUPO_AGENDAMENTO                                          COD_GRUPO_AGENDAMENTO
+              ,VDIC.DS_GRUPO_AGENDAMENTO                                           DS_GRUPO_AGENDAMENTO
+              ,VDIC.COD_RECURSO                                                    COD_RECURSO
+              ,VDIC.DS_RECURSO                                                     DS_RECURSO
+              ,VDIC.COD_SETOR                                                      COD_SETOR
+              ,VDIC.NM_SETOR                                                       NM_SETOR
+              ,DECODE(VDIC.NR_DDI_TELEFONE,NULL,'',VDIC.NR_DDI_TELEFONE||' ')||
+               DECODE(VDIC.NR_DDD_FONE,NULL,'',VDIC.NR_DDD_FONE||' ')||			  
+			   DECODE(VDIC.FONE_PACIENTE,NULL,'',VDIC.FONE_PACIENTE)			   FONE_PACIENTE
+              ,(VDIC.OBSERVACAO || CHR(10) || VDIC.OBSERVACAO_GERAL)               OBSERVACAO
+              ,VDIC.COD_UNIDADE_ATENDIMENTO                                        COD_UNIDADE_ATENDIMENTO
+              ,VDIC.DS_UNIDADE_ATENDIMENTO                                         DS_UNIDADE_ATENDIMENTO
+              ,VDIC.COD_SERVICO                                                    COD_SERVICO
+              ,VDIC.DS_SERVICO                                                     DS_SERVICO
+              ,VDIC.COD_ITEM_AGENDAMENTO                                           COD_ITEM_AGENDAMENTO
+              ,VDIC.DS_ITEM_AGENDAMENTO                                            DS_ITEM_AGENDAMENTO
+              ,VDIC.TIPO_SITUACAO                                                  TIPO_SITUACAO
+              ,VDIC.SN_AGENDA_ATIVA                                                SN_AGENDA_ATIVA
+              ,VDIC.COD_ATENDIMENTO                                           	   COD_ATENDIMENTO
+			  ,DECODE(VDIC.NR_DDI_CELULAR,NULL,'',VDIC.NR_DDI_CELULAR||' ')||
+			   DECODE(VDIC.NR_DDD_CELULAR,NULL,'',VDIC.NR_DDD_CELULAR||' ')||
+			   DECODE(VDIC.NR_CELULAR,NULL,'',VDIC.NR_CELULAR)					   NR_CELULAR
+		      ,VDIC.CD_IT_AGENDA_CENTRAL
+        	  ,VDIC.COD_AGENDA CD_AGENDA_CENTRAL
+	  	      ,VDIC.SN_FALTA SN_FALTA	  	      
+              ,DECODE(VDIC.SN_ENCAIXE, 'S', :CAMPO_TRADUCAO_SIM, 'N', :CAMPO_TRADUCAO_NAO, VDIC.SN_ENCAIXE) SN_ENCAIXE
+              ,TP.DS_TIP_MAR
+			  ,P.NM_SOCIAL_PACIENTE
+        FROM DBAMV.VDIC_HORARIOS_AGENDA_SCMA VDIC,
+             DBAMV.TIP_MAR TP,
+             DBAMV.IT_AGENDA_CENTRAL IT,
+             DBAMV.PACIENTE P
+        WHERE VDIC.DATA_AGENDA BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INICIAL, 'DD/MM/YYYY')|| ' 00', 'DD/MM/YYYY HH24') AND TO_DATE(TO_CHAR(:CAMPO_DT_FINAL, 'DD/MM/YYYY')|| ' 23', 'DD/MM/YYYY HH24')
+          AND NVL(VDIC.SN_AGENDA_ATIVA,'N') = 'S'
+          AND VDIC.CD_IT_AGENDA_CENTRAL = IT.CD_IT_AGENDA_CENTRAL
+          AND IT.CD_TIP_MAR = TP.CD_TIP_MAR (+)
+          AND VDIC.COD_PACIENTE = P.CD_PACIENTE (+)
+        UNION ALL
+        SELECT AGENDA_TURMA.DT_AGENDA                                                 DATA_AGENDA
+              ,AGENDA_TURMA.DT_HORARIO_INICIAL                                        HORA_AGENDA
+              ,TO_DATE(NULL)                                                          HORA_FIM
+              ,TO_NUMBER(NULL)                                                        COD_HORARIO_AGENDA
+              ,AGENDA_TURMA_PACIENTE.CD_PACIENTE                                      COD_PACIENTE
+              ,AGENDA_TURMA_PACIENTE.NM_PACIENTE                                      NM_PACIENTE
+              ,PACIENTE.DT_NASCIMENTO                                                 DATA_NASCIMENTO  
+              ,TO_NUMBER(NULL)                                                        PESO_PACIENTE
+              ,AGENDA_TURMA_PACIENTE.CD_CONVENIO                                      COD_CONVENIO
+              ,CONVENIO.NM_CONVENIO                                                   NM_CONVENIO
+              ,AGENDA_TURMA_PRESTADOR.CD_PRESTADOR                                    COD_PRESTADOR
+              ,TURMA.DS_TURMA                                                         NM_PRESTADOR
+              ,TURMA.CD_TURMA                                                         COD_TURMA
+              ,TO_NUMBER(NULL)                                                        COD_GRUPO_AGENDAMENTO
+              ,''                                                                     DS_GRUPO_AGENDAMENTO
+              ,TO_NUMBER(NULL)                                                        COD_RECURSO
+              ,''                                                                     DS_RECURSO
+              ,AGENDA_TURMA.CD_SETOR                                                  COD_SETOR
+              ,SETOR.NM_SETOR                                                         NM_SETOR
+              ,AGENDA_TURMA_PACIENTE.NR_TELEFONE_CONTATO                              FONE_PACIENTE
+              ,AGENDA_TURMA_PACIENTE.DS_OBSERVACAO                                    OBSERVACAO
+              ,AGENDA_TURMA.CD_UNIDADE_ATENDIMENTO                                    COD_UNIDADE_ATENDIMENTO
+              ,UNIDADE_ATENDIMENTO.DS_UNIDADE_ATENDIMENTO                             DS_UNIDADE_ATENDIMENTO
+              ,AGENDA_TURMA.CD_SER_DIS                                                COD_SERVICO
+              ,SER_DIS.DS_SER_DIS                                                     DS_SERVICO
+              ,NULL                                                                   COD_ITEM_AGENDAMENTO
+              ,''                                                                     DS_ITEM_AGENDAMENTO
+              ,DECODE(AGENDA_TURMA_PACIENTE.TP_SITUACAO, 'G' , 'M'
+                                                       , 'P' , 'A'
+                                                       , 'C' , 'C'
+                                                       , 'A'  ,'E')                   TIPO_SITUACAO
+              ,AGENDA_TURMA.SN_ATIVO                                                  SN_AGENDA_ATIVA
+              ,AGENDA_TURMA_PACIENTE.CD_ATENDIMENTO              	 				  COD_ATENDIMENTO
+			  ,''																      NR_CELULAR
+	          ,0 CD_IT_AGENDA_CENTRAL
+              ,0 CD_AGENDA_CENTRAL
+              ,'' SN_FALTA
+              ,:CAMPO_TRADUCAO_NAO SN_ENCAIXE
+			  ,TP.DS_TIP_MAR
+			  ,DECODE(PACIENTE.SN_UTILIZA_NOME_SOCIAL
+              	 	  ,'S',PACIENTE.NM_SOCIAL_PACIENTE
+                      ,'N', ' ' )                                                     NM_SOCIAL_PACIENTE  
+        FROM DBAMV.AGENDA_TURMA
+           , DBAMV.AGENDA_TURMA_PACIENTE
+           , DBAMV.PACIENTE
+           , DBAMV.AGENDA_TURMA_PRESTADOR
+           , DBAMV.PRESTADOR
+           , DBAMV.SER_DIS
+           , DBAMV.UNIDADE_ATENDIMENTO
+           , DBAMV.SETOR
+           , DBAMV.CONVENIO
+           , DBAMV.TURMA
+           , DBAMV.TIP_MAR TP                   
+       WHERE AGENDA_TURMA.CD_AGENDA_TURMA        = AGENDA_TURMA_PACIENTE.CD_AGENDA_TURMA
+         AND AGENDA_TURMA.CD_AGENDA_TURMA        = AGENDA_TURMA_PRESTADOR.CD_AGENDA_TURMA
+         AND AGENDA_TURMA.CD_TURMA               = TURMA.CD_TURMA
+         AND AGENDA_TURMA_PRESTADOR.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+         AND AGENDA_TURMA_PACIENTE.CD_CONVENIO   = CONVENIO.CD_CONVENIO
+         AND AGENDA_TURMA_PACIENTE.CD_PACIENTE   = PACIENTE.CD_PACIENTE
+         AND AGENDA_TURMA.CD_SER_DIS             = SER_DIS.CD_SER_DIS
+         AND AGENDA_TURMA.CD_UNIDADE_ATENDIMENTO = UNIDADE_ATENDIMENTO.CD_UNIDADE_ATENDIMENTO(+)
+         AND AGENDA_TURMA.CD_SETOR               = SETOR.CD_SETOR
+         AND AGENDA_TURMA_PRESTADOR.SN_PRINCIPAL = 'S'
+         AND AGENDA_TURMA.DT_AGENDA BETWEEN TO_DATE(TO_CHAR(:CAMPO_DT_INICIAL, 'DD/MM/YYYY')|| ' 00', 'DD/MM/YYYY HH24') AND TO_DATE(TO_CHAR(:CAMPO_DT_FINAL, 'DD/MM/YYYY')|| ' 23', 'DD/MM/YYYY HH24')
+         AND NVL(AGENDA_TURMA.SN_ATIVO,'N') = 'S'
+         AND AGENDA_TURMA.CD_TIP_MAR = TP.CD_TIP_MAR (+)
+       )  AGENDAMENTOS
+ WHERE NVL(AGENDAMENTOS.NM_PACIENTE,AGENDAMENTOS.COD_GRUPO_AGENDAMENTO) IS NOT NULL
+ AND NVL(AGENDAMENTOS.TIPO_SITUACAO,'M') <> 'C'
+  :CAMPO_CF_P_SN_IMPRIME_FALTA_MEDICA
+)
+ORDER BY DATA_AGENDA1, :CAMPO_CF_TIPO_ORDENACAO

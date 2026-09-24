@@ -1,0 +1,42 @@
+/*----------------------------------------------------------------------------*/
+--R_CIR_ATRASO
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CIR_ATRASO_R_2_Q_ANALITICO
+SELECT * FROM
+  (SELECT AVISO_CIRURGIA.CD_AVISO_CIRURGIA CD_AVISO_CIRURGIA ,
+          CIRURGIA.DS_CIRURGIA DS_CIRURGIA ,
+          CIRURGIA.CD_CIRURGIA CD_CIRURGIA ,
+          AGE_CIR.DT_INICIO_AGE_CIR DT_CANCELAMENTO ,
+          CASE WHEN dbamv.aviso_cirurgia.cd_paciente IS NULL THEN dbamv.aviso_cirurgia.nm_paciente
+	           WHEN dbamv.aviso_cirurgia.cd_paciente IS NOT NULL THEN (SELECT nm_paciente FROM dbamv.paciente WHERE cd_paciente = dbamv.aviso_cirurgia.cd_paciente)
+	      END AS nm_paciente,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND AVISO_CIRURGIA.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          AVISO_CIRURGIA.CD_CEN_CIR CD_CEN_CIR2 ,
+          AVISO_CIRURGIA.DT_REALIZACAO DT_REALIZACAO ,
+          CEN_CIR.DS_CEN_CIR DS_CEN_CIR2 ,
+          AVISO_CIRURGIA.CD_MOT_CANC_ATRASO CD_MOT_CANC2 ,
+          MOT_CANC.DS_MOT_CANC DS_MOT_CANC2
+   FROM DBAMV.AVISO_CIRURGIA AVISO_CIRURGIA ,
+        DBAMV.CIRURGIA_AVISO CIRURGIA_AVISO ,
+        DBAMV.CIRURGIA CIRURGIA ,
+        DBAMV.MOT_CANC MOT_CANC ,
+        DBAMV.CEN_CIR ,
+        DBAMV.AGE_CIR
+   WHERE Upper(:CAMPO_TIPO) = Upper('Analítico')
+     AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA = CIRURGIA_AVISO.CD_AVISO_CIRURGIA
+     AND AVISO_CIRURGIA.CD_CEN_CIR = CEN_CIR.CD_CEN_CIR
+     AND AVISO_CIRURGIA.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+     AND CIRURGIA_AVISO.CD_CIRURGIA = CIRURGIA.CD_CIRURGIA
+     AND AVISO_CIRURGIA.CD_MOT_CANC_ATRASO = MOT_CANC.CD_MOT_CANC
+     AND AVISO_CIRURGIA.CD_AVISO_CIRURGIA = AGE_CIR.CD_AVISO_CIRURGIA
+     AND AGE_CIR.DT_INICIO_AGE_CIR BETWEEN To_Date(Concat(To_Char(:CAMPO_DATA_INI,'dd/mm/yyyy'), '00'), 'dd/mm/yyyy hh24') AND To_Date(Concat(To_Char(:CAMPO_DATA_FIM,'dd/mm/yyyy'), '23'), 'dd/mm/yyyy hh24') 
+   ORDER BY DT_CANCELAMENTO)
+ORDER BY DS_CEN_CIR2,
+         CD_CEN_CIR2,
+         CD_MOT_CANC2,
+         DS_MOT_CANC2,
+         DT_CANCELAMENTO

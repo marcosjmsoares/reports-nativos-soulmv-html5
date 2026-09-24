@@ -1,0 +1,109 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_CRIT
+Select RESU.*,
+       Decode(Nvl(qt_consumo_medio,0), 0, 0, (qt_estoque_atual / ( qt_consumo_medio / 30 ))) dias_duracao
+  From (Select RESUMO.CD_ESTOQUE,
+               RESUMO.DS_ESTOQUE,
+               RESUMO.CD_ESPECIE,
+               RESUMO.DS_ESPECIE,
+               PRODUTO.CD_ULTIMO_FORNECEDOR,
+               FORNECEDOR.NM_FORNECEDOR,
+               RESUMO.CD_CLASSE,
+               RESUMO.DS_CLASSE,
+               RESUMO.CD_SUB_CLA,
+               RESUMO.DS_SUB_CLA,
+               PRODUTO.CD_PRODUTO,
+               PRODUTO.DS_PRODUTO,
+               RESUMO.DT_ULTIMA_ENTRADA,
+               DBAMV.Verif_Vl_Custo_Medio(PRODUTO.CD_PRODUTO, Trunc(SysDate), 'H', PRODUTO.VL_CUSTO_MEDIO, SysDate, :CAMPO_CD_MULTI_EMPRESA) * DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO) As VL_CUSTO_MEDIO,
+               (DBAMV.Fnc_Mges_Retorna_Consumo_Medio(PRODUTO.CD_PRODUTO, RESUMO.CD_ESTOQUE, :CAMPO_MED_CONS, RESUMO.SN_MESTRE, :CAMPO_CD_MULTI_EMPRESA, Null, Null, 'T') / :CAMPO_MED_CONS )/ DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO) As QT_CONSUMO_MEDIO,
+               DBAMV.Verif_Ds_Unid_Prod(PRODUTO.CD_PRODUTO) As DS_UNIDADE,
+               EST_PRO.QT_ESTOQUE_MAXIMO / DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO) As QT_ESTOQUE_MAXIMO,
+               EST_PRO.QT_ESTOQUE_MINIMO / DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO) As QT_ESTOQUE_MINIMO,
+               EST_PRO.QT_PONTO_DE_PEDIDO / DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO) As QT_PONTO_DE_PEDIDO,
+               Decode(:CAMPO_QUEBRA_ESTOQUE,
+                      'E',
+                      RESUMO.QT_ESTOQUE_ATUAL,
+                      (Select Sum(QT_ESTOQUE_ATUAL)
+                         From DBAMV.EST_PRO
+                        Where EST_PRO.CD_PRODUTO = RESUMO.CD_PRODUTO
+                          And EST_PRO.CD_ESTOQUE In (Select CD_ESTOQUE
+                                                       From DBAMV.ESTOQUE
+                                                      Where CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA))) / DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO) As QT_ESTOQUE_ATUAL,
+               DBAMV.Verif_Vl_Fator_Prod(PRODUTO.CD_PRODUTO) As VL_FATOR
+          From (Select ESTOQUE.CD_ESTOQUE,
+                       ESTOQUE.DS_ESTOQUE,
+                       ESPECIE.CD_ESPECIE,
+                       ESPECIE.DS_ESPECIE,
+                       CLASSE.CD_CLASSE,
+                       CLASSE.DS_CLASSE,
+                       SUB_CLAS.CD_SUB_CLA,
+                       SUB_CLAS.DS_SUB_CLA,
+                       Decode('',
+                              'S',
+                              Nvl(PRODUTO.CD_PRODUTO_TEM,
+                                  PRODUTO.CD_PRODUTO),
+                              PRODUTO.CD_PRODUTO) As CD_PRODUTO,
+                       Decode('',
+                              'S',
+                              Decode(PRODUTO.CD_PRODUTO_TEM,
+                                     Null,
+                                     'N',
+                                     'S'),
+                              'N') As SN_MESTRE,
+                       Sum(EST_PRO.QT_ESTOQUE_ATUAL) As QT_ESTOQUE_ATUAL,
+                       Max(PRODUTO.DT_ULTIMA_ENTRADA) As DT_ULTIMA_ENTRADA
+                  From DBAMV.EST_PRO
+            Inner Join DBAMV.ESTOQUE On
+                       ESTOQUE.CD_ESTOQUE = EST_PRO.CD_ESTOQUE
+                   And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+            Inner Join DBAMV.PRODUTO On
+                       PRODUTO.CD_PRODUTO = EST_PRO.CD_PRODUTO
+                   And PRODUTO.SN_MESTRE = 'N'
+            Inner Join DBAMV.ESPECIE On
+                       ESPECIE.CD_ESPECIE = PRODUTO.CD_ESPECIE
+            Inner Join DBAMV.CLASSE On
+                       CLASSE.CD_ESPECIE = PRODUTO.CD_ESPECIE
+                   And CLASSE.CD_CLASSE = PRODUTO.CD_CLASSE
+            Inner Join DBAMV.SUB_CLAS On
+                       SUB_CLAS.CD_ESPECIE = PRODUTO.CD_ESPECIE
+                   And SUB_CLAS.CD_CLASSE = PRODUTO.CD_CLASSE
+                   And SUB_CLAS.CD_SUB_CLA = PRODUTO.CD_SUB_CLA
+              Group By ESTOQUE.CD_ESTOQUE,
+                       ESTOQUE.DS_ESTOQUE,
+                       ESPECIE.CD_ESPECIE,
+                       ESPECIE.DS_ESPECIE,
+                       CLASSE.CD_CLASSE,
+                       CLASSE.DS_CLASSE,
+                       SUB_CLAS.CD_SUB_CLA,
+                       SUB_CLAS.DS_SUB_CLA,
+                       Decode('',
+                              'S',
+                              Nvl(PRODUTO.CD_PRODUTO_TEM,
+                                  PRODUTO.CD_PRODUTO),
+                              PRODUTO.CD_PRODUTO),
+                       Decode('',
+                              'S',
+                              Decode(PRODUTO.CD_PRODUTO_TEM,
+                                     Null,
+                                     'N',
+                                     'S'),
+                              'N')) RESUMO
+    Inner Join DBAMV.PRODUTO On
+               PRODUTO.CD_PRODUTO = RESUMO.CD_PRODUTO
+    Inner Join DBAMV.EST_PRO On
+               EST_PRO.CD_ESTOQUE = RESUMO.CD_ESTOQUE
+           And EST_PRO.CD_PRODUTO = RESUMO.CD_PRODUTO
+     Left Join DBAMV.FORNECEDOR On
+               FORNECEDOR.CD_FORNECEDOR = PRODUTO.CD_ULTIMO_FORNECEDOR
+         Where 1 = 1
+           :CAMPO_CF_SN_MESTRE) RESU
+Order By RESU.CD_ESTOQUE,
+       RESU.DS_ESTOQUE,
+       RESU.CD_ESPECIE,
+       RESU.DS_ESPECIE,
+       RESU.CD_CLASSE,
+       RESU.DS_CLASSE,
+       RESU.CD_SUB_CLA,
+       RESU.DS_SUB_CLA,
+       RESU.DS_PRODUTO

@@ -1,0 +1,58 @@
+/*----------------------------------------------------------------------------*/
+--R_BAIXA_BEM_SET
+SELECT * FROM (
+select 'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+      ,e.cd_multi_empresa
+      ,e.ds_multi_empresa
+      ,b.cd_bem
+      ,b.ds_plaqueta
+      ,b.ds_bem
+      ,b.ds_marca
+      ,b.ds_modelo
+      ,b.dt_tombamento
+      ,b.vl_compra
+      ,dbamv.pkg_patrimonio.fnc_calc_vl_residual_bem( b.cd_bem, 'E', Nvl(b.dt_baixa+0.00001, lanc.dt_lancamento+0.00001))  vl_historico
+      ,b.cd_setor Codigo
+      ,s.nm_setor Descricao
+      ,b.cd_localidade
+      ,l.ds_localidade
+      ,Nvl(b.dt_baixa, lanc.dt_lancamento) dt_baixa
+      ,Nvl(b.hr_baixa, lanc.dt_lancamento) hr_baixa
+      ,Nvl(m.ds_motivo, lanc.ds_motivo) ds_motivo
+from  dbamv.bens b
+     ,dbamv.setor s
+     ,dbamv.localidade l
+     ,dbamv.mot_baixa m
+     ,dbamv.multi_empresas e
+     ,(SELECT l.cd_bem, l.cd_motivo_baixa, l.dt_lancamento, m.ds_motivo 
+         FROM  dbamv.lancamento_patrimonio l,
+               dbamv.mot_baixa m
+               ,(SELECT Max(lanc.dt_lancamento) dt_lancamento, lanc.cd_bem 
+                 FROM dbamv.lancamento_patrimonio lanc                                                                   
+                 WHERE lanc.tp_lancamento = 'B'
+                 AND NOT EXISTS ( SELECT lanc.cd_lancamento_patrimonio
+						                                      FROM dbamv.LANCAMENTO_PATRIMONIO lp
+						                                      WHERE lp.TP_LANCAMENTO = 'O'
+						                                        AND lp.CD_BEM = lanc.CD_BEM
+						                                        AND (lp.CD_LANCAMENTO_PAI IS NULL OR lp.CD_LANCAMENTO_PAI = lanc.cd_lancamento_patrimonio)
+						                                        AND lp.DT_LANCAMENTO >=  lanc.DT_LANCAMENTO
+						                                        AND lp.dt_lancamento < Nvl((SELECT Min(DT_LANCAMENTO)
+						                                                                      FROM dbamv.LANCAMENTO_PATRIMONIO lp1
+						                                                                    WHERE lp1.TP_LANCAMENTO = 'B'
+						                                                                      AND lp1.CD_BEM = lanc.CD_BEM
+						                                                                      AND lp1.dt_lancamento > lanc.dt_lancamento),SYSDATE)) 
+                 AND lanc.cd_lancamento_patrimonio NOT IN (SELECT cd_lancamento_pai FROM dbamv.lancamento_patrimonio  WHERE TP_LANCAMENTO IN ('O') AND CD_BEM = lanc.cd_bem AND cd_lancamento_pai IS NOT NULL)
+                 GROUP BY lanc.cd_bem )  lancamentos
+         WHERE l.dt_lancamento = lancamentos.dt_lancamento
+         AND l.cd_bem = lancamentos.cd_bem 
+         AND l.cd_motivo_baixa = m.cd_motivo
+     ) lanc	 
+where b.cd_setor = s.cd_setor
+and   b.cd_localidade = l.cd_localidade
+and   b.cd_motivo = m.cd_motivo (+)
+and   b.cd_bem = lanc.cd_bem (+) 
+and   (b.cd_motivo is not NULL OR lanc.cd_motivo_baixa IS NOT NULL )
+and   b.cd_multi_empresa = e.cd_multi_empresa
+:CAMPO_CF_WHERE_EMPRESA
+)
+ORDER BY

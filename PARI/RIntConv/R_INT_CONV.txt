@@ -1,0 +1,294 @@
+/*----------------------------------------------------------------------------*/
+--R_INT_CONV
+SELECT * FROM
+			  (SELECT CONVENIO.NM_CONVENIO NM_CONVENIO ,
+			          PACIENTE.CD_PACIENTE CD_PACIENTE ,
+			          PACIENTE.NM_PACIENTE NM_PACIENTE ,
+			      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+			          LEITO.CD_UNID_INT UNID_INT ,
+			          UNID_INT.DS_UNID_INT DS_UNID_INT ,
+			          LEITO.DS_ENFERMARIA DS_ENFERMARIA ,
+			          LEITO.DS_RESUMO DS_RESUMO ,
+			          PRESTADOR.NM_PRESTADOR NM_PRESTADOR ,
+			          ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO ,
+			          ATENDIME.HR_ATENDIMENTO HR_ATENDIMENTO ,
+			          ATENDIME.CD_CONVENIO CD_CONVENIO ,
+			          ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO ,
+			          ATENDIME.DT_ALTA DT_ALTA ,
+			          DBAMV.PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, SYSDATE) IDADE ,
+			          (TRUNC(NVL(ATENDIME.DT_ALTA, SYSDATE)) - TRUNC(ATENDIME.DT_ATENDIMENTO)) NR_DIAS , 
+			          ORI_ATE.DS_ORI_ATE ,
+			          ATENDIME.NR_GUIA 
+			   FROM dbamv.CONVENIO ,
+			        dbamv.ATENDIME ,
+			        dbamv.PACIENTE ,
+			        dbamv.LEITO ,
+			        dbamv.PRESTADOR ,
+			        dbamv.ORI_ATE ,
+			        dbamv.ESPECIALID ,
+			        dbamv.UNID_INT
+			   WHERE ATENDIME.TP_ATENDIMENTO IN ('I',
+			                                     'H') 
+			AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+			     AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+			     AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+			     AND ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+			     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+			     AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+			     AND ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+			     AND ATENDIME.CD_ESPECIALID = ESPECIALID.CD_ESPECIALID(+)
+			     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+			   UNION ALL SELECT CONVENIO.NM_CONVENIO NM_CONVENIO ,
+			                    PACIENTE.CD_PACIENTE CD_PACIENTE ,
+			                    PACIENTE.NM_PACIENTE NM_PACIENTE ,
+			                (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE,
+			                    LEITO.CD_UNID_INT UNID_INT ,
+			                    UNID_INT.DS_UNID_INT DS_UNID_INT ,
+			                    LEITO.DS_ENFERMARIA DS_ENFERMARIA ,
+			                    LEITO.DS_RESUMO DS_RESUMO ,
+			                    PRESTADOR.NM_PRESTADOR NM_PRESTADOR ,
+			                    ATENDIME.DT_ATENDIMENTO DT_ATENDIMENTO ,
+			                    ATENDIME.HR_ATENDIMENTO HR_ATENDIMENTO ,
+			                    ATENDIME.CD_CONVENIO CD_CONVENIO ,
+			                    ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO ,
+			                    ATENDIME.DT_ALTA DT_ALTA ,
+			                    DBAMV.PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO, sysdate) IDADE ,
+			                    (TRUNC(NVL(ATENDIME.DT_ALTA, SYSDATE)) - TRUNC(ATENDIME.DT_ATENDIMENTO)) NR_DIAS 
+			 ,
+			                    ORI_ATE.DS_ORI_ATE ,
+			                    ATENDIME.NR_GUIA 
+			   FROM dbamv.CONVENIO ,
+			     (SELECT atendime.cd_multi_empresa cd_multi_empresa,
+			             atendime.cd_atendimento cd_atendimento,
+			             atendime.cd_convenio_secundario cd_convenio,
+			             atendime.dt_atendimento dt_atendimento,
+			             atendime.hr_atendimento hr_atendimento,
+			             atendime.cd_leito,
+			             atendime.cd_prestador,
+			             atendime.cd_paciente,
+			             atendime.cd_especialid,
+			             atendime.cd_ori_ate,
+			             atendime.tp_atendimento,
+			             atendime.dt_alta,
+			             atendime.nr_guia,
+			             atendime.cd_atendimento_pai
+			      FROM dbamv.atendime
+			      WHERE atendime.cd_convenio_secundario IS NOT NULL
+			        AND NOT EXISTS
+			          (SELECT reg_acop.cd_regra_acoplamento
+			           FROM dbamv.regra_acoplamento reg_acop,
+			                dbamv.atendime atendime1,
+			             (SELECT nvl(carteira.sn_titular, 'T') sn_titular,
+			                     nvl(carteira.sn_pensionista, 'T') sn_pensionista,
+			                     atendime2.cd_atendimento cd_atendimento
+			              FROM dbamv.carteira carteira,
+			                   dbamv.atendime atendime2
+			              WHERE carteira.cd_paciente(+) = atendime2.cd_paciente
+			                AND carteira.cd_convenio(+) = atendime2.cd_convenio
+			                AND carteira.cd_con_pla(+) = atendime2.cd_con_pla
+			                AND atendime2.cd_convenio_secundario IS NOT NULL) carteira2 ,
+			                dbamv.empresa_convenio 
+			           WHERE reg_acop.cd_convenio = empresa_convenio.cd_convenio 
+			             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+			             AND reg_acop.cd_convenio_conta = atendime1.cd_convenio
+			             AND reg_acop.cd_convenio = atendime1.cd_convenio_secundario
+			             AND reg_acop.cd_con_pla_conta = atendime1.cd_con_pla
+			             AND reg_acop.cd_con_pla = atendime1.cd_con_pla_secundario 
+			             AND reg_acop.sn_titular in (carteira2.sn_titular,
+			                                         'T')
+			             AND reg_acop.sn_pensionista in (carteira2.sn_pensionista,
+			                                             'T')
+			             AND carteira2.cd_atendimento = atendime1.cd_atendimento
+			             AND atendime1.cd_atendimento = atendime.cd_atendimento)
+			      UNION SELECT atendime.cd_multi_empresa cd_multi_empresa,
+			                   atendime.cd_atendimento cd_atendimento,
+			                   atendime.cd_convenio cd_convenio,
+			                   atendime.dt_atendimento dt_atendimento,
+			                   atendime.hr_atendimento hr_atendimento,
+			                   atendime.cd_leito,
+			                   atendime.cd_prestador,
+			                   atendime.cd_paciente,
+			                   atendime.cd_especialid,
+			                   atendime.cd_ori_ate,
+			                   atendime.tp_atendimento,
+			                   atendime.dt_alta,
+			                   atendime.nr_guia,
+			                   atendime.cd_atendimento_pai
+			      FROM dbamv.atendime
+			      WHERE EXISTS
+			          (SELECT reg_acop.cd_regra_acoplamento
+			           FROM dbamv.regra_acoplamento reg_acop,
+			                dbamv.atendime atendime1,
+			             (SELECT nvl(carteira.sn_titular, 'T') sn_titular,
+			                     nvl(carteira.sn_pensionista, 'T') sn_pensionista,
+			                     atendime2.cd_atendimento cd_atendimento
+			              FROM dbamv.carteira carteira,
+			                   dbamv.atendime atendime2
+			              WHERE carteira.cd_paciente(+) = atendime2.cd_paciente
+			                AND carteira.cd_convenio(+) = atendime2.cd_convenio
+			                AND carteira.cd_con_pla(+) = atendime2.cd_con_pla
+			                AND atendime2.cd_convenio_secundario IS NOT NULL) carteira2 ,
+			                dbamv.empresa_convenio 
+			           WHERE reg_acop.cd_convenio = empresa_convenio.cd_convenio 
+			             AND empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+			             AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA 
+			             AND reg_acop.cd_convenio_conta = atendime1.cd_convenio
+			             AND reg_acop.cd_convenio = atendime1.cd_convenio_secundario
+			             AND reg_acop.cd_con_pla_conta = atendime1.cd_con_pla
+			             AND reg_acop.cd_con_pla = atendime1.cd_con_pla_secundario 
+			             AND reg_acop.sn_titular in (carteira2.sn_titular,
+			                                         'T')
+			             AND reg_acop.sn_pensionista in (carteira2.sn_pensionista,
+			                                             'T')
+			             AND carteira2.cd_atendimento = atendime1.cd_atendimento
+			             AND atendime1.cd_atendimento = atendime.cd_atendimento)
+			        OR atendime.cd_convenio_secundario IS NULL) ATENDIME ,
+			        dbamv.PACIENTE ,
+			        dbamv.LEITO ,
+			        dbamv.PRESTADOR ,
+			        dbamv.ORI_ATE ,
+			        dbamv.ESPECIALID ,
+			        dbamv.UNID_INT
+			   WHERE ATENDIME.TP_ATENDIMENTO IN ('I',
+			                                     'H') 
+			AND LEITO.CD_UNID_INT = UNID_INT.CD_UNID_INT(+)
+			     AND ATENDIME.CD_CONVENIO = CONVENIO.CD_CONVENIO
+			     AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE
+			     AND ATENDIME.CD_LEITO = LEITO.CD_LEITO(+)
+			     AND ATENDIME.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+			     AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+			     AND ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+			     AND ATENDIME.CD_ESPECIALID = ESPECIALID.CD_ESPECIALID(+)
+			     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+			   ORDER BY NM_CONVENIO,
+			            NM_PACIENTE)
+			ORDER BY NM_CONVENIO,
+			         UNID_INT,
+			         DS_UNID_INT
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_INT_CONV_RF_GERCONVB1_Q_RESUMO
+SELECT  CONVENIO.CD_CONVENIO             CD_CONVENIO
+               ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+               ,COUNT(*)  QTDE_PAC
+   FROM  dbamv.CONVENIO
+              ,dbamv.ATENDIME
+              ,dbamv.PACIENTE
+              ,dbamv.LEITO
+              ,dbamv.PRESTADOR
+              ,dbamv.ORI_ATE
+              ,dbamv.ESPECIALID
+WHERE  ATENDIME.TP_ATENDIMENTO   IN   ( 'I', 'H' )
+AND       ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_LEITO  =  LEITO.CD_LEITO(+)
+AND       ATENDIME.CD_PRESTADOR  =  PRESTADOR.CD_PRESTADOR(+)
+AND       ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+AND       ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+AND       ATENDIME.CD_ESPECIALID  =  ESPECIALID.CD_ESPECIALID(+)
+AND       ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+GROUP BY CONVENIO.NM_CONVENIO, CONVENIO.CD_CONVENIO
+UNION ALL
+SELECT  CONVENIO.CD_CONVENIO             CD_CONVENIO
+               ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+               ,COUNT(*)  QTDE_PAC
+   FROM  dbamv.CONVENIO
+                  , (select atendime.cd_multi_empresa cd_multi_empresa,
+                       atendime.cd_atendimento cd_atendimento,
+                       atendime.cd_convenio_secundario cd_convenio,
+                       atendime.dt_atendimento dt_atendimento,
+                       atendime.hr_atendimento hr_atendimento,
+                       atendime.cd_leito,
+                       atendime.cd_prestador,
+                       atendime.cd_paciente,
+                       atendime.cd_especialid,
+                       atendime.cd_ori_ate,
+                       atendime.tp_atendimento,
+                       atendime.dt_alta,
+		       atendime.cd_atendimento_pai
+                from  dbamv.atendime
+                where atendime.cd_convenio_secundario is not null
+                and   not exists
+                (Select reg_acop.cd_regra_acoplamento
+                     From dbamv.regra_acoplamento reg_acop,
+                          dbamv.atendime atendime1,
+                          (select nvl(carteira.sn_titular,'T') sn_titular,
+                                  nvl(carteira.sn_pensionista,'T') sn_pensionista,
+                                  atendime2.cd_atendimento cd_atendimento
+                          from  dbamv.carteira carteira, dbamv.atendime atendime2
+                           where carteira.cd_paciente(+) = atendime2.cd_paciente
+                             and carteira.cd_convenio(+) = atendime2.cd_convenio
+                             and carteira.cd_con_pla(+) = atendime2.cd_con_pla
+                             and atendime2.cd_convenio_secundario is not null) carteira2
+                ,dbamv.empresa_convenio 
+		where reg_acop.cd_convenio = empresa_convenio.cd_convenio 
+		  and empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+                                   AND       ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+		  and  reg_acop.cd_convenio_conta   = atendime1.cd_convenio
+                  and reg_acop.cd_convenio         = atendime1.cd_convenio_secundario
+                  and reg_acop.cd_con_pla_conta    = atendime1.cd_con_pla
+                  and reg_acop.cd_con_pla          = atendime1.cd_con_pla_secundario
+                  and reg_acop.tp_atendimento       in ('T','I')
+                  and reg_acop.sn_titular in (carteira2.sn_titular,'T')
+                  and reg_acop.sn_pensionista in (carteira2.sn_pensionista,'T')
+                  and carteira2.cd_atendimento = atendime1.cd_atendimento
+                  and atendime1.cd_atendimento = atendime.cd_atendimento)
+                union
+                select atendime.cd_multi_empresa cd_multi_empresa,
+                       atendime.cd_atendimento cd_atendimento,
+                       atendime.cd_convenio cd_convenio,
+                       atendime.dt_atendimento dt_atendimento,
+                       atendime.hr_atendimento hr_atendimento,
+                       atendime.cd_leito,
+                       atendime.cd_prestador,
+                       atendime.cd_paciente,
+                       atendime.cd_especialid,
+                       atendime.cd_ori_ate,
+                       atendime.tp_atendimento,
+                       atendime.dt_alta,
+		       atendime.cd_atendimento_pai
+                from  dbamv.atendime
+                where exists
+                (Select reg_acop.cd_regra_acoplamento
+                     From dbamv.regra_acoplamento reg_acop,
+                          dbamv.atendime atendime1,
+                          (select nvl(carteira.sn_titular,'T') sn_titular,
+                                  nvl(carteira.sn_pensionista,'T') sn_pensionista,
+                                  atendime2.cd_atendimento cd_atendimento
+                          from  dbamv.carteira carteira, dbamv.atendime atendime2
+                           where carteira.cd_paciente(+) = atendime2.cd_paciente
+                             and carteira.cd_convenio(+) = atendime2.cd_convenio
+                             and carteira.cd_con_pla(+) = atendime2.cd_con_pla
+                             and atendime2.cd_convenio_secundario is not null) carteira2
+                ,dbamv.empresa_convenio 
+		where reg_acop.cd_convenio = empresa_convenio.cd_convenio 
+		  and empresa_convenio.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+                                  AND       ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+		  and  reg_acop.cd_convenio_conta   = atendime1.cd_convenio
+                  and reg_acop.cd_convenio         = atendime1.cd_convenio_secundario
+                  and reg_acop.cd_con_pla_conta    = atendime1.cd_con_pla
+                  and reg_acop.cd_con_pla          = atendime1.cd_con_pla_secundario
+                  and reg_acop.tp_atendimento       in ('T','I')
+                  and reg_acop.sn_titular in (carteira2.sn_titular,'T')
+                  and reg_acop.sn_pensionista in (carteira2.sn_pensionista,'T')
+                  and carteira2.cd_atendimento = atendime1.cd_atendimento
+                  and atendime1.cd_atendimento = atendime.cd_atendimento)  or
+ 		  atendime.cd_convenio_secundario is null) ATENDIME
+              ,dbamv.PACIENTE
+              ,dbamv.LEITO
+              ,dbamv.PRESTADOR
+              ,dbamv.ORI_ATE
+              ,dbamv.ESPECIALID
+WHERE  ATENDIME.TP_ATENDIMENTO   IN   ( 'I', 'H' )
+AND       ATENDIME.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND       ATENDIME.CD_PACIENTE  =  PACIENTE.CD_PACIENTE
+AND       ATENDIME.CD_LEITO  =  LEITO.CD_LEITO(+)
+AND       ATENDIME.CD_PRESTADOR  =  PRESTADOR.CD_PRESTADOR(+)
+AND       ATENDIME.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE
+AND 	  ATENDIME.CD_ATENDIMENTO_PAI IS NULL
+AND       ATENDIME.CD_ESPECIALID  =  ESPECIALID.CD_ESPECIALID(+)
+AND       ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+GROUP BY CONVENIO.NM_CONVENIO, CONVENIO.CD_CONVENIO
+ORDER BY QTDE_PAC DESC

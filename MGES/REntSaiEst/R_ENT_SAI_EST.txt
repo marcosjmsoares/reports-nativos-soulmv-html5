@@ -1,0 +1,95 @@
+/*----------------------------------------------------------------------------*/
+--R_ENT_SAI_EST
+select cd_pro_fat         cd_pro_fat
+			      ,ds_pro_fat             ds_pro_fat
+			      ,verif_ds_unid_prod( cd_pro_fat ) ds_unidade
+			      ,sum(qt_entrada)  qt_entrada
+			      ,sum(vl_entrada)  vl_entrada
+			      ,sum(qt_saida)     qt_saida
+			      ,sum(vl_saida)     vl_saida
+			from (
+			select itmvto_estoque.cd_itmvto_estoque cd_itreg_fat
+			      ,itmvto_estoque.cd_mvto_estoque cd_reg_fat
+			      ,produto.cd_produto	cd_pro_fat
+			      ,produto.ds_produto	ds_pro_fat
+			      ,TO_CHAR(mvto_estoque.dt_mvto_estoque, 'MM/YYYY')  DT_COMPETENCIA
+			      , 0 qt_entrada
+			      , 0 vl_entrada
+			      , decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1,'N',-1, 1 ) * ( itmvto_Estoque.qt_movimentacao * uni_pro.vl_fator / verif_vl_fator_prod( itmvto_estoque.cd_produto )  ) qt_saida
+			      , ( decode( mvto_Estoque.tp_mvto_estoque, 'D', -1, 'C', -1, 'N',-1,1 ) * ( itmvto_estoque.qt_movimentacao * uni_pro.vl_fator ) *
+			             verif_vl_custo_medio ( itmvto_estoque.cd_produto,
+			                                    mvto_estoque.dt_mvto_estoque,
+			                                    :CAMPO_TP_CUSTO,
+			                                    produto.vl_custo_medio,
+			                                    mvto_estoque.hr_mvto_estoque ) ) vl_saida
+			  from (SELECT 	   p.vl_custo_medio,
+												   p.cd_produto_tem,
+												   p.cd_especie,
+								     	  		   p.cd_produto,
+								     	   		   p.sn_padronizado,
+								     	   	   	   p.cd_pro_fat,
+								     	           DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_MOVIMENTACAO,p.SN_MOVIMENTACAO)sn_movimentacao,
+								     	   		   p.sn_consignado,
+								     	           DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_BLOQUEIO_DE_COMPRA,p.SN_BLOQUEIO_DE_COMPRA) sn_bloqueio_de_compra,
+								     	   		   p.sn_admitido,
+								     	   		   p.cd_classe,
+								     	   		   p.cd_sub_cla,
+								     	   		   p.ds_produto,
+								     	   		   p.sn_mestre
+											FROM dbamv.produto p, dbamv.Empresa_Produto Empresa_Produto
+											WHERE Empresa_Produto.cd_produto = p.cd_produto
+											AND Empresa_Produto.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) produto, 
+			       dbamv.uni_pro,
+			       dbamv.itmvto_estoque,
+			       dbamv.mvto_Estoque,
+			       dbamv.estoque
+			 where mvto_estoque.tp_mvto_estoque in ( 'S', 'P', 'D', 'C','N','V' , 'E' )
+			   and mvto_estoque.dt_mvto_estoque between :CAMPO_DATA_INI and 
+			  AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+			   and itmvto_estoque.cd_uni_pro            = uni_pro.cd_uni_pro
+			   and itmvto_estoque.cd_mvto_estoque = mvto_estoque.cd_mvto_estoque
+			   and estoque.cd_estoque                      = mvto_estoque.cd_estoque
+			   and itmvto_estoque.cd_produto           = produto.cd_produto
+			   and produto.sn_mestre = 'N'
+			union all
+			select itent_pro.cd_itent_pro   cd_itreg_fat
+			      ,itent_pro.cd_ent_pro        cd_reg_fat
+			      ,produto.cd_produto	cd_pro_fat
+			      ,produto.ds_produto	ds_pro_fat
+			      ,TO_CHAR(ent_pro.dt_entrada, 'MM/YYYY')   dt_competencia
+			      , itent_pro.qt_entrada * uni_pro.vl_fator / verif_vl_fator_prod( produto.cd_produto ) qt_entrada
+			      , itent_pro.vl_total_custo_real vl_entrada
+			      , 0 qt_saida
+			      , 0 vl_saida
+			  from (SELECT 	   p.vl_custo_medio,
+												   p.cd_produto_tem,
+												   p.cd_especie,
+								     	  		   p.cd_produto,
+								     	   		   p.sn_padronizado,
+								     	   	   	   p.cd_pro_fat,
+								     	           DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_MOVIMENTACAO,p.SN_MOVIMENTACAO)sn_movimentacao,
+								     	   		   p.sn_consignado,
+								     	           DECODE(DBAMV.PKT_CONFIGEST.RETORNA_CAMPO('SN_LOTE_VAL_PRD_EMP'), 'S',EMPRESA_PRODUTO.SN_BLOQUEIO_DE_COMPRA,p.SN_BLOQUEIO_DE_COMPRA) sn_bloqueio_de_compra,
+								     	   		   p.sn_admitido,
+								     	   		   p.cd_classe,
+								     	   		   p.cd_sub_cla,
+								     	   		   p.ds_produto,
+								     	   		   p.sn_mestre
+											FROM dbamv.produto p, dbamv.Empresa_Produto Empresa_Produto
+											WHERE Empresa_Produto.cd_produto = p.cd_produto
+											AND Empresa_Produto.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA) produto, 
+			       dbamv.uni_pro,
+			       dbamv.itent_pro,
+			       dbamv.ent_pro,
+			       dbamv.estoque
+			 where   ent_pro.dt_entrada between :CAMPO_DATA_INI and 
+			   AND        ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+			   and itent_pro.cd_uni_pro  = uni_pro.cd_uni_pro
+			   and itent_pro.cd_ent_pro  = ent_pro.cd_ent_pro
+			   and ent_pro.cd_estoque  = estoque.cd_estoque
+			   and itent_pro.cd_produto = produto.cd_produto
+			   AND ( ( :CAMPO_SN_EXIBE_ENT_CONSIG = 'N' AND ent_pro.tp_documento_entrada != 'C')
+			         OR :CAMPO_SN_EXIBE_ENT_CONSIG = 'S')
+			)
+			group by cd_pro_fat
+			      ,ds_pro_fat

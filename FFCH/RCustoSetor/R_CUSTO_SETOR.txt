@@ -1,0 +1,36 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SETOR
+SELECT * FROM (
+SELECT   setor.cd_setor cd_setor
+        ,setor.nm_setor nm_setor
+        ,decode(nvl(nvl ( tip_acom_setor.vl_fator_custo, tip_acom.vl_fator_custo ),1),0,1,nvl(nvl ( tip_acom_setor.vl_fator_custo, tip_acom.vl_fator_custo ),1)) vl_fator_custo
+        ,to_char ( custo_diaria_cencir.dt_competencia, 'mm/yyyy' ) dt_comp
+        ,SUM( custo_diaria_cencir.qt_diarias_disponivel ) qt_diarias_disponivel
+        ,SUM( custo_diaria_cencir.qt_diarias_faturadas ) qt_diarias_faturado
+        ,Nvl(SUM( custo_diaria_cencir.qt_diarias_utilizadas ),0) qt_diarias_utilizada
+        ,SUM( custo_diaria_cencir.qt_diarias_pacdia ) qt_diarias_pacdia
+        ,tip_acom.cd_tip_acom cd_tip_acom
+        ,tip_acom.ds_tip_acom ds_tip_acom
+    FROM dbamv.setor
+        ,dbamv.custo_diaria_cencir
+        ,dbamv.tip_acom
+        ,dbamv.tip_acom_setor
+   WHERE setor.cd_setor = custo_diaria_cencir.cd_setor
+     AND setor.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+     AND setor.tp_composicao_calculo = '4'   
+     AND custo_diaria_cencir.cd_tip_acom = tip_acom.cd_tip_acom
+     AND custo_diaria_cencir.cd_tip_acom = tip_acom_setor.cd_tip_acom(+)
+     AND custo_diaria_cencir.cd_setor    = tip_acom_setor.cd_setor(+)
+     AND custo_diaria_cencir.tp_custo = 'D'
+     AND custo_diaria_cencir.dt_competencia = to_date(:CAMPO_DTCOMP, 'mm/yyyy')
+GROUP BY tip_acom.cd_tip_acom
+        ,tip_acom.ds_tip_acom
+        ,setor.cd_setor
+        ,setor.nm_setor
+        ,tip_acom.vl_fator_custo
+        ,to_char ( custo_diaria_cencir.dt_competencia, 'mm/yyyy' )
+        ,decode(nvl(nvl ( tip_acom_setor.vl_fator_custo, tip_acom.vl_fator_custo ),1),0,1,nvl(nvl ( tip_acom_setor.vl_fator_custo, tip_acom.vl_fator_custo ),1))
+ORDER BY tip_acom.cd_tip_acom
+        ,setor.nm_setor
+)
+ORDER BY CD_TIP_ACOM,DS_TIP_ACOM

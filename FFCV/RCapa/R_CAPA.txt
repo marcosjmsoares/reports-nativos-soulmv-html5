@@ -1,0 +1,411 @@
+/*----------------------------------------------------------------------------*/
+--R_CAPA
+SELECT * FROM (
+SELECT
+       ATENDIME.CD_ATENDIMENTO                                 CD_ATENDIMENTO,
+       DECODE('', 'S', REMESSA_FATURA.CD_REMESSA, 0)  CD_REMESSA,
+       DECODE('', 'S', REMESSA_FATURA.DT_ABERTURA, to_date(null))  DT_ABERTURA,
+       DECODE('', 'S', TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA) , to_date(null))    DT_ENTREGA,
+       Decode('', 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ) NR_REMESSA_CONVENIO,
+       FATURA.DS_FATURA                                                                DS_FATURA,
+       CONVENIO.CD_CONVENIO                                                        CD_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL                                               NM_CONVENIO,
+       CONVENIO.DS_ENDERECO_COBRANCA                                 DS_ENDERECO,
+       CONVENIO.DS_BAIRRO_COBRANCA                                       DS_BAIRRO,
+       CONVENIO.DS_CIDADE_COBRANCA                                       DS_CIDADE,
+       CONVENIO.DS_UF_COBRANCA                                               DS_UF,
+       nvl(convenio.cd_identificador_pessoa, CONVENIO.NR_CGC)                                                 NR_CGC,
+       CONVENIO.NR_FONE                                                                NR_FONE,
+       CONVENIO.NR_CEP_COBRANCA                                              NR_CEP,
+       NVL( REG_FAT.VL_TOTAL_CONTA, 0 )     - ( NVL(REG_FAT.VL_FRANQUIA_TOTAL,0) + NVL(REG_FAT.VL_COPARTICIPACAO,0)  )                                  VL_TOTAL_CONTA,
+       ITAGRUPAMENTO.TP_AGRUPAMENTO                                 TP_AGRUPAMENTO,
+       ITAGRUPAMENTO.CD_AGRUPAMENTO                                 CD_AGRUPAMENTO,
+       AGRUPAMENTO.DS_AGRUPAMENTO                                    DS_AGRUPAMENTO      ,
+       TO_NUMBER(NULL) CD_REG,
+       NVL((SELECT decode(C.valor, 'AO', 'N.I.F :', 'C.G.C :')
+                  FROM dbamv.configuracao c
+                 WHERE c.chave = 'CD_PAIS'
+                   AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA AND ROWNUM = 1), 'C.G.C :') NM_CGC
+FROM   DBAMV.ATENDIME                                      ATENDIME,
+             DBAMV.CONVENIO                                      CONVENIO,
+             DBAMV.REG_FAT                                         REG_FAT,
+             DBAMV.ITAGRUPAMENTO                          ITAGRUPAMENTO,
+             DBAMV.AGRUPAMENTO                             AGRUPAMENTO,
+             DBAMV.ORI_ATE                                         ORI_ATE,
+             DBAMV.REMESSA_FATURA                       REMESSA_FATURA,
+             DBAMV.FATURA                                           FATURA,
+	     dbamv.empresa_convenio
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and ITAGRUPAMENTO.TP_AGRUPAMENTO = 'H'
+AND        ATENDIME.CD_ORI_ATE                         =  ITAGRUPAMENTO.CD_ORI_ATE
+AND        ATENDIME.CD_ATENDIMENTO              =  REG_FAT.CD_ATENDIMENTO
+AND        REG_FAT.CD_CONVENIO                        =  CONVENIO.CD_CONVENIO
+AND        CONVENIO.CD_CONVENIO                      =  ITAGRUPAMENTO.CD_CONVENIO
+AND        ORI_ATE.CD_ORI_ATE                            =  ITAGRUPAMENTO.CD_ORI_ATE
+AND        AGRUPAMENTO.CD_AGRUPAMENTO   =  ITAGRUPAMENTO.CD_AGRUPAMENTO
+and         agrupamento.cd_agrupamento                   = remessa_fatura.cd_agrupamento
+AND        REG_FAT.CD_REMESSA                          =  REMESSA_FATURA.CD_REMESSA
+AND        REMESSA_FATURA.CD_FATURA            =  FATURA.CD_FATURA
+AND       REMESSA_FATURA.SN_FECHADA           =  'S'
+Union All
+SELECT
+       ATENDIME.CD_ATENDIMENTO                                 CD_ATENDIMENTO,
+       DECODE('', 'S', REMESSA_FATURA.CD_REMESSA, 0)  CD_REMESSA,
+       DECODE('', 'S', REMESSA_FATURA.DT_ABERTURA, to_date(null))  DT_ABERTURA,
+       DECODE('', 'S', TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA) , to_date(null))    DT_ENTREGA,
+       Decode('', 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ) NR_REMESSA_CONVENIO,
+       FATURA.DS_FATURA                                                                DS_FATURA,
+      CONVENIO.CD_CONVENIO                                                        CD_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL                                               NM_CONVENIO,
+       CONVENIO.DS_ENDERECO_COBRANCA                                 DS_ENDERECO,
+       CONVENIO.DS_BAIRRO_COBRANCA                                       DS_BAIRRO,
+       CONVENIO.DS_CIDADE_COBRANCA                                       DS_CIDADE,
+       CONVENIO.DS_UF_COBRANCA                                               DS_UF,
+       nvl(convenio.cd_identificador_pessoa, CONVENIO.NR_CGC)                                                 NR_CGC,
+       CONVENIO.NR_FONE                                                                NR_FONE,
+       CONVENIO.NR_CEP_COBRANCA                                              NR_CEP,
+       NVL( REG_FAT.VL_TOTAL_CONTA, 0 )            - ( NVL(REG_FAT.VL_FRANQUIA_TOTAL,0) + NVL(REG_FAT.VL_COPARTICIPACAO,0)  )                           VL_TOTAL_CONTA,
+       'H'                                 TP_AGRUPAMENTO,
+       To_Number( Null )   CD_AGRUPAMENTO,
+       Null   DS_AGRUPAMENTO      ,
+       TO_NUMBER(NULL) CD_REG,
+       NVL((SELECT decode(C.valor, 'AO', 'N.I.F :', 'C.G.C :')
+           FROM dbamv.configuracao c
+          WHERE c.chave = 'CD_PAIS'
+            AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA AND ROWNUM = 1), 'C.G.C :') NM_CGC
+FROM   DBAMV.ATENDIME                                      ATENDIME,
+             DBAMV.CONVENIO                                      CONVENIO,
+             DBAMV.REG_FAT                                         REG_FAT,
+             DBAMV.ORI_ATE                                         ORI_ATE,
+             DBAMV.REMESSA_FATURA                       REMESSA_FATURA,
+             DBAMV.FATURA                                           FATURA,
+	     dbamv.empresa_convenio
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa =:CAMPO_CD_MULTI_EMPRESA
+and ATENDIME.CD_ATENDIMENTO              =  REG_FAT.CD_ATENDIMENTO
+AND        REG_FAT.CD_CONVENIO                        =  CONVENIO.CD_CONVENIO
+AND        ORI_ATE.CD_ORI_ATE                            =  atendime.CD_ORI_ATE
+AND        REG_FAT.CD_REMESSA                          =  REMESSA_FATURA.CD_REMESSA
+AND        REMESSA_FATURA.CD_FATURA            =  FATURA.CD_FATURA
+AND       REMESSA_FATURA.SN_FECHADA           =  'S'
+and         remessa_fatura.cd_agrupamento is null
+UNION ALL
+SELECT
+       ATENDIME.CD_ATENDIMENTO                                                CD_ATENDIMENTO,
+       DECODE('', 'S', REMESSA_FATURA.CD_REMESSA, 0)  CD_REMESSA,
+       DECODE('', 'S', REMESSA_FATURA.DT_ABERTURA, to_date(null))  DT_ABERTURA,
+       DECODE('', 'S', TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA) , to_date(null))    DT_ENTREGA,
+       Decode('', 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ) NR_REMESSA_CONVENIO,
+       FATURA.DS_FATURA                                                                DS_FATURA,
+       CONVENIO.CD_CONVENIO                                                        CD_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL                                               NM_CONVENIO,
+       CONVENIO.DS_ENDERECO_COBRANCA                                 DS_ENDERECO,
+       CONVENIO.DS_BAIRRO_COBRANCA                                       DS_BAIRRO,
+       CONVENIO.DS_CIDADE_COBRANCA                                       DS_CIDADE,
+       CONVENIO.DS_UF_COBRANCA                                               DS_UF,
+       nvl(convenio.cd_identificador_pessoa, CONVENIO.NR_CGC)                                                 NR_CGC,
+       CONVENIO.NR_FONE                                                                NR_FONE,
+       CONVENIO.NR_CEP_COBRANCA                                              NR_CEP,
+       SUM( decode( nvl(itreg_amb.tp_pagamento, 'P'), 'C', 0, decode( itreg_amb.sn_pertence_pacote, 'S', 0, NVL( ITREG_AMB.VL_TOTAL_CONTA, 0 ) ) ))                  VL_TOTAL_CONTA,
+       'A'                                TP_AGRUPAMENTO,
+       To_Number( Null )                                CD_AGRUPAMENTO,
+       Null                                   DS_AGRUPAMENTO      ,
+       ITREG_AMB.CD_REG_AMB CD_REG,
+       NVL((SELECT decode(C.valor, 'AO', 'N.I.F :', 'C.G.C :')
+           FROM dbamv.configuracao c
+          WHERE c.chave = 'CD_PAIS'
+            AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA AND ROWNUM = 1), 'C.G.C :') NM_CGC
+FROM   DBAMV.ATENDIME                           ATENDIME,
+             DBAMV.CONVENIO                           CONVENIO,
+             DBAMV.REG_AMB                            REG_AMB,
+             DBAMV.ITREG_AMB                         ITREG_AMB,
+             DBAMV.ORI_ATE                              ORI_ATE,
+             DBAMV.REMESSA_FATURA            REMESSA_FATURA,
+             DBAMV.FATURA                               FATURA,
+	     dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and ATENDIME.CD_ATENDIMENTO            =  ITREG_AMB.CD_ATENDIMENTO
+AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND        REG_AMB.CD_REG_AMB                      =  ITREG_AMB.CD_REG_AMB
+AND        ATENDIME.CD_ORI_ATE                      =  ORI_ATE.CD_ORI_ATE
+AND        ORI_ATE.CD_ORI_ATE                          =  atendime.CD_ORI_ATE
+AND        REG_AMB.CD_REMESSA                      =  REMESSA_FATURA.CD_REMESSA
+AND        REMESSA_FATURA.CD_FATURA         =  FATURA.CD_FATURA
+AND        REMESSA_FATURA.SN_FECHADA      =  'S'
+and         convenio.cd_convenio = reg_amb.cd_convenio
+and         remessa_fatura.cd_agrupamento is null
+AND ATENDIME.CD_MULTI_EMPRESA =   :CAMPO_CD_MULTI_EMPRESA
+GROUP BY
+       ATENDIME.CD_ATENDIMENTO,
+       DECODE('', 'S', REMESSA_FATURA.CD_REMESSA, 0) ,
+       DECODE('', 'S', REMESSA_FATURA.DT_ABERTURA, to_date(null)) ,
+       DECODE('', 'S', TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA) , to_date(null)) ,
+       Decode('', 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ),
+       FATURA.DS_FATURA,
+       CONVENIO.CD_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.DS_ENDERECO_COBRANCA,
+       CONVENIO.DS_BAIRRO_COBRANCA,
+       CONVENIO.DS_CIDADE_COBRANCA,
+       CONVENIO.DS_UF_COBRANCA,
+       nvl(convenio.cd_identificador_pessoa, CONVENIO.NR_CGC),
+       CONVENIO.NR_FONE,
+       CONVENIO.NR_CEP_COBRANCA,
+       ITREG_AMB.CD_REG_AMB
+Union All
+SELECT
+       ATENDIME.CD_ATENDIMENTO                                                CD_ATENDIMENTO,
+       DECODE('', 'S', REMESSA_FATURA.CD_REMESSA, 0)  CD_REMESSA,
+       DECODE('', 'S', REMESSA_FATURA.DT_ABERTURA, to_date(null))  DT_ABERTURA,
+       DECODE('', 'S', TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA) , to_date(null))    DT_ENTREGA,
+       Decode('', 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ) NR_REMESSA_CONVENIO,
+       FATURA.DS_FATURA                                                                DS_FATURA,
+       CONVENIO.CD_CONVENIO                                                       CD_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL                                              NM_CONVENIO,
+       CONVENIO.DS_ENDERECO_COBRANCA                                DS_ENDERECO,
+       CONVENIO.DS_BAIRRO_COBRANCA                                       DS_BAIRRO,
+       CONVENIO.DS_CIDADE_COBRANCA                                       DS_CIDADE,
+       CONVENIO.DS_UF_COBRANCA                                               DS_UF,
+       nvl(convenio.cd_identificador_pessoa, CONVENIO.NR_CGC)                                                 NR_CGC,
+       CONVENIO.NR_FONE                                                               NR_FONE,
+       CONVENIO.NR_CEP_COBRANCA                                            NR_CEP,
+       SUM( decode( nvl(itreg_amb.tp_pagamento, 'P'), 'C', 0, decode( itreg_amb.sn_pertence_pacote, 'S', 0, NVL( ITREG_AMB.VL_TOTAL_CONTA, 0 ) ) ))                  VL_TOTAL_CONTA,
+       ITAGRUPAMENTO.TP_AGRUPAMENTO                                TP_AGRUPAMENTO,
+       ITAGRUPAMENTO.CD_AGRUPAMENTO                                CD_AGRUPAMENTO,
+       AGRUPAMENTO.DS_AGRUPAMENTO                                   DS_AGRUPAMENTO  ,
+       ITREG_AMB.CD_REG_AMB CD_REG,
+       NVL((SELECT decode(C.valor, 'AO', 'N.I.F :', 'C.G.C :')
+           FROM dbamv.configuracao c
+          WHERE c.chave = 'CD_PAIS'
+            AND cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA AND ROWNUM = 1), 'C.G.C :') NM_CGC
+FROM   DBAMV.ATENDIME                           ATENDIME,
+             DBAMV.CONVENIO                           CONVENIO,
+             DBAMV.REG_AMB                            REG_AMB,
+             DBAMV.ITREG_AMB                         ITREG_AMB,
+             DBAMV.ITAGRUPAMENTO              ITAGRUPAMENTO,
+             DBAMV.AGRUPAMENTO                 AGRUPAMENTO,
+             DBAMV.ORI_ATE                              ORI_ATE,
+             DBAMV.REMESSA_FATURA            REMESSA_FATURA,
+             DBAMV.FATURA                               FATURA,
+	     dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and ITAGRUPAMENTO.TP_AGRUPAMENTO = 'A'
+AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND         ATENDIME.CD_ATENDIMENTO            =  ITREG_AMB.CD_ATENDIMENTO
+AND        REG_AMB.CD_REG_AMB                      =  ITREG_AMB.CD_REG_AMB
+AND        ATENDIME.CD_ORI_ATE                      =  ORI_ATE.CD_ORI_ATE
+AND        ITREG_AMB.CD_CONVENIO                  =  ITAGRUPAMENTO.CD_CONVENIO
+AND        CONVENIO.CD_CONVENIO                   =  reg_amb.cd_convenio
+AND        ORI_ATE.CD_ORI_ATE                          =  ITAGRUPAMENTO.CD_ORI_ATE
+AND        AGRUPAMENTO.CD_AGRUPAMENTO =  ITAGRUPAMENTO.CD_AGRUPAMENTO
+and        agrupamento.cd_agrupamento                  = remessa_fatura.cd_agrupamento
+AND        REG_AMB.CD_REMESSA                      =  REMESSA_FATURA.CD_REMESSA
+AND        REMESSA_FATURA.CD_FATURA         =  FATURA.CD_FATURA
+AND        REMESSA_FATURA.SN_FECHADA      =  'S'
+AND ATENDIME.CD_MULTI_EMPRESA =  :CAMPO_CD_MULTI_EMPRESA
+GROUP BY
+       ATENDIME.CD_ATENDIMENTO,
+       DECODE('', 'S', REMESSA_FATURA.CD_REMESSA, 0) ,
+       DECODE('', 'S', REMESSA_FATURA.DT_ABERTURA, to_date(null)) ,
+       DECODE('', 'S', TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA) , to_date(null)) ,
+       Decode('', 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ),
+       FATURA.DS_FATURA,
+       CONVENIO.CD_CONVENIO,
+       CONVENIO.NM_RAZAO_SOCIAL,
+       CONVENIO.DS_ENDERECO_COBRANCA,
+       CONVENIO.DS_BAIRRO_COBRANCA,
+       CONVENIO.DS_CIDADE_COBRANCA,
+       CONVENIO.DS_UF_COBRANCA,
+       nvl(convenio.cd_identificador_pessoa, CONVENIO.NR_CGC),
+       CONVENIO.NR_FONE,
+       CONVENIO.NR_CEP_COBRANCA,
+       ITAGRUPAMENTO.TP_AGRUPAMENTO,
+       ITAGRUPAMENTO.CD_AGRUPAMENTO,
+       AGRUPAMENTO.DS_AGRUPAMENTO    ,
+       ITREG_AMB.CD_REG_AMB
+)
+ORDER BY CD_REMESSA,
+         DT_ENTREGA,
+         DT_ABERTURA,
+         DS_FATURA,
+         NR_REMESSA_CONVENIO,
+         NM_CONVENIO,
+         CD_CONVENIO,
+         DS_ENDERECO,
+         DS_BAIRRO,
+         DS_CIDADE,
+         DS_UF,
+         NR_CGC,
+         NR_FONE,
+         NR_CEP,
+         DS_AGRUPAMENTO,
+         CD_AGRUPAMENTO,
+         TP_AGRUPAMENTO,
+         NM_CGC
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CAPA_R_1_Q_SELECIONADAS
+SELECT 	DISTINCT CD_REMESSA 	CD_REMESSA_SELE,
+	DT_ABERTURA	DT_ABERTURA_SELE,
+	DT_ENTREGA	DT_ENTREGA_SELE,
+                NR_REMESSA_CONVENIO NR_REMESSA_CONVENIO_SELE
+FROM
+(
+SELECT
+       REMESSA_FATURA.CD_REMESSA			CD_REMESSA,
+       REMESSA_FATURA.DT_ABERTURA			DT_ABERTURA,
+       TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA)	DT_ENTREGA,
+       Decode( :CAMPO_SELECAO, 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ) NR_REMESSA_CONVENIO
+FROM   DBAMV.ATENDIME                                      ATENDIME,
+             DBAMV.CONVENIO                                      CONVENIO,
+             DBAMV.REG_FAT                                         REG_FAT,
+             DBAMV.ITAGRUPAMENTO                          ITAGRUPAMENTO,
+             DBAMV.AGRUPAMENTO                             AGRUPAMENTO,
+             DBAMV.ORI_ATE                                         ORI_ATE,
+             DBAMV.REMESSA_FATURA                       REMESSA_FATURA,
+             DBAMV.FATURA                                           FATURA,
+	     dbamv.empresa_convenio
+WHERE  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and :CAMPO_SELECAO <>  'S'
+AND       ITAGRUPAMENTO.TP_AGRUPAMENTO = 'H'
+AND        ATENDIME.CD_ORI_ATE                         =  ITAGRUPAMENTO.CD_ORI_ATE
+AND        ATENDIME.CD_ATENDIMENTO              =  REG_FAT.CD_ATENDIMENTO
+AND        REG_FAT.CD_CONVENIO                        =  CONVENIO.CD_CONVENIO
+AND        CONVENIO.CD_CONVENIO                      =  ITAGRUPAMENTO.CD_CONVENIO
+AND        ORI_ATE.CD_ORI_ATE                             =  ITAGRUPAMENTO.CD_ORI_ATE
+AND        AGRUPAMENTO.CD_AGRUPAMENTO   =  ITAGRUPAMENTO.CD_AGRUPAMENTO
+AND        REG_FAT.CD_REMESSA                          =  REMESSA_FATURA.CD_REMESSA
+AND        REMESSA_FATURA.CD_FATURA            =  FATURA.CD_FATURA
+UNION ALL
+SELECT
+   	REMESSA_FATURA.CD_REMESSA				CD_REMESSA,
+	REMESSA_FATURA.DT_ABERTURA				DT_ABERTURA,
+	TRUNC(REMESSA_FATURA.DT_ENTREGA_DA_FATURA)	DT_ENTREGA,
+                Decode( :CAMPO_SELECAO, 'S', REMESSA_FATURA.NR_REMESSA_CONVENIO, ' ' ) NR_REMESSA_CONVENIO
+FROM   DBAMV.ATENDIME                           ATENDIME,
+             DBAMV.CONVENIO                           CONVENIO,
+             DBAMV.REG_AMB                            REG_AMB,
+             DBAMV.ITREG_AMB                         ITREG_AMB,
+             DBAMV.ITAGRUPAMENTO              ITAGRUPAMENTO,
+             DBAMV.AGRUPAMENTO                 AGRUPAMENTO,
+             DBAMV.ORI_ATE                              ORI_ATE,
+             DBAMV.REMESSA_FATURA            REMESSA_FATURA,
+             DBAMV.FATURA                               FATURA,
+	     dbamv.empresa_convenio
+WHERE Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and :CAMPO_SELECAO <> 'S'
+AND reg_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+AND          ITAGRUPAMENTO.TP_AGRUPAMENTO = 'A'
+AND         ATENDIME.CD_ATENDIMENTO            =  ITREG_AMB.CD_ATENDIMENTO
+AND        REG_AMB.CD_REG_AMB                      =  ITREG_AMB.CD_REG_AMB
+AND        ATENDIME.CD_ORI_ATE                      =  ORI_ATE.CD_ORI_ATE
+AND        ITREG_AMB.CD_CONVENIO                  =  ITAGRUPAMENTO.CD_CONVENIO
+AND        CONVENIO.CD_CONVENIO                   =  ITAGRUPAMENTO.CD_CONVENIO
+AND        ORI_ATE.CD_ORI_ATE                          =  ITAGRUPAMENTO.CD_ORI_ATE
+AND        AGRUPAMENTO.CD_AGRUPAMENTO =  ITAGRUPAMENTO.CD_AGRUPAMENTO
+AND        REG_AMB.CD_REMESSA                      =  REMESSA_FATURA.CD_REMESSA
+AND        REMESSA_FATURA.CD_FATURA         =  FATURA.CD_FATURA
+AND        ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND        NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+:CAMPO_CF_COND_REMESSA
+)
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CAPA_R_SERVICOS_Q_SERVICOS
+SELECT DECODE('','F','',cd_remessa) cd_remessa
+      ,cd_gru_fat
+      ,ds_gru_fat
+      ,tp_gru_fat
+      ,cd_sequencia
+      ,sum(vl_total_conta) vl_total_conta
+  FROM (
+Select  reg_fat.cd_remessa              cd_remessa
+      , gru_fat.cd_gru_fat              cd_gru_fat
+      , gru_fat.ds_gru_fat              ds_gru_fat
+      , gru_fat.tp_gru_fat              tp_gru_fat
+      , itfor_apre.cd_sequencia         cd_sequencia
+      , sum( nvl(itlan_med.vl_liquido, nvl(itreg_fat.vl_total_conta, 0)) ) vl_total_conta
+   From dbamv.reg_fat          reg_fat
+      , dbamv.itreg_fat        itreg_fat
+      , dbamv.gru_fat          gru_fat
+      , dbamv.convenio         convenio
+      , dbamv.for_apre         for_apre
+      , dbamv.itfor_apre       itfor_apre
+      , dbamv.empresa_convenio
+      , dbamv.itlan_med
+      , dbamv.remessa_fatura
+      , dbamv.fatura
+      , dbamv.atendime
+  Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+    And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and reg_fat.cd_reg_fat  =  itreg_fat.cd_reg_fat
+    and atendime.cd_atendimento	= reg_fat.cd_atendimento
+    and itreg_fat.cd_gru_fat     = gru_Fat.cd_gru_fat
+    and nvl(itreg_fat.sn_pertence_pacote, 'N') = 'N'
+    and reg_fat.cd_convenio  =  convenio.cd_convenio
+    and convenio.cd_for_apre  =  for_apre.cd_for_apre
+    and for_apre.cd_for_apre  =  itfor_apre.cd_for_apre
+    and gru_fat.cd_gru_fat = itfor_apre.cd_gru_fat
+    and itlan_med.cd_reg_fat(+)    = itreg_fat.cd_reg_fat
+    and itlan_med.cd_lancamento(+) = itreg_fat.cd_lancamento
+    and nvl(itlan_med.tp_pagamento, nvl(itreg_fat.tp_pagamento,'X')) <> 'C'
+    and fatura.cd_fatura   = remessa_fatura.cd_fatura
+    and reg_fat.cd_remessa = remessa_fatura.cd_remessa
+  Group by reg_fat.cd_remessa
+      , gru_fat.cd_gru_fat
+      , gru_fat.ds_gru_fat
+      , gru_fat.tp_gru_fat
+      , itfor_apre.cd_sequencia
+  Union all
+ Select reg_amb.cd_remessa               cd_remessa
+      , gru_fat.cd_gru_fat               cd_gru_fat
+      , gru_fat.ds_gru_fat               ds_gru_fat
+      , gru_fat.tp_gru_fat               tp_gru_fat
+      , itfor_apre.cd_sequencia          cd_sequencia
+      , sum( nvl(itreg_amb.vl_total_conta, 0) )  vl_total_conta
+   From dbamv.itreg_amb        itreg_amb
+      , dbamv.reg_amb          reg_amb
+      , dbamv.gru_fat          gru_fat
+      , dbamv.convenio         convenio
+      , dbamv.for_apre         for_apre
+      , dbamv.itfor_apre       itfor_apre
+      , dbamv.empresa_convenio
+      , dbamv.remessa_fatura
+      , dbamv.fatura
+      , dbamv.atendime
+  Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+    And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and itreg_amb.sn_pertence_pacote  =  'N'
+    and nvl(itreg_amb.tp_pagamento,'X') <> 'C'
+    and itreg_amb.cd_reg_amb  =  reg_amb.cd_reg_amb
+	and itreg_amb.cd_atendimento = atendime.cd_atendimento
+    AND REG_amb.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+    and itreg_amb.cd_gru_fat  =  gru_fat.cd_gru_fat
+    and reg_amb.cd_convenio  =  convenio.cd_convenio
+    and convenio.cd_for_apre = for_apre.cd_for_apre
+    and for_apre.cd_for_apre  =  itfor_apre.cd_for_apre
+    and gru_fat.cd_gru_fat  =  itfor_apre.cd_gru_fat
+    and fatura.cd_fatura   = remessa_fatura.cd_fatura
+    and reg_amb.cd_remessa = remessa_fatura.cd_remessa
+  Group by  reg_amb.cd_remessa
+          , gru_fat.cd_gru_fat
+          , gru_fat.ds_gru_fat
+          , gru_fat.tp_gru_fat
+          , itfor_apre.cd_sequencia
+  order by cd_sequencia
+)
+GROUP BY DECODE('','F','',cd_remessa)
+      ,cd_gru_fat
+      ,ds_gru_fat
+      ,tp_gru_fat
+      ,cd_sequencia
+ORDER BY CD_GRU_FAT,DS_GRU_FAT,TP_GRU_FAT

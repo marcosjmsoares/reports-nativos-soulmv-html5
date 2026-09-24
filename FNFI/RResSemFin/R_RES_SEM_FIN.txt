@@ -1,0 +1,62 @@
+/*----------------------------------------------------------------------------*/
+--R_RES_SEM_FIN
+select * from (
+SELECT
+               DISTINCT NVL(DS_CONTA,'NÃO INFORMADO')   DS_CONTA
+              ,TIPO
+              ,SUM(QT_01) QT_01
+              ,SUM(QT_02) QT_02
+              ,SUM(QT_03) QT_03
+              ,SUM(QT_04) QT_04
+              ,SUM(QT_05) QT_05
+              ,SUM(QT_06) QT_06
+              ,( SUM(QT_01) + SUM(QT_02) + SUM(QT_03) + SUM(QT_04) + SUM(QT_05) + SUM(QT_06) )   QT_TOTAL
+FROM ( SELECT V.DS_CONTA DS_CONTA
+                   ,'R' TIPO
+                   , (DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_01, NVL(V.VL_ENTRADA,0), 0))   QT_01
+                   , (DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_02, NVL(V.VL_ENTRADA,0), 0))   QT_02
+                   , (DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_03, NVL(V.VL_ENTRADA,0), 0))   QT_03
+                   , (DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_04, NVL(V.VL_ENTRADA,0), 0))   QT_04
+                   , (DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_05, NVL(V.VL_ENTRADA,0), 0))   QT_05
+                   , (DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_06, NVL(V.VL_ENTRADA,0), 0))   QT_06
+                   ,V.DATA DATA
+             FROM DBAMV.V_CUSTO_CONTA V
+             WHERE VL_ENTRADA  > 0
+             AND V.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+             AND  TO_CHAR(V.DATA,'YYYY/MM') BETWEEN :CAMPO_MES_INI AND 
+             AND
+              (
+                          :CAMPO_CONTA  =  '%'
+                          Or
+                          EXISTS (select cd_reduzido
+                                        from dbamv.forn_conta f
+                                     where f.cd_reduzido = v.cd_conta
+                                     :CAMPO_COND_CONTA)
+             )
+            UNION ALL
+            SELECT V.DS_CONTA DS_CONTA
+                   ,'D' TIPO
+                   ,(DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_01, NVL(V.VL_SAIDA,0), 0))   QT_01
+                   ,(DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_02, NVL(V.VL_SAIDA,0), 0))   QT_02
+                   ,(DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_03, NVL(V.VL_SAIDA,0), 0))   QT_03
+                   ,(DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_04, NVL(V.VL_SAIDA,0), 0))   QT_04
+                   ,(DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_05, NVL(V.VL_SAIDA,0), 0))   QT_05
+                   ,(DECODE(TO_CHAR(V.DATA,'MM/YYYY'), :CAMPO_MES_06, NVL(V.VL_SAIDA,0), 0))   QT_06
+                   ,V.DATA                DATA
+            FROM DBAMV.V_CUSTO_CONTA V
+            WHERE VL_SAIDA > 0
+            AND V.CD_MULTI_EMPRESA =  :CAMPO_CD_MULTI_EMPRESA
+            AND  TO_CHAR(V.DATA,'YYYY/MM') BETWEEN :CAMPO_MES_INI AND 
+             AND
+              (
+                          :CAMPO_CONTA  =  '%'
+                          Or
+                          EXISTS (select cd_reduzido
+                                        from dbamv.forn_conta f
+                                     where f.cd_reduzido = v.cd_conta
+                                     :CAMPO_COND_CONTA)
+             )
+           )
+GROUP BY DS_CONTA, TIPO
+ORDER BY TIPO DESC , QT_TOTAL DESC
+) order by  tipo, TIPO DESC , QT_TOTAL DESC

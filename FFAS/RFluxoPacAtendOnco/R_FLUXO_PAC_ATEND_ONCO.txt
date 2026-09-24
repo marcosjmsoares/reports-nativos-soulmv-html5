@@ -1,0 +1,37 @@
+/*----------------------------------------------------------------------------*/
+--R_FLUXO_PAC_ATEND_ONCO
+SELECT PACIENTE.cd_paciente,
+       ' '||dbamv.pkg_sus_regra_paciente.F_NOME_PACIENTE(PACIENTE.CD_PACIENTE)  nm_paciente,
+       ' '||PACIENTE.ds_endereco||decode(paciente.ds_complemento,null,null,', '||paciente.ds_complemento) ds_endereco,
+       PACIENTE.NR_CEP nr_cep,
+       CIDADE.CD_CIDADE,
+       ' '||CIDADE.nm_cidade nm_cidade,
+       cidade.cd_uf,
+       'X' TRAT,
+       decode(sum(DECODE(APAC.CD_TIP_ATE,29,1,0)),0,null,'X') QUIMIOTERAPIA,
+       decode(sum(DECODE(APAC.CD_TIP_ATE,28,1,0)),0,null,'X') RADIOTERAPIA,
+       MOTIVO_COBRANCA.DS_MOTIVO_COBRANCA || decode(apac.dt_ocorrencia,null,null,' - '||to_char(apac.dt_ocorrencia,'dd/mm/yyyy')) DS_PADRAO
+  FROM DBAMV.APAC ,
+       DBAMV.PACIENTE ,
+       DBAMV.TIP_ATE ,
+       DBAMV.FAT_SIA ,
+       DBAMV.EVE_SIASUS,
+       DBAMV.CIDADE,
+       DBAMV.MOTIVO_COBRANCA
+ WHERE APAC.CD_APAC = EVE_SIASUS.CD_APAC
+   AND EVE_SIASUS.SN_APAC_PRINCIPAL = 'S'
+   AND APAC.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+   AND APAC.CD_TIP_ATE = TIP_ATE.CD_TIP_ATE
+   AND APAC.CD_PACIENTE = PACIENTE.CD_PACIENTE
+   AND APAC.CD_TIP_ATE IN (28,29)
+   AND CIDADE.CD_CIDADE(+) = PACIENTE.CD_CIDADE
+   AND MOTIVO_COBRANCA.cd_motivo_cobranca = APAC.cd_motivo_cobranca_p321
+group by PACIENTE.cd_paciente,
+       ' '||PACIENTE.nm_paciente,
+       ' '||PACIENTE.ds_endereco||decode(paciente.ds_complemento,null,null,', '||paciente.ds_complemento),
+       PACIENTE.NR_CEP,
+       CIDADE.CD_CIDADE,
+       ' '||CIDADE.nm_cidade,
+       cidade.cd_uf,
+       'X',
+       MOTIVO_COBRANCA.DS_MOTIVO_COBRANCA || decode(apac.dt_ocorrencia,null,null,' - '||to_char(apac.dt_ocorrencia,'dd/mm/yyyy'))

@@ -1,0 +1,63 @@
+/*----------------------------------------------------------------------------*/
+--R_DOC_SIMPL
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_DOC_SIMPL_R_BITMAP1_Q_BORDERO1
+SELECT * FROM (
+select unique  bordero.nr_identificacao              nr_identificacao
+          ,con_cor.cd_banco                       cd_banco
+          ,banco.nm_banco                         nm_banco
+          ,con_cor.cd_agencia                    cd_agencia
+          ,con_cor.ds_agencia                     ds_agencia
+          ,con_cor.nr_conta                         nr_conta
+          ,pagcon_pag.cd_pagcon_pag      cd_pagcon_pag
+          ,pagcon_pag.vl_pago                    vl_pago
+          ,pagcon_pag.dt_pagamento          dt_pagamento
+          ,con_pag.cd_fornecedor           cd_fornecedor
+          ,decode(con_pag.cd_fornecedor,'',con_pag.ds_fornecedor,fornecedor.nm_fornecedor) nm_fornecedor
+        ,decode(con_pag.cd_fornecedor,'','', decode(tp_fornecedor, 'J', substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),1,2)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),3,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),6,3)||'/'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),9,4)||'-'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),13,2),
+                                                                   'F', substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),4,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),7,3)||'.'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),10,3)||'-'||
+                                                                        substr(lpad(nvl(nr_cgc_cpf, '0'),14, '0'),13,2)) )  nr_cgc_cpf
+          ,con_pag.nr_documento                nr_documento
+          ,itcon_pag.vl_duplicata                    vl_duplicata
+          ,pagcon_pag.cd_banco_forn         cd_banco_forn
+          ,banco_f.nm_banco                       nm_banco_forn
+          ,pagcon_pag.cd_agencia_forn||' - '||pagcon_pag.ds_agencia_forn     cd_agencia_forn
+          ,pagcon_pag.nr_conta_forn          nr_conta_forn
+          ,pagcon_pag.vl_desconto                                 valor_desconto
+          ,pagcon_pag.vl_acrescimo                                valor_acrescimo
+         ,con_pag.cd_atendimento                                 atendimento
+from dbamv.bordero                   bordero
+       ,dbamv.con_cor                  con_cor
+       ,dbamv.banco                     banco
+       ,dbamv.pagcon_pag           pagcon_pag
+       ,dbamv.itcon_pag               itcon_pag
+       ,dbamv.con_pag                 con_pag
+       ,dbamv.fornecedor              fornecedor
+       ,dbamv.banco                     banco_f
+       ,dbamv.mov_concor           mov_concor
+where bordero.cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+        and mov_concor.cd_bordero          =   bordero.cd_bordero
+        and mov_concor.cd_con_cor         =   con_cor.cd_con_cor
+        and con_cor.cd_banco                   =   banco.cd_banco
+	and con_cor.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA 
+        and pagcon_pag.cd_bordero          =   bordero.cd_bordero
+        and pagcon_pag.cd_itcon_pag      =   itcon_pag.cd_itcon_pag
+        and itcon_pag.cd_con_pag_agrup is null
+        and itcon_pag.cd_con_pag            =   con_pag.cd_con_pag
+        and con_pag.cd_fornecedor           =   fornecedor.cd_fornecedor(+)
+        and pagcon_pag.cd_banco_forn    =   banco_f.cd_banco(+)
+        and pagcon_pag.cd_con_cor         =   mov_concor.cd_con_cor
+        and pagcon_pag.tp_pagamento in ('2','8')
+        and pagcon_pag.dt_estorno is null
+:CAMPO_CF_CD_ORDEM
+)

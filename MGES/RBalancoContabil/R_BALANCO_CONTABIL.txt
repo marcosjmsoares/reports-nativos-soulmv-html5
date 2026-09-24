@@ -1,0 +1,103 @@
+/*----------------------------------------------------------------------------*/
+--R_BALANCO_CONTABIL
+SELECT * FROM (
+SELECT   CD_MULTI_EMPRESA,
+     DS_ESPECIE ,
+     SUM( QT_ESTOQUE_INICIAL )			QT_ESTOQUE_INICIAL,
+     SUM( QT_ESTOQUE_INICIAL_SEM_TRANSF )	QT_ESTOQUE_INICIAL_SEM_TRANSF,
+     SUM( QT_ESTOQUE_FINAL )			QT_ESTOQUE_FINAL,
+     SUM( QT_ESTOQUE_FINAL_SEM_TRANSF )		QT_ESTOQUE_FINAL_SEM_TRANSF,
+     SUM( QT_ENTRADA )				QT_ENTRADA,
+     SUM( QT_ENTRADA_TRANSFERIDO )		QT_ENTRADA_TRANSFERIDO,
+     SUM( QT_SAIDA_SETOR )			QT_SAIDA_SETOR,
+     SUM( QT_SAIDA_PACIENTE )			QT_SAIDA_PACIENTE,
+     SUM( QT_BAIXA )				QT_BAIXA,
+     SUM( QT_VENDA )				QT_VENDA,
+     SUM( QT_EMPRESTIMO )			QT_EMPRESTIMO,
+     SUM( QT_EMPRESTIMO_entrada )			QT_EMPRESTIMO_entrada,
+     SUM( QT_ENT_EMPRESTIMO_RECEB )		QT_ENT_EMPRESTIMO_RECEB,
+     SUM( QT_SAI_PAG_EMPRESTIMO )		QT_SAI_PAG_EMPRESTIMO,
+     SUM( QT_ENT_PAG_EMPRESTIMO )		QT_ENT_PAG_EMPRESTIMO,
+     SUM( QT_SAI_EMPRESTIMO_CON )		QT_SAI_EMPRESTIMO_CON,
+     SUM( QT_DEVOLUCAO_SETOR )			QT_DEVOLUCAO_SETOR,
+     SUM( QT_DEVOLUCAO_PACIENTE )		QT_DEVOLUCAO_PACIENTE,
+     SUM( QT_DEVOLUCAO_VENDA )			QT_DEVOLUCAO_VENDA,
+     SUM( QT_DEMANDA )				QT_DEMANDA,
+     SUM( QT_TRANSFERENCIA_SAIDA )		QT_TRANSFERENCIA_SAIDA,
+     SUM( QT_DOACAO )				QT_DOACAO,
+     SUM( QT_BONIFICACAO)				QT_BONIFICACAO,
+     SUM( QT_MANIPULADA_ENTRADA )		QT_MANIPULADA_ENTRADA,
+     SUM( QT_MANIPULADA_SAIDA )			QT_MANIPULADA_SAIDA,
+     SUM( Decode(:CAMPO_TP_CONTAGEM,'M',nvl(qt_contagem_entrada,0),Decode( Sign( nvl(QT_CONTAGEM_ENTRADA,0) - nvl(QT_CONTAGEM_SAIDA,0) ), 1, nvl(QT_CONTAGEM_ENTRADA,0) - nvl(QT_CONTAGEM_SAIDA,0), 0 ) ))			QT_CONTAGEM_ENTRADA,
+     SUM(Decode(:CAMPO_TP_CONTAGEM,'M',nvl(qt_contagem_saida,0), Decode( Sign( nvl(QT_CONTAGEM_SAIDA,0) - nvl(QT_CONTAGEM_ENTRADA,0) ), 1, nvl(QT_CONTAGEM_SAIDA,0) - nvl(QT_CONTAGEM_ENTRADA,0), 0 ) ))			QT_CONTAGEM_SAIDA,
+     SUM( QT_DEVOLVIDA_FORNEC )			QT_DEVOLVIDA_FORNEC,
+     SUM( QT_VALE )				QT_VALE,
+     SUM( QT_TRANSF_EMP_SAI )			QT_TRANSF_EMP_SAI,
+     SUM( QT_TRANSF_EMP_ENT )			QT_TRANSF_EMP_ENT,
+     SUM( Decode( Sign( nvl(QT_ENTRADA_AJUSTE,0) - nvl(QT_SAIDA_AJUSTE,0) ), 1, nvl(QT_ENTRADA_AJUSTE,0) - nvl(QT_SAIDA_AJUSTE,0), 0 ) ) QT_ENTRADA_AJUSTE,
+     SUM( Decode( Sign( nvl(QT_SAIDA_AJUSTE,0) - nvl(QT_ENTRADA_AJUSTE,0) ), 1, nvl(QT_SAIDA_AJUSTE,0) - nvl(QT_ENTRADA_AJUSTE,0), 0 ) ) QT_SAIDA_AJUSTE,
+     SUM(QT_NF_NAO_COBRADA)                                        QT_NF_NAO_COBRADA,
+	 SUM( nvl(QT_ACERTO_DE_ESTOQUE,0))                                        QT_ACERTO_DE_ESTOQUE
+FROM(
+SELECT   ESTOQUE.CD_MULTI_EMPRESA
+     ,C_CONEST.CD_PRODUTO
+      , (ESPECIE.CD_ESPECIE || ' - ' || ESPECIE.DS_ESPECIE) DS_ESPECIE,
+     SUM(Decode(to_date(c_conest.cd_mes || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), to_date(:CAMPO_DT_INICIO || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), decode(produto.sn_consignado, 'S', C_CONEST.vl_ESTOQUE_INICIAL_consig, C_CONEST.vl_ESTOQUE_INICIAL), 0))                                 QT_ESTOQUE_INICIAL,
+     SUM(Decode(to_date(c_conest.cd_mes || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), to_date(:CAMPO_DT_INICIO || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), decode(produto.sn_consignado, 'S', C_CONEST.vl_ESTOQUE_INICIAL_consig, C_CONEST.vl_ESTOQUE_INICIAL_SEM_TRANSF), 0))       QT_ESTOQUE_INICIAL_SEM_TRANSF,
+     SUM(Decode(to_date(c_conest.cd_mes || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), to_date(:CAMPO_DT_FIM || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), decode(produto.sn_consignado, 'S', C_CONEST.vl_ESTOQUE_FINAL_consig, C_CONEST.vl_ESTOQUE_FINAL), 0))                                      QT_ESTOQUE_FINAL,
+     SUM(Decode(to_date(c_conest.cd_mes || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), to_date(:CAMPO_DT_FIM || '/' || :CAMPO_DT_ANO, 'MM/YYYY'), decode(produto.sn_consignado, 'S', C_CONEST.vl_ESTOQUE_FINAL_consig, C_CONEST.vl_ESTOQUE_FINAL_SEM_TRANSF), 0))	          QT_ESTOQUE_FINAL_SEM_TRANSF,
+     SUM(C_CONEST.vl_ENTRADA)		 	                                                                                                                                          QT_ENTRADA,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_ENTRADA_TRANSFERIDO))	                                                                          QT_ENTRADA_TRANSFERIDO,
+     SUM(C_CONEST.vl_SAIDA_SETOR)		                                                                                                                                          QT_SAIDA_SETOR,
+     SUM(C_CONEST.vl_SAIDA_PACIENTE)		                                                                                                                                          QT_SAIDA_PACIENTE,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_BAIXA)) 			                                                                          QT_BAIXA,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_VENDA))			                                                                          QT_VENDA,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_EMPRESTIMO))			                                                                          QT_EMPRESTIMO,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_EMPRESTIMO_entrada))                	                                                                          QT_EMPRESTIMO_entrada,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_entrada_emprestimo_recebido))                                                                                    QT_ENT_EMPRESTIMO_RECEB,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_saida_pag_emprestimo))                                                                                                QT_SAI_PAG_EMPRESTIMO,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_entrada_pag_emprestimo))                                                                                            QT_ENT_PAG_EMPRESTIMO,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_saida_emprestimo_concedido))                                                                                     QT_SAI_EMPRESTIMO_CON,
+     SUM(C_CONEST.vl_DEVOLUCAO_SETOR)		                                                                                                                                          QT_DEVOLUCAO_SETOR,
+     SUM(C_CONEST.vl_DEVOLUCAO_PACIENTE)	                                                                                                                                          QT_DEVOLUCAO_PACIENTE,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_DEVOLUCAO_venda))	                                                                                          QT_DEVOLUCAO_VENDA,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_DEMANDA))			                                                                          QT_DEMANDA,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_TRANSFERENCIA_SAIDA))	                                                                          QT_TRANSFERENCIA_SAIDA,
+     SUM(NVL(vl_DOACAO,0))			                                                                          QT_DOACAO,
+     SUM(NVL(vl_BONIFICACAO,0))			                                                                          QT_BONIFICACAO,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_MANIPULADA_ENTRADA))	                                                                          QT_MANIPULADA_ENTRADA,
+     SUM(decode(produto.sn_consignado, 'S', 0, C_CONEST.vl_MANIPULADA_SAIDA))		                                                                          QT_MANIPULADA_SAIDA,
+     nvl(SUM(decode(produto.sn_consignado, 'S', 0, nvl(C_CONEST.vl_CONTAGEM_ENTRADA,0))),0)	                                                                          QT_CONTAGEM_ENTRADA,
+     nvl(SUM(decode(produto.sn_consignado, 'S', 0, nvl(C_CONEST.vl_CONTAGEM_SAIDA,0))),0)	                                                                          QT_CONTAGEM_SAIDA,
+     SUM(C_CONEST.vl_DEVOLVIDA_FORNEC)	 	                                                                                                                                          QT_DEVOLVIDA_FORNEC,
+     SUM(nvl(C_CONEST.vl_VALE,0))		                                                                                                                                                          QT_VALE,
+     SUM(nvl(c_conest.vl_transf_emp_sai,0))                                                                                                                                                                     QT_TRANSF_EMP_SAI,
+     SUM(nvl(c_conest.vl_transf_emp_ent,0))                                                                                                                                                                    QT_TRANSF_EMP_ENT,
+     SUM(decode ( dbamv.fnc_mges_retorna_processo ( to_date(C_CONEST.CD_MES
+      ||'/'
+      || :CAMPO_DT_ANO ,'MM/YYYY') ),'S', NVL(C_CONEST.VL_entrada_AJUSTE_CONTABIL,0),
+               decode(:CAMPO_ESTOQUE,'%',nvl(c_conest.vl_entrada_ajuste_contabil_sem,0), NVL(C_CONEST.VL_ENTRADA_AJUSTE_CONTABIL,0)))	 	                                 )                                                QT_ENTRADA_AJUSTE,
+     SUM( decode ( dbamv.fnc_mges_retorna_processo ( to_date(C_CONEST.CD_MES
+      ||'/'
+      || :CAMPO_DT_ANO ,'MM/YYYY') ),'S',NVL(C_CONEST.VL_SAIDA_AJUSTE_CONTABIL,0),
+              decode(:CAMPO_ESTOQUE,'%',nvl(c_conest.vl_saida_ajuste_contabil_sem,0), NVL(C_CONEST.VL_SAIDA_AJUSTE_CONTABIL,0)))	) 	                                                                                                                          QT_SAIDA_AJUSTE,
+     SUM(Nvl(C_CONEST.vl_nota_fiscal_nao_cobrada,0))                                                                                 QT_NF_NAO_COBRADA,
+	 	 Sum(Nvl(C_CONEST.VL_ACERTO_ENTRADA, 0)) As QT_ACERTO_DE_ESTOQUE
+FROM DBAMV.C_CONEST,
+     DBAMV.PRODUTO,
+     DBAMV.ESPECIE,
+     DBAMV.ESTOQUE
+     ,DBAMV.TIP_ATIV
+WHERE C_CONEST.CD_PRODUTO = PRODUTO.CD_PRODUTO
+  AND ESPECIE.CD_ESPECIE  = PRODUTO.CD_ESPECIE
+  AND  PRODUTO.SN_MESTRE           = 'N'
+  AND PRODUTO.CD_TIP_ATIV = TIP_ATIV.CD_TIP_ATIV(+)
+  AND ESTOQUE.CD_ESTOQUE   = C_CONEST.CD_ESTOQUE
+  AND C_CONEST.CD_MES   BETWEEN :CAMPO_DT_INICIO AND 
+  AND C_CONEST.CD_ANO     = :CAMPO_DT_ANO
+GROUP BY ESTOQUE.CD_MULTI_EMPRESA, C_CONEST.CD_PRODUTO, ESPECIE.CD_ESPECIE, ESPECIE.DS_ESPECIE
+)
+Group By CD_MULTI_EMPRESA, DS_ESPECIE
+ORDER BY DS_ESPECIE
+)
+ORDER BY CD_MULTI_EMPRESA, DS_ESPECIE,QT_ESTOQUE_INICIAL,QT_ESTOQUE_INICIAL_SEM_TRANSF,QT_ESTOQUE_FINAL,QT_ESTOQUE_FINAL_SEM_TRANSF

@@ -1,0 +1,82 @@
+/*----------------------------------------------------------------------------*/
+--R_CIR_A_REALIZAR
+SELECT * FROM
+  (SELECT TRUNC(AGE_CIR.DT_INICIO_AGE_CIR) DT_AGENDA ,
+          TO_CHAR(AGE_CIR.DT_INICIO_AGE_CIR, 'HH24') HR_REALIZA ,
+          AVISO.CD_AVISO_CIRURGIA CD_AVISO_CIRURGIA ,
+          NVL(PACIENTE.NM_PACIENTE, AVISO.NM_PACIENTE) NM_PACIENTE ,
+          PACIENTE.CD_PACIENTE,
+      (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  P.CD_PACIENTE) NM_SOCIAL_PACIENTE ,
+          SAL_CIR.CD_SAL_CIR CD_SAL_CIR ,
+          SAL_CIR.DS_SAL_CIR DS_SAL_CIR ,
+          CEN_CIR.CD_CEN_CIR CD_CEN_CIR ,
+          CEN_CIR.DS_CEN_CIR DS_CEN_CIR ,
+          AVISO.DS_OBS_AVISO DS_OBS_AVISO
+   FROM DBAMV.AVISO_CIRURGIA AVISO ,
+        DBAMV.SAL_CIR ,
+        DBAMV.CEN_CIR ,
+        DBAMV.AGE_CIR ,
+        DBAMV.PACIENTE ,
+        DBAMV.SETOR
+   WHERE AGE_CIR.DT_INICIO_AGE_CIR BETWEEN To_Date(Concat(To_Char(:CAMPO_DT_INICIO,'dd/mm/yyyy'), '00'), 'dd/mm/yyyy hh24') AND To_Date(Concat(To_Char(:CAMPO_DT_FIM,'dd/mm/yyyy'), '23'), 'dd/mm/yyyy hh24')
+     AND AVISO.CD_AVISO_CIRURGIA = AGE_CIR.CD_AVISO_CIRURGIA
+     AND AVISO.CD_PACIENTE = PACIENTE.CD_PACIENTE(+)
+     AND AVISO.CD_SAL_CIR = SAL_CIR.CD_SAL_CIR
+     AND SAL_CIR.CD_SETOR = SETOR.CD_SETOR
+     AND SETOR.CD_MULTI_EMPRESA = DBAMV.pkg_mv2000.le_empresa
+     AND AVISO.CD_CEN_CIR = CEN_CIR.CD_CEN_CIR
+     AND AVISO.TP_SITUACAO IN ('A',
+                               'G')  
+   GROUP BY TRUNC(AGE_CIR.DT_INICIO_AGE_CIR) ,
+            TO_CHAR(AGE_CIR.DT_INICIO_AGE_CIR, 'HH24') ,
+            AVISO.CD_AVISO_CIRURGIA ,
+            NVL(PACIENTE.NM_PACIENTE, AVISO.NM_PACIENTE) ,
+            PACIENTE.CD_PACIENTE ,
+            PACIENTE.NM_SOCIAL_PACIENTE ,
+            SAL_CIR.CD_SAL_CIR ,
+            SAL_CIR.DS_SAL_CIR ,
+            CEN_CIR.CD_CEN_CIR ,
+            CEN_CIR.DS_CEN_CIR ,
+            AVISO.DS_OBS_AVISO
+   ORDER BY DS_CEN_CIR :CAMPO_CF_ORDEM)
+ORDER BY DS_CEN_CIR,
+         CD_CEN_CIR,
+         DS_CEN_CIR
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CIR_A_REALIZAR_R_CIRURGIA_Q_CIRURGIA
+SELECT * FROM (
+SELECT AVISO.CD_AVISO_CIRURGIA                                              CD_AVISO_CIRURGIA
+              ,CIR_AVI.CD_CIRURGIA                                                       CD_CIRURGIA
+              ,CIR_AVI.DS_OBSERVACAO                                                AGE_OBS
+             ,DECODE( CIR_AVI.DS_NPADRONIZADO, NULL, CIRURGIA.DS_CIRURGIA, ('N.P.' || CIR_AVI.DS_NPADRONIZADO))   DS_CIRURGIA
+              ,CONVENIO.NM_CONVENIO                  NM_CONVENIO
+	      ,
+        Nvl((SELECT prestador.nm_prestador
+          FROM
+                DBAMV.PRESTADOR
+               ,DBAMV.PRESTADOR_AVISO
+               ,dbamv.ATI_MED
+          WHERE
+                AVISO.CD_AVISO_CIRURGIA = PRESTADOR_AVISO.CD_AVISO_CIRURGIA
+                AND PRESTADOR_AVISO.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+                AND PRESTADOR_AVISO.CD_ATI_MED = ATI_MED.CD_ATI_MED
+                AND (
+		                  (ATI_MED.TP_FUNCAO = 'C' AND PRESTADOR_AVISO.SN_PRINCIPAL = 'S') or
+  		                (ATI_MED.TP_FUNCAO = 'C' AND nvl(PRESTADOR_AVISO.SN_PRINCIPAL,'N') <> 'S')
+	                  )
+                AND 	   prestador_aviso.cd_cirurgia = cir_avi.cd_cirurgia
+                AND ROWNUM = 1
+             ),'PRESTADOR NÃO INFORMADO') nm_prestador
+FROM     DBAMV.AVISO_CIRURGIA                AVISO
+               ,DBAMV.CIRURGIA_AVISO                CIR_AVI
+               ,DBAMV.CIRURGIA
+               ,DBAMV.CONVENIO
+WHERE      AVISO.CD_AVISO_CIRURGIA = CIR_AVI.CD_AVISO_CIRURGIA
+AND        AVISO.CD_MULTI_EMPRESA  = DBAMV.pkg_mv2000.le_empresa
+AND        CIR_AVI.CD_CIRURGIA     = CIRURGIA.CD_CIRURGIA
+AND        CONVENIO.CD_CONVENIO    = CIR_AVI.CD_CONVENIO
+)
+WHERE CD_AVISO_CIRURGIA = :CAMPO_CD_AVISO_CIRURGIA

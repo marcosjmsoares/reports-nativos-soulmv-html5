@@ -1,0 +1,138 @@
+/*----------------------------------------------------------------------------*/
+--R_VAL_PROC_RUT
+SELECT val_proc_orcamento.cd_val_proc_orcamento,
+       val_proc_orcamento.cd_paciente,
+       val_proc_orcamento.nm_paciente,
+       decode( val_proc_orcamento.tp_atendimento, 'I', 'Internação', 'A', 'Ambulatorial', 'E', 'Externo', 'U', 'Urgência' ) tp_atendimento,
+       val_proc_orcamento.tp_atendimento tipo_atendimento,
+       val_proc_orcamento.cd_identificador_pessoa rut,
+       val_proc_orcamento.cd_convenio,
+       convenio.nm_convenio,
+       val_proc_orcamento.cd_con_pla,
+       con_pla.ds_con_pla,
+       val_proc_orcamento.cd_prestador,
+       prestador.nm_prestador,
+       val_proc_orcamento.nr_telefone,
+       val_proc_orcamento.forma_pagamento,
+       val_proc_orcamento.dt_validade_orcamento,
+       val_proc_orcamento.email,
+       val_proc_orcamento.cd_tip_acom,
+       tip_acom.ds_tip_acom
+FROM dbamv.val_proc_orcamento,
+     dbamv.convenio,
+     dbamv.con_pla,
+     dbamv.prestador,
+     dbamv.empresa_con_pla,
+     dbamv.tip_acom
+WHERE val_proc_orcamento.cd_convenio = convenio.cd_convenio
+AND val_proc_orcamento.cd_con_pla = con_pla.cd_con_pla
+AND con_pla.cd_convenio = convenio.cd_convenio
+AND prestador.cd_prestador(+) = val_proc_orcamento.cd_prestador
+AND tip_acom.cd_tip_acom(+) = val_proc_orcamento.cd_tip_acom
+AND empresa_con_pla.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND empresa_con_pla.cd_convenio = val_proc_orcamento.cd_convenio
+AND empresa_con_pla.cd_con_pla = val_proc_orcamento.cd_con_pla
+AND val_proc_orcamento.CD_VAL_PROC_ORCAMENTO = :CAMPO_CD_VAL_PROC_ORCAMENTO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_VAL_PROC_RUT_TAB_CONCORRENCIA
+SELECT
+    PRO_FAT.cd_pro_fat,
+    (gru_pro.cd_gru_pro || ' ' || gru_pro.ds_gru_pro) ds_gru_pro,
+    val_proc_orcamento.tp_atendimento,
+    TABELA_CONCORRENCIA_GRU_PRO.dipreca dipreca_config,
+    Sum(((itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) * TABELA_CONCORRENCIA_GRU_PRO.dipreca) / 100) dipreca_percent ,
+    TABELA_CONCORRENCIA_GRU_PRO.secosa secosa_config,
+    Sum(((itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) * TABELA_CONCORRENCIA_GRU_PRO.secosa) / 100) secosa_percent ,
+    TABELA_CONCORRENCIA_GRU_PRO.funcion funcion_config,
+    Sum(((itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) * TABELA_CONCORRENCIA_GRU_PRO.funcion) / 100) funcion_percent ,
+    Sum(itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) vl_total_conta
+FROM dbamv.tabela_concorrencia_gru_pro,
+     dbamv.val_proc_orcamento,
+     dbamv.itval_proc_orcamento,
+     dbamv.pro_fat,
+     dbamv.gru_pro
+WHERE  TABELA_CONCORRENCIA_GRU_PRO.CD_CON_PLA = val_proc_orcamento.cd_con_pla
+AND TABELA_CONCORRENCIA_GRU_PRO.CD_CONVENIO = val_proc_orcamento.cd_convenio
+AND pro_fat.cd_pro_fat = itval_proc_orcamento.cd_pro_fat
+AND TABELA_CONCORRENCIA_GRU_PRO.CD_GRU_PRO = pro_fat.cd_gru_pro
+AND  val_proc_orcamento.cd_val_proc_orcamento =  itval_proc_orcamento.cd_val_proc_orcamento
+AND gru_pro.cd_gru_pro = TABELA_CONCORRENCIA_GRU_PRO.CD_GRU_PRO
+AND val_proc_orcamento.cd_convenio = :CAMPO_CD_CONVENIO
+AND val_proc_orcamento.cd_val_proc_orcamento = :CAMPO_CD_VAL_PROC_ORCAMENTO
+AND TABELA_CONCORRENCIA_GRU_PRO.CD_GRU_PRO NOT IN (
+                                                    SELECT pro_fat.cd_gru_pro
+                                                    FROM dbamv.TABELA_CONCORRENCIA_PRO_FAT,
+                                                        dbamv.val_proc_orcamento,
+                                                        dbamv.itval_proc_orcamento,
+                                                        dbamv.pro_fat
+                                                    WHERE  TABELA_CONCORRENCIA_PRO_FAT.CD_CON_PLA = val_proc_orcamento.cd_con_pla
+                                                    AND TABELA_CONCORRENCIA_PRO_FAT.CD_CONVENIO = val_proc_orcamento.cd_convenio
+                                                    AND pro_fat.cd_pro_fat = itval_proc_orcamento.cd_pro_fat
+                                                    AND TABELA_CONCORRENCIA_PRO_FAT.cd_pro_fat = pro_fat.cd_pro_fat
+                                                    AND val_proc_orcamento.cd_val_proc_orcamento =  itval_proc_orcamento.cd_val_proc_orcamento
+                                                    AND val_proc_orcamento.cd_convenio = :CAMPO_CD_CONVENIO
+                                                    AND val_proc_orcamento.cd_val_proc_orcamento = :CAMPO_CD_VAL_PROC_ORCAMENTO
+                                                  )
+AND TABELA_CONCORRENCIA_GRU_PRO.DT_VIGENCIA =
+          (SELECT Max(TP.DT_VIGENCIA)
+          FROM dbamv.TABELA_CONCORRENCIA_GRU_PRO TP
+          WHERE TP.tp_atendimento = :CAMPO_CF_TP_ATENDIME
+            AND TP.cd_con_pla     = val_proc_orcamento.cd_con_pla
+            AND TP.cd_convenio    = val_proc_orcamento.cd_convenio
+            AND TP.cd_pro_fat     = itval_proc_orcamento.cd_pro_fat
+            AND TP.dt_vigencia    <= val_proc_orcamento.dt_referencia
+            )
+GROUP BY pro_fat.cd_pro_fat,
+         gru_pro.cd_gru_pro,
+         gru_pro.ds_gru_pro,
+         val_proc_orcamento.tp_atendimento,
+         TABELA_CONCORRENCIA_GRU_PRO.dipreca,
+         TABELA_CONCORRENCIA_GRU_PRO.secosa,
+         TABELA_CONCORRENCIA_GRU_PRO.funcion
+ORDER BY gru_pro.cd_gru_pro,
+         gru_pro.ds_gru_pro
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_VAL_PROC_RUT_TAB_CONCORRENCIA_PRO_FAT
+SELECT
+    PRO_FAT.cd_pro_fat,
+    (PRO_FAT.cd_pro_fat || ' ' || PRO_FAT.ds_pro_fat) ds_pro_fat,
+    TABELA_CONCORRENCIA_PRO_FAT.dipreca dipreca_config,
+    Sum(((itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) * TABELA_CONCORRENCIA_PRO_FAT.dipreca) / 100) dipreca_percent ,
+    TABELA_CONCORRENCIA_PRO_FAT.secosa secosa_config,
+    Sum(((itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) * TABELA_CONCORRENCIA_PRO_FAT.secosa) / 100) secosa_percent ,
+    TABELA_CONCORRENCIA_PRO_FAT.funcion funcion_config,
+    Sum(((itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) * TABELA_CONCORRENCIA_PRO_FAT.funcion) / 100) funcion_percent ,
+    Sum(itval_proc_orcamento.vl_pro_fat * itval_proc_orcamento.qtde) vl_total_conta
+FROM dbamv.TABELA_CONCORRENCIA_PRO_FAT,
+     dbamv.val_proc_orcamento,
+     dbamv.itval_proc_orcamento,
+     dbamv.pro_fat
+WHERE  TABELA_CONCORRENCIA_PRO_FAT.CD_CON_PLA = val_proc_orcamento.cd_con_pla
+AND TABELA_CONCORRENCIA_PRO_FAT.CD_CONVENIO = val_proc_orcamento.cd_convenio
+AND pro_fat.cd_pro_fat = itval_proc_orcamento.cd_pro_fat
+AND TABELA_CONCORRENCIA_PRO_FAT.cd_pro_fat = pro_fat.cd_pro_fat
+AND  val_proc_orcamento.cd_val_proc_orcamento =  itval_proc_orcamento.cd_val_proc_orcamento
+AND val_proc_orcamento.cd_convenio =:CAMPO_CD_CONVENIO
+AND val_proc_orcamento.cd_val_proc_orcamento = :CAMPO_CD_VAL_PROC_ORCAMENTO
+AND TABELA_CONCORRENCIA_PRO_FAT.DT_VIGENCIA =
+          (SELECT Max(TP.DT_VIGENCIA)
+          FROM dbamv.TABELA_CONCORRENCIA_PRO_FAT TP
+          WHERE TP.cd_con_pla     = val_proc_orcamento.cd_con_pla
+            AND TP.cd_convenio    = val_proc_orcamento.cd_convenio
+            AND TP.cd_pro_fat     = itval_proc_orcamento.cd_pro_fat
+            AND TP.dt_vigencia    <= val_proc_orcamento.dt_referencia
+            :CAMPO_CF_TP_ATENDIME2
+            )
+GROUP BY pro_fat.cd_pro_fat,
+         PRO_FAT.ds_pro_fat,
+         TABELA_CONCORRENCIA_PRO_FAT.dipreca,
+         TABELA_CONCORRENCIA_PRO_FAT.secosa,
+         TABELA_CONCORRENCIA_PRO_FAT.funcion
+ORDER BY pro_fat.cd_pro_fat,
+         PRO_FAT.ds_pro_fat

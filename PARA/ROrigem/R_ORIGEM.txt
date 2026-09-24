@@ -1,0 +1,40 @@
+/*----------------------------------------------------------------------------*/
+--R_ORIGEM
+SELECT * FROM (
+	select ori_ate.cd_ori_ate,
+	       ori_ate.ds_ori_ate,
+	       to_char(atendime.dt_atendimento,'dd/mm/yyyy') dt_atendimento,
+	       atendime.cd_atendimento,
+	       paciente.nm_paciente,
+	       (SELECT PA.NM_SOCIAL_PACIENTE
+          	FROM DBAMV.PACIENTE PA
+          	WHERE PA.CD_PACIENTE = paciente.CD_PACIENTE
+            	AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE,
+	       convenio.cd_convenio,
+	       convenio.nm_convenio,
+	       prestador.cd_prestador,
+	       prestador.nm_prestador,
+	       atendime.cd_tip_mar,
+	       NVL(tip_mar.ds_tip_mar,'SEM TIPO DE ATENDIMENTO')  ds_tip_mar
+	from  dbamv.atendime
+	       ,dbamv.ori_ate
+	       ,dbamv.paciente
+	       ,dbamv.convenio
+	       ,dbamv.prestador
+	       ,dbamv.it_marcacao
+	       ,dbamv.tip_mar
+	WHERE atendime.dt_atendimento between to_date(to_char(:CAMPO_DTINIC,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND
+										  to_date(to_char(:CAMPO_DTFIM,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+	and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+	and ori_ate.cd_ori_ate = atendime.cd_ori_ate
+	and paciente.cd_paciente = atendime.cd_paciente
+	and convenio.cd_convenio = atendime.cd_convenio
+	and prestador.cd_prestador = atendime.cd_prestador
+	and it_marcacao.cd_atendimento(+) = atendime.cd_atendimento
+	and atendime.cd_tip_mar = tip_mar.cd_tip_mar(+)
+	and atendime.tp_atendimento = 'A'
+	and atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+	AND  ORI_ATE.CD_ORI_ATE IN (SELECT CD_ORI_ATE FROM DBAMV.USU_ORIGEM WHERE CD_USUARIO = USER)
+	order by nm_convenio,nm_paciente
+)
+ORDER BY DS_TIP_MAR,CD_TIP_MAR,CD_ORI_ATE,DS_ORI_ATE,nm_convenio,nm_paciente

@@ -1,0 +1,32 @@
+/*----------------------------------------------------------------------------*/
+--R_PROD_BANCADA
+SELECT bancada.cd_bancada, bancada.ds_bancada, itped_lab.cd_exa_lab,exa_lab.nm_mnemonico, exa_lab.nm_exa_lab, Count(*) AS qtde_exames,
+Sum(Decode(tp_convenio,'A',Decode(tp_atendimento,'A',1,0),'H',Decode(tp_atendimento,'A',1,0),0)) AS qtde_sus_ambulatorio,
+Sum(Decode(tp_convenio,'A',0,'H',0,Decode(tp_atendimento,'A',1,0))) AS qtde_convenio_ambulatorio,
+Sum(Decode(tp_convenio,'A',Decode(tp_atendimento,'U',1,0),'H',Decode(tp_atendimento,'U',1,0),0)) AS qtde_sus_urgencia,
+Sum(Decode(tp_convenio,'A',0,'H',0,Decode(tp_atendimento,'U',1,0))) AS qtde_convenio_urgencia,
+Sum(Decode(tp_convenio,'A',Decode(tp_atendimento,'I',1,0),'H',Decode(tp_atendimento,'I',1,0),0)) AS qtde_sus_internacao,
+Sum(Decode(tp_convenio,'A',0,'H',0,Decode(tp_atendimento,'I',1,0))) AS qtde_convenio_internacao,
+Sum(Decode(tp_convenio,'A',Decode(tp_atendimento,'E',1,0),'H',Decode(tp_atendimento,'E',1,0),0)) AS qtde_sus_externo,
+Sum(Decode(tp_convenio,'A',0,'H',0,Decode(tp_atendimento,'E',1,0))) AS qtde_convenio_externo,
+Sum(Decode(tp_convenio,'A',Decode(tp_atendimento,'A',0,'U',0,'I',0,'E',0,1),'H',Decode(tp_atendimento,'A',0,'U',0,'I',0,'E',0,1),0)) AS qtde_sus_outros,
+Sum(Decode(tp_convenio,'A',0,'H',0,Decode(tp_atendimento,'A',0,'U',0,'I',0,'E',0,1))) AS qtde_convenio_outros,
+Sum(Decode(tp_convenio,'A',1,'H',1,0)) AS qtde_sus,
+Sum(Decode(tp_convenio,'A',0,'H',0,1)) AS qtde_convenios
+FROM ped_lab, itped_lab, exa_lab, atendime, convenio, bancada, exa_lab_set_exa
+WHERE
+exa_lab.cd_exa_lab = itped_lab.cd_exa_lab
+AND ped_lab.cd_ped_lab = itped_lab.cd_ped_lab
+AND ped_lab.cd_atendimento = atendime.cd_atendimento
+AND atendime.cd_convenio = convenio.cd_convenio
+AND itped_lab.cd_set_exa = exa_lab_set_exa.cd_set_exa
+AND exa_lab_set_exa.cd_bancada = bancada.cd_bancada
+AND exa_lab_set_exa.cd_exa_lab = itped_lab.cd_exa_lab
+AND ITPED_LAB.DT_LAUDO IS NOT NULL
+AND EXISTS (SELECT 1 FROM DBAMV.USUARIOS_SET_EXA
+                     WHERE USUARIOS_SET_EXA.CD_SET_EXA = ITPED_LAB.CD_SET_EXA
+                       AND USUARIOS_SET_EXA.NM_USUARIO    = USER)
+         AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY bancada.cd_bancada, bancada.ds_bancada, itped_lab.cd_exa_lab, exa_lab.nm_mnemonico, exa_lab.nm_exa_lab
+ORDER BY bancada.ds_bancada, exa_lab.nm_mnemonico

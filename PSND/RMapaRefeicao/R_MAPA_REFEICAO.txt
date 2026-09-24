@@ -1,0 +1,48 @@
+/*----------------------------------------------------------------------------*/
+--R_MAPA_REFEICAO
+SELECT * FROM (
+SELECT   DIA
+        ,TP_REF
+        ,SUM(QT_P)  QT_P
+        ,SUM(QT_A)  QT_A
+        ,SUM(QT_B)  QT_B
+        ,SUM(QT_F)  QT_F
+        ,SUM(QT_S)  QT_S
+        ,SUM(QT_M)  QT_M
+        ,SUM(QT_T)  QT_T
+FROM
+    (
+     SELECT  TO_NUMBER(TO_CHAR( MC.DT_MOV_CARDAPIO, 'DD' )) DIA
+            ,TP_REF.DS_TIPO_REFEICAO             TP_REF
+            ,DECODE( MC.TP_CARDAPIO, 'P', IT.QT_CARDAPIO,0 ) QT_P
+            ,DECODE( MC.TP_CARDAPIO, 'A', IT.QT_CARDAPIO,0 ) QT_A
+            ,DECODE( MC.TP_CARDAPIO, 'B', IT.QT_CARDAPIO,0 ) QT_B
+            ,DECODE( MC.TP_CARDAPIO, 'F', IT.QT_CARDAPIO,0 ) QT_F
+            ,DECODE( MC.TP_CARDAPIO, 'S', IT.QT_CARDAPIO,0 ) QT_S
+            ,DECODE( MC.TP_CARDAPIO, 'M', IT.QT_CARDAPIO,0 ) QT_M
+            ,IT.QT_CARDAPIO  QT_T
+     FROM    DBAMV.MOV_CARDAPIO    MC
+            ,DBAMV.ITMOV_CARDAPIO  IT
+            ,DBAMV.TIPO_REFEICAO   TP_REF
+     WHERE   MC.CD_MOV_CARDAPIO  = IT.CD_MOV_CARDAPIO
+     AND     MC.CD_TIPO_REFEICAO = TP_REF.CD_TIPO_REFEICAO
+     AND     TO_CHAR( MC.DT_MOV_CARDAPIO, 'MM/YYYY' ) = TO_CHAR(:CAMPO_DT_COMPETE, 'MM/YYYY')
+     AND     MC.CD_MULTI_EMPRESA = NVL(DBAMV.PKG_MV2000.LE_EMPRESA,MC.CD_MULTI_EMPRESA)
+     UNION ALL
+     SELECT  TO_NUMBER( DIA ) DIA
+            ,DS_TIPO_REFEICAO     TP_REF
+            ,0       QT_P
+            ,0       QT_A
+            ,0       QT_B
+            ,0       QT_F
+            ,0       QT_S
+            ,0       QT_M
+            ,0       QT_T
+     FROM     DBAMV.TIPO_REFEICAO, DBAMV.DIA_AUX
+     WHERE  DIA <= :CAMPO_ULT_DIA_MES
+    )
+GROUP BY  DIA
+         ,TP_REF
+)
+ORDER BY DIA,
+TP_REF

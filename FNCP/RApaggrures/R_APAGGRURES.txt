@@ -1,0 +1,117 @@
+/*----------------------------------------------------------------------------*/
+--R_APAGGRURES
+Select sysdate from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_APAGGRURES_R_1_CG__Q_ITCON_PAG
+SELECT * FROM (
+SELECT  RATCON_PAG.CD_ITEM_RES                           CODIGO
+        ,ITEM_RES.DS_ITEM_RES                             DESCRICAO
+        ,GRU_RES.CD_GRU_RES                           CD_GRU_RES
+         ,Nvl (tip_detalhe.tp_data,'N')                 tp_data
+        ,GRU_RES.DS_GRU_RES                             DS_GRU_RES
+        ,CON_PAG.DT_EMISSAO                               DT_EMISSAO
+        ,ITCON_PAG.DT_VENCIMENTO                    DT_VENCIMENTO
+        ,ITCON_PAG.CD_CON_PAG                             CD_CON_PAG
+        ,CON_PAG.NR_DOCUMENTO                             NR_DOCUMENTO
+        ,ITCON_PAG.NR_PARCELA                             NR_PARCELA
+        ,DBAMV.QTD_ITENS_CON_PAG(1, ITCON_PAG.CD_CON_PAG )   QTD_ITENS_CON_PAG
+        ,CON_PAG.DS_CON_PAG                               DS_CON_PAG
+        ,HIST_P.DS_HISTORICO_PADRAO                       DS_HIST_P
+        ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA) NM_FANTASIA
+        ,(ITCON_PAG.VL_DUPLICATA - nvl(ITCON_PAG.VL_SOMA_BAIXADA,0))  VL_A_PAGAR
+        ,RATCON_PAG.VL_RATEIO                               VL_RATEIO
+        ,(nvl(con_pag.vl_bruto_conta,0) + (nvl(con_pag.vl_desconto,0) - nvl(con_pag.vl_acrescimo,0)))                                  vl_bruto
+        ,ratcon_pag.cd_ratcon_pag                              cd_ratcon_pag
+        ,'C'                                                                     TP_PAGAMENTO
+        ,SETOR.CD_CEN_CUS
+        ,CON_PAG.NR_SERIE
+FROM     dbamv.ITCON_PAG              	ITCON_PAG
+        ,dbamv.CON_PAG                	CON_PAG
+        ,dbamv.RATCON_PAG             	RATCON_PAG
+        ,dbamv.ITEM_RES               	ITEM_RES
+        ,dbamv.GRU_RES               	GRU_RES
+        ,dbamv.FORNECEDOR             	FORNECEDOR
+        ,dbamv.HISTORICO_PADRAO       HIST_P
+        ,dbamv.setor 			SETOR
+        ,dbamv.tip_doc		TIP_DOC
+        ,dbamv.tip_detcon_pag
+        ,dbamv.tip_detalhe
+WHERE RATCON_PAG.CD_ITEM_RES               = ITEM_RES.CD_ITEM_RES(+)
+AND      ITEM_RES.CD_GRU_RES                       = GRU_RES.CD_GRU_RES(+)
+AND      CON_PAG.CD_CON_PAG                        = RATCON_PAG.CD_CON_PAG(+)
+AND      CON_PAG.CD_CON_PAG                  	= ITCON_PAG.CD_CON_PAG
+AND      (ITCON_PAG.TP_QUITACAO               	<> 'Q' AND ITCON_PAG.TP_QUITACAO LIKE :CAMPO_QUITACAO)
+AND      CON_PAG.CD_FORNECEDOR               	= FORNECEDOR.CD_FORNECEDOR(+)
+AND      CON_PAG.CD_HISTORICO_PADRAO     = HIST_P.CD_HISTORICO_PADRAO(+)
+AND      CON_PAG.CD_TIP_DOC          	= TIP_DOC.CD_TIP_DOC
+AND      CON_PAG.CD_CON_PAG = TIP_DETCON_PAG.CD_CON_PAG_FILHO (+)    
+AND     TIP_DETCON_PAG.CD_DETALHAMENTO =TIP_DETALHE.CD_DETALHAMENTO(+)
+AND      CON_PAG.CD_MULTI_EMPRESA            = :CAMPO_CD_MULTI_EMPRESA
+AND NOT EXISTS (SELECT IT.CD_CON_PAG FROM DBAMV.ITCON_PAG IT
+                                  WHERE IT.CD_CON_PAG_AGRUP = ITCON_PAG.CD_CON_PAG)
+and        con_pag.cd_previsao is null
+ORDER BY  DT_VENCIMENTO, DESCRICAO
+)
+ORDER BY DS_GRU_RES,CD_GRU_RES,
+DESCRICAO,CODIGO,
+DT_VENCIMENTO,NR_PARCELA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_APAGGRURES_R_2_Q_1
+SELECT * FROM (
+SELECT  RATCON_PAG.CD_ITEM_RES                           CODIGO
+        ,ITEM_RES.DS_ITEM_RES                             DESCRICAO
+        ,GRU_RES.CD_GRU_RES                           CD_GRU_RES
+          ,Nvl (tip_detalhe.tp_data,'N')                 tp_data
+        ,GRU_RES.DS_GRU_RES                             DS_GRU_RES
+        ,CON_PAG.DT_EMISSAO                               DT_EMISSAO
+        ,ITCON_PAG.DT_VENCIMENTO                    DT_VENCIMENTO
+        ,ITCON_PAG.CD_CON_PAG                             CD_CON_PAG
+        ,CON_PAG.NR_DOCUMENTO                             NR_DOCUMENTO
+        ,ITCON_PAG.NR_PARCELA                             NR_PARCELA
+        ,DBAMV.QTD_ITENS_CON_PAG(1, ITCON_PAG.CD_CON_PAG )   QTD_ITENS_CON_PAG
+        ,CON_PAG.DS_CON_PAG                               DS_CON_PAG
+        ,HIST_P.DS_HISTORICO_PADRAO                       DS_HIST_P
+        ,DECODE(CON_PAG.CD_FORNECEDOR,'',CON_PAG.DS_FORNECEDOR, FORNECEDOR.NM_FANTASIA) NM_FANTASIA
+        ,(ITCON_PAG.VL_DUPLICATA - nvl(ITCON_PAG.VL_SOMA_BAIXADA,0))  VL_A_PAGAR
+        ,RATCON_PAG.VL_RATEIO                               VL_RATEIO
+        ,(nvl(con_pag.vl_bruto_conta,0) + (nvl(con_pag.vl_desconto,0) - nvl(con_pag.vl_acrescimo,0)))                                  vl_bruto
+        ,ratcon_pag.cd_ratcon_pag                              cd_ratcon_pag
+        ,'C'                                                                     TP_PAGAMENTO
+        ,SETOR.CD_CEN_CUS
+        ,CON_PAG.NR_SERIE
+FROM     dbamv.ITCON_PAG              	ITCON_PAG
+        ,dbamv.CON_PAG                	CON_PAG
+        ,dbamv.RATCON_PAG             	RATCON_PAG
+        ,dbamv.ITEM_RES               	ITEM_RES
+        ,dbamv.GRU_RES               	GRU_RES
+        ,dbamv.FORNECEDOR             	FORNECEDOR
+        ,dbamv.HISTORICO_PADRAO       HIST_P
+        ,dbamv.setor 			SETOR
+        ,dbamv.tip_doc		TIP_DOC
+        ,dbamv.tip_detcon_pag
+        ,dbamv.tip_detalhe
+WHERE RATCON_PAG.CD_ITEM_RES               = ITEM_RES.CD_ITEM_RES(+)
+AND      ITEM_RES.CD_GRU_RES                       = GRU_RES.CD_GRU_RES(+)
+AND      CON_PAG.CD_CON_PAG                        = RATCON_PAG.CD_CON_PAG(+)
+AND      CON_PAG.CD_CON_PAG                  	= ITCON_PAG.CD_CON_PAG
+AND      (ITCON_PAG.TP_QUITACAO               	<> 'Q' AND ITCON_PAG.TP_QUITACAO LIKE :CAMPO_QUITACAO)
+AND      CON_PAG.CD_FORNECEDOR               	= FORNECEDOR.CD_FORNECEDOR(+)
+AND      CON_PAG.CD_HISTORICO_PADRAO     = HIST_P.CD_HISTORICO_PADRAO(+)
+AND      CON_PAG.CD_TIP_DOC          	= TIP_DOC.CD_TIP_DOC
+AND      CON_PAG.CD_CON_PAG = TIP_DETCON_PAG.CD_CON_PAG_FILHO (+)    
+AND     TIP_DETCON_PAG.CD_DETALHAMENTO =TIP_DETALHE.CD_DETALHAMENTO(+)
+AND      CON_PAG.CD_MULTI_EMPRESA            = :CAMPO_CD_MULTI_EMPRESA
+AND NOT EXISTS (SELECT IT.CD_CON_PAG FROM DBAMV.ITCON_PAG IT
+                                  WHERE IT.CD_CON_PAG_AGRUP = ITCON_PAG.CD_CON_PAG)
+and        con_pag.cd_previsao is null
+ORDER BY  DT_VENCIMENTO, DESCRICAO
+)
+ORDER BY DT_EMISSAO,
+DESCRICAO,CODIGO,
+DT_VENCIMENTO,NR_PARCELA,CD_GRU_RES,DS_GRU_RES

@@ -1,0 +1,114 @@
+/*----------------------------------------------------------------------------*/
+--R_CUSTO_SETOR
+SELECT * FROM (
+select pc.cd_contabil    cd_conta
+      ,pc.ds_conta       ds_conta
+      ,pc.cd_reduzido       cd_reduzido
+      , decode(:CAMPO_SN_SETOR_CUSTO,'S', lanca.cd_setor_custo, lanca.cd_setor)  cd_setor
+      , decode(:CAMPO_SN_SETOR_CUSTO,'S', lanca.nm_setor_custo, lanca.nm_setor)  nm_setor
+      , decode(:CAMPO_SN_SETOR_CUSTO,'S', lanca.cd_cen_cus_custo, lanca.cd_cen_cus)  cd_cen_cus
+      ,lanca.dt_lcto
+      ,lanca.cd_lote
+      ,lanca.cd_lcto_movimento
+      ,lanca.ds_complemento
+      ,lanca.vl_debito
+      ,lanca.vl_credito
+from   dbamv.plano_contas    pc
+      , dbamv.multi_empresas  me
+      , dbamv.grau_da_conta g
+      ,(
+select pc_result.cd_reduzido              cd_reduzido
+     , pc_result.cd_contabil              cd_contabil
+     , setor.cd_setor                     cd_setor
+     , setor.nm_setor                     nm_setor
+     , setor.cd_cen_cus             cd_cen_cus
+     , setor_custo.cd_setor        cd_setor_custo
+     , setor_custo.nm_setor          nm_setor_custo
+     , setor_custo.cd_cen_cus     cd_cen_cus_custo
+     , to_char(lcto_cont.dt_lcto,'DD')   dt_lcto
+     , lcto_cont.cd_lote
+     , lcto_cont.cd_lcto_movimento
+     , hist.ds_historico_padrao || ' ' || lcto_cont.ds_complemento  ds_complemento
+     , decode(lcto_setor.cd_setor_debito, null, 0, vl_lcto_setor)     vl_debito
+     , decode(lcto_setor.cd_setor_credito, null, 0, vl_lcto_setor)     vl_credito
+from dbamv.plano_contas    pc_result
+   , dbamv.plano_contas    pc_lanc
+   , dbamv.lcto_contabil   lcto_cont
+   , dbamv.lcto_setor      lcto_setor
+   , dbamv.setor           setor
+   , dbamv.setor           setor_custo
+   , dbamv.multi_empresas  me
+   , dbamv.historico_padrao hist
+where pc_result.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and pc_result.cd_multi_empresa = me.cd_multi_empresa
+  and pc_result.cd_reduzido = pc_lanc.cd_reduzido_resultado
+  and ( substr(pc_lanc.cd_contabil,1,1) = me.cd_receita
+       or substr(pc_lanc.cd_contabil,1,1) = me.cd_despesa)
+  and ( pc_lanc.cd_reduzido   = lcto_cont.cd_reduzido_credito
+     or pc_lanc.cd_reduzido   = lcto_cont.cd_reduzido_debito )
+  and lcto_cont.cd_lcto_contabil = lcto_setor.cd_lcto_contabil
+  and lcto_cont.cd_historico_padrao = hist.cd_historico_padrao(+)
+  and  ( (:CAMPO_SETOR_CUSTO <> '%'
+        and DBAMV.VERIF_CD_SETOR_PAI(setor.cd_setor, setor_custo.cd_setor) = 1)
+      or  (:CAMPO_SETOR_CUSTO = '%'
+        and DBAMV.VERIF_CD_SETOR_CUSTO_MAX(setor.cd_setor) = setor_custo.cd_setor ) )
+  and ( setor.cd_setor        = lcto_setor.cd_setor_credito
+     or setor.cd_setor        = lcto_setor.cd_setor_debito)
+    and to_date(to_char(lcto_cont.dt_lcto,'mm/yyyy'), 'mm/yyyy') >= :CAMPO_SALDO_MES
+    and to_date(to_char(lcto_cont.dt_lcto,'mm/yyyy'), 'mm/yyyy') <= :CAMPO_SALDO_MES
+union all
+select pc_result.cd_reduzido    cd_reduzido
+     , pc_result.cd_contabil    cd_contabil
+     , setor.cd_setor           cd_setor
+     , setor.nm_setor           nm_setor
+     , setor.cd_cen_cus       cd_cen_cus
+     , setor_custo.cd_setor        cd_setor_custo
+     , setor_custo.nm_setor          nm_setor_custo
+     , setor_custo.cd_cen_cus     cd_cen_cus_custo
+     , to_char(lcto_cont.dt_lcto,'DD')  dt_lcto
+     , lcto_cont.cd_lote
+     , lcto_cont.cd_lcto_movimento
+     , hist.ds_historico_padrao || ' ' || lcto_cont.ds_complemento   ds_complemento
+     , decode(lcto_setor.cd_setor_debito, null, 0, vl_lcto_setor)     vl_debito
+     , decode(lcto_setor.cd_setor_credito, null, 0, vl_lcto_setor)     vl_credito
+from dbamv.plano_contas    pc_result
+   , dbamv.lcto_contabil   lcto_cont
+   , dbamv.lcto_setor      lcto_setor
+   , dbamv.setor           setor
+   , dbamv.setor           setor_custo
+   , dbamv.multi_empresas  me
+   , dbamv.historico_padrao hist
+   , dbamv.grau_da_conta g
+where pc_result.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and pc_result.cd_multi_empresa = me.cd_multi_empresa
+  and g.cd_multi_empresa = me.cd_multi_empresa
+  AND g.cd_grau_da_conta = 1
+  and substr(pc_result.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_ativo
+  and substr(pc_result.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_passivo
+  and substr(pc_result.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_receita
+  and substr(pc_result.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_despesa
+  and ( pc_result.cd_reduzido = lcto_cont.cd_reduzido_credito
+     or pc_result.cd_reduzido = lcto_cont.cd_reduzido_debito )
+  and lcto_cont.cd_lcto_contabil = lcto_setor.cd_lcto_contabil
+  and lcto_cont.cd_historico_padrao = hist.cd_historico_padrao(+)
+  and  ( (:CAMPO_SETOR_CUSTO <> '%'
+        and DBAMV.VERIF_CD_SETOR_PAI(setor.cd_setor, setor_custo.cd_setor) = 1)
+      or  (:CAMPO_SETOR_CUSTO = '%'
+        and DBAMV.VERIF_CD_SETOR_CUSTO_MAX(setor.cd_setor) = setor_custo.cd_setor ) )
+  and ( setor.cd_setor        = lcto_setor.cd_setor_credito
+     or setor.cd_setor        = lcto_setor.cd_setor_debito)
+    and to_date(to_char(lcto_cont.dt_lcto,'mm/yyyy'), 'mm/yyyy') >= :CAMPO_SALDO_MES
+    and to_date(to_char(lcto_cont.dt_lcto,'mm/yyyy'), 'mm/yyyy') <= :CAMPO_SALDO_MES
+) lanca
+where  me.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND me.cd_multi_empresa = g.cd_multi_empresa
+AND g.cd_grau_da_conta = 1
+and substr(pc.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_ativo
+and substr(pc.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_passivo
+and substr(pc.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_receita
+and substr(pc.cd_contabil,1,Length(g.ds_grau_da_conta)) <> me.cd_despesa
+and pc.cd_reduzido = lanca.cd_reduzido
+:CAMPO_CF_CD_CONTA
+)
+ORDER BY CD_SETOR,NM_SETOR,CD_CEN_CUS,
+CD_CONTA,DS_CONTA,CD_REDUZIDO

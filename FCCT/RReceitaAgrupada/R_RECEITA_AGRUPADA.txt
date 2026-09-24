@@ -1,0 +1,41 @@
+/*----------------------------------------------------------------------------*/
+--R_RECEITA_AGRUPADA
+SELECT * FROM (
+select gru_pro.cd_gru_pro
+     , gru_pro.ds_gru_pro
+	 , sum(decode(tp_convenio,'C',decode(tp_atendimento,'I',vl_gru_pro,0),0)) 	vl_conv_interno
+	 , sum(decode(tp_convenio,'C',decode(tp_atendimento,'I',0,vl_gru_pro),0)) 	vl_conv_externo
+	 , sum(decode(tp_convenio,'P',decode(tp_atendimento,'I',vl_gru_pro,0),0)) 	vl_part_interno
+	 , sum(decode(tp_convenio,'P',decode(tp_atendimento,'I',0,vl_gru_pro),0)) 	vl_part_externo
+from (
+select gru_pro.cd_gru_pro
+     , gru_pro.ds_gru_pro
+     , convenio.tp_convenio
+     , atendime.tp_atendimento
+     , sum(it.vl_itfat_nf) vl_gru_pro
+from dbamv.nota_fiscal          nf
+   , dbamv.itfat_nota_fiscal    it
+   , dbamv.pro_fat
+   , dbamv.gru_pro
+   , dbamv.convenio
+   , dbamv.atendime
+   ,dbamv.empresa_convenio
+where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA  
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and nf.cd_nota_fiscal = it.cd_nota_fiscal
+  and it.cd_pro_fat = pro_fat.cd_pro_fat
+  and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+  and nf.cd_convenio = convenio.cd_convenio
+  and it.cd_atendimento = atendime.cd_atendimento
+  and convenio.tp_convenio in ('C','P')
+  and atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and atendime.cd_multi_empresa =  dbamv.Pkg_Mv2000.Le_Empresa 
+group by gru_pro.cd_gru_pro
+       , gru_pro.ds_gru_pro
+       , convenio.tp_convenio
+       , atendime.tp_atendimento	) gru_pro
+group by gru_pro.cd_gru_pro
+       , gru_pro.ds_gru_pro
+)
+ORDER BY DS_GRU_PRO,CD_GRU_PRO

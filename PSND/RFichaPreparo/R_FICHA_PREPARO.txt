@@ -1,0 +1,29 @@
+/*----------------------------------------------------------------------------*/
+--R_FICHA_PREPARO
+SELECT * FROM (
+SELECT  DISTINCT FP.CD_PRATO cd_prato
+        ,P.DS_PRATO ds_prato
+        ,FP.CD_PRODUTO cd_produto
+        ,PROD.DS_PRODUTO ds_produto
+        ,U.DS_UNIDADE ds_unidade
+        ,QT_FICHA_DE_PREPARO qt_ficha_de_preparo
+        ,( FNC_MGES_VERIF_VL_CUSTO_MEDIO(prod.cd_produto, sysdate, 'h', null, sysdate, :CAMPO_CD_MULTI_EMPRESA) * u.vl_fator ) vl_custo_medio
+        ,( QT_FICHA_DE_PREPARO * ( FNC_MGES_VERIF_VL_CUSTO_MEDIO(prod.cd_produto, sysdate, 'h', null, sysdate, :CAMPO_CD_MULTI_EMPRESA) * u.vl_fator ) ) VL_TOTAL
+        ,P.DS_PREPARO ds_preparo
+FROM     DBAMV.FICHA_DE_PREPARO  FP
+        ,DBAMV.PRATO             P
+        ,DBAMV.PRODUTO           PROD
+        ,DBAMV.UNI_PRO           U
+        ,DBAMV.DIETA_PRATO       DP
+WHERE    FP.CD_PRATO        = P.CD_PRATO
+AND      FP.CD_PRODUTO      = PROD.CD_PRODUTO
+AND      FP.CD_UNI_PRO      = U.Cd_UNI_PRO
+AND      P.CD_PRATO         = DP.CD_PRATO(+)
+And Exists ( Select Empresa_Produto.Cd_Produto
+                     From Dbamv.Empresa_Produto
+                   Where Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                        and Empresa_Produto.Cd_Produto = Prod.Cd_Produto )
+ORDER BY P.DS_PRATO
+        ,PROD.DS_PRODUTO
+)
+ORDER BY CD_PRATO,DS_PRATO,DS_PRODUTO,DS_PREPARO

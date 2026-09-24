@@ -1,0 +1,84 @@
+/*----------------------------------------------------------------------------*/
+--R_HIST_ANTIMICROB
+Select Hospital.Ds_Razao, Hospital.Ds_Rodape_Reports,
+ 'N' Sn_Imprime_Logotipo, Hospital.Logotipo
+  From Dbamv.Hospital
+ Where Hospital.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_HIST_ANTIMICROB_R_2_Q_1
+SELECT * FROM (
+SELECT
+    PRE_MED.CD_PRE_MED, ATENDIME.CD_ATENDIMENTO CD_ATENDIMENTO,
+    ATENDIME.DT_ATENDIMENTO,
+    CONVENIO.NM_CONVENIO,
+    UNID_INT.CD_UNID_INT,
+    UNID_INT.DS_UNID_INT,
+    PACIENTE.NM_PACIENTE,
+    PACIENTE.CD_PACIENTE,
+    LEITO.DS_LEITO,
+    CONVENIO.CD_CONVENIO,
+    ITPRE_MED.NR_DIA,
+    PRODUTO.DS_PRODUTO,
+    PRODUTO.CD_PRODUTO,
+    Fnc_Mv_Recupera_Data_Hora( TO_DATE( TO_CHAR( PRE_MED.DT_PRE_MED,'DD/MM/YYYY'        )         ,'DD/MM/YYYY'        ),
+                               TO_DATE( TO_CHAR( PRE_MED.HR_PRE_MED,'DD/MM/YYYY HH24'),'DD/MM/YYYY HH24') ) DT_HR,
+    TIP_PRESC.DS_TIP_PRESC,
+    ITPRE_MED.QT_ITPRE_MED,
+    ITPRE_MED.DS_ITPRE_MED,
+    PRESTADOR.NM_PRESTADOR,
+    ITPRE_MED.DS_JUSTIFICATIVA,
+    ITPRE_MED.QT_DIAS,
+    TO_CHAR(PRE_MED.DT_PRE_MED,'dd/mm/yyyy') DT_INICIO,
+    TO_CHAR(PRE_MED.DT_PRE_MED + ITPRE_MED.QT_DIAS,'dd/mm/yyyy') DT_FINAL,
+    FOR_APL.CD_FOR_APL,
+    ITPRE_MED.CD_UNI_PRO,
+    TIP_FRE.DS_TIP_FRE
+from
+       dbamv.tip_presc
+     , dbamv.itpre_med
+     , dbamv.pre_med
+     , dbamv.atendime
+     , dbamv.paciente
+     , dbamv.tip_fre
+     , dbamv.leito
+     , dbamv.prestador
+     , dbamv.convenio
+     , dbamv.ant_pro
+     , dbamv.unid_int
+     , dbamv.produto
+     , dbamv.for_apl
+ where tip_presc.cd_tip_presc          = itpre_med.cd_tip_presc
+   and ant_pro.cd_produto              = tip_presc.cd_produto
+   and tip_presc.cd_produto            = produto.cd_produto
+   and prestador.cd_prestador          = pre_med.cd_prestador
+   and atendime.cd_convenio            = convenio.cd_convenio
+   and leito.cd_leito                  = atendime.cd_leito
+   and leito.cd_unid_int               = unid_int.cd_unid_int
+   and tip_fre.cd_tip_fre              = itpre_med.cd_tip_fre
+   and for_apl.cd_for_apl              = itpre_med.cd_for_apl
+   and paciente.cd_paciente            = atendime.cd_paciente
+   and atendime.cd_atendimento         = pre_med.cd_atendimento
+   and pre_med.cd_pre_med              = itpre_med.cd_pre_med
+   and pre_med.fl_impresso = 'S'
+   and nvl(itpre_med.sn_cancelado,'N') = 'N'
+   and exists (
+                select cd_solsai_pro
+                  from dbamv.solsai_pro
+                 where solsai_pro.cd_pre_med = pre_med.cd_pre_med
+                   and exists (
+                                select cd_itsolsai_pro, ant_pro.cd_produto
+                                  from dbamv.itsolsai_pro, dbamv.ant_pro
+                                 where itsolsai_pro.cd_solsai_pro = solsai_pro.cd_solsai_pro
+                                   and itsolsai_pro.cd_produto    = ant_pro.cd_produto
+                                   and nvl(itsolsai_pro.qt_atendida,0)  > 0
+                              )
+               )
+   AND TO_DATE( to_char ( pre_med.dt_pre_med,'dd/mm/yyyy' ) || to_char ( pre_med.hr_pre_med , 'hh24' )   , 'DD/MM/YYYY HH24'   )
+     Between   to_date( :CAMPO_DT_INICIAL ,'dd/mm/yyyy hh24')
+         and   to_date(:CAMPO_DT_FINAL   ,'dd/mm/yyyy hh24')
+ORDER BY PACIENTE.NM_PACIENTE, DT_HR
+)
+ORDER BY CD_UNID_INT,DS_UNID_INT,CD_ATENDIMENTO,DT_ATENDIMENTO,NM_CONVENIO,NM_PACIENTE

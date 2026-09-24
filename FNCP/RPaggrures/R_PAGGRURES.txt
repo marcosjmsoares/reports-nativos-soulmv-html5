@@ -1,0 +1,225 @@
+/*----------------------------------------------------------------------------*/
+--R_PAGGRURES
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_PAGGRURES_R_CD_GRU_RES_G_PAGGRURES
+SELECT   cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         nm_fantasia,
+         nr_doc_parc,
+         qtd_itens_con_pag,
+         historico,
+         cd_con_pag,
+         vl_bruto,
+         vl_acrescimo_conta,
+         vl_desconto_conta,
+         vl_duplicata,
+         nr_parcela,
+         dt_pagto,
+         dt_baixa,
+         tp_pagto,
+         setor,
+         ROUND (SUM ((vl_pago_real * vl_rateio) / DECODE (vl_bruto, 0, 1, vl_bruto)), 2) vl_rateio,
+         vl_acrescimo_total vl_acrescimo,
+         vl_desconto,
+         Decode(tp_quitacao,'C',0,SUM (vl_pago)) vl_pago,
+         nr_cheque,
+         cd_bordero,
+         dt_compensacao,
+         cd_itcon_pag,
+         estorno,
+         vl_estorno,
+         cd_pagcon_pag
+    FROM (SELECT gru_res.cd_gru_res cd_gru_res,
+                 gru_res.ds_gru_res ds_gru_res,
+                 item_res.cd_item_res cd_item_res,
+                 item_res.ds_item_res ds_item_res,
+                 DECODE (con_pag.cd_fornecedor,'', con_pag.ds_fornecedor,fornecedor.nm_fantasia) nm_fantasia,
+                 con_pag.nr_documento || ' / ' || TO_CHAR (itcon_pag.nr_parcela, '000') nr_doc_parc,
+                 dbamv.qtd_itens_con_pag (1, con_pag.cd_con_pag) qtd_itens_con_pag,
+                 hist_p.ds_historico_padrao || ' ' || con_pag.ds_con_pag historico,
+                 con_pag.cd_con_pag cd_con_pag,
+                 (NVL(con_pag.vl_bruto_conta,0) + (NVL(con_pag.vl_desconto,0) - NVL(con_pag.vl_acrescimo,0))) vl_bruto,
+                 NVL (con_pag.vl_acrescimo, 0) vl_acrescimo_conta,
+                 NVL (con_pag.vl_desconto, 0) vl_desconto_conta,
+                 itcon_pag.vl_duplicata vl_duplicata,
+                 itcon_pag.nr_parcela nr_parcela,
+                 pagcon_pag.dt_pagamento dt_pagto,
+                 pagcon_pag.dt_baixa dt_baixa,
+                 pagcon_pag.tp_pagamento tp_pagto,
+                 ratcon_pag.cd_setor setor,
+                 ratcon_pag.vl_rateio vl_rateio,
+                 dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                                    ratcon_pag.ROWID,
+                                                    ( NVL (pagcon_pag.vl_acrescimo, 0)),
+                                                    ratcon_pag.vl_rateio,2) vl_acrescimo,
+                dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                                    ratcon_pag.ROWID,
+                                                    (NVL (pagcon_pag.vl_acrescimo, 0)),
+                                                    ratcon_pag.vl_rateio,2) vl_acrescimo_total,
+		dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                                    ratcon_pag.ROWID,
+                                                    (NVL (pagcon_pag.vl_desconto, 0)),
+                                                    ratcon_pag.vl_rateio,2)vl_desconto,
+                dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                             ratcon_pag.ROWID,
+                                             (NVL (pagcon_pag.vl_pago, 0)
+                                             ),
+                                             ratcon_pag.vl_rateio,
+                                             2
+                                            ) vl_pago,
+                 0 nr_cheque,
+                 bordero.cd_bordero cd_bordero,
+                 NULL dt_compensacao,
+                 itcon_pag.cd_itcon_pag,
+                 pagcon_pag.dt_estorno estorno,
+                 pagcon_pag.vl_estorno,
+                 pagcon_pag.cd_pagcon_pag,
+                 NVL (pagcon_pag.vl_pago, 0) - NVL (pagcon_pag.vl_acrescimo, 0) + NVL (pagcon_pag.vl_desconto, 0) vl_pago_real,
+                 itcon_pag.tp_quitacao
+            FROM dbamv.pagcon_pag pagcon_pag,
+                 dbamv.itcon_pag itcon_pag,
+                 dbamv.con_pag con_pag,
+                 dbamv.ratcon_pag ratcon_pag,
+                 dbamv.item_res item_res,
+                 dbamv.fornecedor fornecedor,
+                 dbamv.historico_padrao hist_p,
+                 dbamv.gru_res gru_res,
+                 dbamv.setor setor,
+                 dbamv.bordero bordero
+           WHERE con_pag.cd_con_pag          = ratcon_pag.cd_con_pag(+)
+             AND ratcon_pag.cd_item_res      = item_res.cd_item_res(+)
+             AND item_res.cd_gru_res         = gru_res.cd_gru_res(+)
+             AND con_pag.cd_con_pag          = itcon_pag.cd_con_pag
+             AND itcon_pag.cd_itcon_pag      = pagcon_pag.cd_itcon_pag
+             AND con_pag.cd_fornecedor       = fornecedor.cd_fornecedor(+)
+             AND pagcon_pag.cd_bordero       = bordero.cd_bordero(+)
+             AND pagcon_pag.tp_pagamento     <> '3'
+             AND con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+             AND NOT EXISTS (SELECT cd_con_pag_agrup
+                               FROM dbamv.itcon_pag
+                              WHERE cd_con_pag_agrup = con_pag.cd_con_pag)
+             AND con_pag.cd_previsao IS NULL
+             AND NOT (ratcon_pag.vl_rateio = 0)
+             AND con_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+             AND itcon_pag.tp_quitacao LIKE :CAMPO_QUITACAO
+          UNION ALL
+		   SELECT gru_res.cd_gru_res cd_gru_res,
+                 gru_res.ds_gru_res ds_gru_res,
+                 item_res.cd_item_res cd_item_res,
+                 item_res.ds_item_res ds_item_res,
+                 DECODE (con_pag.cd_fornecedor,'', con_pag.ds_fornecedor,fornecedor.nm_fantasia) nm_fantasia,
+                 con_pag.nr_documento || ' / ' || TO_CHAR (itcon_pag.nr_parcela, '000') nr_doc_parc,
+                 dbamv.qtd_itens_con_pag (1, con_pag.cd_con_pag) qtd_itens_con_pag,
+                 hist_p.ds_historico_padrao || ' ' || con_pag.ds_con_pag historico,
+                 con_pag.cd_con_pag cd_con_pag,
+                 (NVL(con_pag.vl_bruto_conta,0) + (NVL(con_pag.vl_desconto,0) - NVL(con_pag.vl_acrescimo,0))) vl_bruto,
+                 NVL (con_pag.vl_acrescimo, 0) vl_acrescimo_conta,
+                 NVL (con_pag.vl_desconto, 0) vl_desconto_conta,
+                 itcon_pag.vl_duplicata vl_duplicata,
+                 itcon_pag.nr_parcela nr_parcela,
+                 pagcon_pag.dt_pagamento dt_pagto,
+                 pagcon_pag.dt_baixa dt_baixa,
+                 pagcon_pag.tp_pagamento tp_pagto,
+                 ratcon_pag.cd_setor setor,
+                 ratcon_pag.vl_rateio vl_rateio,
+                 dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                                    ratcon_pag.ROWID,(NVL (pagcon_pag.vl_acrescimo, 0)),
+                                                    ratcon_pag.vl_rateio,2) vl_acrescimo,
+                        dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                                    ratcon_pag.ROWID,(NVL (pagcon_pag.vl_acrescimo, 0)),
+                                                    ratcon_pag.vl_rateio,2)
+		 vl_acrescimo_total,
+                        dbamv.calcula_valor_rateio (con_pag.cd_con_pag,
+                                                    ratcon_pag.ROWID,
+                                                    (NVL (pagcon_pag.vl_desconto,0)),
+                                                    ratcon_pag.vl_rateio,2)
+		 vl_desconto,
+                 dbamv.calcula_valor_rateio (con_pag.cd_con_pag, ratcon_pag.ROWID,(NVL (pagcon_pag.vl_pago, 0) ), ratcon_pag.vl_rateio, 2 ) vl_pago,
+                 cheque.nr_cheque nr_cheque,
+                 0 cd_bordero,
+                 TO_CHAR (cheque.dt_compensacao, 'DD/MM/YYYY') dt_compensacao,
+                 itcon_pag.cd_itcon_pag,
+                 pagcon_pag.dt_estorno estorno,
+                 pagcon_pag.vl_estorno,
+                 pagcon_pag.cd_pagcon_pag,
+                 NVL (pagcon_pag.vl_pago, 0) - NVL (pagcon_pag.vl_acrescimo, 0) + NVL (pagcon_pag.vl_desconto, 0) vl_pago_real,
+                 itcon_pag.tp_quitacao
+            FROM dbamv.pagcon_pag pagcon_pag,
+                 dbamv.itcon_pag itcon_pag,
+                 dbamv.con_pag con_pag,
+                 dbamv.ratcon_pag ratcon_pag,
+                 dbamv.item_res item_res,
+                 dbamv.fornecedor fornecedor,
+                 dbamv.cheque cheque,
+                 dbamv.historico_padrao hist_p,
+                 dbamv.gru_res gru_res,
+                 dbamv.setor setor,
+                 dbamv.mov_concor mov_concor
+           WHERE con_pag.cd_con_pag = ratcon_pag.cd_con_pag(+)
+             AND ratcon_pag.cd_item_res   = item_res.cd_item_res(+)
+             AND item_res.cd_gru_res      = gru_res.cd_gru_res(+)
+             AND con_pag.cd_con_pag       = itcon_pag.cd_con_pag
+             AND itcon_pag.cd_itcon_pag   = pagcon_pag.cd_itcon_pag
+             AND con_pag.cd_fornecedor    = fornecedor.cd_fornecedor(+)
+             AND pagcon_pag.cd_cheque     = cheque.cd_cheque(+)
+             AND pagcon_pag.cd_pagcon_pag = mov_concor.cd_pagcon_pag
+             AND pagcon_pag.tp_pagamento  = '3'
+             AND con_pag.cd_historico_padrao = hist_p.cd_historico_padrao(+)
+             AND NOT EXISTS (SELECT cd_con_pag_agrup
+                               FROM dbamv.itcon_pag
+                              WHERE cd_con_pag_agrup = con_pag.cd_con_pag)
+             AND con_pag.cd_previsao IS NULL
+             AND NOT (ratcon_pag.vl_rateio = 0)
+             AND con_pag.cd_multi_empresa  = :CAMPO_CD_MULTI_EMPRESA
+             AND itcon_pag.tp_quitacao LIKE :CAMPO_QUITACAO
+             :CAMPO_CF_COND_DATA_CHEQUE
+		)
+GROUP BY cd_gru_res,
+         ds_gru_res,
+         cd_item_res,
+         ds_item_res,
+         nm_fantasia,
+         nr_doc_parc,
+         qtd_itens_con_pag,
+         historico,
+         cd_con_pag,
+         vl_bruto,
+         vl_acrescimo_conta,
+         vl_desconto_conta,
+         vl_duplicata,
+         nr_parcela,
+         dt_pagto,
+         dt_baixa,
+         tp_pagto,
+         setor,
+         nr_cheque,
+         cd_bordero,
+         dt_compensacao,
+         cd_itcon_pag,
+         estorno,
+         vl_estorno,
+         cd_pagcon_pag,
+         vl_acrescimo,
+         vl_acrescimo_total,
+         vl_desconto,
+         tp_quitacao
+ORDER BY ds_gru_res,
+         cd_gru_res,
+         ds_item_res,
+         cd_item_res,
+         nm_fantasia,
+         cd_con_pag,
+         nr_parcela,
+         nr_doc_parc,
+         vl_bruto,
+         vl_duplicata,
+         historico,
+         vl_rateio,
+         setor,
+         qtd_itens_con_pag

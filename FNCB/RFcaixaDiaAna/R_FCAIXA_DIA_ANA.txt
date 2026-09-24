@@ -1,0 +1,38 @@
+/*----------------------------------------------------------------------------*/
+--R_FCAIXA_DIA_ANA
+SELECT * FROM (
+SELECT   CR.DT_PREVISTA_PAGAMENTO                                            DT_VENCIMENTO
+        ,DECODE( CR.CD_FORNECEDOR, '', CR.NM_CLIENTE, FORNEC.NM_FORNECEDOR ) NM_FORNECEDOR
+        ,CR.NR_DOCUMENTO                                                     NR_DOCUMENTO
+        ,LTRIM( HP.DS_HISTORICO_PADRAO || ' ' || CR.DS_CON_REC )             DS_HIST_PADRAO
+        ,CR.VL_PREVISTO                                                      VL_PREVISTO
+        ,CR.VL_PREVISTO                                                      VL_PREVISTO_C
+        ,0                                                                   VL_PREVISTO_D
+        ,'C'                                                                 TP_CONTA
+FROM     DBAMV.CON_REC           CR
+        ,DBAMV.FORNECEDOR        FORNEC
+        ,DBAMV.HISTORICO_PADRAO  HP
+WHERE    CR.CD_FORNECEDOR       = FORNEC.CD_FORNECEDOR(+)
+AND      CR.CD_HISTORICO_PADRAO = HP.CD_HISTORICO_PADRAO(+)
+AND      CR.DT_PREVISTA_PAGAMENTO BETWEEN :CAMPO_DT_INIC UNION
+SELECT    ICP.DT_VENCIMENTO                                                      DT_VENCIMENTO
+         ,DECODE( CP.CD_FORNECEDOR, '', CP.DS_FORNECEDOR, FORNEC.NM_FORNECEDOR ) NM_FORNECEDOR
+         ,CP.NR_DOCUMENTO                                                        NR_DOCUMENTO
+         ,LTRIM( HP.DS_HISTORICO_PADRAO || ' ' || CP.DS_CON_PAG )                DS_HIST_PADRAO
+         ,ICP.VL_DUPLICATA                                                       VL_PREVISTO
+         ,0                                                                       VL_PREVISTO_C
+         ,ICP.VL_DUPLICATA                                                       VL_PREVISTO_D
+         ,'D'                                                                    TP_CONTA
+FROM      DBAMV.CON_PAG          CP
+         ,DBAMV.FORNECEDOR       FORNEC
+         ,DBAMV.HISTORICO_PADRAO HP
+         ,DBAMV.ITCON_PAG        ICP
+         ,DBAMV.PAGCON_PAG       PCP
+WHERE     CP.CD_FORNECEDOR       = FORNEC.CD_FORNECEDOR(+)
+AND       CP.CD_HISTORICO_PADRAO = HP.CD_HISTORICO_PADRAO(+)
+AND       CP.CD_CON_PAG          = ICP.CD_CON_PAG
+AND       CP.CD_MULTI_EMPRESA    = :CAMPO_CD_MULTI_EMPRESA
+AND       ICP.CD_ITCON_PAG       = PCP.CD_ITCON_PAG(+)
+AND      ICP.DT_VENCIMENTO  BETWEEN :CAMPO_DT_INIC ORDER BY TP_CONTA
+)
+ORDER BY DT_VENCIMENTO

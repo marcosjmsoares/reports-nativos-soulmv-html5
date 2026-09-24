@@ -1,0 +1,89 @@
+/*----------------------------------------------------------------------------*/
+--R_LIST_CONS_PAC
+Select Nvl(PACIENTE.NM_PACIENTE,
+           Nvl(MVTO_PACIENTE.NM_PACIENTE,
+               SETOR.NM_SETOR)) As NM_DESTINO,
+	   PACIENTE.NM_SOCIAL_PACIENTE As NM_SOCIAL,
+       MVTO_ESTOQUE.CD_MVTO_ESTOQUE As DCTO,
+       MVTO_ESTOQUE.CD_SOLSAI_PRO,
+       PRODUTO.UNIDADE,
+       PRODUTO.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+       Sum(ITMVTO_ESTOQUE_CUSTO.QT_MOVIMENTO / PRODUTO.VL_FATOR_PADRAO * Decode(MVTO_ESTOQUE.TP_MVTO_ESTOQUE,
+                                                                                'D',
+                                                                                -1,
+                                                                                'C',
+                                                                                -1,
+                                                                                'N',
+                                                                                -1,
+                                                                                1)) As QTD
+  From DBAMV.MVTO_ESTOQUE
+Inner Join DBAMV.ITMVTO_ESTOQUE_CUSTO On
+       ITMVTO_ESTOQUE_CUSTO.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+Inner Join (Select P.CD_ESPECIE,
+              P.CD_PRODUTO,
+              Decode(DBAMV.PKT_CONFIGEST.RetornarPadronizadoEmp(),
+                     'S',
+                     EMPRESA_PRODUTO.SN_PADRONIZADO,
+                     P.SN_PADRONIZADO) As SN_PADRONIZADO,
+              P.CD_PRO_FAT,
+              Decode(DBAMV.PKT_CONFIGEST.RetornarControleLoteValEmpPrd(),
+                     'S',
+                     EMPRESA_PRODUTO.SN_MOVIMENTACAO,
+                     P.SN_MOVIMENTACAO) As SN_MOVIMENTACAO,
+              P.SN_CONSIGNADO,
+              Decode(DBAMV.PKT_CONFIGEST.RetornarControleLoteValEmpPrd(),
+                     'S',
+                     EMPRESA_PRODUTO.SN_BLOQUEIO_DE_COMPRA,
+                     P.SN_BLOQUEIO_DE_COMPRA) As SN_BLOQUEIO_DE_COMPRA,
+              P.SN_ADMITIDO,
+              P.CD_CLASSE,
+              P.CD_SUB_CLA,
+              P.DS_PRODUTO,
+              P.SN_MESTRE,
+              P.SN_PSCOTROPICO,
+              DBAMV.verif_ds_unid_prod(P.CD_PRODUTO) As UNIDADE,
+              DBAMV.verif_vl_fator_prod(P.CD_PRODUTO) As VL_FATOR_PADRAO
+         From DBAMV.PRODUTO P
+   Inner Join DBAMV.EMPRESA_PRODUTO On
+              EMPRESA_PRODUTO.CD_PRODUTO = P.CD_PRODUTO
+          And EMPRESA_PRODUTO.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+        Where P.SN_MESTRE = 'N') PRODUTO On
+       PRODUTO.CD_PRODUTO = ITMVTO_ESTOQUE_CUSTO.CD_PRODUTO
+Inner Join DBAMV.SETOR On
+       SETOR.CD_SETOR = MVTO_ESTOQUE.CD_SETOR
+Inner Join DBAMV.ESTOQUE On
+       ESTOQUE.CD_ESTOQUE = MVTO_ESTOQUE.CD_ESTOQUE
+   And ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+Inner Join DBAMV.EST_PRO EP On
+       EP.CD_ESTOQUE = MVTO_ESTOQUE.CD_ESTOQUE
+   And EP.CD_PRODUTO = ITMVTO_ESTOQUE_CUSTO.CD_PRODUTO
+   And (:CAMPO_PS_CD_LOCALIZACAO = '%'
+     Or EP.CD_LOCALIZACAO = :CAMPO_PS_CD_LOCALIZACAO)
+Left Join DBAMV.ENT_PRO On
+       ENT_PRO.CD_ENT_PRO = MVTO_ESTOQUE.CD_ENT_PRO
+Left Join DBAMV.MVTO_PACIENTE On
+       MVTO_PACIENTE.CD_MVTO_ESTOQUE = MVTO_ESTOQUE.CD_MVTO_ESTOQUE
+Left Join DBAMV.ATENDIME On
+       ATENDIME.CD_ATENDIMENTO = MVTO_ESTOQUE.CD_ATENDIMENTO
+Left Join DBAMV.PACIENTE On
+       PACIENTE.CD_PACIENTE = ATENDIME.CD_PACIENTE
+ Where ITMVTO_ESTOQUE_CUSTO.DH_MVTO_ESTOQUE Between To_Date(To_Char(:CAMPO_DTINIC,
+                                                                    'DD/MM/YYYY') || ' ' || :CAMPO_HR_INICIAL,
+                                                            'DD/MM/YYYY HH24')
+                                                And To_Date(To_Char(:CAMPO_DTFINAL,
+                                                                    'DD/MM/YYYY') || ' ' || :CAMPO_HR_FINAL,
+                                                            'DD/MM/YYYY HH24')
+Group By Nvl(PACIENTE.NM_PACIENTE,
+           Nvl(MVTO_PACIENTE.NM_PACIENTE,
+               SETOR.NM_SETOR)),
+	   PACIENTE.NM_SOCIAL_PACIENTE,
+       MVTO_ESTOQUE.CD_MVTO_ESTOQUE,
+       MVTO_ESTOQUE.CD_SOLSAI_PRO,
+       PRODUTO.UNIDADE,
+       PRODUTO.CD_PRODUTO,
+       PRODUTO.DS_PRODUTO,
+       MVTO_ESTOQUE.TP_MVTO_ESTOQUE
+Order By 7,
+       1

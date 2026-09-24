@@ -1,0 +1,117 @@
+/*----------------------------------------------------------------------------*/
+--R_EXAME_CIDADE_PSSD
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EXAME_CIDADE_PSSD_R_TIPO_ATENDIMENTO2_Q_EXAMES_X_CIDADES_A
+SELECT * FROM (
+SELECT   CIDADE.CD_UF                  CD_UF_A
+               ,CIDADE.NM_CIDADE         NM_CIDADE_A
+               ,ATENDIME.CD_ORI_ATE  CD_ORI_ATE_A
+               ,ORI_ATE.DS_ORI_ATE     DS_ORI_ATE_A
+               ,DECODE(TP_CONVENIO, 'A', EXA_LAB.CD_PROCEDIMENTO_SIA,
+                                                           'C', EXA_LAB.CD_PRO_FAT,
+                                                           'P', EXA_LAB.CD_PRO_FAT,
+                                                           'H', EXA_LAB.CD_PROCEDIMENTO_SIH)        CD_EXA_RX_A
+               ,EXA_LAB.NM_EXA_LAB        DS_EXA_RX_A
+               ,COUNT(*)                            QTD_A
+               ,DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO,
+                                                                      DECODE(TP_CONVENIO, 'A', EXA_LAB.CD_PROCEDIMENTO_SIA,
+                                                                                                                 'C', EXA_LAB.CD_PRO_FAT,
+                                                                                                                 'P', EXA_LAB.CD_PRO_FAT,
+                                                                                                                 'H', EXA_LAB.CD_PROCEDIMENTO_SIH),
+                                                                       PED_LAB.DT_PEDIDO,
+                                                                       PED_LAB.HR_PED_LAB,
+                                                                       ATENDIME.CD_CONVENIO,
+                                                                       ATENDIME.CD_CON_PLA,
+                                                                       ATENDIME.TP_ATENDIMENTO,
+                                                                       ATENDIME.CD_TIP_ACOM, 'U')             VL_EXAME_A
+FROM      DBAMV.ATENDIME
+               ,DBAMV.ORI_ATE
+               ,DBAMV.PACIENTE
+               ,DBAMV.CIDADE
+               ,DBAMV.CONVENIO
+               ,DBAMV.PED_LAB
+               ,DBAMV.ITPED_LAB
+               ,DBAMV.EXA_LAB
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And :CAMPO_TP_APRESENTACAO       =  'A'
+AND         ATENDIME.CD_ORI_ATE                     =  ORI_ATE.CD_ORI_ATE
+AND         ATENDIME.CD_PACIENTE                  =  PACIENTE.CD_PACIENTE
+AND         PACIENTE.CD_CIDADE                        =  CIDADE.CD_CIDADE(+)
+AND         ATENDIME.CD_CONVENIO                 = CONVENIO.CD_CONVENIO
+AND         ATENDIME.CD_ATENDIMENTO          =  PED_LAB.CD_ATENDIMENTO
+AND         PED_LAB.CD_PED_LAB                       =  ITPED_LAB.CD_PED_LAB
+AND EXISTS (SELECT 1
+            FROM DBAMV.ITPED_LAB,
+                       DBAMV.USUARIOS_SET_EXA
+            WHERE PED_LAB.CD_PED_LAB                                  = ITPED_LAB.CD_PED_LAB
+                  AND USUARIOS_SET_EXA.CD_SET_EXA              = ITPED_LAB.CD_SET_EXA
+                  AND USUARIOS_SET_EXA.NM_USUARIO            = USER)
+                  AND  ITPED_LAB.CD_EXA_LAB                              =  EXA_LAB.CD_EXA_LAB
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+GROUP BY CIDADE.CD_UF,
+                   CIDADE.NM_CIDADE,
+                   ATENDIME.CD_ORI_ATE,
+                   ORI_ATE.DS_ORI_ATE,
+                   DECODE(TP_CONVENIO, 'A', EXA_LAB.CD_PROCEDIMENTO_SIA,
+                                                              'C', EXA_LAB.CD_PRO_FAT,
+                                                              'P', EXA_LAB.CD_PRO_FAT,
+                                                              'H', EXA_LAB.CD_PROCEDIMENTO_SIH),
+                    EXA_LAB.NM_EXA_LAB
+                   ,DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO,
+                                                                          DECODE(TP_CONVENIO, 'A', EXA_LAB.CD_PROCEDIMENTO_SIA,
+                                                                                                                     'C', EXA_LAB.CD_PRO_FAT,
+                                                                                                                     'P', EXA_LAB.CD_PRO_FAT,
+                                                                                                                     'H', EXA_LAB.CD_PROCEDIMENTO_SIH),
+                                                                           PED_LAB.DT_PEDIDO,
+                                                                           PED_LAB.HR_PED_LAB,
+                                                                           ATENDIME.CD_CONVENIO,
+                                                                           ATENDIME.CD_CON_PLA,
+                                                                           ATENDIME.TP_ATENDIMENTO,
+                                                                           ATENDIME.CD_TIP_ACOM, 'U')
+ORDER BY CIDADE.CD_UF
+                   ,CIDADE.NM_CIDADE
+)
+ORDER BY NM_CIDADE_A,CD_UF_A,
+CD_ORI_ATE_A,DS_ORI_ATE_A, CD_EXA_RX_A, DS_EXA_RX_A
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_EXAME_CIDADE_PSSD_R_TIPO_ATENDIMENTO_Q_EXAMES_X_CIDADES_S
+SELECT * FROM (
+SELECT  PACIENTE.CD_CIDADE            CD_CIDADE_S
+               ,CIDADE.NM_CIDADE               NM_CIDADE_S
+               ,CIDADE.CD_UF                        CD_UF_S
+               ,COUNT(*)                                  QTD_S
+FROM    DBAMV.PACIENTE
+             ,DBAMV.CIDADE
+             ,DBAMV.ATENDIME
+             ,DBAMV.PED_LAB
+             ,DBAMV.ITPED_LAB
+             ,DBAMV.EXA_LAB
+WHERE  :CAMPO_TP_APRESENTACAO   =  'S'
+AND        PACIENTE.CD_CIDADE                       =  CIDADE.CD_CIDADE(+)
+AND        ATENDIME.CD_PACIENTE                 =  PACIENTE.CD_PACIENTE
+AND        ATENDIME.CD_ATENDIMENTO         =  PED_LAB.CD_ATENDIMENTO
+AND        PED_LAB.CD_PED_LAB                       =  ITPED_LAB.CD_PED_LAB
+AND        ITPED_LAB.CD_EXA_LAB                    =  EXA_LAB.CD_EXA_LAB
+AND EXISTS (SELECT 1
+                FROM DBAMV.ITPED_LAB,
+                           DBAMV.USUARIOS_SET_EXA
+                WHERE  PED_LAB.CD_PED_LAB                                  = ITPED_LAB.CD_PED_LAB
+                        AND USUARIOS_SET_EXA.CD_SET_EXA            = ITPED_LAB.CD_SET_EXA
+                        AND USUARIOS_SET_EXA.NM_USUARIO           = USER)
+AND  ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY PACIENTE.CD_CIDADE,
+         CIDADE.NM_CIDADE,
+         CIDADE.CD_UF
+ORDER BY CIDADE.CD_UF
+        ,CIDADE.NM_CIDADE
+)
+ORDER BY CD_UF_S, NM_CIDADE_S

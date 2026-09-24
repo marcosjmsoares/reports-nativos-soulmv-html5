@@ -1,0 +1,116 @@
+/*----------------------------------------------------------------------------*/
+--R_REP_GER_SINT
+SELECT * FROM (
+SELECT	SUM (vl_bruto) vl_bruto_tipo
+		  ,tp_vinculo tp_vinculo
+		  ,SUM (vl_faturado) vl_faturado_tipo
+		  ,SUM (vl_automatico) vl_automatico_tipo
+		  ,SUM (vl_manual) vl_manual_tipo
+	 FROM
+			(SELECT DECODE (gru_rep.cd_prestador, NULL, prestador.cd_prestador, gru_rep.cd_prestador) cd_gru_rep
+					 ,DECODE (gru_rep.nm_prestador, NULL, prestador.nm_prestador, gru_rep.nm_prestador) ds_gru_rep
+					 ,prestador.cd_prestador
+					 ,prestador.nm_prestador
+					 , (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) ) vl_bruto
+					 ,DECODE (gru_rep.cd_prestador, NULL, 'NAO', 'SIM') tipo
+					 ,DECODE (gru_rep.cd_prestador, NULL, prestador.tp_vinculo, gru_rep.tp_vinculo) tp_vinculo
+					 ,NVL (repasse_prestador.vl_faturado, 0) vl_faturado
+					 ,DECODE (repasse.tp_repasse
+								,'M', 0
+								, (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) )
+								) vl_automatico
+					 ,DECODE (repasse.tp_repasse
+								,'M', (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) )
+								,0
+								) vl_manual
+				FROM dbamv.repasse
+					 ,dbamv.repasse_prestador
+					 ,dbamv.prestador
+					 ,dbamv.prestador gru_rep
+			  WHERE TO_CHAR (repasse.dt_competencia, 'MM/YYYY') = :CAMPO_DT_COMPET
+				 AND repasse.cd_repasse = repasse_prestador.cd_repasse
+				 AND repasse_prestador.cd_prestador = prestador.cd_prestador
+				 AND repasse_prestador.cd_con_pag IS NOT NULL
+				 AND repasse_prestador.cd_prestador_repasse = gru_rep.cd_prestador
+             :CAMPO_CF_COND_MULTI_EMPRESA
+			)
+having SUM (vl_bruto) != 0
+GROUP BY tp_vinculo
+)
+ORDER BY TP_VINCULO
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_REP_GER_SINT_R_1_Q_TRIBUTOS
+SELECT	tip_detalhe.ds_detalhamento ds_detalhamento
+		  , SUM (NVL (tip_detcon_pag.vl_detalhamento, 0) ) * (-1) vl_detalhamento
+	 FROM dbamv.tip_detalhe
+		  ,dbamv.tip_detcon_pag
+	WHERE tip_detcon_pag.cd_con_pag_pai IN (
+				SELECT DISTINCT repasse_prestador.cd_con_pag
+							  FROM dbamv.repasse
+									,dbamv.repasse_prestador
+									,dbamv.tip_detcon_pag tip
+									,dbamv.con_pag
+									,dbamv.prestador
+									,dbamv.prestador gru_rep
+							 WHERE TO_CHAR (repasse.dt_competencia, 'MM/YYYY') = :CAMPO_DT_COMPET
+								AND repasse.cd_repasse = repasse_prestador.cd_repasse
+								AND repasse_prestador.cd_con_pag IS NOT NULL
+								AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag
+								AND con_pag.cd_con_pag = tip.cd_con_pag_pai
+								AND repasse_prestador.cd_prestador = prestador.cd_prestador
+								AND repasse_prestador.cd_prestador_repasse = gru_rep.cd_prestador
+								AND ( 	(	  gru_rep.cd_prestador IS NOT NULL
+											 AND gru_rep.tp_vinculo = :CAMPO_TP_VINCULO)
+									  OR (	 gru_rep.cd_prestador IS NULL
+											AND prestador.tp_vinculo = :CAMPO_TP_VINCULO)
+									  OR (	 gru_rep.cd_prestador IS NOT NULL
+											AND gru_rep.tp_vinculo IS NULL
+											AND  IS NULL)
+									  OR (	 gru_rep.cd_prestador IS NULL
+											AND prestador.tp_vinculo IS NULL
+											AND  IS NULL)
+									 ) )
+	  AND tip_detcon_pag.cd_detalhamento = tip_detalhe.cd_detalhamento
+GROUP BY tip_detalhe.ds_detalhamento
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_REP_GER_SINT_R_3_Q_ACRES_DESC
+SELECT	reg.ds_reg_rep_desc ds_reg_rep_desc
+		  ,SUM (NVL (rep.vl_acrescimo, 0) ) vl_acrescimo
+		  ,SUM (NVL (rep.vl_desconto, 0) ) vl_desconto
+		  , SUM (NVL (rep.vl_acrescimo, 0) ) - SUM (NVL (rep.vl_desconto, 0) ) vl_diferenca
+	 FROM dbamv.rep_desc rep
+		  ,dbamv.reg_rep_desc reg
+	WHERE rep.cd_con_pag IN (
+				SELECT repasse_prestador.cd_con_pag
+				  FROM dbamv.repasse
+						,dbamv.repasse_prestador
+						,dbamv.rep_desc
+						,dbamv.con_pag
+						,dbamv.prestador
+						,dbamv.prestador gru_rep
+				 WHERE TO_CHAR (repasse.dt_competencia, 'MM/YYYY') = :CAMPO_DT_COMPET
+					AND repasse.cd_repasse = repasse_prestador.cd_repasse
+					AND repasse_prestador.cd_con_pag IS NOT NULL
+					AND repasse_prestador.cd_con_pag = con_pag.cd_con_pag
+					AND con_pag.cd_con_pag = rep_desc.cd_con_pag
+					AND repasse_prestador.cd_prestador = prestador.cd_prestador
+					AND repasse_prestador.cd_prestador_repasse = gru_rep.cd_prestador
+					AND ( 	(	  gru_rep.cd_prestador IS NOT NULL
+								 AND gru_rep.tp_vinculo = :CAMPO_TP_VINCULO)
+						  OR (	 gru_rep.cd_prestador IS NULL
+								AND prestador.tp_vinculo = :CAMPO_TP_VINCULO)
+						  OR (	 gru_rep.cd_prestador IS NOT NULL
+								AND gru_rep.tp_vinculo IS NULL
+								AND  IS NULL)
+						  OR (	 gru_rep.cd_prestador IS NULL
+								AND prestador.tp_vinculo IS NULL
+								AND  IS NULL)
+						 ) )
+	  AND rep.cd_reg_rep_desc = reg.cd_reg_rep_desc
+GROUP BY reg.ds_reg_rep_desc

@@ -1,0 +1,105 @@
+/*----------------------------------------------------------------------------*/
+--R_CON_ARECEB_DT_VENC
+SELECT 
+dt_prev_pgto,
+cd_fornec,
+nn_fornec,
+ ds_hist_p,
+cd_con_rec,
+ds_con_rec,
+tp_con_rec,
+vr_previsto,
+vl_recebido,
+vl_desconto,
+vl_acrescimo,
+(NVL(vr_previsto,0) - NVL(vl_recebido,0) + NVL(vl_desconto,0) - NVL(vl_acrescimo,0)) vl_saldo,
+nr_doc,
+nr_serie,
+dt_emissao,
+cd_moeda_prev,
+vl_moeda_prev,
+dt_lancamento,
+cd_itcon_rec,
+TP_QUITACAO,
+VL_GLOSA,
+cd_mot_situacao
+FROM (
+select  itcon_rec.dt_prevista_recebimento dt_prev_pgto
+       ,con_rec.cd_fornecedor          cd_fornec
+       ,decode(con_rec.cd_fornecedor,'',con_rec.nm_cliente,fornecedor.nm_fantasia)         nn_fornec
+       ,hist_p.ds_historico_padrao     ds_hist_p
+       ,con_rec.cd_con_rec             cd_con_rec
+       ,con_rec.ds_con_rec             ds_con_rec
+       ,con_rec.tp_con_rec             tp_con_rec
+       ,decode(con_rec.cd_previsao,null,
+                     itcon_rec.vl_duplicata,
+                     itcon_rec.vl_duplicata - NVL(itcon_rec.vl_soma_recebido,0))        vr_previsto
+       ,(select SUM (NVL (r.vl_recebido, 0)  + NVL (r.vl_imposto_retido, 0))
+            from dbamv.reccon_rec r
+           where r.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and r.cd_motivo_canc is null
+             and r.dt_estorno is null
+             and decode(:CAMPO_SN_DATA_CRED_CONV,'S',TRUNC (nvl(DBAMV.PACK_FNCP.fnc_Retorna_Dt_Cred_Convenio(r.cd_reccon_rec), r.dt_recebimento)),trunc(r.dt_recebimento)) <= trunc(:CAMPO_DT_REFERENCIA)
+          )vl_recebido,
+	(select SUM (NVL (r.vl_desconto, 0))
+            from dbamv.reccon_rec r
+           where r.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and (r.dt_estorno is null or trunc(r.dt_estorno) >   Trunc( :CAMPO_DT_REFERENCIA ) )
+                :CAMPO_CF_SN_BAIXA_CONTABIL1)vl_desconto,
+         (select SUM (NVL (r.vl_acrescimo, 0))
+            from dbamv.reccon_rec r
+           where r.cd_itcon_rec = itcon_rec.cd_itcon_rec
+             and (r.dt_estorno is null or trunc(r.dt_estorno) >   Trunc( :CAMPO_DT_REFERENCIA ) )
+                :CAMPO_CF_SN_BAIXA_CONTABIL1)vl_acrescimo
+       ,con_rec.nr_documento      nr_doc
+       ,con_rec.nr_serie      nr_serie
+       ,trunc(con_rec.dt_emissao)  dt_emissao
+       ,itcon_rec.cd_moeda         cd_moeda_prev
+       ,itcon_rec.vl_moeda         vl_moeda_prev
+       ,con_rec.dt_lancamento      dt_lancamento
+       ,itcon_rec.cd_itcon_rec
+       ,ITCON_REC.TP_QUITACAO TP_QUITACAO
+       ,ITCON_REC.VL_GLOSA VL_GLOSA
+       ,con_rec.cd_mot_situacao
+from   dbamv.itcon_rec
+        , dbamv.con_rec
+       ,dbamv.fornecedor
+       ,dbamv.historico_padrao hist_p
+where  con_rec.cd_historico_padrao          = hist_p.cd_historico_padrao (+)
+and     con_rec.cd_multi_empresa             =   :CAMPO_CD_MULTI_EMPRESA
+and     itcon_rec.cd_con_rec                     =   con_rec.cd_con_rec
+and     trunc(itcon_rec.dt_prevista_recebimento) between :CAMPO_DT_INIC and 
+and     trunc(con_rec.dt_emissao) <= :CAMPO_DT_REFERENCIA
+AND ITCON_REC.CD_CON_REC_AGRUP IS NULL
+and (
+(( :CAMPO_VL_RECEBIDO_SN = 'N') and (( not exists (select  reccon_rec.cd_itcon_rec
+from dbamv.reccon_rec
+where decode(:CAMPO_SN_DATA_CRED_CONV,'S',TRUNC (nvl(DBAMV.PACK_FNCP.fnc_Retorna_Dt_Cred_Convenio(reccon_rec.cd_reccon_rec), reccon_rec.dt_recebimento)),trunc(reccon_rec.dt_recebimento)) <= trunc(:CAMPO_DT_REFERENCIA)
+and reccon_rec.cd_motivo_canc is null
+and reccon_rec.dt_estorno is null
+and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec)  ))
+or ( itcon_rec.vl_duplicata  >  (select sum( nvl(vl_recebido ,0) - nvl(vl_acrescimo,0) + nvl(vl_desconto,0))
+from dbamv.reccon_rec
+where decode(:CAMPO_SN_DATA_CRED_CONV,'S',TRUNC (nvl(DBAMV.PACK_FNCP.fnc_Retorna_Dt_Cred_Convenio(reccon_rec.cd_reccon_rec), reccon_rec.dt_recebimento)),trunc(reccon_rec.dt_recebimento)) <= trunc(:CAMPO_DT_REFERENCIA)
+and reccon_rec.cd_motivo_canc is null
+and reccon_rec.dt_estorno is null
+and  reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec) ))
+AND NOT (ITCON_REC.TP_QUITACAO = 'G' AND NVL(ITCON_REC.VL_RECURSO,0) = 0)
+or
+(( :CAMPO_VL_RECEBIDO_SN = 'S') and ((exists (select reccon_rec.cd_itcon_rec
+                                                                        from dbamv.reccon_rec
+                                                                        where decode(:CAMPO_SN_DATA_CRED_CONV,'S',TRUNC (nvl(DBAMV.PACK_FNCP.fnc_Retorna_Dt_Cred_Convenio(reccon_rec.cd_reccon_rec), reccon_rec.dt_recebimento)),trunc(reccon_rec.dt_recebimento)) <= trunc(:CAMPO_DT_REFERENCIA)
+                                                                        and reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+                                                                        and reccon_rec.cd_motivo_canc is null
+                                                                        and reccon_rec.dt_estorno is null)  ))
+                                                                           or not exists (select 'X'
+                                                                                                  from dbamv.reccon_rec
+                                                                                               where reccon_rec.cd_itcon_rec = itcon_rec.cd_itcon_rec
+                                                                                                  and reccon_rec.cd_motivo_canc is null
+                                                                                                  and reccon_rec.dt_estorno is null))
+)
+:CAMPO_CF_CONFIRMA_VIRTUAL
+)
+where 1 = 1
+ORDER BY DT_PREV_PGTO,
+TP_CON_REC

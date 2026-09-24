@@ -1,0 +1,549 @@
+/*----------------------------------------------------------------------------*/
+--R_CIRURGIA_POR_PORTE
+select 1 from dual
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CIRURGIA_POR_PORTE_R_NM_PRESTADOR2_Q_PRINCIPAL1
+SELECT * FROM (
+select tab.cd_prestador cd_prestador,
+       Nvl(prestador.nm_prestador, 'NAO INFORMADO')  nm_prestador,
+       nvl(sum(Pequeno_SUS),0) Pequeno_SUS,
+       sum(Medio_SUS) Medio_SUS,
+       sum(Grande_SUS) Grande_SUS,
+       sum(Especial_SUS) Especial_SUS,
+       sum(Pequeno_CONVENIO) Pequeno_CONVENIO,
+       sum(Medio_CONVENIO) Medio_CONVENIO,
+       sum(Grande_CONVENIO) Grande_CONVENIO,
+       sum(Especial_CONVENIO) Especial_CONVENIO,
+       sum(Pequeno_PARTICULAR) Pequeno_PARTICULAR,
+       sum(Medio_PARTICULAR) Medio_PARTICULAR,
+       sum(Grande_PARTICULAR) Grande_PARTICULAR,
+       sum(Especial_PARTICULAR) Especial_PARTICULAR
+from dbamv.prestador,
+     dbamv.atendime,
+(
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            count(*) Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+and aviso_cirurgia.dt_realizacao
+   between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+   and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+and cirurgia.tp_cirurgia = 'P'
+and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+and convenio.tp_convenio in ('A','H')
+group by prestador_aviso.cd_prestador,
+      aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            count(*) Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'M'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio in ('A','H')
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            count(*) Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'G'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio in ('A','H')
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            Count(*) Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'E'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio in ('A','H')
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            count(*) Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'P'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'C'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            count(*) Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'M'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'C'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            count(*) Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'G'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'C'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            count(*) Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'E'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'C'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            count(*) Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'P'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'P'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            count(*) Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+       between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+       and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'M'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'P'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            count(*) Grande_PARTICULAR,
+            0 Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+          between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+           and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'G'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'P'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+UNION ALL
+     select prestador_aviso.cd_prestador cd_prestador,
+            aviso_cirurgia.cd_atendimento cd_atendimento,
+            0 Pequeno_SUS,
+            0 Medio_SUS,
+            0 Grande_SUS,
+            0 Especial_SUS,
+            0 Pequeno_CONVENIO,
+            0 Medio_CONVENIO,
+            0 Grande_CONVENIO,
+            0 Especial_CONVENIO,
+            0 Pequeno_PARTICULAR,
+            0 Medio_PARTICULAR,
+            0 Grande_PARTICULAR,
+            count(*) Especial_PARTICULAR
+     from dbamv.aviso_cirurgia,
+          dbamv.cirurgia_aviso,
+          dbamv.cirurgia,
+          dbamv.convenio,
+          (SELECT P_A.CD_PRESTADOR,
+                          A_M.CD_ATI_MED,
+                          A_M.DS_ATI_MED,
+                          P_A.CD_CIRURGIA_AVISO,
+                          P_A.CD_AVISO_CIRURGIA
+              FROM  DBAMV.PRESTADOR_AVISO P_A,
+                          DBAMV.ATI_MED A_M
+           WHERE  A_M.CD_ATI_MED = P_A.CD_ATI_MED
+                 AND  A_M.TP_FUNCAO = 'C') PRESTADOR_AVISO
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And aviso_cirurgia.tp_situacao = 'R'
+       and aviso_cirurgia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+       and aviso_cirurgia.dt_realizacao
+           between To_Date(Concat(To_Char(to_date(:CAMPO_DATA_INICIAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'00'),'DD/MM/YYYY HH24')
+           and To_Date(Concat(To_Char(to_date(:CAMPO_DATA_FINAL,'DD/MM/YYYY'), 'DD/MM/YYYY'),'23'),'DD/MM/YYYY HH24')
+       and cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+       and cirurgia.tp_cirurgia = 'E'
+       and cirurgia_aviso.cd_convenio = convenio.cd_convenio
+       and prestador_aviso.cd_cirurgia_aviso(+) = cirurgia_aviso.cd_cirurgia_aviso
+       and convenio.tp_convenio = 'P'
+     group by prestador_aviso.cd_prestador,
+              aviso_cirurgia.cd_atendimento
+)tab
+where tab.cd_prestador = prestador.cd_prestador(+)
+  and tab.cd_atendimento = atendime.cd_atendimento(+)
+  and  atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+group by tab.cd_prestador,
+          Nvl(prestador.nm_prestador, 'NAO INFORMADO')
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR

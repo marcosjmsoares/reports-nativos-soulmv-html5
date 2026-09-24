@@ -1,0 +1,41 @@
+/*----------------------------------------------------------------------------*/
+--R_LANCAMENTOS
+SELECT *
+  FROM (
+        SELECT ratcon_pag.cd_con_pag,
+               ratcon_pag.cd_item_res,
+               item_res.ds_item_res,
+               con_pag.dt_lancamento,
+			   NVL(setor.nm_setor,'NÃO INFORMADO') nm_setor,
+			   con_pag.ds_fornecedor,
+			   NVL(ratcon_pag.nr_meses_amortizacao,0) nr_meses_amortizacao,
+			   NVL(ratcon_pag.vl_rateio,0) vl_rateio,
+			   tp_item_res ds_tp_item_res,
+			   ratcon_pag.sn_importado_custos,
+			   con_pag.nr_documento,
+			   ratcon_pag.dt_competencia
+          FROM dbamv.ratcon_pag,
+			   dbamv.item_res,
+			   dbamv.setor,
+			   dbamv.con_pag
+		 WHERE (:CAMPO_DTCOMP IS NOT NULL AND ( TRUNC (ratcon_pag.dt_competencia,'MM') BETWEEN TO_DATE(:CAMPO_DTCOMP, 'MM/YYYY')
+																					      AND TO_DATE(:CAMPO_DT_COMP_FIM, 'MM/YYYY')))
+		   AND (:CAMPO_DT_INI IS NOT NULL AND (TO_CHAR(dt_lancamento, 'yyyy/mm/dd') >= :CAMPO_DT_INI
+				                                        AND TO_CHAR(dt_lancamento,'yyyy/mm/dd') <= :CAMPO_DT_FIM))
+		   AND ratcon_pag.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+		   AND ratcon_pag.cd_item_res IS NOT NULL
+		   AND item_res.cd_item_res = ratcon_pag.cd_item_res
+		   AND setor.cd_setor(+) = ratcon_pag.cd_setor
+		   AND con_pag.cd_con_pag(+) = ratcon_pag.cd_con_pag
+		   AND con_pag.cd_previsao IS NULL
+		   AND ratcon_pag.tp_origem_informacao = 'F'
+      ORDER BY ratcon_pag.cd_item_res,
+			   item_res.ds_item_res,
+			   con_pag.dt_lancamento,
+			   setor.nm_setor,
+			   con_pag.ds_fornecedor
+       )
+ORDER BY NM_SETOR,
+		 DS_ITEM_RES,
+		 CD_ITEM_RES,
+		 DS_TP_ITEM_RES

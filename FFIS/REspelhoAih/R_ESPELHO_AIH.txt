@@ -1,0 +1,127 @@
+/*----------------------------------------------------------------------------*/
+--R_ESPELHO_AIH
+SELECT CD_REG_FAT,
+   SN_FECHADA,
+   NR_AIH,
+   APRESENTACAO,
+   DATA_EMISSAO,
+   ESPECIALIDADE,
+   ORGAO_EMISSOR,
+   ENFERMARIA,
+   LEITO,
+   DOC_AUTORIZADOR,
+   CNS_AUTORIZADOR  NR_CNS_AUTOR,
+   CPF_MED_RESP,
+   CNS_MED_RESP,
+   CPF_DIR_CLINICO,
+   CNS_DIR_CLINICO,
+   CPF_MED_SOLIC,
+   CNS_MED_SOLIC    NR_CNS_SOLIC,
+   NR_CNES,
+   NM_PACIENTE,
+   DT_NASCIMENTO,
+   TP_SEXO,
+   NACIONALIDADE,
+   NACIONALIDADE_DESCRICAO,
+   CD_PACIENTE,
+   CPF_PACIENTE,
+   RG_PACIENTE,
+   NR_CNS,
+   RGN_PACIENTE,
+   RESPONSAVEL,
+   NM_MAE,
+   ENDERECO,
+   NM_BAIRRO,
+   NR_FONE,
+   TP_COR,
+   CIDADE,
+   UF,
+   CEP,
+   NR_AIH_ANTERIOR,
+   NR_AIH_POSTERIOR,
+   CD_PROC_SOlIC,
+   CD_PROC_REALIZ,
+   PROCEDIMENTO_SOLIC_MASCARA,
+   PROCEDIMENTO_SOLIC,
+   PROCEDIMENTO_PRINCIPAL_MASCARA,
+   PROCEDIMENTO_PRINCIPAL,
+   DIAGNOSTICO_PRINC,
+   DIAGNOSTICO_SECUNDARIO,
+   DS_OBITO,
+   CARATER_ATENDIMENTO,
+   CARATER_ATENDIMENTO_DESCR,
+   MODALIDADE,
+   DATA_INTERNACAO,
+   DATA_SAIDA,
+   MOTIVO_ALTA,
+   LIBERACAO_SISAIH,
+   NR_IDENTIFICACAO,
+   NR_CNPJ_EMPREGADOR_ACID,
+   CD_CBOR_ACID,
+   CD_CNAER_ACID,
+   TP_VINCULO_PREV_ACID,
+   NR_PRE_NATAL,
+   QT_RN_VIVO,
+   QT_RN_MORTO,
+   QT_RN_ALTA,
+   QT_RN_TRANSFERIDO,
+   QT_RN_OBITO,
+   DS_ETNIA,
+   CD_MULTI_EMPRESA,
+   DT_COMPETENCIA_FATURA,
+   CD_REMESSA,
+   CD_CID_CAUSAS_ASSOCIADAS,
+   DT_FECHAMENTO,
+   NM_USUARIO_FECHAMENTO
+ FROM dbamv.V_FFIS_ESPELHO_CONTA_AIH
+WHERE to_Char(DT_COMPETENCIA_FATURA, 'MM/YYYY') = to_Char(:CAMPO_COMPET, 'MM/YYYY')
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_ESPELHO_AIH_R_2_Q_PREVIA_VALORES
+select rownum linha
+     , cd_reg_fat_previa
+     , ds_organiza_grupo_procedimento
+     , vl_sh_principal
+     , vl_sh_proprio
+     , vl_sh_terceiro
+     , vl_sp_proprio
+     , vl_sp_terceiro
+     , vl_sp_rateio_proprio
+     , vl_sp_rateio_terceiro
+  from ( select cd_reg_fat_previa
+              , ds_organiza_grupo_procedimento
+              , vl_sh_principal
+              , vl_sh_proprio
+              , vl_sh_terceiro
+              , vl_sp_proprio
+              , vl_sp_terceiro
+              , vl_sp_rateio_proprio
+              , vl_sp_rateio_terceiro
+           from ( select v.cd_reg_fat                           cd_reg_fat_previa
+                       , substr(v.cd_procedimento,1,2) ||'.'||
+                         substr(v.cd_procedimento,3,2) ||'.'||
+                         substr(v.cd_procedimento,5,2) ||'-'||
+                         ogp.ds_organiza_grupo_procedimento ds_organiza_grupo_procedimento
+                       , sum(nvl(v.vl_sh_principal,0))          vl_sh_principal
+                       , sum(nvl(v.vl_sh_proprio,0))            vl_sh_proprio
+                       , sum(nvl(v.vl_sh_terceiro,0))           vl_sh_terceiro
+                        , sum(nvl(v.vl_sp_direto_proprio,0))     vl_sp_proprio
+                       , sum(nvl(v.vl_sp_direto_terceiro,0))    vl_sp_terceiro
+                       , sum(nvl(v.vl_sp_rateio_proprio,0))     vl_sp_rateio_proprio
+                       , sum(nvl(v.vl_sp_rateio_terceiro,0))    vl_sp_rateio_terceiro
+                    from dbamv.organiza_grupo_procedimentos  ogp
+                       , dbamv.v_ffis_valor_conta_aih v
+                   where ogp.cd_grupo_procedimento          = substr(v.cd_procedimento,1,2)
+                     and ogp.cd_sub_grupo_procedimento      = substr(v.cd_procedimento,3,2)
+                     and ogp.cd_organiza_grupo_procedimento = substr(v.cd_procedimento,5,2)
+                     and v.cd_reg_fat = :CAMPO_CP_CD_REG_FAT
+                   Group By v.cd_reg_fat
+                          , substr(v.cd_procedimento,1,2) ||'.'||
+                            substr(v.cd_procedimento,3,2) ||'.'||
+                            substr(v.cd_procedimento,5,2) ||'-'||
+                            ogp.ds_organiza_grupo_procedimento
+                  )
+   )
+ order by ds_organiza_grupo_procedimento

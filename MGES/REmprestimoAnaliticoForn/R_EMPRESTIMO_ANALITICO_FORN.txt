@@ -1,0 +1,82 @@
+/*----------------------------------------------------------------------------*/
+--R_EMPRESTIMO_ANALITICO_FORN
+Select Dt_emprestimo,
+       cd_Fornecedor,
+       Ds_Fornecedor,
+       Produto,
+       cProduto,
+       Unidade,
+       Qt_entrada,
+       vl_unitario,
+       Vl_total,
+       Tp_emprestimo,
+       tp_emprestimo_2
+  From (Select Ent_pro.dt_entrada                                                                       Dt_emprestimo
+	      ,Fornecedor.cd_fornecedor                                                                 cd_fornecedor
+              ,Fornecedor.nm_fornecedor                                                                 ds_fornecedor
+              ,Produto.ds_produto                                                                       produto
+              ,Produto.cd_produto                                                                       cProduto
+              ,Uni_pro.ds_unidade                                                                       unidade
+              ,Itent_pro.qt_entrada                                                                     qt_entrada
+              ,Itent_pro.vl_unitario                                                                    vl_unitario
+              ,(Nvl(ItEnt_Pro.Qt_Entrada, 0) * Nvl(Vl_Custo_Real, 0))                                   vl_Total
+              ,decode(dbamv.pkg_mges_emprestimo.retorna_tp_emprestimo_ent(itent_pro.cd_itent_pro) ,'PEC','Pagto Empréstimo Concedido','Empréstimo Recebido')             tp_emprestimo
+              ,decode(dbamv.pkg_mges_emprestimo.retorna_tp_emprestimo_ent(itent_pro.cd_itent_pro) ,'PEC','PEC','ER')             tp_emprestimo_2
+          From Dbamv.Ent_pro                         Ent_pro,
+               Dbamv.Itent_pro                       Itent_pro,
+               Dbamv.Estoque                         Estoque,
+               Dbamv.Tip_doc                         Tip_doc,
+               Dbamv.Fornecedor                      Fornecedor,
+               Dbamv.Produto                         Produto,
+               Dbamv.Uni_pro                         Uni_pro
+         Where Ent_Pro.Cd_Ent_Pro           = ItEnt_Pro.Cd_Ent_Pro
+           AND Ent_Pro.Dt_Entrada           Between :CAMPO_DT_INIC And 
+           AND Ent_Pro.Cd_Estoque           = Estoque.Cd_Estoque
+           AND Tip_Doc.Tp_Entrada           = 'E'
+           AND Uni_Pro.Cd_Uni_Pro(+)        = ItEnt_Pro.Cd_Uni_Pro
+           AND Ent_Pro.Cd_Tip_Doc           = Tip_Doc.Cd_Tip_Doc
+           And Ent_pro.cd_fornecedor        = Fornecedor.cd_fornecedor
+           And Itent_pro.cd_produto         = Produto.cd_produto
+		   And Nvl(Itent_pro.sn_pendencia,'S')   =  decode(:CAMPO_TP_SITUACAO,'A', Nvl(itent_pro.sn_pendencia,'S'),  'E', 'N', 'P', 'S')
+        union all
+        Select Dt_emprestimo
+	      ,cd_fornecedor
+              ,Ds_fornecedor
+              ,Produto
+              ,cProduto
+              ,Unidade
+              ,Qt_entrada
+             , vl_unitario
+             ,vl_total
+              ,decode(dbamv.pkg_mges_emprestimo.retorna_tp_emprestimo_sai(cd_itmvto_estoque),'PER','Pagto de Empréstimo Recebido','Empréstimo Concedido')  tp_emprestimo
+              ,decode(dbamv.pkg_mges_emprestimo.retorna_tp_emprestimo_sai(cd_itmvto_estoque),'PER','PER','EC')  tp_emprestimo_2
+          From (SELECT mvto_estoque.dt_mvto_estoque                                         dt_emprestimo
+		      ,Fornecedor.cd_fornecedor                                             cd_fornecedor
+                      ,fornecedor.nm_fornecedor                                             Ds_fornecedor
+                      ,Produto.ds_produto                                                   Produto
+                      ,Produto.cd_produto                                                   cProduto
+                      ,Uni_pro.ds_unidade                                                   Unidade
+                      ,ItMvto_Estoque.Qt_Movimentacao                                       Qt_entrada
+                      ,mvto_estoque.hr_mvto_estoque                                         hr_mvto_estoque
+                      ,itmvto_estoque.cd_produto                                            cd_produto
+                      ,(uni_pro.Vl_Fator * Verif_Vl_Custo_Medio(produto.Cd_Produto,mvto_estoque.dt_mvto_estoque,'H',null,mvto_estoque.hr_mvto_estoque)) Vl_Unitario
+                      ,(ItMvto_Estoque.Qt_Movimentacao * uni_pro.Vl_Fator * Verif_Vl_Custo_Medio(produto.Cd_Produto,mvto_estoque.dt_mvto_estoque,'H',null,mvto_estoque.hr_mvto_estoque)) vl_total
+                      ,uni_pro.Vl_Fator                                                     vl_fator
+                      ,itmvto_estoque.cd_itmvto_estoque                        cd_itmvto_estoque
+                  FROM Dbamv.Mvto_Estoque
+                      ,Dbamv.Uni_Pro
+                      ,Dbamv.ItMvto_Estoque
+                      ,Dbamv.Estoque
+                      ,Dbamv.Produto
+                      ,Dbamv.Fornecedor
+                 WHERE Mvto_Estoque.Dt_Mvto_Estoque    Between :CAMPO_DT_INIC And 
+                   AND Mvto_Estoque.Cd_Estoque           = Estoque.Cd_Estoque
+                   AND ItMvto_Estoque.Cd_Mvto_Estoque = Mvto_Estoque.Cd_Mvto_Estoque
+                   AND ItMvto_Estoque.Cd_Produto         = Produto.Cd_Produto
+                   AND Uni_Pro.Cd_Uni_Pro(+)             = ItMvto_Estoque.Cd_Uni_Pro
+   AND mvto_estoque.tp_mvto_estoque      = 'E'
+                   AND mvto_estoque.cd_fornecedor        = fornecedor.cd_fornecedor
+				   And Nvl(Itmvto_estoque.sn_pendencia,'S')   =  decode(:CAMPO_TP_SITUACAO,'A', Nvl(itmvto_estoque.sn_pendencia,'S'),  'E', 'N', 'P', 'S')
+                :CAMPO_CF_SUBCLASSE
+                ))
+ Order by Ds_Fornecedor || cd_fornecedor , dt_emprestimo

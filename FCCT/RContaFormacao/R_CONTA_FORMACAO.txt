@@ -1,0 +1,68 @@
+/*----------------------------------------------------------------------------*/
+--R_CONTA_FORMACAO
+SELECT mvto.cd_multi_empresa,
+       emp.ds_multi_empresa,
+       mvto.cd_glosa20_mvto,
+       Nvl(valr.vl_formacao,0) vl_formacao,
+       Nvl(valr.vl_faturado,0) vl_faturado, 
+       Decode( mvto.tp_situacao, 'A','ABERTO',
+                                 'F','FECHADO',
+                                 'C','CONTABILIZADO',
+                                 'CANCELADO') tp_situacao,
+       mvto.nm_user_criacao,
+       mvto.dt_criacao,
+       mvto.nm_user_fech, 
+       mvto.dt_fechamento, 
+       mvto.nm_user_contab, 
+       mvto.dt_contabilidade, 
+       mvto.nm_user_cancelamento, 
+       mvto.dt_cancelamento
+  FROM   dbamv.GLOSA20_MVTO mvto,
+      (SELECT cd_glosa20_mvto,
+              Sum(vl_movimento) vl_formacao,
+              Sum(vl_faturado)  vl_faturado
+       FROM   dbamv.glosa20_valor 
+       GROUP BY cd_glosa20_mvto) valr, 
+       dbamv.multi_empresas emp
+  WHERE  mvto.cd_glosa20_mvto = :CAMPO_PCD_GLOSA20_MVTO
+  AND  mvto.tp_movimento = 'FORM'
+  AND  mvto.cd_glosa20_mvto = valr.cd_glosa20_mvto(+)
+  AND  mvto.cd_multi_empresa = emp.cd_multi_empresa
+
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONTA_FORMACAO_R_ITENS
+SELECT Decode(item.tp_conta,'A','AMBU','HOSP') tp_conta,
+       item.cd_conta,
+       aten.cd_paciente,
+       paci.nm_paciente,
+       item.cd_atendimento,
+       aten.ds_atendimento,
+       item.cd_convenio,
+       conv.nm_convenio,
+       aten.nr_guia,
+       Sum(Nvl(valr.vl_movimento,0)) vl_formacao,
+       Sum(Nvl(valr.vl_faturado,0)) vl_faturado
+ FROM   dbamv.glosa20_mvto mvto,
+       dbamv.glosa20_valor valr,
+       dbamv.glosa20_item item,
+       dbamv.atendime aten,
+       dbamv.paciente paci,
+       dbamv.convenio conv
+  WHERE  mvto.cd_glosa20_mvto = valr.cd_glosa20_mvto
+  AND  valr.cd_glosa20_item = item.cd_glosa20_item
+  AND  mvto.tp_movimento = 'FORM'
+   AND mvto.cd_glosa20_mvto =  :CAMPO_PCD_GLOSA20_MVTO 
+  AND  item.cd_convenio = conv.cd_convenio
+  AND  item.cd_atendimento = aten.cd_atendimento
+  AND  aten.cd_paciente = paci.cd_paciente
+  GROUP BY item.tp_conta,
+          item.cd_conta,
+          aten.cd_paciente,
+          paci.nm_paciente,
+          item.cd_atendimento,
+          aten.ds_atendimento,
+          item.cd_convenio,
+          conv.nm_convenio,
+          aten.nr_guia

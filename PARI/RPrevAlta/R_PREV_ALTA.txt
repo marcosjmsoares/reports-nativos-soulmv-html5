@@ -1,0 +1,49 @@
+/*----------------------------------------------------------------------------*/
+--R_PREV_ALTA
+SELECT   ATENDIME.CD_ATENDIMENTO,
+                PACIENTE.CD_PACIENTE CODIGO,
+                PACIENTE.NM_PACIENTE DESCRICAO,
+                (SELECT P.NM_SOCIAL_PACIENTE FROM DBAMV.PACIENTE P WHERE NVL(SN_UTILIZA_NOME_SOCIAL, 'N') = 'S' AND PACIENTE.CD_PACIENTE =  CD_PACIENTE) NM_SOCIAL_PACIENTE,
+                ATENDIME.DT_ATENDIMENTO,
+                Nvl(ATENDIME.CD_PRO_INT,ATENDIME.CD_PROCEDIMENTO) CD_PRO_INT,
+                Decode(Nvl(ATENDIME.CD_PRO_INT,'0'),'0',PROCEDIMENTO_SUS.DS_PROCEDIMENTO,PRO_FAT.DS_PRO_FAT) DSCPRO,
+                Decode(Nvl(ATENDIME.CD_PRO_INT,'0'),'0',PROCEDIMENTO_SUS.NR_DIAS_INTERNACAO,PRO_FAT.NR_DIAS_INTERNACAO) NUMDIA,
+                PRESTADOR.CD_PRESTADOR,
+                PRESTADOR.NM_PRESTADOR,
+                LEITO.CD_LEITO,
+                LEITO.DS_RESUMO,
+                CID.CD_CID,
+                CID.DS_CID,
+                CONVENIO.CD_CONVENIO,
+                CONVENIO.NM_CONVENIO,
+                UNID_INT.CD_UNID_INT,
+                UNID_INT.DS_UNID_INT,
+                NVL(trunc(ATENDIME.DT_PREVISTA_ALTA), trunc(RES_LEI.DT_PREV_ALTA)) DT_PREVISTA_ALTA1
+    FROM DBAMV.PACIENTE,
+               DBAMV.ATENDIME,
+               DBAMV.PRO_FAT,
+               DBAMV.PRESTADOR,
+               DBAMV.LEITO,
+               DBAMV.CID,
+               DBAMV.CONVENIO,
+               DBAMV.UNID_INT,
+               DBAMV.RES_LEI,
+	       DBAMV.PROCEDIMENTO_SUS
+WHERE ATENDIME.TP_ATENDIMENTO       =   'I'
+      AND ATENDIME.CD_PACIENTE               =   PACIENTE.CD_PACIENTE
+      AND ATENDIME.CD_PRO_INT                 =   PRO_FAT.CD_PRO_FAT (+)
+      AND ATENDIME.CD_PROCEDIMENTO            =   PROCEDIMENTO_SUS.CD_PROCEDIMENTO(+)
+      AND ATENDIME.CD_PRESTADOR           =   PRESTADOR.CD_PRESTADOR(+) 
+      AND ATENDIME.CD_CID                           =   CID.CD_CID(+) 
+      AND ATENDIME.CD_CONVENIO              =   CONVENIO.CD_CONVENIO(+) 
+      AND ATENDIME.CD_LEITO                       =   LEITO.CD_LEITO(+) 
+      AND LEITO.CD_UNID_INT                         =   UNID_INT.CD_UNID_INT
+      AND ATENDIME.DT_ALTA IS NULL
+      AND ATENDIME.CD_ATENDIMENTO       = RES_LEI.CD_ATENDIMENTO(+)
+      AND NVL(ATENDIME.DT_PREVISTA_ALTA,RES_LEI.DT_PREV_ALTA)  BETWEEN
+        To_Date(Concat(To_Char(:CAMPO_DT_INI,'dd/mm/yyyy'),'00'),'dd/mm/yyyy hh24')
+        AND To_Date(Concat(To_Char(:CAMPO_DT_FIM,'dd/mm/yyyy'),'23'),'dd/mm/yyyy hh24')
+     AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA  
+ORDER BY NVL(TRUNC(RES_LEI.DT_PREV_ALTA),TRUNC(ATENDIME.DT_PREVISTA_ALTA)),
+                     UNID_INT.DS_UNID_INT,
+                     :CAMPO_ORDEM
