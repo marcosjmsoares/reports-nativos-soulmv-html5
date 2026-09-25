@@ -1,0 +1,97 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/ROpmFornecedorP321/R_OPM_FORNECEDOR_P321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_OPM_FORNECEDOR_P321
+select sysdate from dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_OPM_FORNECEDOR_P321_RF_FORNECEDOR_Q_PROTESES
+SELECT CD_FORNECEDOR
+      ,NM_FORNECEDOR
+      ,NM_PACIENTE
+      ,NR_DOCUMENTO
+      ,NR_GUIA
+      ,CD_PROCEDIMENTO
+      ,DS_PROCEDIMENTO
+      ,QT_LANCAMENTO
+      ,VL_UNITARIO
+      ,VL_TOTAL_CONTA
+from (
+Select itcob.cd_fornecedor              CD_FORNECEDOR
+     , fornec.nm_fornecedor             NM_FORNECEDOR
+     , pac.nm_paciente                  NM_PACIENTE
+     , itcob.nr_documento               NR_DOCUMENTO
+     , reg.nr_guia                      NR_GUIA
+     , proc.cd_procedimento             CD_PROCEDIMENTO
+     , proc.ds_procedimento             DS_PROCEDIMENTO
+     , nvl(visao.qtd_ortese_protese, 0) QT_LANCAMENTO
+    , decode(nvl(visao.vlr_ortese_protese,0), 0 , 0 ,(visao.vlr_ortese_protese / nvl(visao.qtd_ortese_protese, 1))) VL_UNITARIO 
+     , (visao.qtd_ortese_protese * decode(nvl(visao.vlr_ortese_protese,0), 0, 0,(visao.vlr_ortese_protese / nvl(visao.qtd_ortese_protese, 1)))) VL_TOTAL_CONTA
+  From dbamv.itreg_fat                  itrg
+     , dbamv.reg_fat                    reg
+     , dbamv.atendime                   atend
+     , dbamv.remessa_fatura             remFat
+     , dbamv.fatura                     fatu
+     , dbamv.itcob_pre                  itcob
+     , dbamv.procedimento_sus           proc
+     , dbamv.procedimento_sus_detalhe   procDet
+     , dbamv.paciente                   pac
+     , dbamv.fornecedor                 fornec
+     , dbamv.v_ffis_fat_gerencial_total Visao
+ where reg.cd_reg_fat                           = itrg.cd_reg_fat
+   and reg.cd_atendimento                       = atend.cd_atendimento
+   and atend.cd_paciente                        = pac.cd_paciente
+   and reg.cd_remessa                           = remFat.cd_remessa
+   and remFat.cd_fatura                         = fatu.cd_fatura
+   and itcob.cd_reg_fat                         = itrg.cd_reg_fat
+   and itcob.cd_lancamento                      = itrg.cd_lancamento
+   and itcob.cd_fornecedor                      = fornec.cd_fornecedor
+   and visao.cd_reg_fat                         = itrg.cd_reg_fat
+   and visao.cd_lancamento                      = itrg.cd_lancamento
+   and itrg.cd_procedimento                     = proc.cd_procedimento
+   and proc.cd_procedimento                     = procDet.cd_procedimento
+   and nvl(procDet.sn_ortese_protese, 'N')      = 'S'
+   and reg.cd_multi_empresa                     = :CAMPO_CD_MULTI_EMPRESA
+   AND to_char(visao.dt_competencia, 'MM/YYYY') = (to_char(:CAMPO_COMPET, 'MM/YYYY'))
+   AND reg.cd_multi_empresa                     = :CAMPO_CD_MULTI_EMPRESA
+   :CAMPO_FC_ORDEM)
+
+
+/*----------------------------------------------------------------------------*/
+--R_OPM_FORNECEDOR_P321_RF_SINTETICO_Q_PROTESE_SIN
+Select itcob.cd_fornecedor              CD_FOR_SIN
+     , fornec.nm_fornecedor             NM_FOR_SIN
+     , nvl(sum(visao.qtd_ortese_protese), 0) GerQtd
+     , nvl(sum(visao.vlr_ortese_protese), 0) GerVal
+  From dbamv.itreg_fat                  itrg
+     , dbamv.reg_fat                    reg
+     , dbamv.atendime                   atend
+     , dbamv.remessa_fatura             remFat
+     , dbamv.fatura                     fatu
+     , dbamv.itcob_pre                  itcob
+     , dbamv.procedimento_sus           proc
+     , dbamv.procedimento_sus_detalhe   procDet
+     , dbamv.paciente                   pac
+     , dbamv.fornecedor                 fornec
+     , dbamv.v_ffis_fat_gerencial_total Visao
+ where reg.cd_reg_fat                           = itrg.cd_reg_fat
+   and reg.cd_atendimento                       = atend.cd_atendimento
+   and atend.cd_paciente                        = pac.cd_paciente
+   and reg.cd_remessa                           = remFat.cd_remessa
+   and remFat.cd_fatura                         = fatu.cd_fatura
+   and itcob.cd_reg_fat                         = itrg.cd_reg_fat
+   and itcob.cd_lancamento                      = itrg.cd_lancamento
+   and itcob.cd_fornecedor                      = fornec.cd_fornecedor
+   and visao.cd_reg_fat                         = itrg.cd_reg_fat
+   and visao.cd_lancamento                      = itrg.cd_lancamento
+   and itrg.cd_procedimento                     = proc.cd_procedimento
+   and proc.cd_procedimento                     = procDet.cd_procedimento
+   and nvl(procDet.sn_ortese_protese, 'N')      = 'S'
+   AND to_char(visao.dt_competencia, 'MM/YYYY') = to_char(:CAMPO_COMPET, 'MM/YYYY')
+   AND reg.CD_MULTI_EMPRESA                     = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY fornec.NM_FORNECEDOR,
+         itcob.CD_FORNECEDOR
+order by 4 desc

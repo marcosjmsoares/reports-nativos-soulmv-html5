@@ -1,0 +1,291 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RPrevisaoValores321/R_PREVISAO_VALORES_321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PREVISAO_VALORES_321
+select sysdate from dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_PREVISAO_VALORES_321_RF_ESPECIALIDADES1_Q_PREVISAO_VALORES
+SELECT CD_ESPEC_SUS
+     , DS_ESPEC_SUS
+     , CD_REG_FAT
+     , DS_FATURA
+     , Count(1) QTD_CONTAS
+     , Sum(Nvl(SC_SERVPROF_3,0)) SC_SERVPROF_3
+     , Sum(Nvl(SC_COMPI_3,0)) SC_COMPI_3
+     , Sum(Nvl(SC_TESTEHIV_3,0)) SC_TESTEHIV_3
+     , Sum(Nvl(SC_SERVHOSP_3,0)) SC_SERVHOSP_3
+     , Sum(Nvl(SC_UTI_ESPEC_3,0)) SC_UTI_ESPEC_3
+     , Sum(Nvl(SC_NUTENTERAL_3,0)) SC_NUTENTERAL_3
+     , Sum(Nvl(SC_ATTRN_3,0)) SC_ATTRN_3
+     , Sum(Nvl(SC_SANGUE_3,0)) SC_SANGUE_3
+     , Sum(Nvl(SC_REGCIVIL_3,0)) SC_REGCIVIL_3
+     , Sum(Nvl(SC_OPM_3,0)) SC_OPM_3
+     , Sum(Nvl(SC_DIARACO_3,0)) SC_DIARACO_3
+     , Sum(Nvl(SC_ANALGESIA_3,0)) SC_ANALGESIA_3
+     , Sum(Nvl(SC_NOTIFAGRAVO_3,0)) SC_NOTIFAGRAVO_3
+     , Sum(Nvl(SC_CATET_3,0)) SC_CATET_3
+     , Sum(Nvl(SC_UTI_3,0)) SC_UTI_3
+     , Sum(Nvl(SC_RENALAG_3,0)) SC_RENALAG_3
+FROM (
+SELECT ESPEC_SUS.CD_ESPEC_SUS CD_ESPEC_SUS
+     , ESPEC_SUS.DS_ESPEC_SUS DS_ESPEC_SUS
+     , NULL CD_REG_FAT
+     , FATURA.DS_FATURA
+     , (SELECT (sum(Nvl(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_perfusionista,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_prof_uti,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_profissionais,0))) valorProf
+        FROM dbamv.v_ffis_fat_gerencial_total
+        WHERE nvl(v_ffis_fat_gerencial_total.cd_tipo_vinculo, 0) = 3
+        AND v_ffis_fat_gerencial_total.sn_ortese_protese = 'N'
+        AND (v_ffis_fat_gerencial_total.cd_procedimento) NOT IN (SELECT cd_procedimento
+            FROM dbamv.procedimento_detalhe_vigencia d
+            WHERE sn_nutricao_enteral = 'S' AND (cd_procedimento) NOT IN ('0309010012', '0309010039') AND sn_aih_especial = 'S' 
+			 and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between d.dt_validade_inicial and nvl(d.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH')))
+        AND (v_ffis_fat_gerencial_total.cd_procedimento) NOT IN (SELECT cd_procedimento
+            FROM dbamv.procedimento_detalhe_vigencia d
+            WHERE (sn_sangue = 'S' OR sn_componente_i = 'S' OR sn_teste_hiv = 'S' OR sn_registro_civil = 'S' OR sn_teste_hiv = 'S' OR sn_metilprednisilona = 'S' OR sn_notificacao_agravo = 'S' )
+			 and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between d.dt_validade_inicial and nvl(d.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH')))
+        AND (v_ffis_fat_gerencial_total.cd_procedimento) NOT IN (SELECT cd_procedimento
+            FROM dbamv.procedimento_detalhe_vigencia d
+            WHERE sn_cateterismo = 'S' AND (cd_procedimento) NOT IN ('0211020028', '0211020010') 
+			 and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between d.dt_validade_inicial and nvl(d.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH')))
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+        ) SC_SERVPROF_3
+     , tab5.SC_COMPI_3
+     , tab5.SC_TESTEHIV_3
+     , (Nvl((SELECT (sum(Nvl(v_ffis_fat_gerencial_total.vlr_enfermaria,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_permanencia_maior,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_uci,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_concentrado_fator_viii,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_fatores_x_coagulacao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_albumina_humana,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_plasma_humano,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_arterior_neuro,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_litotripsia,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_anti_rh,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_exosanguineo_transfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_tomografias,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estudos_hemodinamicos,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_imunoglobulina_g,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estreptoquinase,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_metilprednisilona,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_criacao_fav,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_monocloral,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_globulina_antimocitaria,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina_capsula,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_metilprednisilona,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_surfactante_fr_amp,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemoperfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ultrafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemodialise_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hediafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_Proc_Diversos,0))) Valor
+        FROM dbamv.v_ffis_fat_gerencial_total, dbamv.procedimento_detalhe_vigencia procDet
+        WHERE v_ffis_fat_gerencial_total.cd_procedimento = procDet.cd_procedimento AND nvl(procDet.sn_aih_especial, 'N') <> 'S' AND 1 = 3
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+              AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+              AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+			  and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between procDet.dt_validade_inicial and nvl(procDet.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH'))),0)
+        +
+        Nvl((SELECT (sum(Nvl(v_ffis_fat_gerencial_total.vlr_enfermaria,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_permanencia_maior,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_uci,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_concentrado_fator_viii,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_fatores_x_coagulacao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_albumina_humana,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_plasma_humano,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_arterior_neuro,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_litotripsia,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_anti_rh,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_exosanguineo_transfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_tomografias,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estudos_hemodinamicos,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_imunoglobulina_g,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estreptoquinase,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_metilprednisilona,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_criacao_fav,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_monocloral,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_globulina_antimocitaria,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina_capsula,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_metilprednisilona,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_surfactante_fr_amp,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemoperfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ultrafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemodialise_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hediafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_Proc_Diversos,0))) valor
+        FROM dbamv.v_ffis_fat_gerencial_total, dbamv.procedimento_detalhe_vigencia procDet
+        WHERE v_ffis_fat_gerencial_total.cd_procedimento = procDet.cd_procedimento AND nvl(procDet.sn_aih_especial, 'N') = 'S' AND 0 <> (SELECT nvl(vl_sp, 0)
+        FROM dbamv.itreg_fat
+        WHERE itreg_fat.cd_reg_fat = v_ffis_fat_gerencial_total.cd_reg_fat AND itreg_fat.cd_lancamento = v_ffis_fat_gerencial_total.cd_lancamento ) AND 1 = 3
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+		and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between procDet.dt_validade_inicial and nvl(procDet.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH'))),0)
+        ) SC_SERVHOSP_3
+     , tab5.SC_UTI_ESPEC_3
+     , (SELECT sum(Nvl(vlr_nutricao_enteral,0))
+	      FROM dbamv.v_ffis_fat_gerencial_total
+	      WHERE (NVL(cd_tipo_vinculo, 0) = 3
+              AND dbamv.pack_sus.fnc_sus_max_valor_sh(cd_procedimento, cd_reg_fat) = 0)
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+        ) SC_NUTENTERAL_3
+     , tab5.SC_ATTRN_3
+     , tab5.SC_SANGUE_3
+     , tab5.SC_REGCIVIL_3
+     , (SELECT sum(Nvl(v_ffis_fat_gerencial_total.vlr_ortese_protese,0))
+        FROM dbamv.v_ffis_fat_gerencial_total, dbamv.itcob_pre
+        WHERE v_ffis_fat_gerencial_total.cd_reg_fat = itcob_pre.cd_reg_fat
+        AND v_ffis_fat_gerencial_total.cd_lancamento = itcob_pre.cd_lancamento
+        AND nvl(dbamv.FNC_FFIS_DEFINE_VINCULO_OPM(ITCOB_PRE.CD_FORNECEDOR), 0) = 3
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+        ) SC_OPM_3
+     , tab5.SC_DIARACO_3
+     , tab5.SC_ANALGESIA_3
+     , tab5.SC_NOTIFAGRAVO_3
+     , tab5.SC_CATET_3
+     , tab5.SC_UTI_3
+     , tab5.SC_RENALAG_3
+  FROM DBAMV.REG_FAT
+     , DBAMV.ESPEC_SUS
+     , DBAMV.REMESSA_FATURA
+     , DBAMV.FATURA
+     , DBAMV.PROCEDIMENTO_SUS PROC
+     , (SELECT sum(Nvl(vlr_componente_i,0)) SC_COMPI_3,
+        sum(Nvl(vlr_teste_hiv,0)) SC_TESTEHIV_3,
+        sum(Nvl(vlr_uti_espec,0)) SC_UTI_ESPEC_3,
+        sum(Nvl(vlr_neonatologia,0)) SC_ATTRN_3,
+        sum(Nvl(vlr_sangue,0)) SC_SANGUE_3,
+        sum(Nvl(vlr_registro_civil,0)) SC_REGCIVIL_3,
+        (sum(Nvl(vlr_acompanhante,0)) + sum(Nvl(vlr_acomp_idoso,0))) SC_DIARACO_3,
+        (sum(Nvl(vlr_anestesista,0)) + sum(Nvl(vlr_analg_obstetrica,0))) SC_ANALGESIA_3,
+        sum(Nvl(vlr_notificacao_agravo,0)) SC_NOTIFAGRAVO_3,
+        sum(Nvl(vlr_cateterismo,0)) SC_CATET_3,
+        sum(Nvl(vlr_uti_normal,0)) SC_UTI_3,
+        (sum(Nvl(vlr_hemodialise_pac_renais,0)) + sum(Nvl(vlr_dialise_pac_renais,0))) SC_RENALAG_3,
+        cd_multi_empresa,
+        cd_espec_sus,
+        cd_reg_fat
+        FROM dbamv.v_ffis_fat_gerencial_total
+        WHERE nvl(cd_tipo_vinculo, 0) = 3
+        GROUP BY cd_multi_empresa,
+        cd_espec_sus,
+        cd_reg_fat
+        ) tab5
+ WHERE REG_FAT.CD_ESPEC_SUS         = ESPEC_SUS.CD_ESPEC_SUS
+   AND REG_FAT.CD_REMESSA           = REMESSA_FATURA.CD_REMESSA
+   AND REG_FAT.CD_CONVENIO = dbamv.Pkt_CONFIG_FFIS.retorna_campo('CD_CONVENIO') 
+   AND REMESSA_FATURA.CD_FATURA     = FATURA.CD_FATURA
+   AND REG_FAT.CD_PROCEDIMENTO_REALIZADO = PROC.CD_PROCEDIMENTO
+   AND tab5.cd_multi_empresa (+) = REG_FAT.cd_multi_empresa
+   AND tab5.cd_espec_sus (+) = REG_FAT.cd_espec_sus
+   AND tab5.cd_reg_fat (+) = REG_FAT.cd_reg_fat
+    and nvl(REMESSA_FATURA.SN_SUSPENSAS,'N') <> 'S'
+   And reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ ORDER BY ESPEC_SUS.CD_ESPEC_SUS
+)
+GROUP BY CD_ESPEC_SUS, DS_ESPEC_SUS, CD_REG_FAT, DS_FATURA
+ORDER BY CD_ESPEC_SUS, DS_ESPEC_SUS
+
+
+/*----------------------------------------------------------------------------*/
+--R_PREVISAO_VALORES_321_RF_ESPECIALIDADES_Q_PREVISAO_VALORES
+SELECT CD_ESPEC_SUS
+     , DS_ESPEC_SUS
+     , CD_REG_FAT
+     , DS_FATURA
+     , Count(1) QTD_CONTAS
+     , Sum(Nvl(SC_SERVPROF,0)) SC_SERVPROF
+     , Sum(Nvl(SC_COMPI,0)) SC_COMPI
+     , Sum(Nvl(SC_TESTEHIV,0)) SC_TESTEHIV
+     , Sum(Nvl(SC_SERVHOSP,0)) SC_SERVHOSP
+     , Sum(Nvl(SC_UTI_ESPEC,0)) SC_UTI_ESPEC
+     , Sum(Nvl(SC_NUTENTERAL,0)) SC_NUTENTERAL
+     , Sum(Nvl(SC_ATTRN,0)) SC_ATTRN
+     , Sum(Nvl(SC_SANGUE,0)) SC_SANGUE
+     , Sum(Nvl(SC_REGCIVIL,0)) SC_REGCIVIL
+     , Sum(Nvl(SC_OPM,0)) SC_OPM
+     , Sum(Nvl(SC_DIARACO,0)) SC_DIARACO
+     , Sum(Nvl(SC_ANALGESIA,0)) SC_ANALGESIA
+     , Sum(Nvl(SC_NOTIFAGRAVO,0)) SC_NOTIFAGRAVO
+     , Sum(Nvl(SC_CATET,0)) SC_CATET
+     , Sum(Nvl(SC_UTI,0)) SC_UTI
+     , Sum(Nvl(SC_RENALAG,0)) SC_RENALAG
+FROM (
+SELECT ESPEC_SUS.CD_ESPEC_SUS CD_ESPEC_SUS
+     , ESPEC_SUS.DS_ESPEC_SUS DS_ESPEC_SUS
+     , NULL CD_REG_FAT
+     , FATURA.DS_FATURA
+     , (SELECT (sum(Nvl(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_perfusionista,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_prof_uti,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_profissionais,0))) valorProf
+        FROM dbamv.v_ffis_fat_gerencial_total
+        WHERE nvl(v_ffis_fat_gerencial_total.cd_tipo_vinculo, 0) <> 3
+        AND v_ffis_fat_gerencial_total.sn_ortese_protese = 'N'
+        AND (v_ffis_fat_gerencial_total.cd_prestador IS NOT NULL OR nvl(FNC_FFIS_CHECA_REGRA_SUS('10008', v_ffis_fat_gerencial_total.cd_procedimento), 'N') = 'N')
+        AND (v_ffis_fat_gerencial_total.cd_procedimento) NOT IN (SELECT cd_procedimento
+            FROM dbamv.procedimento_detalhe_vigencia d
+            WHERE sn_nutricao_enteral = 'S' AND (cd_procedimento) NOT IN ('0309010012', '0309010039') AND sn_aih_especial = 'S'
+          	 and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between d.dt_validade_inicial and nvl(d.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH')))
+        AND (v_ffis_fat_gerencial_total.cd_procedimento) NOT IN (SELECT cd_procedimento
+            FROM  dbamv.procedimento_detalhe_vigencia d
+            WHERE (sn_sangue = 'S' OR sn_componente_i = 'S' OR sn_teste_hiv = 'S' OR sn_registro_civil = 'S' OR sn_teste_hiv = 'S' OR sn_hemodialise_pac_renais = 'S' OR sn_dialise_pac_renais = 'S' OR sn_acompanhante = 'S' OR sn_metilprednisilona = 'S' OR sn_notificacao_agravo = 'S' )
+			  and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between d.dt_validade_inicial and nvl(d.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH')))
+        AND (v_ffis_fat_gerencial_total.cd_procedimento) NOT IN (SELECT cd_procedimento
+            FROM  dbamv.procedimento_detalhe_vigencia d
+            WHERE sn_cateterismo = 'S' AND (cd_procedimento) NOT IN ('0211020028', '0211020010') 
+			 and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between d.dt_validade_inicial and nvl(d.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH')))
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+        ) SC_SERVPROF
+     , tab5.SC_COMPI
+     , tab5.SC_TESTEHIV
+     , (Nvl((SELECT (sum(Nvl(v_ffis_fat_gerencial_total.vlr_enfermaria,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_permanencia_maior,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_uci,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_concentrado_fator_viii,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_fatores_x_coagulacao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_albumina_humana,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_plasma_humano,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_arterior_neuro,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_anti_rh,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_exosanguineo_transfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_tomografias,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estudos_hemodinamicos,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_metilprednisilona,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_imunoglobulina_g,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estreptoquinase,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_criacao_fav,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_monocloral,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_globulina_antimocitaria,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina_capsula,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_surfactante_fr_amp,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemoperfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ultrafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemodialise_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hediafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_Proc_Diversos,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_Acesso_Venoso,0))) Valor
+              FROM dbamv.v_ffis_fat_gerencial_total, dbamv.procedimento_detalhe_vigencia procDet
+              WHERE v_ffis_fat_gerencial_total.cd_procedimento = procDet.cd_procedimento AND nvl(procDet.sn_aih_especial, 'N') <> 'S' AND (nvl(V_FFIS_FAT_GERENCIAL_TOTAL.CD_TIPO_VINCULO, 0) <> 3 OR (NVL(V_FFIS_FAT_GERENCIAL_TOTAL.CD_TIPO_VINCULO, 0) = 3 AND (nvl(procDet.SN_ENFERMARIA, 'N') = 'S' OR nvl(procDet.SN_DIARIA_ACOMPANHANTE, 'N') = 'S' OR nvl(procDet.SN_PERMANENCIA_MAIOR, 'N') = 'S' OR nvl(procDet.sn_diaria_uti, 'N') = 'S')))
+              AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+              AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+              AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+			  and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between procDet.dt_validade_inicial and nvl(procDet.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH'))),0)
+        +
+        Nvl((SELECT (sum(decode(nvl(procDet.sn_metilprednisilona, 'N'), 'S', Nvl(v_ffis_fat_gerencial_total.Vlr_metilprednisilona,0), Nvl(v_ffis_fat_gerencial_total.vlr_enfermaria,0))) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_permanencia_maior,0)) + sum(Nvl(v_ffis_fat_gerencial_total.vlr_uci,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_concentrado_fator_viii,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_fatores_x_coagulacao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_albumina_humana,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_plasma_humano,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_arterior_neuro,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_anti_rh,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_exosanguineo_transfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_tomografias,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_tomografias_Neuro,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estudos_hemodinamicos,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_imunoglobulina_g,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_estreptoquinase,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_criacao_fav,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_anticorpo_monocloral,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_globulina_antimocitaria,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ciclosporina_capsula,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_surfactante_fr_amp,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemoperfusao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_ultrafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemodialise_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hediafiltracao_continua,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_hemofiltracao,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_Proc_Diversos,0)) + sum(Nvl(v_ffis_fat_gerencial_total.Vlr_Acesso_Venoso,0))) valor
+        FROM dbamv.v_ffis_fat_gerencial_total, dbamv.procedimento_detalhe_vigencia procDet, dbamv.procedimento_sus
+        WHERE v_ffis_fat_gerencial_total.cd_procedimento = procDet.cd_procedimento AND v_ffis_fat_gerencial_total.cd_procedimento = procedimento_sus.cd_procedimento
+		AND nvl(procDet.sn_aih_especial, 'N') = 'S' 
+	  AND ((0 <> (SELECT nvl(vl_sp, 0)
+                          FROM DBAMV.itreg_fat
+                         WHERE itreg_fat.cd_reg_fat = v_ffis_fat_gerencial_total.cd_reg_fat 
+                           AND itreg_fat.cd_lancamento = v_ffis_fat_gerencial_total.cd_lancamento )) 
+                OR (nvl(procDet.sn_estudos_hemodinamicos, 'N') = 'S') 
+                OR (nvl(procDet.sn_metilprednisilona, 'N') = 'S') 
+                OR (fnc_ffis_checa_regra_sus('VALOR_SH_AGRUPAMENTO_ESPECIAIS', procDet.cd_procedimento) = 'S'))
+		AND (nvl(V_FFIS_FAT_GERENCIAL_TOTAL.CD_TIPO_VINCULO, 0) <> 3 
+			OR (NVL(V_FFIS_FAT_GERENCIAL_TOTAL.CD_TIPO_VINCULO, 0) = 3
+			AND dbamv.PKG_FFIS_CALC_AIH.FNC_SUS_MAX_VALOR_SP(v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat ) > 0))
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+		and trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH') between procDet.dt_validade_inicial and nvl(procDet.dt_validade_final, trunc(v_ffis_fat_gerencial_total.dt_lancamento, 'MONTH'))),0)
+        ) SC_SERVHOSP
+     , tab5.SC_UTI_ESPEC
+     , Nvl((SELECT sum(Nvl(vlr_nutricao_enteral,0))
+        FROM dbamv.v_ffis_fat_gerencial_total
+        WHERE ((NVL(cd_tipo_vinculo, 0) <> 3) OR (NVL(cd_tipo_vinculo, 0) = 3
+            AND dbamv.PKG_FFIS_CALC_AIH.FNC_SUS_MAX_VALOR_SP(cd_procedimento, cd_reg_fat) > 0))
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+        ),0) SC_NUTENTERAL
+     , tab5.SC_ATTRN
+     , tab5.SC_SANGUE
+     , tab5.SC_REGCIVIL
+     , (SELECT sum(Nvl(v_ffis_fat_gerencial_total.vlr_ortese_protese,0))
+        FROM dbamv.v_ffis_fat_gerencial_total, dbamv.itcob_pre
+        WHERE v_ffis_fat_gerencial_total.cd_reg_fat = itcob_pre.cd_reg_fat
+        AND v_ffis_fat_gerencial_total.cd_lancamento = itcob_pre.cd_lancamento
+        AND nvl(DBAMV.FNC_FFIS_DEFINE_VINCULO_OPM(ITCOB_PRE.CD_FORNECEDOR), 0) <> 3
+        AND v_ffis_fat_gerencial_total.cd_multi_empresa = REG_FAT.cd_multi_empresa
+        AND v_ffis_fat_gerencial_total.cd_espec_sus = REG_FAT.cd_espec_sus
+        AND v_ffis_fat_gerencial_total.cd_reg_fat = REG_FAT.cd_reg_fat
+        ) SC_OPM
+     , tab5.SC_DIARACO
+     , tab5.SC_ANALGESIA
+     , tab5.SC_NOTIFAGRAVO
+     , tab5.SC_CATET
+     , tab5.SC_UTI
+     , tab5.SC_RENALAG
+  FROM DBAMV.REG_FAT
+     , DBAMV.ESPEC_SUS
+     , DBAMV.REMESSA_FATURA
+     , DBAMV.FATURA
+     , DBAMV.PROCEDIMENTO_SUS PROC
+     , (SELECT sum(Nvl(vlr_componente_i,0)) SC_COMPI,
+        sum(Nvl(vlr_teste_hiv,0)) SC_TESTEHIV,
+        sum(Nvl(vlr_uti_espec,0)) SC_UTI_ESPEC,
+        sum(Nvl(vlr_neonatologia,0)) SC_ATTRN,
+        sum(Nvl(vlr_sangue,0)) SC_SANGUE,
+        sum(Nvl(vlr_registro_civil,0)) SC_REGCIVIL,
+        (sum(Nvl(vlr_acompanhante,0)) + sum(Nvl(vlr_acomp_idoso,0))) SC_DIARACO,
+        (sum(Nvl(vlr_anestesista,0)) + sum(Nvl(vlr_analg_obstetrica,0))) SC_ANALGESIA,
+        sum(Nvl(vlr_notificacao_agravo,0)) SC_NOTIFAGRAVO,
+        sum(Nvl(vlr_cateterismo,0)) SC_CATET,
+        sum(Nvl(vlr_uti_normal,0)) SC_UTI,
+        (sum(Nvl(vlr_hemodialise_pac_renais,0)) + sum(Nvl(vlr_dialise_pac_renais,0))) SC_RENALAG,
+        cd_multi_empresa,
+        cd_espec_sus,
+        cd_reg_fat
+        FROM dbamv.v_ffis_fat_gerencial_total
+        WHERE nvl(cd_tipo_vinculo, 0) <> 3
+        GROUP BY cd_multi_empresa,
+        cd_espec_sus,
+        cd_reg_fat
+        ) tab5
+ WHERE REG_FAT.CD_ESPEC_SUS         = ESPEC_SUS.CD_ESPEC_SUS
+   AND REG_FAT.CD_REMESSA           = REMESSA_FATURA.CD_REMESSA
+   AND REG_FAT.CD_CONVENIO = dbamv.Pkt_CONFIG_FFIS.retorna_campo('CD_CONVENIO') 
+   AND REMESSA_FATURA.CD_FATURA     = FATURA.CD_FATURA
+   AND REG_FAT.CD_PROCEDIMENTO_REALIZADO = PROC.CD_PROCEDIMENTO
+   AND tab5.cd_multi_empresa (+) = REG_FAT.cd_multi_empresa
+   AND tab5.cd_espec_sus (+) = REG_FAT.cd_espec_sus
+   AND tab5.cd_reg_fat (+) = REG_FAT.cd_reg_fat
+   and nvl(REMESSA_FATURA.SN_SUSPENSAS,'N') <> 'S'
+   And reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ ORDER BY ESPEC_SUS.CD_ESPEC_SUS
+)
+GROUP BY CD_ESPEC_SUS, DS_ESPEC_SUS, CD_REG_FAT, DS_FATURA
+ORDER BY CD_ESPEC_SUS, DS_ESPEC_SUS

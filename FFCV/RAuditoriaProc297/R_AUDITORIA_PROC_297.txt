@@ -1,0 +1,169 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCV/RAuditoriaProc297/R_AUDITORIA_PROC_297.txt
+--Nome módulo: FFCV - SISTEMA FATURAMENTO CONTAS DE CONVENIO
+
+/*----------------------------------------------------------------------------*/
+--R_AUDITORIA_PROC_297
+SELECT * FROM (
+SELECT P.CD_PACIENTE ||' - '|| UPPER(P.NM_PACIENTE)   CD_PACIENTE,
+               R.CD_REG_FAT,
+               R.NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) DT_INTERN,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) DT_ALTA,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    CD_LEITO,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL     CD_CONVENIO,
+               R.DT_INICIO,
+               R.DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               MIN( AC.CD_LANCAMENTO_FAT ) CD_LANCAMENTO,
+               MIN( AC.CD_AUDITORIA_CONTA ) CD_AUDITORIA_CONTA_I,
+               MIN( AC.CD_AUDITORIA_CONTA ) CD_AUDITORIA_CONTA_F,
+               A.CD_ATENDIMENTO,
+               P.NM_PACIENTE,
+               C.NM_CONVENIO,
+               G.DS_GRU_PRO,
+               INITCAP(S.NM_SETOR)  NM_SETOR,
+               SUM( ac.vl_total_conta_ant ) vl_fatura,
+               SUM( nvl(ac.vl_total_conta,0) - ( nvl(ac.vl_total_conta,0) - ( nvl(ac.vl_total_conta,0) * (nvl(ac.qt_lancamento,0)/ decode(nvl(ac.qt_lancamento_ant,1), 0, 1, nvl(ac.qt_lancamento_ant,1)) ) * ( nvl(ac.vl_percentual_multipla,0)/ decode(nvl(ac.vl_percentual_multipla_ant,1), 0, 1, nvl(ac.vl_percentual_multipla_ant,1)) ) ) ) ) vl_liberado,
+               SUM( nvl(ac.vl_total_conta,0) - ( nvl(ac.vl_total_conta,0) * (nvl(ac.qt_lancamento,0)/ decode(nvl(ac.qt_lancamento_ant,1), 0, 1, nvl(ac.qt_lancamento_ant,1))) * ( nvl(ac.vl_percentual_multipla,0)/ decode(nvl(ac.vl_percentual_multipla_ant,1), 0, 1, nvl(ac.vl_percentual_multipla_ant,1))) ) ) vl_glosa,
+               SUM( nvl(ac.vl_total_conta,0) ) vl_atual,
+               SUM( AC.QT_LANCAMENTO )  QT_LANCAMENTO_ITEM,
+               SUM( ac.qt_lancamento_ant ) qtd_faturado,
+               MIN( nvl(ac.vl_unitario,0) )        vl_unitario_auditado,
+               MIN( nvl(ac.vl_unitario_ant,0) )        vl_unitario_auditado_ant,
+              MIN( (nvl(ac.vl_total_conta_ant,0) - nvl(ac.vl_acrescimo_ant,0) + nvl(ac.vl_desconto_ant,0)) / decode(nvl(ac.qt_lancamento_ant,1), 0, 1, nvl(ac.qt_lancamento_ant,1)) ) vl_unitario_fat,
+               SUM( nvl(ac.vl_total_conta,0) - nvl(ac.vl_total_conta_ant,0) ) Diferenca_Valor_Total
+               ,to_char( AC.DT_AUDITORIA, 'dd/mm/yyyy hh24' ) dt_auditoria
+                ,ac.sn_acordo
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_FAT R,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.GRU_PRO G,
+              DBAMV.CONVENIO C,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.SETOR S,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.PRO_FAT PR
+WHERE A.CD_ATENDIMENTO = R.CD_ATENDIMENTO
+      AND r.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+      AND L.CD_LEITO(+)             = A.CD_LEITO
+      AND C.CD_CONVENIO        = R.CD_CONVENIO
+      AND R.CD_ATENDIMENTO = :CAMPO_ATENDIMENTO
+      AND R.CD_REG_FAT          = :CAMPO_CONTA
+      AND AC.CD_REG_FAT                 = R.CD_REG_FAT
+      AND AC.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+      AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+      AND P.CD_PACIENTE  = A.CD_PACIENTE
+      AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+      AND G.CD_GRU_PRO  =  PR.CD_GRU_PRO
+      AND AC.DT_CANCELOU IS NULL
+      AND AC.CD_SETOR = S.CD_SETOR
+      AND A.CD_MULTI_EMPRESA =  :CAMPO_CD_MULTI_EMPRESA
+GROUP BY P.CD_PACIENTE ||' - '|| UPPER(P.NM_PACIENTE),
+               R.CD_REG_FAT,
+               R.NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) ,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ),
+               A.CD_LEITO ||' - '|| L.DS_LEITO ,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL,
+               R.DT_INICIO,
+               R.DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               A.CD_ATENDIMENTO,
+               P.NM_PACIENTE,
+               C.NM_CONVENIO,
+               G.DS_GRU_PRO,
+               INITCAP(S.NM_SETOR)
+               ,to_char( AC.DT_AUDITORIA, 'dd/mm/yyyy hh24' )
+                ,ac.sn_acordo
+UNION ALL
+SELECT  P.CD_PACIENTE ||' - '|| UPPER(P.NM_PACIENTE)    CD_PACIENTE,
+               R.CD_REG_AMB        CD_REG_FAT,
+               ''    NR_GUIA,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ) DT_INTERN,
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ) DT_ALTA,
+               A.CD_LEITO ||' - '|| L.DS_LEITO    CD_LEITO,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL     CD_CONVENIO,
+               R.DT_LANCAMENTO                      DT_INICIO,
+               R.DT_LANCAMENTO_FINAL          DT_FINAL,
+               R.VL_TOTAL_CONTA,
+               AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               MIN( AC.CD_LANCAMENTO_FAT ) CD_LANCAMENTO,
+               MIN( AC.CD_AUDITORIA_CONTA ) CD_AUDITORIA_CONTA_I,
+               MIN( AC.CD_AUDITORIA_CONTA ) CD_AUDITORIA_CONTA_F,
+               A.CD_ATENDIMENTO,
+               P.NM_PACIENTE,
+               C.NM_CONVENIO,
+               G.DS_GRU_PRO,
+               INITCAP(S.NM_SETOR)  NM_SETOR,
+               SUM( ac.vl_total_conta_ant )   vl_fatura,
+               SUM( nvl(ac.vl_total_conta,0) - ( nvl(ac.vl_total_conta,0) - ( nvl(ac.vl_total_conta,0) * (nvl(ac.qt_lancamento,0)/ decode(nvl(ac.qt_lancamento_ant,1), 0, 1, nvl(ac.qt_lancamento_ant,1))) * ( nvl(ac.vl_percentual_multipla,0)/ decode(nvl(ac.vl_percentual_multipla_ant,1), 0, 1, nvl(ac.vl_percentual_multipla_ant,1))) ) ) ) vl_liberado,
+               SUM( nvl(ac.vl_total_conta,0) - ( nvl(ac.vl_total_conta,0) * (nvl(ac.qt_lancamento,0)/ decode(nvl(ac.qt_lancamento_ant,1), 0, 1, nvl(ac.qt_lancamento_ant,1))) * ( nvl(ac.vl_percentual_multipla,0)/ decode(nvl(ac.vl_percentual_multipla_ant,1), 0, 1, nvl(ac.vl_percentual_multipla_ant,1))) ) ) vl_glosa,
+               SUM( ac.vl_total_conta ) vl_atual,
+               SUM( AC.QT_LANCAMENTO ) QT_LANCAMENTO_ITEM,
+               SUM( ac.qt_lancamento_ant ) qtd_faturado,
+               MIN( nvl(ac.vl_unitario,0)  )       vl_unitario_auditado,
+               MIN( nvl(ac.vl_unitario_ant,0) )        vl_unitario_auditado_ant,
+               MIN( (nvl(ac.vl_total_conta_ant,0) - nvl(ac.vl_acrescimo_ant,0) + nvl(ac.vl_desconto_ant,0)) / decode(nvl(ac.qt_lancamento_ant,1),0,1,nvl(ac.qt_lancamento_ant,1)) ) vl_unitario_fat,
+               SUM( nvl(ac.vl_total_conta,0) - nvl(ac.vl_total_conta_ant,0) ) Diferenca_Valor_Total
+               ,to_char( AC.DT_AUDITORIA, 'dd/mm/yyyy hh24' ) dt_auditoria
+                ,ac.sn_acordo
+FROM    DBAMV.PACIENTE P,
+              DBAMV.REG_AMB R,
+              DBAMV.ATENDIME A,
+              DBAMV.LEITO L,
+              DBAMV.CONVENIO C,
+              DBAMV.GRU_PRO G,
+              DBAMV.AUDITORIA_CONTA AC,
+              DBAMV.MOTIVO_AUDITORIA M,
+              DBAMV.SETOR S,
+              DBAMV.PRO_FAT PR,
+	      Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = C.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And L.CD_LEITO(+)                 = A.CD_LEITO
+      AND C.CD_CONVENIO        = R.CD_CONVENIO
+      AND R.CD_REG_AMB          = :CAMPO_CONTA
+      AND A.CD_ATENDIMENTO = :CAMPO_ATENDIMENTO
+      AND AC.CD_REG_AMB                   = R.CD_REG_AMB
+      AND AC.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+      AND M.CD_MOTIVO_AUDITORIA = AC.CD_MOTIVO_AUDITORIA
+      AND P.CD_PACIENTE  = A.CD_PACIENTE
+      AND PR.CD_PRO_FAT                  = AC.CD_PRO_FAT
+      AND G.CD_GRU_PRO  =  PR.CD_GRU_PRO
+      AND AC.DT_CANCELOU IS NULL
+      AND AC.CD_SETOR = S.CD_SETOR
+GROUP BY  P.CD_PACIENTE ||' - '|| UPPER(P.NM_PACIENTE),
+               R.CD_REG_AMB,
+               NVL( TO_CHAR( A.DT_ATENDIMENTO, 'DD/MM/YYYY'), '' ),
+               NVL( TO_CHAR( A.DT_ALTA, 'DD/MM/YYYY'), '' ),
+               A.CD_LEITO ||' - '|| L.DS_LEITO ,
+               R.CD_CONVENIO ||' - '|| C.NM_RAZAO_SOCIAL,
+               R.DT_LANCAMENTO ,
+               R.DT_LANCAMENTO_FINAL ,
+               R.VL_TOTAL_CONTA,
+               AC.CD_MOTIVO_AUDITORIA,
+               M.DS_MOTIVO_AUDITORIA,
+               AC.CD_PRO_FAT,
+               PR.DS_PRO_FAT,
+               A.CD_ATENDIMENTO,
+               P.NM_PACIENTE,
+               C.NM_CONVENIO,
+               G.DS_GRU_PRO,
+               INITCAP(S.NM_SETOR)
+               ,to_char( AC.DT_AUDITORIA, 'dd/mm/yyyy hh24' )
+                ,ac.sn_acordo
+ORDER BY  21, 22, 32, 16, 13
+)

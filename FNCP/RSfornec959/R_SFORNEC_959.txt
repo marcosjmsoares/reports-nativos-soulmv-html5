@@ -1,0 +1,76 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FNCP/RSfornec959/R_SFORNEC_959.txt
+--Nome módulo: FNCP - SISTEMA FINANCEIRO - CONTAS A PAGAR
+
+/*----------------------------------------------------------------------------*/
+--R_SFORNEC_959
+SELECT * FROM (
+select pagcon_pag.dt_pagamento                                                             dt_pagamento
+         ,pagcon_pag.dt_baixa                                                                      dt_baixa
+         ,con_pag.dt_emissao                                                                        dt_emissao
+         ,pagcon_pag.vl_pago                                                                       vl_pago
+         ,con_pag.nr_documento || '/' || to_char(  itcon_pag.nr_parcela, '000' )   nr_documento
+         ,DBAMV.QTD_ITENS_CON_PAG( 1, CON_PAG.CD_CON_PAG )            QTD_ITENS_CON_PAG
+         ,ltrim(historico_padrao.ds_historico_padrao || '  ' || con_pag.ds_con_pag)     ds_hist_padrao
+         ,banco.nm_banco                                                                              nm_banco
+         ,itcon_pag.vl_duplicata                                                                      vl_duplicata
+         ,plano_contas.cd_reduzido_resultado                                                cd_reduzido_resultado
+         ,plano_contas.cd_contabil                                                                  cd_contabil
+        ,cheque.dt_compensacao                                                                dt_compensacao
+       ,decode(con_pag.cd_fornecedor,'',con_pag.ds_fornecedor,fornecedor.nm_fantasia)  nm_fantasia
+from dbamv.con_pag
+       ,dbamv.itcon_pag
+       ,dbamv.pagcon_pag
+       ,dbamv.con_cor
+       ,dbamv.plano_contas
+       ,dbamv.historico_padrao
+       ,dbamv.fornecedor
+       ,dbamv.cheque
+       ,dbamv.banco
+       ,dbamv.tip_doc
+where  con_pag.cd_con_pag                = itcon_pag.cd_con_pag
+and pagcon_pag.cd_itcon_pag             = itcon_pag.cd_itcon_pag
+and pagcon_pag.cd_con_cor               = con_cor.cd_con_cor(+)
+and con_pag.cd_reduzido                     = plano_contas.cd_reduzido(+)
+and itcon_pag.cd_con_pag_agrup      is null
+and con_pag.cd_historico_padrao        = historico_padrao.cd_historico_padrao(+)
+and con_pag.cd_multi_empresa            = :CAMPO_CD_MULTI_EMPRESA
+and con_pag.cd_tip_doc                      =  tip_doc.cd_tip_doc
+and cheque.cd_cheque(+)                    =  pagcon_pag.cd_cheque
+and con_pag.cd_fornecedor                 = fornecedor.cd_fornecedor(+)
+and con_cor.cd_multi_empresa     = :CAMPO_CD_MULTI_EMPRESA
+union
+select m.dt_movimentacao                            dt_pagamento
+     , m.dt_movimentacao                            dt_baixa
+     , m.dt_movimentacao                                      dt_emissao
+     , m.vl_movimentacao                            vl_pago
+     , m.nr_documento_identificacao                 nr_documento
+     , 0                                            QTD_ITENS_CON_PAG
+     , m.ds_movimentacao                            ds_hist_padrao
+     , b.nm_banco                               nm_banco
+     , 0                                            vl_duplicata
+     , p.cd_reduzido_resultado           cd_reduzido_resultado
+     , p.cd_contabil                     cd_contabil
+     , m.dt_movimentacao                                         dt_compensacao
+     , null                                         nm_fantasia
+from  dbamv.mov_concor m
+     ,dbamv.plano_contas p
+     ,dbamv.con_cor c
+     ,dbamv.banco b
+     ,dbamv.lan_concor l
+where m.cd_cheque is null
+  and m.cd_con_cor_transferencia is null
+  and m.cd_bordero is null
+  and c.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+  and m.cd_pagcon_pag is null
+  and m.cd_lan_concor    = l.cd_lan_concor
+  and m.cd_reduzido      = p.cd_Reduzido(+)
+  and c.cd_banco         = b.cd_banco(+)
+  and m.cd_Con_cor       = c.cd_con_cor(+)
+  and m.dt_movimentacao  >= to_date( to_char( :CAMPO_DT_INIC, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+  and m.dt_movimentacao  <= to_date( to_char( :CAMPO_DT_FIM , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+  and l.tp_operacao_saldo_conta = '-'
+)
+ORDER BY NM_BANCO, DT_PAGAMENTO, '1'||ltrim(NM_FANTASIA), '1'||DS_HIST_PADRAO, '1'||NR_DOCUMENTO, CD_CONTABIL,
+DT_EMISSAO, QTD_ITENS_CON_PAG, CD_REDUZIDO_RESULTADO,
+VL_DUPLICATA, DT_BAIXA, DT_COMPENSACAO, VL_PAGO

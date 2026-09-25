@@ -1,0 +1,62 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/PSDI/RProdRxProf360/R_PROD_RX_PROF_360.txt
+--Nome módulo: PSDI - SISTEMA DE DIAGNOSTICO POR IMAGEM
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_RX_PROF_360
+SELECT * FROM (
+SELECT  PRODUCAO.CD_SET_EXA
+               ,PRODUCAO.NM_SET_EXA
+               ,PRODUCAO.CD_PRESTADOR
+               ,PRESTADOR.NM_PRESTADOR
+               ,PRODUCAO.CD_EXA_RX
+               ,PRODUCAO.DS_EXA_RX
+               ,PRODUCAO.CONTADOR
+               ,PRODUCAO.VALOR
+FROM       DBAMV.PRESTADOR
+              ,  (   SELECT SET_EXA.CD_SET_EXA
+                                    ,SET_EXA.NM_SET_EXA
+                                    ,NVL(LAUDO_RX.CD_PRESTADOR, ITPED_RX.CD_PRESTADOR)  CD_PRESTADOR
+                                   ,EXA_RX.CD_EXA_RX
+                                    ,EXA_RX.DS_EXA_RX
+                                    ,COUNT(1)      CONTADOR
+                                    ,SUM(  DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                                                                              ,EXA_RX.EXA_RX_CD_PRO_FAT
+                                                                              ,PED_RX.DT_PEDIDO
+                                                                              ,PED_RX.HR_PEDIDO
+                                                                              ,CONVENIO.CD_CONVENIO
+                                                                              ,NVL(PED_RX.CD_CON_PLA,1)
+                                                                              ,ATENDIME.TP_ATENDIMENTO
+                                                                              ,ATENDIME.CD_TIP_ACOM
+                                                                             ,:CAMPO_TP_VALOR )   )       VALOR
+                    FROM   DBAMV.ATENDIME
+                                ,DBAMV.PED_RX
+                                ,DBAMV.CONVENIO
+                                ,DBAMV.SET_EXA
+                                ,DBAMV.ITPED_RX
+                                ,DBAMV.EXA_RX
+                                ,DBAMV.LAUDO_RX
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And ATENDIME.CD_ATENDIMENTO  =  PED_RX.CD_ATENDIMENTO
+AND ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+                        AND        CONVENIO.TP_CONVENIO IN  ( 'C', 'P')
+                        AND        PED_RX.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+                        AND        PED_RX.CD_SET_EXA  =  SET_EXA.CD_SET_EXA
+                        AND        PED_RX.CD_PED_RX  =  ITPED_RX.CD_PED_RX
+                        AND        ITPED_RX.CD_EXA_RX  =  EXA_RX.CD_EXA_RX
+                        AND        ITPED_RX.SN_REALIZADO = 'S'
+                        AND        TRUNC(ITPED_RX.DT_REALIZADO)  BETWEEN  :CAMPO_DT_INICIAL  AND  
+                        AND        ITPED_RX.CD_PED_RX  =  LAUDO_RX.CD_PED_RX(+)
+                        AND        ITPED_RX.CD_LAUDO  =  LAUDO_RX.CD_LAUDO(+)
+                 GROUP BY SET_EXA.CD_SET_EXA
+                                    ,SET_EXA.NM_SET_EXA
+                                    ,NVL(LAUDO_RX.CD_PRESTADOR, ITPED_RX.CD_PRESTADOR)
+                                   ,EXA_RX.CD_EXA_RX
+                                   ,EXA_RX.DS_EXA_RX  ) PRODUCAO
+WHERE  PRODUCAO.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR(+)
+:CAMPO_SQL_CD_PRESTADOR
+)
+ORDER BY CD_SET_EXA,NM_SET_EXA,
+CD_PRESTADOR,NM_PRESTADOR

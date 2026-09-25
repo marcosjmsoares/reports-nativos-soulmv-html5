@@ -1,0 +1,141 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/PSSD/RLaudo3Ori/R_LAUDO3_ORI.txt
+--Nome módulo: PSSD - SISTEMA DE DIAGNOSTICO LABORATORIAL
+
+/*----------------------------------------------------------------------------*/
+--R_LAUDO3_ORI
+SELECT paciente.cd_paciente         cd_paciente,
+               paciente.nm_paciente        nm_paciente,
+               paciente.nm_mae               nm_mae,
+               decode(paciente.tp_sexo,'M', 'MASCULINO','F', 'FEMININO', 'AMBOS')   tp_sexo,
+               paciente.ds_endereco       ds_endereco,
+               RTRIM(PACK_INTERNAMENTO.RETORNA_IDADE(PACIENTE.DT_NASCIMENTO,SysDate),' ')     IDADE,
+               paciente.dt_nascimento    dt_nascimento,
+               atendime.cd_ori_ate          cd_ori_ate,
+               ori_ate.ds_ori_ate              ds_ori_ate,
+               ped_lab.cd_ped_lab          cd_ped_lab,
+               ped_lab.cd_setor               cd_setor,
+               setor.nm_setor                   nm_setor,
+               ped_lab.dt_pedido             dt_pedido,
+               ped_lab.cd_prestador        cd_prestador,
+               ped_lab.nr_controle           nr_controle,
+               ped_lab.cd_set_exa          cd_set_exa,
+               ped_lab.ds_observacao    ds_observacao,
+               set_exa.nm_set_exa          nm_set_exa,
+               set_exa.ds_cabecalho      ds_cabecalho,
+               set_exa.ds_rodape            ds_rodape,
+               decode(ped_lab.cd_prestador, null, ped_lab.nm_prestador, prestador.nm_prestador)  nm_mnemonico,
+               prestador.cd_conselho       cd_conselho,
+               atendime.cd_atendimento  cd_atendimento,
+               atendime.cd_convenio       cd_convenio,
+               convenio.nm_convenio      nm_convenio
+FROM    dbamv.atendime,
+              dbamv.paciente,
+              dbamv.ped_lab,
+              dbamv.ori_ate,
+              dbamv.prestador,
+              dbamv.setor,
+              dbamv.set_exa ,
+              dbamv.convenio,
+	      Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And paciente.cd_paciente       =  atendime.cd_paciente
+and         atendime.cd_ori_ate           =  ori_ate.cd_ori_ate
+and         atendime.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and         atendime.cd_atendimento  =  ped_lab.cd_atendimento
+and        ped_lab.cd_set_exa in (select usuarios_set_exa.cd_set_exa
+                                                    from    dbamv.usuarios_set_exa
+                                                    where nm_usuario = user)
+and         atendime.cd_convenio      =  convenio.cd_convenio
+and         ped_lab.cd_prestador        =  prestador.cd_prestador(+)
+and         ped_lab.cd_setor               =  setor.cd_setor
+and         ped_lab.cd_set_exa          =  set_exa.cd_set_exa
+
+
+/*----------------------------------------------------------------------------*/
+--R_LAUDO3_ORI_R_CULTUTA1_Q_CULTURA
+SELECT * FROM (
+SELECT * FROM (
+SELECT  EXA_LAB.SN_CULTURA                       SN_CULTURA
+               ,EXA_LAB.NM_EXA_LAB                       NM_EXA_LAB2
+               ,CULTURA.CD_PED_LAB                      CD_PED_LAB
+               ,CULTURA.CD_EXA_LAB                      CD_EXA_LAB1
+               ,CULTURA.CD_ITPED_LAB                  CD_ITPED_LAB1
+               ,CULTURA.CD_MATERIAL                    CD_MATERIAL
+               ,MATERIAL.DS_MATERIAL                   DS_MATERIAL
+               ,CULTURA.DS_COLONIAS                    DS_COLONIAS
+               ,CULTURA.DS_OBSERVACAO              DS_OBSERVACAO1
+               ,GERMES_CULTURA.CD_GERMES      CD_GERMES
+               ,GERMES.DS_GERME                           DS_GERME
+               ,ITCULTURA.CD_ANTIMICROB             CD_ANTIMICROB
+               ,ANTIMICROB.NM_ANTIMICROB          NM_ANTIMICROB
+               ,ITCULTURA.TP_RESULTADO             TP_RESULTADO
+               ,EXA_LAB.PAG_UNIC_EXAME               PAG_UNIC_EXAME1
+FROM DBAMV.EXA_LAB
+          ,DBAMV.CULTURA
+          ,DBAMV.MATERIAL
+          ,DBAMV.GERMES_CULTURA
+          ,DBAMV.GERMES
+          ,DBAMV.ITCULTURA
+          ,DBAMV.ANTIMICROB
+WHERE CULTURA.CD_EXA_LAB  =  EXA_LAB.CD_EXA_LAB
+AND       CULTURA.CD_MATERIAL  =  MATERIAL.CD_MATERIAL
+AND       CULTURA.CD_PED_LAB  =  GERMES_CULTURA.CD_PED_LAB
+AND       CULTURA.CD_EXA_LAB  =  GERMES_CULTURA.CD_EXA_LAB
+AND       CULTURA.CD_ITPED_LAB  =  GERMES_CULTURA.CD_ITPED_LAB
+AND       GERMES_CULTURA.CD_GERMES  =  GERMES.CD_GERMES
+AND       GERMES_CULTURA.CD_PED_LAB  =  ITCULTURA.CD_PED_LAB
+AND       GERMES_CULTURA.CD_EXA_LAB  =  ITCULTURA.CD_EXA_LAB
+AND       GERMES_CULTURA.CD_ITPED_LAB  =  ITCULTURA.CD_ITPED_LAB
+AND       GERMES_CULTURA.CD_GERMES  =  ITCULTURA.CD_GERMES
+AND       ITCULTURA.CD_ANTIMICROB  =  ANTIMICROB.CD_ANTIMICROB
+)
+WHERE CD_PED_LAB = :CAMPO_CD_PED_LAB
+)
+ORDER BY CD_PED_LAB1,CD_EXA_LAB,CD_ITPED_LAB1,NM_EXA_LAB2,SN_CULTURA,CD_MATERIAL,DS_MATERIAL,DS_COLONIAS,PAG_UNIC_EXAME1,DS_OBSERVACAO1,
+CD_GERMES,DS_GERME
+
+
+/*----------------------------------------------------------------------------*/
+--R_LAUDO3_ORI_R_CULTUTA_Q_CULTURA
+SELECT * FROM (
+SELECT * FROM (
+SELECT  EXA_LAB.SN_CULTURA                       SN_CULTURA
+               ,EXA_LAB.NM_EXA_LAB                       NM_EXA_LAB2
+               ,CULTURA.CD_PED_LAB                      CD_PED_LAB
+               ,CULTURA.CD_EXA_LAB                      CD_EXA_LAB1
+               ,CULTURA.CD_ITPED_LAB                  CD_ITPED_LAB1
+               ,CULTURA.CD_MATERIAL                    CD_MATERIAL
+               ,MATERIAL.DS_MATERIAL                   DS_MATERIAL
+               ,CULTURA.DS_COLONIAS                    DS_COLONIAS
+               ,CULTURA.DS_OBSERVACAO              DS_OBSERVACAO1
+               ,GERMES_CULTURA.CD_GERMES      CD_GERMES
+               ,GERMES.DS_GERME                           DS_GERME
+               ,ITCULTURA.CD_ANTIMICROB             CD_ANTIMICROB
+               ,ANTIMICROB.NM_ANTIMICROB          NM_ANTIMICROB
+               ,ITCULTURA.TP_RESULTADO             TP_RESULTADO
+               ,EXA_LAB.PAG_UNIC_EXAME               PAG_UNIC_EXAME1
+FROM DBAMV.EXA_LAB
+          ,DBAMV.CULTURA
+          ,DBAMV.MATERIAL
+          ,DBAMV.GERMES_CULTURA
+          ,DBAMV.GERMES
+          ,DBAMV.ITCULTURA
+          ,DBAMV.ANTIMICROB
+WHERE CULTURA.CD_EXA_LAB  =  EXA_LAB.CD_EXA_LAB
+AND       CULTURA.CD_MATERIAL  =  MATERIAL.CD_MATERIAL
+AND       CULTURA.CD_PED_LAB  =  GERMES_CULTURA.CD_PED_LAB
+AND       CULTURA.CD_EXA_LAB  =  GERMES_CULTURA.CD_EXA_LAB
+AND       CULTURA.CD_ITPED_LAB  =  GERMES_CULTURA.CD_ITPED_LAB
+AND       GERMES_CULTURA.CD_GERMES  =  GERMES.CD_GERMES
+AND       GERMES_CULTURA.CD_PED_LAB  =  ITCULTURA.CD_PED_LAB
+AND       GERMES_CULTURA.CD_EXA_LAB  =  ITCULTURA.CD_EXA_LAB
+AND       GERMES_CULTURA.CD_ITPED_LAB  =  ITCULTURA.CD_ITPED_LAB
+AND       GERMES_CULTURA.CD_GERMES  =  ITCULTURA.CD_GERMES
+AND       ITCULTURA.CD_ANTIMICROB  =  ANTIMICROB.CD_ANTIMICROB
+)
+WHERE CD_PED_LAB = :CAMPO_CD_PED_LAB
+)
+ORDER BY CD_PED_LAB,CD_EXA_LAB1,CD_ITPED_LAB1,NM_EXA_LAB2,SN_CULTURA,CD_MATERIAL,DS_MATERIAL,DS_COLONIAS,PAG_UNIC_EXAME1,DS_OBSERVACAO1,
+CD_GERMES,DS_GERME

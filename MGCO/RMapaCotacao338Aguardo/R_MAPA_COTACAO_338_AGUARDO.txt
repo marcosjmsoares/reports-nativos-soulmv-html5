@@ -1,0 +1,97 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/MGCO/RMapaCotacao338Aguardo/R_MAPA_COTACAO_338_AGUARDO.txt
+--Nome módulo: MGCO - SISTEMA DE GERENCIAMENTO DE COMPRAS
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COTACAO_338_AGUARDO
+Select sysdate from dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COTACAO_338_AGUARDO_R_3_Q_4
+Select produto.cd_produto cd_produto2,
+           produto.ds_produto ds_produto2
+from     dbamv.produto,
+           dbamv.itsol_com,
+           dbamv.sol_com,
+           dbamv.uni_pro,
+	   dbamv.estoque
+where  produto.cd_produto   = itsol_com.cd_produto
+  and   sol_com.cd_sol_com  = itsol_com.cd_sol_com
+  and   uni_pro.cd_uni_pro     = itsol_com.cd_uni_pro
+  and   sol_com.cd_sol_com  = :CAMPO_CD_SOLIC
+  and   itsol_com.cd_mot_cancel is null
+  and Estoque.Cd_Estoque = Sol_Com.Cd_Estoque
+  and  Estoque.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+  and   produto.cd_produto not in
+(SELECT PRODUTO.CD_PRODUTO
+FROM    DBAMV.PRODUTO,
+              DBAMV.ITSOL_COM,
+              DBAMV.COLETA,
+              DBAMV.FORNECEDOR,
+              DBAMV.ITCOL_PRO,
+              DBAMV.CONDICOES_PAGAMENTO,
+              DBAMV.UNI_PRO,
+              DBAMV.SOL_COM,
+              DBAMV.SETOR,
+	      DBAMV.ESTOQUE
+WHERE  PRODUTO.CD_PRODUTO                       = ITSOL_COM.CD_PRODUTO
+AND        ITSOL_COM.CD_SOL_COM                      = COLETA.CD_SOL_COM(+)
+AND        COLETA.CD_FORNECEDOR                    = FORNECEDOR.CD_FORNECEDOR(+)
+AND        COLETA.CD_COLETA                               = ITCOL_PRO.CD_COLETA(+)
+AND        ITCOL_PRO.CD_PRODUTO                     = PRODUTO.CD_PRODUTO
+AND        COLETA.CD_CONDICAO_PAGAMENTO  = CONDICOES_PAGAMENTO.CD_CONDICAO_PAGAMENTO
+AND        ITCOL_PRO.CD_UNI_PRO                        = UNI_PRO.CD_UNI_PRO
+AND        ITSOL_COM.CD_SOL_COM                      = :CAMPO_CD_SOLIC
+AND        SOL_COM.CD_SOL_COM                         = COLETA.CD_SOL_COM
+AND        SOL_COM.CD_SETOR                              = SETOR.CD_SETOR
+AND		ESTOQUE.CD_ESTOQUE = SOL_COM.CD_ESTOQUE
+AND		ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA )
+
+
+/*----------------------------------------------------------------------------*/
+--R_MAPA_COTACAO_338_AGUARDO_R_G_CD_PRODUTO1_Q_1
+SELECT * FROM (
+SELECT   forn_campeao.cd_fornecedor    fornecedor_campeao,
+         PRODUTO.CD_PRODUTO CD_PRODUTO,
+         PRODUTO.DS_PRODUTO DS_PRODUTO,
+         UNI_PRO.DS_UNIDADE UNI_SOL,
+         ITSOL_COM.QT_SOLIC QT_SOLIC,
+         FORNECEDOR.NM_FANTASIA NM_FANTASIA,
+         FORNECEDOR.CD_FORNECEDOR CD_FORNECEDOR,
+         ITCOL_PRO.DS_MARCA DS_MARCA,
+         ITCOL_PRO.QT_COTADA QT_COTADA,
+         ITCOL_PRO.VL_UNITARIO	VL_UNITARIO,
+         ITCOL_PRO.VL_REAL		VL_REAL,
+         UNI_PRO_COL.DS_UNIDADE  UNI_COL,
+         (PRODUTO.VL_ULTIMA_ENTRADA * UNI_PRO_COL.VL_FATOR)  VL_ULTIMA_ENTRADA
+FROM     DBAMV.PRODUTO,
+         DBAMV.ITSOL_COM,
+         DBAMV.COLETA,
+         DBAMV.FORNECEDOR,
+         DBAMV.ITCOL_PRO,
+         DBAMV.UNI_PRO,
+         DBAMV.UNI_PRO  UNI_PRO_COL
+         ,(Select   Ord_com.cd_fornecedor
+                       ,Ord_com.cd_sol_com
+                        ,itord_pro.cd_produto
+           From     Dbamv.ItOrd_Pro
+	       ,Dbamv.Ord_Com
+	       ,DBAMV.ESTOQUE 
+           Where  ItOrd_Pro.Cd_Ord_Com  = Ord_Com.Cd_Ord_Com
+	         and estoque.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+		 and ord_com.cd_estoque    = estoque.cd_estoque 
+	  ) Forn_campeao
+WHERE    PRODUTO.CD_PRODUTO   = ITSOL_COM.CD_PRODUTO
+  AND    ITSOL_COM.CD_SOL_COM = :CAMPO_CD_SOLIC
+  AND    ITSOL_COM.CD_SOL_COM = COLETA.CD_SOL_COM(+)
+  AND    COLETA.CD_FORNECEDOR = FORNECEDOR.CD_FORNECEDOR(+)
+  AND    COLETA.CD_COLETA     = ITCOL_PRO.CD_COLETA(+)
+  AND    ITCOL_PRO.CD_PRODUTO = PRODUTO.CD_PRODUTO
+  AND    UNI_PRO.CD_UNI_PRO   = ITSOL_COM.CD_UNI_PRO
+  AND    UNI_PRO_COL.CD_UNI_PRO = ITCOL_PRO.CD_UNI_PRO
+  and    forn_campeao.cd_produto  = itsol_com.cd_produto
+  and    forn_campeao.cd_sol_com  = itsol_com.cd_sol_com
+order by forn_campeao.cd_fornecedor
+)
+ORDER BY FORNECEDOR_CAMPEAO,CD_PRODUTO,DS_PRODUTO,QT_SOLIC,UNI_SOL,VL_ULTIMA_ENTRADA

@@ -1,0 +1,30 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCV/RegNfoficial2/REG_NFOFICIAL2.txt
+--Nome módulo: FFCV - SISTEMA FATURAMENTO CONTAS DE CONVENIO
+
+/*----------------------------------------------------------------------------*/
+--REG_NFOFICIAL2
+SELECT * FROM (
+SELECT  HOSPITAL.CD_HOSPITAL                                                                                                       CONT_CD_HOSPITAL
+               ,TO_CHAR(NOTA.DT_EMISSAO,'DD')                                                                                      DIA
+               ,DECODE( NOTA.CD_FORMULARIO_NF, 21, 'A', 'A-A' )                                                          SERIE
+               ,NOTA.NR_ID_NOTA_FISCAL                                                                                                  CONT_NR_NOTA_FISCAL
+               ,DECODE(NOTA.CD_STATUS, 'C', 0, NVL(NOTA.VL_TOTAL_NOTA,0))                                VALOR
+               ,DBAMV.F_RETORNA_SERIE( NOTA.CD_NOTA_FISCAL
+                                                                 ,NOTA.CD_REMESSA
+                                                                 ,NOTA.CD_REG_AMB
+                                                                 ,NOTA.CD_REG_FAT
+                                                                 ,NOTA.CD_FORMULARIO_NF )                                              IDENTIF
+               ,DECODE(NOTA.CD_STATUS, 'C', 'NOTA FISCAL CANCELADA', '  ')                                     OBSERV
+               ,DECODE(NOTA.CD_STATUS, 'C', NULL, 2)                                                                            ALIQ
+               ,DECODE(NOTA.CD_STATUS, 'C', 0, (( NVL(NOTA.VL_TOTAL_NOTA,0) * 2) / 100 ) )          IMPOSTO
+FROM     DBAMV.NOTA_FISCAL  NOTA
+              ,(SELECT CD_HOSPITAL FROM DBAMV.HOSPITAL Where Hospital.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA) HOSPITAL
+WHERE TO_CHAR(NOTA.DT_EMISSAO,'MM-YYYY') = TO_CHAR(:CAMPO_MES_ANO,'MM-YYYY')
+  AND Nota.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+ORDER BY  SERIE, CONT_NR_NOTA_FISCAL
+)
+ORDER BY IDENTIF,
+SERIE,
+DIA,
+CONT_NR_NOTA_FISCAL

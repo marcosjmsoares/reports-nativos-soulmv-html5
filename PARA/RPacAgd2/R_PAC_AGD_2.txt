@@ -1,0 +1,53 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/PARA/RPacAgd2/R_PAC_AGD_2.txt
+--Nome módulo: PARA - SISTEMA DE GERENCIAMENTO AMBULATORIAL
+
+/*----------------------------------------------------------------------------*/
+--R_PAC_AGD_2
+SELECT * FROM (
+SELECT  MARCACAO.CD_MARCACAO                  CD_MARCACAO
+               ,PRESTADOR.CD_PRESTADOR        CD_PRESTADOR1
+               ,PRESTADOR.NM_MNEMONICO        NM_PRESTADOR
+               ,MARCACAO.DT_MARCACAO          DT_MARCACAO
+               ,MARCACAO.HR_INICIAL           HR_INICIAL
+               ,MARCACAO.HR_FINAL             HR_FINAL
+               ,TIP_MAR.CD_TIP_MAR            CD_TIP_MAR
+               ,TIP_MAR.DS_TIP_MAR            DS_TIP_MAR
+               ,MARCACAO.CD_SER_DIS           CD_SER_DIS
+               ,SER_DIS.DS_SER_DIS            DS_SER_DIS
+               ,MARCACAO.NR_TEMPO_MEDIO       NR_TEMPO_MEDIO
+               ,MARCACAO.SN_SIA               SN_SIA
+               ,IT_MARCACAO.CD_PACIENTE       CD_PACIENTE
+               ,IT_MARCACAO.NM_PACIENTE       NM_PACIENTE
+               ,(SELECT PA.NM_SOCIAL_PACIENTE
+        			FROM DBAMV.PACIENTE PA
+        			WHERE PA.CD_PACIENTE = IT_MARCACAO.CD_PACIENTE
+          				AND NVL(PA.SN_UTILIZA_NOME_SOCIAL, 'N') = 'S') NM_SOCIAL_PACIENTE
+               ,IT_MARCACAO.NR_TELEFONE       NR_TELEFONE
+               ,IT_MARCACAO.CD_ATENDIMENTO    CD_ATENDIMENTO
+               ,IT_MARCACAO.CD_IT_MARCACAO    CD_IT_MARCACAO
+               ,IT_MARCACAO.SN_ENCAIXE        SN_ENCAIXE
+               ,IT_MARCACAO.HR_AGENDADO       HR_AGENDADO
+               ,PACIENTE.NM_MNEMONICO         APELIDO
+FROM Dbamv.MARCACAO      MARCACAO
+   , Dbamv.PRESTADOR     PRESTADOR
+   , Dbamv.SER_DIS       SER_DIS
+   , Dbamv.IT_MARCACAO   IT_MARCACAO
+   , Dbamv.TIP_MAR       TIP_MAR
+   , Dbamv.PACIENTE      PACIENTE
+WHERE  PRESTADOR.CD_PRESTADOR    = MARCACAO.CD_PRESTADOR
+AND       MARCACAO.CD_MARCACAO          = IT_MARCACAO.CD_MARCACAO
+AND       IT_MARCACAO.CD_TIP_MAR         = TIP_MAR.CD_TIP_MAR(+)
+AND       IT_MARCACAO.CD_SER_DIS         = SER_DIS.CD_SER_DIS
+AND       IT_MARCACAO.CD_PACIENTE   = PACIENTE.CD_PACIENTE (+)
+AND       (IT_MARCACAO.CD_PACIENTE is not null    OR    IT_MARCACAO.NM_PACIENTE is not null )
+AND       MARCACAO.CD_PRESTADOR  LIKE  :CAMPO_CD_MEDICO
+AND		  MARCACAO.DT_MARCACAO between to_date(to_char(:CAMPO_DT_INIC,'dd/mm/yyyy')||' 00','dd/mm/yyyy HH24') AND 
+										  to_date(to_char(:CAMPO_DT_FIM,'dd/mm/yyyy')||' 23','dd/mm/yyyy HH24')
+ORDER BY MARCACAO.CD_MARCACAO
+                   ,PRESTADOR.CD_PRESTADOR
+                   ,MARCACAO.DT_MARCACAO
+                   ,to_date(to_char(MARCACAO.HR_INICIAL,'hh24'),'hh24')
+                   ,IT_MARCACAO.CD_PACIENTE
+)
+ORDER BY CD_MARCACAO,CD_PRESTADOR1,NM_PRESTADOR,DT_MARCACAO,HR_INICIAL,HR_FINAL,DS_SER_DIS,NR_TEMPO_MEDIO,SN_SIA,CD_SER_DIS

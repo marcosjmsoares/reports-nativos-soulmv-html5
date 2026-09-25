@@ -1,0 +1,175 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FNRM/RRepasseMedConvC321/R_REPASSE_MED_CONV_C_321.txt
+--Nome módulo: FNRM - SISTEMA DE REPASSE MEDICO
+
+/*----------------------------------------------------------------------------*/
+--R_REPASSE_MED_CONV_C_321
+SELECT * FROM (
+SELECT	DECODE (:CAMPO_SN_QUEBRA_PREST, 'S', DECODE (:CAMPO_ORDEM_PREST, 'N', ds_gru_rep, cd_gru_rep), NULL) quebra_gru_rep
+		  ,DECODE (:CAMPO_SN_QUEBRA_PREST, 'S', DECODE (:CAMPO_ORDEM_PREST, 'N', nm_prestador, cd_prestador), NULL) quebra_prest
+		  ,cd_gru_rep
+		  ,ds_gru_rep
+		  ,cd_prestador
+		  ,nm_prestador
+		  ,cd_prestador_repasse
+		  ,vl_total
+		  ,cd_pro_fat
+		  ,ds_pro_fat
+		  ,conta
+		  ,vl_repasse
+		  ,dt_lancamento
+		  ,hr_lancamento
+		  ,qt_lancamento
+		  ,vl_total_conta
+		  ,cd_remessa
+		  ,cd_convenio_grupo
+		  ,nm_convenio
+		  ,nm_paciente
+		  ,ds_ati_med
+		  ,tipo
+		  ,vl_faturado
+		  ,cd_convenio
+		  ,cd_reg_repasse_sia
+		  ,cd_especialid
+		  ,cd_tip_ate
+		  ,cd_ori_ate
+		  ,sn_medico
+		  ,vl_anestesista
+		  ,vl_outros
+		  ,vl_auxiliar
+		  ,vl_geral
+		  ,vl_base_repassado
+		  ,tp_atendimento
+		  ,DECODE (sn_horario_especial, 'S', 'Sim', 'Não') sn_horario_especial
+		  ,vl_filme
+		  ,cd_atendimento
+		  ,vl_perc_repasse
+		  ,qt_ch
+		  ,num_conta
+		  ,num_atend
+		  ,cd_lanca
+		  ,cd_repasse
+		  ,cd_ati_med
+		  ,vl_recebido
+        ,DECODE (sn_horario_contratado, 'S', 'N', 'N', 'S', sn_horario_contratado) sn_horario_contratado
+	 FROM ( SELECT rep_cons.cd_prestador_repasse cd_gru_rep
+					 ,rep_cons.nm_prestador_repasse ds_gru_rep
+					 ,rep_cons.cd_prestador cd_prestador
+					 ,rep_cons.nm_prestador nm_prestador
+					 ,rep_cons.cd_prestador_repasse cd_prestador_repasse
+					 ,0 vl_total
+			                                 , decode(rep_cons.cd_tipo, 'S', rep_cons.cd_procedimento
+			                                                                            , 'I', rep_cons.cd_procedimento    , rep_cons.cd_pro_fat) cd_pro_fat
+			                                 , decode(rep_cons.cd_tipo, 'S', rep_cons.ds_procedimento
+			                                                                           , 'I', rep_cons.ds_procedimento    , rep_cons.ds_pro_fat) ds_pro_fat
+					 ,decode(rep_cons.cd_tipo,'S',rep_cons.cd_eventos,'A',rep_cons.cd_reg_amb,rep_cons.cd_reg_fat) conta
+					 ,decode(rep_cons.cd_tipo,'G',rep_cons.vl_repasse * (-1),rep_cons.vl_repasse) vl_repasse
+					 ,decode(rep_cons.cd_tipo,'S',rep_cons.dt_eve_siasus,rep_cons.dt_lancamento) dt_lancamento
+					 ,rep_cons.hr_lancamento hr_lancamento
+					 ,decode(rep_cons.cd_tipo,'S',rep_cons.qt_lancada,'G',rep_cons.qt_lancada,'R',rep_cons.qt_lancada,
+                                                                                                rep_cons.qt_lancamento) qt_lancamento
+					 ,decode(rep_cons.cd_tipo,'G',rep_cons.vl_total_conta * (-1),rep_cons.vl_total_conta) vl_total_conta
+					 ,decode(rep_cons.cd_tipo,'S',rep_cons.cd_fat_sia,rep_cons.cd_remessa) cd_remessa
+					  ,rep_cons.cd_convenio cd_convenio_grupo
+					  ,rep_cons.nm_convenio
+					  ,rep_cons.nm_paciente
+					  ,rep_cons.ds_ati_med
+					 ,rep_cons.ds_tipo tipo
+					 ,rep_cons.vl_total_conta vl_faturado
+			                                 ,rep_cons.cd_convenio cd_convenio
+			                                 ,rep_cons.cd_reg_repasse_sia
+					 ,rep_cons.cd_especialid
+					 ,rep_cons.cd_tip_ate
+					 ,rep_cons.cd_ori_ate
+					 ,rep_cons.sn_medico
+					 ,rep_cons.vl_anestesista
+					 ,rep_cons.vl_outros
+					 ,rep_cons.vl_auxiliar
+					 ,rep_cons.vl_geral
+					 ,rep_cons.vl_base_repassado
+					 ,rep_cons.tp_atendimento
+					  ,rep_cons.sn_horario_especial
+					  ,rep_cons.vl_filme
+					 ,rep_cons.cd_atendimento cd_atendimento
+					 ,rep_cons.vl_perc_repasse vl_perc_repasse
+					 ,rep_cons.qt_ch_unitario qt_ch
+					 ,decode(rep_cons.cd_tipo,'S',to_number(null),'A',rep_cons.cd_reg_amb,rep_cons.cd_reg_fat)  num_conta
+					 ,rep_cons.cd_atendimento num_atend
+					 ,decode(rep_cons.cd_tipo,'S',to_number(null),'A',rep_cons.cd_lanc_amb,rep_cons.cd_lanc_fat)  cd_lanca
+                     ,rep_cons.cd_repasse
+					 ,rep_cons.cd_ati_med
+					 ,rep_cons.vl_recebido
+                     ,rep_cons.sn_horario_contratado
+				FROM dbamv.repasse_consolidado rep_cons
+			    WHERE rep_cons.dt_competencia_rep BETWEEN TO_DATE ('01/' || :CAMPO_DT_COMPET, 'DD/MM/YYYY')
+														  AND LAST_DAY (TO_DATE (:CAMPO_DT_COMPET, 'MM/YYYY') )
+				 AND rep_cons.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+			  UNION ALL
+			  SELECT gru_rep.cd_prestador cd_gru_rep
+					  ,gru_rep.nm_prestador ds_gru_rep
+					  ,prestador.cd_prestador cd_prestador
+					  ,prestador.nm_prestador nm_prestador
+					  ,prestador.cd_prestador_repasse cd_prestador_repasse
+					  , (NVL (repasse_prestador.vl_repasse, 0) - NVL (repasse_prestador.vl_desconto, 0) ) vl_total
+					  ,'' cd_pro_fat
+					  ,repasse.ds_repasse ds_pro_fat
+					  ,TO_NUMBER (NULL) conta
+					  ,TO_NUMBER (NULL) vl_repasse
+					  ,repasse.dt_repasse dt_lancamento
+					  ,TO_DATE(null) hr_lancamento
+					  ,TO_NUMBER (NULL) qt_lancamento
+					  ,TO_NUMBER (NULL) vl_total_conta
+					  ,TO_NUMBER (NULL) cd_remessa
+					  ,TO_NUMBER (NULL) cd_convenio_grupo
+					  ,'Manual' nm_convenio
+					  ,'' nm_paciente
+					  ,'' ds_ati_med
+					  ,'SEM' tipo
+					  ,NVL (repasse_prestador.vl_faturado, 0) vl_faturado
+					  ,TO_NUMBER (NULL) cd_convenio
+					  ,TO_NUMBER (NULL) cd_reg_repasse_sia
+					  ,TO_NUMBER (NULL) cd_especialid
+					  ,TO_NUMBER (NULL) cd_tip_ate
+					  ,TO_NUMBER (NULL) cd_ori_ate
+					  ,' ' sn_medico
+					  ,0 vl_anestesista
+					  ,0 vl_outros
+					  ,0 vl_auxiliar
+					  ,0 vl_geral
+					  ,0 vl_base_repassado
+					  ,'M' tp_atendimento
+					  ,NULL sn_horario_especial
+					  ,0 vl_filme
+					  ,TO_NUMBER (NULL) cd_atendimento
+					  ,0 vl_perc_repasse
+					  ,TO_NUMBER (NULL) qt_ch
+					  ,TO_NUMBER (NULL) num_conta
+					  ,TO_NUMBER (NULL) num_atend
+					  ,TO_NUMBER (NULL) cd_lanca
+					  ,repasse.cd_repasse
+					  ,NULL cd_ati_med
+					  ,TO_NUMBER (NULL) vl_recebido
+                 ,'RM' sn_horario_contratado
+				 FROM dbamv.repasse_prestador
+					  ,dbamv.prestador
+					  ,dbamv.prestador gru_rep
+					  ,dbamv.repasse
+				WHERE repasse.dt_competencia BETWEEN TO_DATE ('01/' || :CAMPO_DT_COMPET, 'DD/MM/YYYY')
+															AND LAST_DAY (TO_DATE (:CAMPO_DT_COMPET, 'MM/YYYY') )
+				  AND repasse.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+              AND repasse.tp_repasse in ('M','F','N')   
+				  AND repasse.cd_repasse = repasse_prestador.cd_repasse
+				  AND repasse_prestador.cd_prestador = prestador.cd_prestador
+				  AND repasse_prestador.cd_prestador_repasse = gru_rep.cd_prestador
+:CAMPO_CF_IMPRIME_REPASSE_MANUAL 
+			) tabela
+	WHERE 'A' = 'A'
+ORDER BY dt_lancamento
+)
+ORDER BY QUEBRA_GRU_REP,
+CD_GRU_REP,DS_GRU_REP,
+QUEBRA_PREST,
+CD_PRESTADOR,NM_PRESTADOR,CD_PRESTADOR_REPASSE,
+TIPO,
+CD_CONVENIO_GRUPO,NM_CONVENIO,
+NM_PACIENTE,CD_REMESSA,CONTA,CD_ATENDIMENTO

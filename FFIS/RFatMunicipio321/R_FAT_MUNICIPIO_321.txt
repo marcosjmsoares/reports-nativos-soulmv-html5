@@ -1,0 +1,105 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RFatMunicipio321/R_FAT_MUNICIPIO_321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_MUNICIPIO_321
+Select 1 from dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_MUNICIPIO_321_RF_MUNICIPIO2_Q_MUNIC_SINTEC
+SELECT  NM_CIDADE
+       ,CD_UF
+       ,CD_CIDADE
+       ,(VL_SH + VL_SP) VALOR_CONTA
+       ,VL_SH
+	     ,VL_SP
+       , QTD_CONTAS
+FROM (SELECT NM_CIDADE                 NM_CIDADE
+     , CD_UF                           CD_UF
+     , C.CD_CIDADE                     CD_CIDADE
+     , SUM(DECODE(SN_PROCED_REALIZADO, 'S', VL_SH_PRINCIPAL, 'N', DECODE(SN_EQUIPE, 'S',VL_SH_PRINCIPAL, VL_SH_PROPRIO ),  VL_SH_PRINCIPAL))  
+     + SUM(DECODE(SN_PROCED_REALIZADO, 'S', 0, 'N', DECODE(SN_EQUIPE, 'S',0, VL_SH_TERCEIRO ),  VL_SH_TERCEIRO  ))  VL_SH
+     , SUM(VL_SP_DIRETO_PROPRIO)      
+     + SUM(VL_SP_DIRETO_TERCEIRO)      
+     + SUM(VL_SP_RATEIO_PROPRIO)  
+     + SUM(VL_SP_RATEIO_TERCEIRO)      VL_SP
+     , Count(DISTINCT R.CD_REG_FAT) QTD_CONTAS
+  FROM DBAMV.V_FFIS_VALOR_CONTA_AIH V
+     , DBAMV.REG_FAT  R
+     , DBAMV.PACIENTE P
+     , DBAMV.ATENDIME A
+     , DBAMV.CIDADE   C
+     , DBAMV.PROCEDIMENTO_SUS PROC
+  WHERE V.CD_REG_FAT      = R.CD_REG_FAT
+    AND R.CD_PROCEDIMENTO_REALIZADO = PROC.CD_PROCEDIMENTO
+    AND R.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+    AND A.CD_PACIENTE    = P.CD_PACIENTE
+    AND C.CD_CIDADE      = P.CD_CIDADE
+    AND TO_CHAR( V.DT_COMPETENCIA, 'MM/YYYY')  = to_char(:CAMPO_COMPET, 'MM/YYYY')
+    AND R.CD_MULTI_EMPRESA           = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY C.NM_CIDADE,
+         C.CD_UF,
+         C.CD_CIDADE
+ORDER BY NM_CIDADE,CD_CIDADE,CD_UF)
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_MUNICIPIO_321_RF_MUNICIPIO_Q_MUNIC_ANALIT
+SELECT  NM_CIDADE
+       ,CD_UF
+       ,NM_PACIENTE
+       ,CD_REG_FAT      
+       ,CD_ATENDIMENTO
+       ,DT_INICIO
+       ,DT_FINAL
+       ,CD_PROCEDIMENTO
+       ,DS_PROCEDIMENTO
+	   ,(VL_SH + VL_SP) VALOR_CONTA
+       ,VL_SH
+	   ,VL_SP
+	   ,NR_GUIA
+	   ,CD_ESPEC_SUS
+FROM (SELECT NM_CIDADE                       NM_CIDADE
+     , CD_UF                           CD_UF
+     , P.NM_PACIENTE                   NM_PACIENTE
+     , R.CD_REG_FAT                    CD_REG_FAT      
+     , R.CD_ATENDIMENTO                CD_ATENDIMENTO
+     , R.DT_INICIO                     DT_INICIO
+     , R.DT_FINAL                      DT_FINAL
+     , PROC.CD_PROCEDIMENTO            CD_PROCEDIMENTO
+     , PROC.DS_PROCEDIMENTO            DS_PROCEDIMENTO
+     , SUM(DECODE(SN_PROCED_REALIZADO, 'S', VL_SH_PRINCIPAL, 'N', DECODE(SN_EQUIPE, 'S',VL_SH_PRINCIPAL, VL_SH_PROPRIO ),  VL_SH_PRINCIPAL))  
+     + SUM(DECODE(SN_PROCED_REALIZADO, 'S', 0, 'N', DECODE(SN_EQUIPE, 'S',0, VL_SH_TERCEIRO ),  VL_SH_TERCEIRO  ))  VL_SH
+     , SUM(VL_SP_DIRETO_PROPRIO)      
+     + SUM(VL_SP_DIRETO_TERCEIRO)      
+     + SUM(VL_SP_RATEIO_PROPRIO)  
+     + SUM(VL_SP_RATEIO_TERCEIRO)      VL_SP
+     , R.NR_GUIA                       NR_GUIA
+  	 , R.CD_ESPEC_SUS                  CD_ESPEC_SUS
+  FROM DBAMV.V_FFIS_VALOR_CONTA_AIH V
+     , DBAMV.REG_FAT  R
+     , DBAMV.PACIENTE P
+     , DBAMV.ATENDIME A
+     , DBAMV.CIDADE   C
+     , DBAMV.PROCEDIMENTO_SUS PROC
+  WHERE V.CD_REG_FAT      = R.CD_REG_FAT
+    AND R.CD_PROCEDIMENTO_REALIZADO = PROC.CD_PROCEDIMENTO
+    AND R.CD_ATENDIMENTO = A.CD_ATENDIMENTO
+    AND A.CD_PACIENTE    = P.CD_PACIENTE
+    AND C.CD_CIDADE      = P.CD_CIDADE
+    AND TO_CHAR( V.DT_COMPETENCIA, 'MM/YYYY')  = to_char(:CAMPO_COMPET, 'MM/YYYY')
+    AND R.CD_MULTI_EMPRESA           = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY C.NM_CIDADE,
+         C.CD_UF,
+         P.NM_PACIENTE,
+         R.CD_REG_FAT,
+         R.CD_ATENDIMENTO,
+         R.DT_INICIO,
+         R.DT_FINAL,
+         PROC.CD_PROCEDIMENTO,
+         PROC.DS_PROCEDIMENTO,          
+         R.NR_GUIA,
+         R.CD_ESPEC_SUS
+ORDER BY NM_CIDADE,CD_UF, NR_GUIA, NM_PACIENTE)

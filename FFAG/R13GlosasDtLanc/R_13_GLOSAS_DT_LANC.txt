@@ -1,0 +1,59 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAG/R13GlosasDtLanc/R_13_GLOSAS_DT_LANC.txt
+--Nome módulo: FFAG - AUDITORIA E GLOSAS
+
+/*----------------------------------------------------------------------------*/
+--R_13_GLOSAS_DT_LANC
+SELECT * FROM (
+select nm_convenio,
+       mes,
+       sum(vl_glosa)         valor
+from (
+select distinct convenio.nm_convenio,
+       glosas.vl_glosa,
+       to_char(itreg_fat.dt_lancamento, 'mm') mes,
+       glosas.cd_glosas
+from   dbamv.glosas,
+       dbamv.reg_fat,
+       dbamv.itreg_fat,
+       dbamv.convenio,
+       dbamv.empresa_convenio,
+       dbamv.remessa_glosa
+where  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and reg_fat.cd_reg_fat        =  itreg_fat.cd_reg_fat
+and    itreg_fat.cd_reg_fat      =  glosas.cd_reg_fat
+and    itreg_fat.cd_pro_fat      =  glosas.cd_pro_fat
+and    glosas.cd_remessa_glosa   =  remessa_glosa.cd_remessa_glosa
+and    remessa_glosa.cd_convenio =  convenio.cd_convenio
+and    to_char(itreg_fat.dt_lancamento, 'yyyy') = :CAMPO_DT_COMPET
+and    convenio.tp_convenio <> 'H'
+union all
+select distinct convenio.nm_convenio,
+       glosas.vl_glosa,
+       to_char(atendime.dt_atendimento, 'mm') mes,
+       glosas.cd_glosas
+from   dbamv.glosas,
+       dbamv.reg_amb,
+       dbamv.convenio,
+       dbamv.empresa_convenio,
+       dbamv.remessa_glosa,
+       dbamv.atendime
+where  Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+and atendime.cd_multi_empresa =  dbamv.Pkg_Mv2000.Le_Empresa
+and glosas.cd_reg_amb        =    reg_amb.cd_reg_amb
+and     glosas.cd_atendimento   =   atendime.cd_atendimento
+and    glosas.cd_remessa_glosa   =  remessa_glosa.cd_remessa_glosa
+and    remessa_glosa.cd_convenio =  convenio.cd_convenio
+and    to_char(atendime.dt_atendimento, 'yyyy') = :CAMPO_DT_COMPET
+and    reg_amb.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+and    convenio.tp_convenio <> 'H'
+and    atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+:CAMPO_CF_COND_CONV
+)
+group by nm_convenio,
+         mes
+)
+ORDER BY NM_CONVENIO,
+MES

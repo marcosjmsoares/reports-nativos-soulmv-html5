@@ -1,0 +1,196 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/MGES/RConsEstoque1/R_CONS_ESTOQUE1.txt
+--Nome módulo: MGES - SISTEMA DE GERENCIAMENTO DE ESTOQUE
+
+/*----------------------------------------------------------------------------*/
+--R_CONS_ESTOQUE1
+SELECT cd_estoque
+      , ds_estoque
+FROM ( Select estoque.cd_estoque
+            , estoque.ds_estoque
+            , produto.cd_produto
+            , PRODUTO.CD_PRODUTO_TEM CD_PRODUTO_TEM
+         From Dbamv.Estoque
+            , Dbamv.Produto
+            , Dbamv.C_Conest
+            , Dbamv.est_pro
+       Where Estoque.Cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+         And To_Date(To_Char(C_Conest.Cd_Mes) || '/' ||To_Char(C_Conest.Cd_Ano), 'mm/yyyy') between :CAMPO_DT_INIC and 
+         And C_conest.cd_estoque		= Estoque.Cd_estoque
+         AND C_CONEST.CD_PRODUTO = PRODUTO.CD_PRODUTO
+         AND PRODUTO.SN_MESTRE = 'N'
+         AND est_pro.cd_estoque = Estoque.cd_estoque
+         AND est_pro.cd_produto =  PRODUTO.CD_PRODUTO
+         And     (decode(  '', 'S', Nvl(C_Conest.qt_saida_setor, 0), 0) +
+                  decode(  '', 'S', Nvl(C_Conest.qt_saida_paciente, 0), 0) +
+                  decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                  decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_transferencia_saida,0)) , 0 ), 0)) -
+                 (DECODE(  '', 'S', Nvl( C_Conest.qt_devolucao_setor, 0), 0) +
+                  decode(  '', 'S', Nvl(C_Conest.qt_devolucao_paciente, 0), 0) +
+                  decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                  decode('' , 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_entrada_transferido,0)), 0 ), 0)) <> 0
+      ) Produto_filho,
+        DBAMV.PRODUTO
+UNION ALL
+Select estoque.cd_estoque
+     , estoque.ds_estoque
+  From Dbamv.Estoque
+     , Dbamv.Produto
+     , Dbamv.C_Conest
+     , Dbamv.est_pro
+ Where Estoque.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   And To_Date(To_Char(C_Conest.Cd_Mes) || '/' || To_Char(C_Conest.Cd_Ano), 'mm/yyyy') between :CAMPO_DT_INIC and 
+   And C_conest.cd_estoque		= Estoque.Cd_estoque
+   AND C_CONEST.CD_PRODUTO = PRODUTO.CD_PRODUTO
+   AND PRODUTO.SN_MESTRE = 'N'
+   AND PRODUTO.CD_PRODUTO_TEM IS NULL
+   AND est_pro.cd_estoque = Estoque.cd_estoque
+   AND est_pro.cd_produto =  PRODUTO.CD_PRODUTO
+        And     (decode( '', 'S', Nvl(C_Conest.qt_saida_setor, 0), 0) +
+                 decode( '', 'S', Nvl(C_Conest.qt_saida_paciente, 0), 0) +
+                 decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                 decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_transferencia_saida,0)) , 0 ), 0)) -
+                (DECODE(  '', 'S', Nvl( C_Conest.qt_devolucao_setor, 0), 0) +
+                 decode(  '', 'S', Nvl(C_Conest.qt_devolucao_paciente, 0), 0) +
+                 decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                 decode('' , 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_entrada_transferido,0)), 0 ), 0)) <> 0
+order by cd_estoque, ds_estoque
+
+
+/*----------------------------------------------------------------------------*/
+--R_CONS_ESTOQUE1_SUBREPORT
+SELECT Produto.CD_PRODUTO CD_PRODUTO
+      ,Produto.SN_MESTRE SN_MESTRE
+      ,Produto_filho.CD_PRODUTO_TEM CD_PRODUTO_TEM
+      ,Initcap ( Produto.Ds_Produto ) Ds_Produto
+      ,Initcap ( Verif_Ds_Unid_Prod( Produto.Cd_Produto )) Ds_unidade
+      ,Produto_filho.DATA DATA
+      ,((SUM(Produto_filho.QT_MVTO)) / Verif_vl_fator_prod(Produto.cd_produto)) QT_MVTO
+      ,SUM(Produto_filho.VL_MVTO) VL_MVTO
+      , Dbamv.Verif_vl_fator_prod(Produto.cd_produto) fatorNovo
+      , cd_estoque
+      , ds_estoque
+      , (Produto_filho.qt_estoque_atual)  qt_estoque_atual
+FROM ( Select Produto.Cd_Produto Cd_Produto
+             ,produto.sn_mestre SN_MESTRE
+             ,PRODUTO.CD_PRODUTO_TEM CD_PRODUTO_TEM
+             ,Initcap ( Produto.Ds_Produto ) Ds_Produto
+             ,Initcap ( Verif_Ds_Unid_Prod( Produto.Cd_Produto )) Ds_unidade
+             ,To_Date(To_Char(C_Conest.Cd_Mes) || '/' || To_Char(C_Conest.Cd_Ano), 'mm/yyyy') Data
+             ,(Sum((decode( '', 'S', Nvl(C_Conest.qt_saida_setor, 0), 0) +
+                    decode( '', 'S', Nvl(C_Conest.qt_saida_paciente, 0), 0) +
+                    decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                    decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_transferencia_saida,0)) , 0 ), 0)) -
+                   (DECODE(  '', 'S', Nvl( C_Conest.qt_devolucao_setor, 0), 0) +
+                    decode(  '', 'S', Nvl(C_Conest.qt_devolucao_paciente, 0), 0) +
+                    decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                    decode('' , 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_entrada_transferido,0)), 0 ), 0)))) qt_mvto
+             ,Sum((decode( '', 'S', Nvl(C_Conest.vl_saida_setor, 0), 0) +
+                   decode( '', 'S', Nvl(C_Conest.vl_saida_paciente, 0), 0) +
+                   decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                   decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', C_Conest.vl_transferencia_saida,0)) , 0 ), 0)) -
+                  (decode(  '', 'S', Nvl(C_Conest.vl_devolucao_setor, 0), 0) +
+                   decode(  '', 'S', Nvl(C_Conest.vl_devolucao_paciente, 0), 0) +
+                   decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                   decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, decode(ESTOQUE.TP_ESTOQUE, 'D',C_Conest.vl_entrada_transferido, 0)), 0 ),0))) vl_mvto
+             ,estoque.cd_estoque
+             ,estoque.ds_estoque
+             ,est_pro.qt_estoque_atual
+       From   Dbamv.Estoque
+             ,Dbamv.Produto
+             ,Dbamv.C_Conest
+             ,Dbamv.est_pro
+       Where Estoque.Cd_multi_empresa =  :CAMPO_CD_MULTI_EMPRESA
+       And   To_Date(To_Char(C_Conest.Cd_Mes) || '/' || To_Char(C_Conest.Cd_Ano), 'mm/yyyy') between :CAMPO_DT_INIC and 
+       And   C_conest.cd_estoque		= Estoque.Cd_estoque
+       AND   C_CONEST.CD_PRODUTO = PRODUTO.CD_PRODUTO
+       AND   PRODUTO.SN_MESTRE = 'N'
+       AND   estoque.cd_estoque = :CAMPO_CD_ESTOQUE_PAI
+       AND   est_pro.cd_estoque = Estoque.cd_estoque
+       AND   est_pro.cd_produto =  PRODUTO.CD_PRODUTO
+        And     (decode(  '', 'S', Nvl(C_Conest.qt_saida_setor, 0), 0) +
+                 decode(  '', 'S', Nvl(C_Conest.qt_saida_paciente, 0), 0) +
+                 decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                 decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_transferencia_saida,0)) , 0 ), 0)) -
+                (DECODE(  '', 'S', Nvl( C_Conest.qt_devolucao_setor, 0), 0) +
+                 decode(  '', 'S', Nvl(C_Conest.qt_devolucao_paciente, 0), 0) +
+                 decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                 decode('' , 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_entrada_transferido,0)), 0 ), 0)) <> 0
+       Group By Produto.Cd_Produto,
+                PRODUTO.CD_PRODUTO_TEM,
+                PRODUTO.SN_MESTRE,
+                Produto.Ds_Produto,
+                C_Conest.Cd_Mes,
+                C_Conest.Cd_Ano,
+				estoque.cd_estoque,
+				estoque.ds_estoque,
+				est_pro.qt_estoque_atual) Produto_filho,
+            DBAMV.PRODUTO
+GROUP BY Produto.CD_PRODUTO
+      ,Produto.SN_MESTRE
+      ,Produto_filho.CD_PRODUTO_TEM
+      ,Initcap ( Produto.Ds_Produto )
+      ,Initcap ( Verif_Ds_Unid_Prod( Produto.Cd_Produto ))
+      ,Produto_filho.DATA
+      , cd_estoque
+      ,ds_estoque
+      , produto_filho.qt_estoque_atual
+UNION ALL
+Select        Produto.Cd_Produto Cd_Produto
+             ,produto.sn_mestre SN_MESTRE
+             ,PRODUTO.CD_PRODUTO_TEM CD_PRODUTO_TEM
+             ,Initcap ( Produto.Ds_Produto ) Ds_Produto
+             ,Initcap ( Verif_Ds_Unid_Prod( Produto.Cd_Produto )) Ds_unidade
+             ,To_Date(To_Char(C_Conest.Cd_Mes) || '/' || To_Char(C_Conest.Cd_Ano), 'mm/yyyy') Data
+             ,(Sum((decode( '', 'S', Nvl(C_Conest.qt_saida_setor, 0), 0) +
+                    decode(  '', 'S', Nvl(C_Conest.qt_saida_paciente, 0), 0) +
+                    decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                    decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_transferencia_saida,0)) , 0 ), 0)) -
+                   (DECODE(  '', 'S', Nvl( C_Conest.qt_devolucao_setor, 0), 0) +
+                    decode(  '', 'S', Nvl(C_Conest.qt_devolucao_paciente, 0), 0) +
+                    decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                    decode('' , 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_entrada_transferido,0)), 0 ), 0)))) /
+                    Verif_vl_fator_prod( produto.cd_produto ) qt_mvto
+             ,Sum((decode('', 'S', Nvl(C_Conest.vl_saida_setor, 0), 0) +
+                   decode(  '', 'S', Nvl(C_Conest.vl_saida_paciente, 0), 0) +
+                   decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                   decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', C_Conest.vl_transferencia_saida,0)) , 0 ), 0)) -
+                  (decode(  '', 'S', Nvl(C_Conest.vl_devolucao_setor, 0), 0) +
+                   decode(  '', 'S', Nvl(C_Conest.vl_devolucao_paciente, 0), 0) +
+                   decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                   decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, decode(ESTOQUE.TP_ESTOQUE, 'D',C_Conest.vl_entrada_transferido, 0)), 0 ),0))) vl_mvto
+             ,Dbamv.Verif_vl_fator_prod(Produto.cd_produto) fatorNovo
+             ,estoque.cd_estoque
+             ,estoque.ds_estoque
+             ,est_pro.qt_estoque_atual
+From        Dbamv.Estoque
+          , Dbamv.Produto
+          , Dbamv.C_Conest
+          , Dbamv.est_pro
+Where    Estoque.Cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+And      To_Date(To_Char(C_Conest.Cd_Mes) || '/' || To_Char(C_Conest.Cd_Ano), 'mm/yyyy') between :CAMPO_DT_INIC and 
+And      C_conest.cd_estoque		= Estoque.Cd_estoque
+AND      C_CONEST.CD_PRODUTO = PRODUTO.CD_PRODUTO
+AND      PRODUTO.SN_MESTRE = 'N'
+AND      PRODUTO.CD_PRODUTO_TEM IS NULL
+AND      estoque.cd_estoque = :CAMPO_CD_ESTOQUE_PAI
+AND      est_pro.cd_estoque = Estoque.cd_estoque
+AND      est_pro.cd_produto =  PRODUTO.CD_PRODUTO
+        And     (decode( '', 'S', Nvl(C_Conest.qt_saida_setor, 0), 0) +
+                 decode( '', 'S', Nvl(C_Conest.qt_saida_paciente, 0), 0) +
+                 decode(  '', 'S', Nvl(C_Conest.qt_venda, 0), 0) +
+                 decode( '', 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_transferencia_saida,0)) , 0 ), 0)) -
+                (DECODE(  '', 'S', Nvl( C_Conest.qt_devolucao_setor, 0), 0) +
+                 decode(  '', 'S', Nvl(C_Conest.qt_devolucao_paciente, 0), 0) +
+                 decode( '', 'S', Nvl(C_Conest.qt_devolucao_venda, 0), 0) +
+                 decode('' , 'S', NVL( DECODE(ESTOQUE.SN_CONSIDERA_TRANSF_CONSUMO, 'N', 0, DECODE(ESTOQUE.TP_ESTOQUE, 'D', c_ConEst.qt_entrada_transferido,0)), 0 ), 0)) <> 0
+Group By        Produto.Cd_Produto,
+                PRODUTO.CD_PRODUTO_TEM,
+                PRODUTO.SN_MESTRE,
+                Produto.Ds_Produto,
+                C_Conest.Cd_Mes,
+                C_Conest.Cd_Ano,
+                estoque.cd_estoque
+               ,estoque.ds_estoque
+               ,est_pro.qt_estoque_atual
+order by DATA, ds_produto

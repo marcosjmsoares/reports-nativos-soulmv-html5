@@ -1,0 +1,359 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RProdPrest321/R_PROD_PREST_321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_321
+SELECT * FROM (
+select v_ffis_fat_gerencial_total.cd_remessa
+     , fatura.ds_fatura
+     , v_ffis_fat_gerencial_total.cd_prestador
+     , prestador.nm_prestador
+     , prestador.tp_vinculo
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional
+  from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.remessa_fatura
+     , dbamv.fatura
+     , dbamv.prestador
+ where v_ffis_fat_gerencial_total.cd_remessa                         = remessa_fatura.cd_remessa
+   and fatura.cd_fatura                                              = remessa_fatura.cd_fatura
+   and prestador.cd_prestador                                        = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by v_ffis_fat_gerencial_total.cd_remessa
+        , fatura.ds_fatura
+        , prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , prestador.tp_vinculo
+)
+ORDER BY CD_REMESSA,DS_FATURA
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_321_RF_PRESTADOR_ANAL1_Q_PRODUTIVIDADE_ANAL
+SELECT * FROM (
+select v_ffis_fat_gerencial_total.cd_prestador
+     , prestador.nm_prestador
+     , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+     , reg_fat.nr_guia
+     , paciente.cd_paciente
+     , paciente.nm_paciente
+     , v_ffis_fat_gerencial_total.cd_procedimento
+     , procedimento_sus.ds_procedimento
+     , reg_fat.dt_inicio
+     , reg_fat.dt_final
+     , v_ffis_fat_gerencial_total.vl_ponto
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional
+from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.prestador
+     , dbamv.reg_fat
+     , dbamv.atendime
+     , dbamv.paciente
+     , dbamv.procedimento_sus
+     , dbamv.procedimento_sus_detalhe
+ where prestador.cd_prestador                      = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_reg_fat       = reg_fat.cd_reg_fat
+   and reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   and atendime.cd_paciente                        = paciente.cd_paciente
+   and v_ffis_fat_gerencial_total.cd_procedimento  = procedimento_sus.cd_procedimento
+   and procedimento_sus.cd_procedimento not in ( Select procedimento_sus_detalhe.cd_procedimento
+                                                   From dbamv.procedimento_sus_detalhe
+                                                      ,
+   (Select procVal.cd_procedimento
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VIGENCIA_VALOR( procVal.cd_procedimento, :CAMPO_COMPET ), :CAMPO_COMPET )  dt_vigencia
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VALOR_SH( procVal.cd_procedimento, :CAMPO_COMPET ), 0) vl_servico_hospitalar
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VALOR_SP( procVal.cd_procedimento, :CAMPO_COMPET ), 0) vl_servico_profissional
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VALOR_PONTOS( procVal.cd_procedimento, :CAMPO_COMPET ), 0) qt_pontos
+          From dbamv.procedimento_sus_valor procVal
+         Group by procVal.cd_procedimento ) valor
+                                              where procedimento_sus_detalhe.cd_procedimento = valor.cd_procedimento
+                                                and valor.vl_servico_hospitalar   > 0
+                                                and valor.vl_servico_profissional = 0
+                                                and valor.qt_pontos               = 0
+                                                and procedimento_sus_detalhe.sn_aih_especial = 'S'
+   )
+   and procedimento_sus_detalhe.cd_procedimento = procedimento_sus.cd_procedimento
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and procedimento_sus_detalhe.sn_cateterismo <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+        , reg_fat.nr_guia
+        , paciente.cd_paciente
+        , paciente.nm_paciente
+        , v_ffis_fat_gerencial_total.cd_procedimento
+        , procedimento_sus.ds_procedimento
+        , reg_fat.dt_inicio
+        , reg_fat.dt_final
+        , v_ffis_fat_gerencial_total.vl_ponto
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR,
+CD_TIPO_VINCULO
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_321_RF_PRESTADOR_ANAL2_Q_PRODUTIVIDADE_ANAL
+SELECT * FROM (
+select v_ffis_fat_gerencial_total.cd_prestador
+     , prestador.nm_prestador
+     , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+     , reg_fat.nr_guia
+     , paciente.cd_paciente
+     , paciente.nm_paciente
+     , v_ffis_fat_gerencial_total.cd_procedimento
+     , procedimento_sus.ds_procedimento
+     , reg_fat.dt_inicio
+     , reg_fat.dt_final
+     , v_ffis_fat_gerencial_total.vl_ponto
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional
+from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.prestador
+     , dbamv.reg_fat
+     , dbamv.atendime
+     , dbamv.paciente
+     , dbamv.procedimento_sus
+     , dbamv.procedimento_sus_detalhe
+ where prestador.cd_prestador                      = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_reg_fat       = reg_fat.cd_reg_fat
+   and reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   and atendime.cd_paciente                        = paciente.cd_paciente
+   and v_ffis_fat_gerencial_total.cd_procedimento  = procedimento_sus.cd_procedimento
+   and procedimento_sus.cd_procedimento not in ( Select procedimento_sus_detalhe.cd_procedimento
+                                                   From dbamv.procedimento_sus_detalhe
+                                                      ,
+   (Select procVal.cd_procedimento
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VIGENCIA_VALOR( procVal.cd_procedimento, :CAMPO_COMPET ), :CAMPO_COMPET )  dt_vigencia
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VALOR_SH( procVal.cd_procedimento, :CAMPO_COMPET ), 0) vl_servico_hospitalar
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VALOR_SP( procVal.cd_procedimento, :CAMPO_COMPET ), 0) vl_servico_profissional
+             , nvl( dbamv.pack_sus.FNC_SUS_MAX_VALOR_PONTOS( procVal.cd_procedimento, :CAMPO_COMPET ), 0) qt_pontos
+          From dbamv.procedimento_sus_valor procVal
+         Group by procVal.cd_procedimento ) valor
+                                              where procedimento_sus_detalhe.cd_procedimento = valor.cd_procedimento
+                                                and valor.vl_servico_hospitalar   > 0
+                                                and valor.vl_servico_profissional = 0
+                                                and valor.qt_pontos               = 0
+                                                and procedimento_sus_detalhe.sn_aih_especial = 'S'
+   )
+   and procedimento_sus_detalhe.cd_procedimento = procedimento_sus.cd_procedimento
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and procedimento_sus_detalhe.sn_cateterismo <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+        , reg_fat.nr_guia
+        , paciente.cd_paciente
+        , paciente.nm_paciente
+        , v_ffis_fat_gerencial_total.cd_procedimento
+        , procedimento_sus.ds_procedimento
+        , reg_fat.dt_inicio
+        , reg_fat.dt_final
+        , v_ffis_fat_gerencial_total.vl_ponto
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR,
+CD_TIPO_VINCULO, NR_GUIA
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_321_RF_PRESTADOR_ANAL3_Q_PRODUTIVIDADE_ANAL1
+SELECT * FROM (
+select cd_prestador
+     , nm_prestador
+     , cd_tipo_vinculo
+     , cd_reg_fat
+     , nr_guia
+     , cd_paciente
+     , nm_paciente
+     , cd_procedimento
+     , ds_procedimento
+     , dt_inicio
+     , dt_final
+     , vl_ponto
+     , qt_pontos
+     , Valor_Profissional
+     , vl_servico_hospitalar
+     , vl_servico_profissional
+     , vl_qt_pontos
+  from
+(
+select v_ffis_fat_gerencial_total.cd_prestador cd_prestador
+     , prestador.nm_prestador nm_prestador
+     , v_ffis_fat_gerencial_total.cd_tipo_vinculo cd_tipo_vinculo
+     , v_ffis_fat_gerencial_total.cd_reg_fat cd_reg_fat
+     , reg_fat.nr_guia nr_guia
+     , paciente.cd_paciente cd_paciente
+     , paciente.nm_paciente nm_paciente
+     , v_ffis_fat_gerencial_total.cd_procedimento cd_procedimento
+     , procedimento_sus.ds_procedimento ds_procedimento
+     , reg_fat.dt_inicio dt_inicio
+     , reg_fat.dt_final dt_final
+     , v_ffis_fat_gerencial_total.vl_ponto vl_ponto
+     , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SH( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat ) vl_servico_hospitalar
+     , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SP( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat ) vl_servico_profissional
+     , dbamv.pack_sus.FNC_SUS_MAX_VALOR_PONTOS( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat ) vl_qt_pontos
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional
+from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.prestador
+     , dbamv.reg_fat
+     , dbamv.atendime
+     , dbamv.paciente
+     , dbamv.procedimento_sus
+     , dbamv.procedimento_sus_detalhe
+ where prestador.cd_prestador                      = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_reg_fat       = reg_fat.cd_reg_fat
+   and reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   and atendime.cd_paciente                        = paciente.cd_paciente
+   and v_ffis_fat_gerencial_total.cd_procedimento  = procedimento_sus.cd_procedimento
+   and procedimento_sus.cd_procedimento            = procedimento_sus_detalhe.cd_procedimento
+   and procedimento_sus_detalhe.sn_aih_especial = 'S'
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+        , v_ffis_fat_gerencial_total.cd_reg_fat
+        , reg_fat.nr_guia
+        , paciente.cd_paciente
+        , paciente.nm_paciente
+        , v_ffis_fat_gerencial_total.cd_procedimento
+        , procedimento_sus.ds_procedimento
+        , reg_fat.dt_inicio
+        , reg_fat.dt_final
+        , v_ffis_fat_gerencial_total.vl_ponto
+        , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SH( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat )
+        , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SP( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat )
+        , dbamv.pack_sus.FNC_SUS_MAX_VALOR_PONTOS( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat )
+)
+Where ( cd_procedimento = '0415040019' and vl_servico_profissional > 0 )
+   or ( vl_servico_hospitalar > 0 and  ( vl_servico_profissional = 0 and vl_qt_pontos =  0 ) )
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR,
+CD_TIPO_VINCULO
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_321_RF_PRESTADOR_ANAL4_Q_PRODUTIVIDADE_ANAL1
+SELECT * FROM (
+select cd_prestador
+     , nm_prestador
+     , cd_tipo_vinculo
+     , cd_reg_fat
+     , nr_guia
+     , cd_paciente
+     , nm_paciente
+     , cd_procedimento
+     , ds_procedimento
+     , dt_inicio
+     , dt_final
+     , vl_ponto
+     , qt_pontos
+     , Valor_Profissional
+     , vl_servico_hospitalar
+     , vl_servico_profissional
+     , vl_qt_pontos
+  from
+(
+select v_ffis_fat_gerencial_total.cd_prestador cd_prestador
+     , prestador.nm_prestador nm_prestador
+     , v_ffis_fat_gerencial_total.cd_tipo_vinculo cd_tipo_vinculo
+     , v_ffis_fat_gerencial_total.cd_reg_fat cd_reg_fat
+     , reg_fat.nr_guia nr_guia
+     , paciente.cd_paciente cd_paciente
+     , paciente.nm_paciente nm_paciente
+     , v_ffis_fat_gerencial_total.cd_procedimento cd_procedimento
+     , procedimento_sus.ds_procedimento ds_procedimento
+     , reg_fat.dt_inicio dt_inicio
+     , reg_fat.dt_final dt_final
+     , v_ffis_fat_gerencial_total.vl_ponto vl_ponto
+     , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SH( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat ) vl_servico_hospitalar
+     , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SP( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat ) vl_servico_profissional
+     , dbamv.pack_sus.FNC_SUS_MAX_VALOR_PONTOS( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat ) vl_qt_pontos
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional
+from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.prestador
+     , dbamv.reg_fat
+     , dbamv.atendime
+     , dbamv.paciente
+     , dbamv.procedimento_sus
+     , dbamv.procedimento_sus_detalhe
+ where prestador.cd_prestador                      = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_reg_fat       = reg_fat.cd_reg_fat
+   and reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   and atendime.cd_paciente                        = paciente.cd_paciente
+   and v_ffis_fat_gerencial_total.cd_procedimento  = procedimento_sus.cd_procedimento
+   and procedimento_sus.cd_procedimento            = procedimento_sus_detalhe.cd_procedimento
+   and procedimento_sus_detalhe.sn_aih_especial = 'S'
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+        , v_ffis_fat_gerencial_total.cd_reg_fat
+        , reg_fat.nr_guia
+        , paciente.cd_paciente
+        , paciente.nm_paciente
+        , v_ffis_fat_gerencial_total.cd_procedimento
+        , procedimento_sus.ds_procedimento
+        , reg_fat.dt_inicio
+        , reg_fat.dt_final
+        , v_ffis_fat_gerencial_total.vl_ponto
+        , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SH( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat )
+        , dbamv.pack_sus.FNC_SUS_MAX_VALOR_SP( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat )
+        , dbamv.pack_sus.FNC_SUS_MAX_VALOR_PONTOS( v_ffis_fat_gerencial_total.cd_procedimento, v_ffis_fat_gerencial_total.cd_reg_fat )
+)
+Where ( cd_procedimento = '0415040019' and vl_servico_profissional > 0 )
+   or ( vl_servico_hospitalar > 0 and  ( vl_servico_profissional = 0 and vl_qt_pontos =  0 ) )
+)
+ORDER BY NM_PRESTADOR,CD_PRESTADOR,
+CD_TIPO_VINCULO

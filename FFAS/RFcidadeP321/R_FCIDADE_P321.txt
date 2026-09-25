@@ -1,0 +1,215 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAS/RFcidadeP321/R_FCIDADE_P321.txt
+--Nome módulo: FFAS - SISTEMA FATURAMENTO AMBULATORIO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_FCIDADE_P321
+select '' rep from dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_FCIDADE_P321_R_CG__G_FAT_SIA1_Q_FAT_CIDADE
+select EVE_SIASUS.CD_FAT_SIA                   CD_FAT_SIA
+     , fat_sia.ds_fat_sia                      DS_FAT_SIA
+     , fat_sia.dt_periodo_final                dt_periodo_final
+     , EVE_SIASUS.CD_CIDADE                    CD_CIDADE
+     , NM_CIDADE                               NM_CIDADE
+     , CIDADE.CD_UF                            UF
+     , EVE_SIASUS.CD_PROCEDIMENTO              SSM
+     , PROCEDIMENTO_SUS.DS_PROCEDIMENTO        DESCRICAO
+     , sum(eve_siasus.qt_lancada)              QT_LANCADA
+     , eve_siasus.vl_servico_ambulatorial      vl_servico_ambulatorial
+     , sum(eve_siasus.vl_total_ambulatorial)   total_ambulatorial
+  from dbamv.eve_siasus                        EVE_SIASUS
+     , dbamv.FAT_SIA                           FAT_SIA
+     , dbamv.cidade                            CIDADE
+     , dbamv.procedimento_sus                  PROCEDIMENTO_SUS
+     , dbamv.PROCEDIMENTO_SUS_COMPLEXIDADE     PROCEDIMENTO_SUS_COMPLEXIDADE
+     , dbamv.PROCEDIMENTO_SUS_DETALHE          PROCEDIMENTO_SUS_DETALHE
+     , dbamv.ORI_ATE                           ORI_ATE
+ where eve_siasus.cd_fat_sia = EVE_SIASUS.CD_FAT_SIA
+   and eve_siasus.cd_fat_sia = fat_sia.cd_fat_sia
+   and eve_siasus.cd_procedimento = procedimento_sus.cd_procedimento
+   AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_COMPLEXIDADE.CD_PROCEDIMENTO
+   AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_DETALHE.CD_PROCEDIMENTO
+   and procedimento_sus_complexidade.cd_procedimento = procedimento_sus_detalhe.cd_procedimento
+   and eve_siasus.cd_ori_ate = ORI_ATE.cd_ori_ate
+   and eve_siasus.cd_cidade = cidade.cd_cidade(+)
+   and Procedimento_Sus_Complexidade.sn_ativo = 'S'
+   AND EVE_SIASUS.SN_PACOTE = 'N'
+GROUP BY  EVE_SIASUS.CD_FAT_SIA
+       ,  fat_sia.ds_fat_sia
+       ,  fat_sia.dt_periodo_final
+       ,  EVE_SIASUS.CD_CIDADE
+       ,  NM_CIDADE
+       ,  CIDADE.CD_UF
+       ,  EVE_SIASUS.CD_PROCEDIMENTO
+       ,  PROCEDIMENTO_SUS.DS_PROCEDIMENTO
+       ,  eve_siasus.vl_servico_ambulatorial
+
+
+/*----------------------------------------------------------------------------*/
+--R_FCIDADE_P321_R_CG__G_FAT_SIA2_Q_FAT_CIDADE_ANAL_PERIODO
+SELECT CIDADE.NM_CIDADE                          NM_CIDADE
+       ,CIDADE.CD_UF                                   UF
+       ,EVE_SIASUS.CD_CIDADE                 CD_CIDADE
+       ,fat_sia.dt_periodo_final                         dt_periodo_final
+       ,EVE_SIASUS.CD_PROCEDIMENTO                       SSM
+       ,PROCEDIMENTO_SUS.DS_PROCEDIMENTO             DESCRICAO
+       ,SUM(EVE_SIASUS.QT_LANCADA)    QT_LANCADA
+       ,sum(eve_siasus.vl_total_ambulatorial)   total_ambulatorial
+       ,eve_siasus.vl_servico_ambulatorial vl_servico_ambulatorial  
+  FROM dbamv.EVE_SIASUS    EVE_SIASUS
+      ,dbamv.FAT_SIA                  FAT_SIA
+      ,dbamv.CIDADE                  CIDADE
+      ,dbamv.PROCEDIMENTO_SUS         PROCEDIMENTO_SUS
+     ,dbamv.PROCEDIMENTO_SUS_COMPLEXIDADE    PROCEDIMENTO_SUS_COMPLEXIDADE
+     ,dbamv.PROCEDIMENTO_SUS_DETALHE    PROCEDIMENTO_SUS_DETALHE
+      ,dbamv.ORI_ATE                 ORI_ATE
+ WHERE  FAT_SIA.CD_FAT_SIA             =  EVE_SIASUS.CD_FAT_SIA
+      AND EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+      AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_COMPLEXIDADE.CD_PROCEDIMENTO
+      AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_DETALHE.CD_PROCEDIMENTO
+      AND EVE_SIASUS.CD_ORI_ATE    =  ORI_ATE.CD_ORI_ATE(+) 
+      AND EVE_SIASUS.CD_CIDADE  =  CIDADE.CD_CIDADE(+)
+      and Procedimento_Sus_Complexidade.sn_ativo = 'S'
+      AND EVE_SIASUS.SN_PACOTE = 'N'
+GROUP BY          CIDADE.NM_CIDADE
+                  ,CIDADE.CD_UF
+                  ,EVE_SIASUS.CD_CIDADE
+                  ,fat_sia.dt_periodo_final
+                  ,EVE_SIASUS.CD_PROCEDIMENTO
+                 ,PROCEDIMENTO_SUS.DS_PROCEDIMENTO
+                  ,eve_siasus.qt_lancada
+                  ,eve_siasus.vl_total_ambulatorial
+                  ,eve_siasus.vl_servico_ambulatorial
+ORDER BY  CIDADE.NM_CIDADE
+       ,CIDADE.CD_UF
+       ,EVE_SIASUS.CD_CIDADE
+       ,fat_sia.dt_periodo_final
+       ,EVE_SIASUS.CD_PROCEDIMENTO
+       ,PROCEDIMENTO_SUS.DS_PROCEDIMENTO
+
+
+/*----------------------------------------------------------------------------*/
+--R_FCIDADE_P321_R_CG__G_FAT_SIA4_Q_FAT_CIDADE_SINT_PERIODO
+SELECT * FROM  (
+SELECT  CIDADE.NM_CIDADE                              NM_CIDADE2
+      ,CIDADE.CD_UF                                       UF2
+      ,EVE_SIASUS.CD_CIDADE                      CD_CIDADE2
+      ,SUM(EVE_SIASUS.QT_LANCADA)        QT_LANCADA2
+      ,sum(eve_siasus.vl_total_ambulatorial)            vl_total_ambulatorial2
+      ,sum(eve_siasus.vl_servico_ambulatorial)        vl_servico_ambulatorial2
+FROM     dbamv.FAT_SIA                                        FAT_SIA
+               ,dbamv.EVE_SIASUS                                EVE_SIASUS
+               ,dbamv.CIDADE                                        CIDADE
+               ,dbamv.PROCEDIMENTO_SUS         PROCEDIMENTO_SUS
+               ,dbamv.PROCEDIMENTO_SUS_COMPLEXIDADE    PROCEDIMENTO_SUS_COMPLEXIDADE
+               ,dbamv.PROCEDIMENTO_SUS_DETALHE    PROCEDIMENTO_SUS_DETALHE
+               ,dbamv.ORI_ATE                                      ORI_ATE
+WHERE FAT_SIA.CD_FAT_SIA =  EVE_SIASUS.CD_FAT_SIA
+AND       EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_COMPLEXIDADE.CD_PROCEDIMENTO
+AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_DETALHE.CD_PROCEDIMENTO
+AND       EVE_SIASUS.CD_CIDADE  =  CIDADE.CD_CIDADE
+AND      EVE_SIASUS.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+and Procedimento_Sus_Complexidade.sn_ativo = 'S'
+AND EVE_SIASUS.SN_PACOTE = 'N'
+GROUP BY  CIDADE.CD_UF
+        ,CIDADE.NM_CIDADE
+        ,EVE_SIASUS.CD_CIDADE  ) A,
+(SELECT  UF2,
+        Sum(QT_LANCADA2)  TOTAL_ESTADO
+FROM (
+SELECT  CIDADE.NM_CIDADE                              NM_CIDADE2
+      ,CIDADE.CD_UF                                       UF2
+      ,EVE_SIASUS.CD_CIDADE                      CD_CIDADE2
+      ,SUM(EVE_SIASUS.QT_LANCADA)        QT_LANCADA2
+      ,sum(eve_siasus.vl_total_ambulatorial)            vl_total_ambulatorial2
+      ,sum(eve_siasus.vl_servico_ambulatorial)        vl_servico_ambulatorial2
+FROM     dbamv.FAT_SIA                                        FAT_SIA
+               ,dbamv.EVE_SIASUS                                EVE_SIASUS
+               ,dbamv.CIDADE                                        CIDADE
+               ,dbamv.PROCEDIMENTO_SUS         PROCEDIMENTO_SUS
+               ,dbamv.PROCEDIMENTO_SUS_COMPLEXIDADE    PROCEDIMENTO_SUS_COMPLEXIDADE
+               ,dbamv.PROCEDIMENTO_SUS_DETALHE    PROCEDIMENTO_SUS_DETALHE
+               ,dbamv.ORI_ATE                                      ORI_ATE
+WHERE FAT_SIA.CD_FAT_SIA =  EVE_SIASUS.CD_FAT_SIA
+AND       EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_COMPLEXIDADE.CD_PROCEDIMENTO
+AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_DETALHE.CD_PROCEDIMENTO
+AND       EVE_SIASUS.CD_CIDADE  =  CIDADE.CD_CIDADE
+AND      EVE_SIASUS.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+and Procedimento_Sus_Complexidade.sn_ativo = 'S'
+AND EVE_SIASUS.SN_PACOTE = 'N'
+GROUP BY  CIDADE.CD_UF
+        ,CIDADE.NM_CIDADE
+        ,EVE_SIASUS.CD_CIDADE)
+GROUP BY UF2 ) B
+WHERE A.UF2 = B.UF2
+
+
+/*----------------------------------------------------------------------------*/
+--R_FCIDADE_P321_R_CG__G_FAT_SIA6_Q_FAT_CIDADE_SINT
+SELECT * FROM  (
+SELECT   fat_sia.cd_fat_sia                      CD_FAT_SIA2
+       , fat_sia.dt_periodo_final                            DT_PERIODO_FINAL1
+               ,CIDADE.NM_CIDADE                              NM_CIDADE2
+               ,CIDADE.CD_UF                                       UF2
+               ,EVE_SIASUS.CD_CIDADE                      CD_CIDADE2
+               ,SUM(EVE_SIASUS.QT_LANCADA)        QT_LANCADA2
+                 ,sum(eve_siasus.vl_total_ambulatorial)            vl_total_ambulatorial2
+                ,sum(eve_siasus.vl_servico_ambulatorial)        vl_servico_ambulatorial2
+FROM     dbamv.FAT_SIA                                        FAT_SIA
+               ,dbamv.EVE_SIASUS                                EVE_SIASUS
+               ,dbamv.CIDADE                                        CIDADE
+              ,dbamv.PROCEDIMENTO_SUS         PROCEDIMENTO_SUS
+              ,dbamv.PROCEDIMENTO_SUS_COMPLEXIDADE    PROCEDIMENTO_SUS_COMPLEXIDADE
+              ,dbamv.PROCEDIMENTO_SUS_DETALHE    PROCEDIMENTO_SUS_DETALHE
+               ,dbamv.ORI_ATE                                      ORI_ATE
+WHERE FAT_SIA.CD_FAT_SIA = EVE_SIASUS.CD_FAT_SIA
+AND       EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+AND       EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_COMPLEXIDADE.CD_PROCEDIMENTO
+AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_DETALHE.CD_PROCEDIMENTO
+AND       EVE_SIASUS.CD_CIDADE  =  CIDADE.CD_CIDADE
+AND      EVE_SIASUS.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+and Procedimento_Sus_Complexidade.sn_ativo = 'S'
+AND EVE_SIASUS.SN_PACOTE = 'N'
+GROUP BY 	fat_sia.cd_fat_sia
+	       , fat_sia.dt_periodo_final
+               ,CIDADE.NM_CIDADE
+               ,CIDADE.CD_UF
+               ,EVE_SIASUS.CD_CIDADE  ) A,
+(SELECT  CD_FAT_SIA2,
+        Sum(QT_LANCADA2)  TOTAL_GERAL
+FROM (
+SELECT   fat_sia.cd_fat_sia                      CD_FAT_SIA2
+       , fat_sia.dt_periodo_final                            DT_PERIODO_FINAL1
+               ,CIDADE.NM_CIDADE                              NM_CIDADE2
+               ,CIDADE.CD_UF                                       UF2
+               ,EVE_SIASUS.CD_CIDADE                      CD_CIDADE2
+               ,SUM(EVE_SIASUS.QT_LANCADA)        QT_LANCADA2
+                 ,sum(eve_siasus.vl_total_ambulatorial)            vl_total_ambulatorial2
+                ,sum(eve_siasus.vl_servico_ambulatorial)        vl_servico_ambulatorial2
+FROM     dbamv.FAT_SIA                                        FAT_SIA
+               ,dbamv.EVE_SIASUS                                EVE_SIASUS
+               ,dbamv.CIDADE                                        CIDADE
+              ,dbamv.PROCEDIMENTO_SUS         PROCEDIMENTO_SUS
+              ,dbamv.PROCEDIMENTO_SUS_COMPLEXIDADE    PROCEDIMENTO_SUS_COMPLEXIDADE
+              ,dbamv.PROCEDIMENTO_SUS_DETALHE    PROCEDIMENTO_SUS_DETALHE
+               ,dbamv.ORI_ATE                                      ORI_ATE
+WHERE FAT_SIA.CD_FAT_SIA = EVE_SIASUS.CD_FAT_SIA
+AND       EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+AND       EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_COMPLEXIDADE.CD_PROCEDIMENTO
+AND EVE_SIASUS.CD_PROCEDIMENTO   =  PROCEDIMENTO_SUS_DETALHE.CD_PROCEDIMENTO
+AND       EVE_SIASUS.CD_CIDADE  =  CIDADE.CD_CIDADE
+AND      EVE_SIASUS.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE
+and Procedimento_Sus_Complexidade.sn_ativo = 'S'
+AND EVE_SIASUS.SN_PACOTE = 'N'
+GROUP BY 	fat_sia.cd_fat_sia
+	       , fat_sia.dt_periodo_final
+               ,CIDADE.NM_CIDADE
+               ,CIDADE.CD_UF
+               ,EVE_SIASUS.CD_CIDADE)
+GROUP BY CD_FAT_SIA2 ) B
+WHERE a.CD_FAT_SIA2 = b.CD_FAT_SIA2

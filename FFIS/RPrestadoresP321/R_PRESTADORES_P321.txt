@@ -1,0 +1,38 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RPrestadoresP321/R_PRESTADORES_P321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PRESTADORES_P321
+SELECT prestador.CD_PRESTADOR
+     , prestador.NM_PRESTADOR
+     , prestador.DS_CODIGO_CONSELHO
+     , prestador.NR_CNS
+     , DECODE(V.QT_HORAS_SIA,0,'Não','Sim') SIA
+     , DECODE(V.QT_HORAS_SIH,0,'Não','Sim') SIH
+     , V.CD_CBO
+     , prestador.NR_CPF_CGC
+     , prestador.NM_MNEMONICO
+     , prestador.DS_CODIGO_CONSELHO
+     , decode(prestador.TP_VINCULO,'F','07','J','07','C','04','U','04') TP_VINCULO
+     , dbamv.pkg_sus_regra_cbo.F_DESCRICAO(V.CD_CBO) ds_cbo
+  FROM
+	   (SELECT CD_PRESTADOR
+             , SUM(QT_HORAS_SIA) QT_HORAS_SIA
+             , SUM(QT_HORAS_SIH) QT_HORAS_SIH
+             , PRESTADOR_CBO.CD_CBO
+          FROM DBAMV.PRESTADOR_CBO
+         WHERE CD_MULTI_EMPRESA = DBAMV.PKG_MV2000.LE_EMPRESA
+         GROUP BY CD_PRESTADOR, CD_CBO) V
+     , DBAMV.CONVENIO convenio
+     , DBAMV.PRES_CON pres_con
+     , DBAMV.PRESTADOR prestador
+     , Dbamv.Empresa_Convenio
+  Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+   And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   And (pres_con.cd_multi_empresa is null or pres_con.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA)
+   And pres_con.CD_PRESTADOR = prestador.CD_PRESTADOR
+   AND pres_con.CD_CONVENIO  = convenio.CD_CONVENIO
+   and v.cd_prestador = prestador.CD_PRESTADOR
+   AND convenio.CD_CONVENIO  = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO') 
+   AND sysdate between nvl(prestador.dt_inicio_contrato,sysdate) and nvl(prestador.dt_final_contrato,sysdate)

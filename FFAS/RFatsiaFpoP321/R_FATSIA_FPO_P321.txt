@@ -1,0 +1,65 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAS/RFatsiaFpoP321/R_FATSIA_FPO_P321.txt
+--Nome módulo: FFAS - SISTEMA FATURAMENTO AMBULATORIO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_FATSIA_FPO_P321
+SELECT * FROM (
+SELECT VISAO.CD_FAT_SIA
+     , VISAO.DS_FAT_SIA
+     , VISAO.dt_periodo_final
+     , VISAO.SSM
+     , VISAO.DESCRICAO
+     , VISAO.CD_GRU_SSM
+     , SUM(VISAO.QT_LANCADA) QT_LANCADA
+     , VISAO.VL_SERVICO_AMBULATORIAL                         VL_SERVICO_AMBULATORIAL
+     , SUM(VISAO.VL_SERVICO_PROFISSIONAL) VL_SERVICO_PROFISSIONAL
+     , SUM(VISAO.VL_SERVICO_ANESTESIA)    VL_SERVICO_ANESTESIA
+     , SUM(VISAO.VL_TOTAL_AMBULATORIAL)   VL_TOTAL_AMBULATORIAL
+     , VISAO.SUB_GRU_SSM
+     , VISAO.QT_FISICO
+     , VISAO.VL_ORCAMENTO
+  FROM ( SELECT V_FFAS_Fat_Global_p321.CD_FAT_SIA
+              , V_FFAS_Fat_Global_p321.DS_FAT_SIA
+              , V_FFAS_Fat_Global_p321.dt_periodo_final
+              , V_FFAS_Fat_Global_p321.CD_PROCEDIMENTO       SSM
+              , V_FFAS_Fat_Global_p321.DS_PROCEDIMENTO       DESCRICAO
+              , V_FFAS_Fat_Global_p321.CD_GRUPO_PROCEDIMENTO CD_GRU_SSM
+              , SUM(V_FFAS_Fat_Global_p321.QT_LANCADA) QT_LANCADA
+              , V_FFAS_Fat_Global_p321.P_VL_SERVICO_AMBULATORIAL    VL_SERVICO_AMBULATORIAL
+              , SUM(V_FFAS_Fat_Global_p321.P_VL_SERVICO_PROFISSIONAL_AMB) VL_SERVICO_PROFISSIONAL
+              , SUM(V_FFAS_Fat_Global_p321.P_VL_SERVICO_ANESTESIA_AMB)    VL_SERVICO_ANESTESIA
+              , SUM(V_FFAS_Fat_Global_p321.P_VL_TOTAL_AMBULATORIAL*V_FFAS_Fat_Global_p321.QT_LANCADA)       VL_TOTAL_AMBULATORIAL
+              , substr(V_FFAS_Fat_Global_p321.CD_PROCEDIMENTO,1,4)        SUB_GRU_SSM
+              , TETO_ORCAMENTARIO.QT_FISICO
+              , TETO_ORCAMENTARIO.VL_ORCAMENTO
+           FROM Dbamv.V_FFAS_Fat_Global_p321
+          WHERE TETO_ORCAMENTARIO.cd_fat_sia      = V_FFAS_Fat_Global_p321.CD_FAT_SIA
+            AND TETO_ORCAMENTARIO.cd_procedimento = V_FFAS_Fat_Global_p321.CD_PROCEDIMENTO
+          GROUP BY V_FFAS_Fat_Global_p321.CD_FAT_SIA
+                 , V_FFAS_Fat_Global_p321.DS_FAT_SIA
+                 , V_FFAS_Fat_Global_p321.dt_periodo_final
+                 , V_FFAS_Fat_Global_p321.CD_PROCEDIMENTO
+                 , V_FFAS_Fat_Global_p321.DS_PROCEDIMENTO
+                 , V_FFAS_Fat_Global_p321.CD_GRUPO_PROCEDIMENTO
+                 , V_FFAS_Fat_Global_p321.P_VL_SERVICO_AMBULATORIAL
+                 , TETO_ORCAMENTARIO.QT_FISICO
+                 , TETO_ORCAMENTARIO.VL_ORCAMENTO) VISAO
+ GROUP BY VISAO.CD_FAT_SIA
+        , VISAO.DS_FAT_SIA
+        , VISAO.dt_periodo_final
+        , VISAO.SSM
+        , VISAO.DESCRICAO
+        , VISAO.CD_GRU_SSM
+        , VISAO.SUB_GRU_SSM
+        , VISAO.VL_SERVICO_AMBULATORIAL
+        , VISAO.QT_FISICO
+        , VISAO.VL_ORCAMENTO
+ ORDER BY 1
+        , 2
+        , 6
+        :CAMPO_CF_ORDEM
+)
+ORDER BY CD_FAT_SIA,DS_FAT_SIA,DT_PERIODO_FINAL,
+CD_GRU_SSM,
+SUB_GRU_SSM

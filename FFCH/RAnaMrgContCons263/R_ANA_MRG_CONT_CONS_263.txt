@@ -1,0 +1,66 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCH/RAnaMrgContCons263/R_ANA_MRG_CONT_CONS_263.txt
+--Nome módulo: FFCH - SISTEMA DE CUSTOS HOSPITALARES
+
+/*----------------------------------------------------------------------------*/
+--R_ANA_MRG_CONT_CONS_263
+SELECT * FROM (
+select a.analise
+      ,sum(a.receita)            receita
+      ,sum(a.diaria)              diaria
+      ,sum(a.qtd_diaria)       qtd_diaria
+      ,sum(a.honorario)        honorario
+      ,sum(a.procedimento) procedimento
+      ,sum(a.matmed)          matmed
+      ,sum(a.terceiro)           terceiro
+      ,max(a.tx_adm)           tx_adm
+      ,max(a.tx_imposto)      tx_imposto
+      ,sum(a.vl_resultado)   vl_resultado
+      ,sum(a.vl_rentabilidade)    vl_rentabilidade
+      ,a.sn_uti    sn_uti
+      ,a.sn_mult_proc sn_mult_proc
+      ,sum(a.vl_serv_variavel)          vl_serv_variavel
+      ,'x'                               quebra
+      ,count(a.qtd_atendimento) qtd_atendimento
+from(
+select decode('','1',ate.cd_pro_int,'2',ate.cd_cid,'3',ate.cd_convenio,'4',ate.cd_servico,'5',ate.cd_especialid,'6',ate.cd_prestador,'7',ate.tp_atendimento,'8',decode(fa.cd_cirurgia,'',ate.cd_pro_int,fa.cd_cirurgia)) analise,
+       fa.vl_receita       receita,
+       fa.vl_diaria         diaria,
+       fa.qtd_diaria       qtd_diaria,
+       fa.vl_honorario   honorario,
+       fa.vl_procedimento  procedimento,
+       fa.vl_matmed           matmed,
+       fa.vl_terceiro            terceiro,
+       fa.tx_adm                 tx_adm,
+       fa.tx_imposto            tx_imposto,
+       fa.vl_resultado         vl_resultado,
+       fa.vl_rentabilidade    vl_rentabilidade,
+       fa.vl_serv_variavel   vl_serv_variavel,
+       decode('','S',nvl(fa.sn_uti,'N'),'N','-') sn_uti,
+       decode('','S' ,nvl(fa.sn_multiplos_procedimentos,'N'),'N','-') sn_mult_proc,
+       'X'              dummy,
+       rownum      qtd_atendimento
+from  dbamv.fa_custo_atendimento fa,
+     dbamv.atendime ate,
+     dbamv.paciente pc,
+     dbamv.pro_fat pf,
+     dbamv.convenio cv,
+     dbamv.prestador pr,
+     dbamv.cid,
+     dbamv.cirurgia
+where fa.dt_alta >= :CAMPO_DT_INI and
+      fa.dt_alta <=  :CAMPO_DT_FIM and
+      ate.dt_atendimento >=  :CAMPO_DT_ATENDIMENTO and
+      ate.cd_paciente = pc.cd_paciente and
+      ate.cd_atendimento = fa.cd_atendimento and
+      ate.cd_pro_int = pf.cd_pro_fat(+) and
+      cid.cd_cid(+) = ate.cd_cid and
+      cirurgia.cd_cirurgia(+) = fa.cd_cirurgia and
+      ate.cd_convenio = cv.cd_convenio and
+      ate.cd_prestador = pr.cd_prestador(+) and
+      ate.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+      :CAMPO_CF_CIRURGIA
+) a
+group by a.analise, a.sn_uti ,a.sn_mult_proc
+)
+ORDER BY VL_RESULTADO DESC,TERCEIRO,ANALISE,RECEITA,DIARIA,PROCEDIMENTO,MATMED,TX_ADM,HONORARIO,TX_IMPOSTO,VL_RENTABILIDADE,QTD_DIARIA,QTD_ATENDIMENTO,SN_MULT_PROC,SN_UTI,VL_SERV_VARIAVEL

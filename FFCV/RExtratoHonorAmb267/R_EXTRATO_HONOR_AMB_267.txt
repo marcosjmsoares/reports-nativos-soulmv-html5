@@ -1,0 +1,90 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCV/RExtratoHonorAmb267/R_EXTRATO_HONOR_AMB_267.txt
+--Nome módulo: FFCV - SISTEMA FATURAMENTO CONTAS DE CONVENIO
+
+/*----------------------------------------------------------------------------*/
+--R_EXTRATO_HONOR_AMB_267
+SELECT * FROM (
+select Conta.cd_reg_fat
+     , Conta.cd_lancamento
+     , Conta.dt_inicio
+     , Conta.dt_final
+     , Conta.cd_atendimento
+     , Conta.nm_paciente
+     , Decode(Cod_Pro.cd_pro_fat,NULL,Conta.cd_pro_fat,Cod_Pro.ds_codigo_cobranca) cd_pro_fat
+     , Decode(Cod_Pro.cd_pro_fat,NULL,Conta.ds_pro_fat,Cod_Pro.ds_nome_cobranca)   ds_pro_fat
+     , Conta.cd_convenio
+     , Conta.dt_pro_fat
+     , Conta.hr_pro_fat
+     , Conta.cd_ati_med
+     , Conta.ds_ati_med
+     , Conta.VL_PERCENTUAL_MULTIPLA
+     , Conta.nm_prestador
+     , Conta.cd_multi_empresa
+     , Conta.nm_convenio
+     , Conta.nm_setor
+     , Conta.cd_gru_pro
+     , Conta.ds_gru_pro
+     , Conta.qt_lancamento
+     , Conta.qt_ch_unitario
+     , Conta.cd_por_ane
+     , 0 vl_ato
+  FROM (
+Select itreg_amb.cd_reg_amb cd_reg_fat
+     , itreg_amb.cd_atendimento
+     , paciente.nm_paciente
+     , atendime.dt_atendimento dt_inicio
+     , atendime.dt_alta     dt_final
+     , itreg_amb.cd_convenio
+     , itreg_amb.cd_pro_fat
+     , pro_fat.ds_pro_fat
+     , pro_fat.cd_por_ane
+     , itreg_amb.hr_lancamento                    dt_pro_fat
+     , To_Char(itreg_amb.hr_lancamento,'hh24') hr_pro_fat
+     , ati_med.cd_ati_med
+     , ati_med.ds_ati_med
+     , itreg_amb.VL_PERCENTUAL_MULTIPLA
+     , prestador.nm_prestador||' - '||prestador.ds_codigo_conselho||' - '||pres_con.CD_PRESTADOR_CONVENIADO||' - '||prestador.NR_CPF_CGC Nm_Prestador
+     , convenio.nm_convenio
+     , setor.nm_setor
+     , gru_pro.cd_gru_pro
+     , gru_pro.ds_gru_pro
+     , itreg_amb.qt_lancamento
+     , itreg_amb.qt_ch_unitario
+     , atendime.cd_multi_empresa
+     , itreg_amb.cd_lancamento
+     , 0 vl_ato
+  FROM dbamv.convenio
+     , Dbamv.Itreg_amb
+     , Dbamv.Prestador
+     , Dbamv.Pro_Fat
+     , Dbamv.Ati_med
+     , dbamv.paciente
+     , dbamv.atendime
+     , dbamv.setor
+     , dbamv.gru_pro
+     , dbamv.pres_con
+ WHERE itreg_amb.cd_prestador (+) = pres_con.cd_prestador
+   AND itreg_amb.cd_convenio    (+) = pres_con.cd_convenio
+   and gru_pro.cd_gru_pro         = pro_fat.cd_gru_pro
+   and setor.cd_setor             = itreg_amb.cd_setor
+   and itreg_amb.cd_convenio        = convenio.cd_convenio
+   AND itreg_amb.cd_atendimento     = atendime.cd_atendimento
+   AND paciente.cd_paciente       = atendime.cd_paciente
+   AND Ati_med.cd_ati_med         = itreg_amb.cd_ati_med
+   AND itreg_amb.cd_prestador     = prestador.cd_prestador
+   AND itreg_amb.cd_pro_fat       = pro_fat.cd_pro_fat
+   AND itreg_amb.tp_pagamento     = 'C'
+      ) Conta
+      , Dbamv.Cod_Pro
+    Where Conta.cd_convenio      = cod_Pro.cd_convenio (+)
+      AND Conta.cd_pro_fat       = Cod_Pro.Cd_pro_fat  (+)
+      AND Conta.cd_reg_fat       = :CAMPO_CD_REG_FAT
+      AND Conta.cd_atendimento   = :CAMPO_CD_ATENDIMENTO
+      AND Conta.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+   ORDER BY  1,2,12
+)
+ORDER BY CD_ATENDIMENTO,NM_PACIENTE,NM_CONVENIO,DT_INICIO,DT_FINAL,CD_REG_FAT,CD_CONVENIO,
+NM_SETOR,
+CD_GRU_PRO,DS_GRU_PRO,
+DT_PRO_FAT,HR_PRO_FAT,CD_PRO_FAT,DS_PRO_FAT,QT_LANCAMENTO,QT_CH_UNITARIO,CD_POR_ANE,VL_ATO,VL_PERCENTUAL_MULTIPLA,NM_PRESTADOR,DS_ATI_MED

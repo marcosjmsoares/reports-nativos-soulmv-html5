@@ -1,0 +1,55 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FCCT/RAnaliseCaract340/R_ANALISE_CARACT_340.txt
+--Nome módulo: FCCT - SISTEMA DE CONTROLE CONTABIL
+
+/*----------------------------------------------------------------------------*/
+--R_ANALISE_CARACT_340
+SELECT * FROM (
+select p.cd_reduzido
+        , p.cd_contabil
+        , p.ds_conta									CONTA
+       , decode(substr(p.cd_contabil,1,1),m.cd_receita,'RECEITA',m.cd_despesa,'DESPESA') 	TIPO
+       , s_ant_1.dt_saldo_mes		dt_saldo_mes_1
+       , s_ant_2.dt_saldo_mes		dt_saldo_mes_2
+       , nvl(s_ant_1.vl_saldo_mes,0)     	vl_saldo_mes_1
+       , nvl(s_ant_2.vl_saldo_mes,0)     	vl_saldo_mes_2
+from     (select  cd_reduzido, dt_saldo_mes, vl_Saldo_mes
+         from    dbamv.saldo_mensal s
+         where   s.dt_saldo_mes = :CAMPO_DATA_REF) s_ant_1
+        ,(select  cd_reduzido, dt_saldo_mes, vl_saldo_mes
+         from    dbamv.saldo_mensal s
+         where   s.dt_saldo_mes = add_months(:CAMPO_DATA_REF,-1) ) s_ant_2
+        ,dbamv.plano_contas   p
+        ,dbamv.multi_empresas m
+where   s_ant_1.cd_reduzido = p.cd_reduzido
+and      s_ant_2.cd_reduzido (+) = p.cd_reduzido
+and      m.cd_multi_empresa  = p.cd_multi_empresa
+and      substr(p.cd_contabil,1,1) in (m.cd_receita,m.cd_despesa)
+AND     P.CD_GRAU_DA_CONTA        <= :CAMPO_CD_GRAU_CONTA
+AND     P.SN_IMPRIME		IN		('S',:CAMPO_SN_IMPRIME)
+UNION
+select p.cd_reduzido
+        , p.cd_contabil
+        , p.ds_conta									CONTA
+       , decode(substr(p.cd_contabil,1,1),m.cd_receita,'RECEITA',m.cd_despesa,'DESPESA') 	TIPO
+       , s_ant_1.dt_saldo_mes		dt_saldo_mes_1
+       , s_ant_2.dt_saldo_mes		dt_saldo_mes_2
+       , nvl(s_ant_1.vl_saldo_mes,0)     	vl_saldo_mes_1
+       , nvl(s_ant_2.vl_saldo_mes,0)     	vl_saldo_mes_2
+from     (select  cd_reduzido, dt_saldo_mes, vl_Saldo_mes
+         from    dbamv.saldo_mensal s
+         where   s.dt_saldo_mes = :CAMPO_DATA_REF) s_ant_1
+        ,(select  cd_reduzido, dt_saldo_mes, vl_saldo_mes
+         from    dbamv.saldo_mensal s
+         where   s.dt_saldo_mes = add_months(:CAMPO_DATA_REF,-1) ) s_ant_2
+        ,dbamv.plano_contas   p
+        ,dbamv.multi_empresas m
+where   s_ant_1.cd_reduzido (+) = p.cd_reduzido
+and      s_ant_2.cd_reduzido = p.cd_reduzido
+and      m.cd_multi_empresa  = p.cd_multi_empresa
+and      substr(p.cd_contabil,1,1) in (m.cd_receita,m.cd_despesa)
+AND     P.CD_GRAU_DA_CONTA        <= :CAMPO_CD_GRAU_CONTA
+AND     P.SN_IMPRIME		IN		('S',:CAMPO_SN_IMPRIME)
+order by tipo, CONTA
+)
+ORDER BY TIPO,DT_SALDO_MES_1,DT_SALDO_MES_2

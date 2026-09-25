@@ -1,0 +1,69 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/PSDI/RProdRxConvSia360/R_PROD_RX_CONV_SIA_360.txt
+--Nome módulo: PSDI - SISTEMA DE DIAGNOSTICO POR IMAGEM
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_RX_CONV_SIA_360
+SELECT * FROM (
+SELECT SET_EXA.CD_SET_EXA                           CD_SET_EXA
+              ,SET_EXA.NM_SET_EXA                          NM_SET_EXA
+              ,CONVENIO.CD_CONVENIO                     CD_CONVENIO
+              ,CONVENIO.NM_CONVENIO                     NM_CONVENIO
+              ,ITPED_RX.CD_EXA_RX                           CD_EXA_RX
+              ,EXA_RX.DS_EXA_RX                               DS_EXA_RX
+              ,SUM(1)                                                       CONTADOR
+              ,SUM (DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                                             , decode( convenio.tp_convenio, 'A', EXA_RX.cd_procedimento_sia
+                                                                   , 'H', EXA_RX.cd_procedimento_sih
+                                                                   , 'C', EXA_RX.exa_rx_cd_pro_fat
+                                                                   , 'P', EXA_RX.exa_rx_cd_pro_fat
+                                                                   )
+                                             ,PED_RX.DT_PEDIDO
+                                             ,PED_RX.HR_PEDIDO
+                                             ,CONVENIO.CD_CONVENIO
+                                             ,NVL(PED_RX.CD_CON_PLA,1)
+                                             ,ATENDIME.TP_ATENDIMENTO
+                                             ,ATENDIME.CD_TIP_ACOM
+                                             ,'U' )) VALOR_UNIT
+,max(DBAMV.CALC_VL_PROC_UNIT( CONVENIO.TP_CONVENIO
+                                             , decode( convenio.tp_convenio, 'A', EXA_RX.cd_procedimento_sia
+                                                                   , 'H', EXA_RX.cd_procedimento_sih
+                                                                   , 'C', EXA_RX.exa_rx_cd_pro_fat
+                                                                   , 'P', EXA_RX.exa_rx_cd_pro_fat
+                                                                   )
+                                             ,PED_RX.DT_PEDIDO
+                                             ,PED_RX.HR_PEDIDO
+                                             ,CONVENIO.CD_CONVENIO
+                                             ,NVL(PED_RX.CD_CON_PLA,1)
+                                             ,ATENDIME.TP_ATENDIMENTO
+                                             ,ATENDIME.CD_TIP_ACOM
+                                             ,'U' ))
+FROM   DBAMV.ATENDIME
+            ,DBAMV.PED_RX
+            ,DBAMV.CONVENIO
+            ,DBAMV.SET_EXA
+            ,DBAMV.ITPED_RX
+            ,DBAMV.EXA_RX
+,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+And         ATENDIME.CD_ATENDIMENTO  =  PED_RX.CD_ATENDIMENTO
+AND        ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND        PED_RX.CD_CONVENIO  =  CONVENIO.CD_CONVENIO
+AND        PED_RX.CD_SET_EXA  =  SET_EXA.CD_SET_EXA
+AND        SET_EXA.CD_SET_EXA IN ( SELECT PSDI_SET_EXA.CD_SET_EXA
+                                                                FROM DBAMV.PSDI_SET_EXA
+                                                                WHERE PSDI_SET_EXA.NM_USUARIO = USER )
+AND        PED_RX.CD_PED_RX  =  ITPED_RX.CD_PED_RX
+AND        NVL(ITPED_RX.SN_REALIZADO,'N')  =  'S'
+AND       TRUNC(ITPED_RX.DT_REALIZADO) BETWEEN  :CAMPO_DT_INICIAL  AND  
+AND        ITPED_RX.CD_EXA_RX  =  EXA_RX.CD_EXA_RX
+GROUP BY SET_EXA.CD_SET_EXA
+                   ,SET_EXA.NM_SET_EXA
+                   ,CONVENIO.CD_CONVENIO
+                   ,CONVENIO.NM_CONVENIO
+                   ,ITPED_RX.CD_EXA_RX
+                   ,EXA_RX.DS_EXA_RX
+)
+ORDER BY CD_SET_EXA,NM_SET_EXA,
+CD_CONVENIO,NM_CONVENIO,CD_EXA_RX,DS_EXA_RX

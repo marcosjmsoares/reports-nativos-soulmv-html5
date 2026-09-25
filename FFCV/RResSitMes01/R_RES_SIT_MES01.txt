@@ -1,0 +1,97 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCV/RResSitMes01/R_RES_SIT_MES01.txt
+--Nome módulo: FFCV - SISTEMA FATURAMENTO CONTAS DE CONVENIO
+
+/*----------------------------------------------------------------------------*/
+--R_RES_SIT_MES01
+SELECT * FROM (
+SELECT CD_CONVENIO
+                                     ,NM_CONVENIO
+                                     ,CONTA
+                                     ,TIPO
+                                     ,QT_N_FATURADO
+FROM
+(SELECT    CD_CONVENIO
+                                     ,NM_CONVENIO
+                                     ,CONTA
+                                     ,TIPO
+                                     ,SUM(QT_N_FATURADO) QT_N_FATURADO
+    FROM (
+           SELECT   CONVENIO.CD_CONVENIO CD_CONVENIO
+	          ,CONVENIO.NM_CONVENIO NM_CONVENIO
+                          ,REG_FAT.CD_REG_FAT CONTA
+                          ,'A' TIPO
+  	          ,SUM( NVL(ITREG_FAT.VL_TOTAL_CONTA, 0))  QT_N_FATURADO
+             FROM   DBAMV.REG_FAT
+                         ,DBAMV.REMESSA_FATURA
+                         ,DBAMV.FATURA
+                         ,DBAMV.ITREG_FAT
+	         ,DBAMV.CONVENIO
+           WHERE REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+	          AND REMESSA_FATURA.CD_FATURA  = FATURA.CD_FATURA
+                          AND REMESSA_FATURA.CD_REMESSA = REG_FAT.CD_REMESSA
+                          AND REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+                          AND REMESSA_FATURA.SN_FECHADA = 'S'
+	          AND REG_FAT.CD_CONVENIO = CONVENIO.CD_CONVENIO
+   	          AND REG_FAT.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA    
+                          AND   NVL(REG_FAT.sn_diagno, 'N') = 'N'
+	          AND TO_CHAR(FATURA.DT_COMPETENCIA,'MM/YYYY') =
+                                   TO_CHAR( TO_DATE( :CAMPO_ANOMES ,'DD/MM/YYYY'), 'MM/YYYY' )
+	          AND CONVENIO.TP_CONVENIO <> 'H'
+	          AND ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+	          AND NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+           GROUP BY CONVENIO.CD_CONVENIO
+	          ,CONVENIO.NM_CONVENIO
+                          ,REG_FAT.CD_REG_FAT
+                          ,'A'
+      UNION ALL
+           SELECT CONVENIO.CD_CONVENIO             CD_CONVENIO
+                         ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+                         ,ITREG_AMB.CD_REG_AMB             CONTA
+                         ,'I' TIPO
+                         ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)   QT_N_FATURADO
+             FROM   DBAMV.REG_AMB
+                         ,DBAMV.ITREG_AMB
+                         ,DBAMV.CONVENIO
+                         ,DBAMV.REMESSA_FATURA
+                         ,DBAMV.FATURA
+           WHERE REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+                          AND ITREG_AMB.CD_CONVENIO = CONVENIO.CD_CONVENIO
+                          AND REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA    
+                          AND ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+                          AND NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+                          AND CONVENIO.TP_CONVENIO <> 'H'
+	          AND REMESSA_FATURA.CD_FATURA  = FATURA.CD_FATURA
+                          AND REMESSA_FATURA.CD_REMESSA = REG_AMB.CD_REMESSA
+                          AND REMESSA_FATURA.SN_FECHADA = 'S'
+                          AND   NVL(REG_AMB.sn_diagno, 'N') = 'N'
+	          AND TO_CHAR(FATURA.DT_COMPETENCIA,'MM/YYYY') =
+                                   TO_CHAR( TO_DATE( :CAMPO_ANOMES ,'DD/MM/YYYY'), 'MM/YYYY' )
+     UNION ALL
+           SELECT CONVENIO.CD_CONVENIO             CD_CONVENIO
+                         ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+                         ,to_number(null)            CONTA
+                         ,'I' TIPO
+                         ,0   QT_N_FATURADO
+             FROM  DBAMV.CONVENIO
+	     ,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+     UNION ALL
+           SELECT CONVENIO.CD_CONVENIO             CD_CONVENIO
+                         ,CONVENIO.NM_CONVENIO             NM_CONVENIO
+                         ,to_number(null)            CONTA
+                         ,'A' TIPO
+                         ,0   QT_N_FATURADO
+             FROM  DBAMV.CONVENIO,Dbamv.Empresa_Convenio
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+                          :CAMPO_CF_CONVENIO
+              )
+where nvl(qt_n_faturado,0) >= 0
+GROUP BY CD_CONVENIO
+                                     ,NM_CONVENIO
+                                     ,CONTA
+                                     ,TIPO )
+ORDER BY TIPO, CONTA
+)

@@ -1,0 +1,49 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAS/RProcmedespP321/R_PROCMEDESP_P321.txt
+--Nome módulo: FFAS - SISTEMA FATURAMENTO AMBULATORIO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PROCMEDESP_P321
+SELECT * FROM (
+Select eve_siasus.cd_prestador,
+       trunc(eve_siasus.dt_eve_siasus) dt_eve_siasus,
+       eve_siasus.cd_ori_ate,
+       eve_siasus.cd_procedimento as cd_ssm,
+       eve_siasus.vl_servico_ambulatorial,
+       sum(eve_siasus.vl_total_ambulatorial),
+       Sum( eve_siasus.qt_lancada ) qt_lancada,
+       eve_siasus.cd_cbo_prestador as cd_especialid,
+       prestador.nm_prestador,
+       ori_ate.ds_ori_ate,
+       procedimento_sus.ds_procedimento as ds_titulo,
+       cbo.ds_cbos as ds_especialid
+  From dbamv.eve_siasus,
+       dbamv.prestador,
+       dbamv.ori_ate,
+       dbamv.procedimento_sus,
+       dbamv.cbo,
+       dbamv.fat_sia,
+       dbamv.procedimento_detalhe_vigencia  DETALHE
+ Where 1 = 1
+    And eve_siasus.cd_procedimento is not null
+   AND EVE_SIASUS.CD_PROCEDIMENTO  = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+   AND EVE_SIASUS.CD_PROCEDIMENTO  = DETALHE.CD_PROCEDIMENTO
+   AND TRUNC(EVE_SIASUS.DT_EVE_SIASUS) BETWEEN DETALHE.DT_VALIDADE_INICIAL AND NVL(DETALHE.DT_VALIDADE_FINAL, TRUNC(EVE_SIASUS.DT_EVE_SIASUS))
+   AND EVE_SIASUS.CD_CBO_PRESTADOR = CBO.CD_CBOS(+)
+   and EVE_SIASUS.CD_FAT_SIA       = FAT_SIA.CD_FAT_SIA
+   AND EVE_SIASUS.CD_ORI_ATE       = ORI_ATE.CD_ORI_ATE(+)
+   AND EVE_SIASUS.CD_PRESTADOR     = PRESTADOR.CD_PRESTADOR(+)
+   AND EVE_SIASUS.SN_PACOTE	       = 'N'
+Group By eve_siasus.cd_prestador,
+       trunc(eve_siasus.dt_eve_siasus),
+       eve_siasus.cd_ori_ate,
+       eve_siasus.cd_procedimento,
+       eve_siasus.vl_servico_ambulatorial,
+       eve_siasus.vl_total_ambulatorial,
+       eve_siasus.cd_cbo_prestador,
+       prestador.nm_prestador,
+       ori_ate.ds_ori_ate,
+       procedimento_sus.ds_procedimento,
+       cbo.ds_cbos
+)
+ORDER BY DS_ESPECIALID, CD_ESPECIALID, NM_PRESTADOR,CD_PRESTADOR, VL_SERVICO_AMBULATORIAL

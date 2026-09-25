@@ -1,0 +1,151 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FNCB/RLanextr2/R_LANEXTR_2.txt
+--Nome módulo: FNCB - SISTEMA FINANCEIRO - CONTROLE BANCARIO
+
+/*----------------------------------------------------------------------------*/
+--R_LANEXTR_2
+SELECT * FROM(
+SELECT  x.*
+      ,(ABS(Nvl(VL_MOVIMENTACAO,0))-Nvl(VL_CONCILIADO,0)) VL_A_CONCILIAR
+  ,Nvl((
+   SELECT
+               SUM(rr.vl_recebido) vl_recebido
+               FROM
+                 dbamv.reccon_rec rr,
+                 dbamv.rec_mov_con rmc
+               WHERE 1=1
+                 AND rr.cd_Reccon_Rec = rmc.cd_Reccon_Rec
+                 AND Trunc(rr.dt_Recebimento) <= TO_DATE( TO_CHAR( :CAMPO_DATA_BASE , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+                 AND rmc.cd_mov_concor = x.CD_MOV_CONCOR
+                 AND ( rr.dt_estorno is NULL OR (rr.dt_estorno IS NOT NULL AND Trunc(rr.dt_estorno) > TO_DATE( TO_CHAR( :CAMPO_DATA_BASE , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )))
+  ),0) vl_recebido ,
+  Nvl((
+   SELECT
+                SUM(vl_conciliado) vl_recebido
+              FROM
+                dbamv.mov_concor mcc
+              WHERE 1=1
+                AND not exists ( SELECT
+                                  'X'
+                                FROM
+                                  dbamv.rec_mov_con rmc
+                                WHERE 1=1
+                                AND rmc.cd_mov_concor = mcc.cd_mov_concor
+                                AND rmc.cd_mov_concor = x.CD_MOV_CONCOR)
+                AND Trunc(mcc.dt_movimentacao) <= TO_DATE( TO_CHAR( :CAMPO_DATA_BASE , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+                AND mcc.cd_mov_concor = x.CD_MOV_CONCOR
+  ),0) vl_recebido2
+FROM(
+SELECT ALL
+          'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+          ,e.cd_multi_empresa  cd_multi_empresa
+          ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+          , V_MOV_CONCOR.CD_LAN_CONCOR     CD_LANC
+          ,V_BCO_CONTA.CD_CON_COR
+          ,V_BCO_CONTA.CD_BANCO CD_BANCO
+          ,V_BCO_CONTA.CD_AGENCIA CD_AGENCIA
+          ,V_BCO_CONTA.NR_CONTA    NR_CONTA
+          ,V_MOV_CONCOR.DT_MOVIMENTACAO
+          ,V_MOV_CONCOR.NR_DOCUMENTO_IDENTIFICACAO
+          ,V_MOV_CONCOR.DS_LAN_CONCOR    DS_LANC
+          ,ABS(Nvl(V_MOV_CONCOR.VL_MOVIMENTACAO,0))  VL_MOVIMENTACAO
+          ,Nvl(V_MOV_CONCOR.VL_CONCILIADO,0)   VL_CONCILIADO
+          ,V_MOV_CONCOR.CD_MOV_CONCOR
+          ,(SELECT fornecedor.nm_fantasia FROM fornecedor WHERE fornecedor.cd_fornecedor = V_MOV_CONCOR.CD_FORNECEDOR) CD_FORNEC
+          ,V_Mov_Concor.Cd_Mov_Deposito_Agrup
+          ,V_MOV_CONCOR.DS_MOVIMENTACAO
+          ,V_BCO_CONTA.CD_BANCO ||'/'|| V_BCO_CONTA.CD_AGENCIA||'/'||V_BCO_CONTA.NR_CONTA F_BCOAGCTA
+          ,V_MOV_CONCOR.CD_LAN_CONCOR ||'-'|| V_MOV_CONCOR.DS_LAN_CONCOR LCTO
+FROM
+    DBAMV.V_MOV_CONCOR
+   ,dbamv.multi_empresas e
+   ,DBAMV.V_BCO_CONTA
+    ,(select  count(*) total,
+              count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+              m.cd_mov_deposito_agrup
+   from   dbamv.mov_concor M
+   where  m.cd_mov_deposito_agrup Is Not Null
+   group by M.cd_mov_deposito_agrup)  Tb_Conciliacao
+WHERE
+V_MOV_CONCOR.CD_CON_COR    =  DBAMV.V_BCO_CONTA.CD_CON_COR
+and   V_BCO_CONTA.cd_multi_empresa = e.cd_multi_empresa
+AND Abs (NVL(v_mov_concor.VL_MOVIMENTACAO,0)) > 0
+And V_Mov_Concor.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+AND  V_MOV_CONCOR.DT_MOVIMENTACAO >= TO_DATE( TO_CHAR( :CAMPO_DATA_INIC, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND  V_MOV_CONCOR.DT_MOVIMENTACAO <= TO_DATE( TO_CHAR( :CAMPO_DATA_FIM , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+And (:CAMPO_AGRUPADO = 'N'
+Or
+( :CAMPO_AGRUPADO = 'S'
+   And ( V_Mov_Concor.CD_MOV_DEPOSITO_AGRUP Is Null Or
+            ( V_Mov_Concor.CD_MOV_DEPOSITO_AGRUP Is Not Null  And Tb_Conciliacao.Total <> Tb_Conciliacao.Sim  and Tb_Conciliacao.Sim <> 0  ) ) ))
+UNION
+SELECT ALL
+        'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa
+        ,e.cd_multi_empresa  cd_multi_empresa
+        ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa Empresa_o
+        ,V_MOV_CONCOR.CD_LAN_CONCOR     CD_LANC
+        ,DBAMV.V_BCO_CONTA.CD_CON_COR
+        ,V_BCO_CONTA.CD_BANCO CD_BANCO
+        ,V_BCO_CONTA.CD_AGENCIA CD_AGENCIA
+        ,V_BCO_CONTA.NR_CONTA    NR_CONTA
+        ,Min(V_MOV_CONCOR.DT_MOVIMENTACAO) DT_MOVIMENTACAO
+        ,'AG-' || To_Char(V_MOV_CONCOR.Cd_Mov_Deposito_Agrup)  NR_DOCUMENTO_IDENTIFICACAO
+        ,V_MOV_CONCOR.DS_LAN_CONCOR    DS_LANC
+        ,ABS( Sum(Nvl(V_MOV_CONCOR.VL_MOVIMENTACAO,0)))  VL_MOVIMENTACAO
+        ,Sum(Nvl(V_MOV_CONCOR.VL_CONCILIADO,0)) VL_CONCILIADO
+        ,0 CD_MOV_CONCOR
+        ,'' CD_FORNEC
+        ,V_Mov_Concor.Cd_Mov_Deposito_Agrup
+        ,'DEPÓSITO AGRUPADO DO CAIXA '||C.Ds_Caixa DS_MOVIMENTACAO
+        ,V_BCO_CONTA.CD_BANCO ||'/'|| V_BCO_CONTA.CD_AGENCIA||'/'||V_BCO_CONTA.NR_CONTA F_BCOAGCTA
+        ,V_MOV_CONCOR.CD_LAN_CONCOR ||'-'|| V_MOV_CONCOR.DS_LAN_CONCOR LCTO
+FROM
+      DBAMV.V_MOV_CONCOR
+      ,dbamv.multi_empresas e
+      ,DBAMV.V_BCO_CONTA
+      ,    (select  count(*) total,
+              count(decode(M.Sn_Conciliado,'S','S',null)) sim ,
+              m.cd_mov_deposito_agrup
+              from   dbamv.mov_concor M
+              where  m.cd_mov_deposito_agrup Is Not Null
+            group by M.cd_mov_deposito_agrup)  Tb_Conciliacao
+      ,dbamv.Mov_Concor Mcc
+      ,dbamv.Mov_Caixa Mca
+      ,dbamv.Lote_Caixa Lca
+      ,dbamv.Caixa C
+WHERE
+V_MOV_CONCOR.CD_CON_COR    =  DBAMV.V_BCO_CONTA.CD_CON_COR
+and   V_BCO_CONTA.cd_multi_empresa = e.cd_multi_empresa
+And  :CAMPO_AGRUPADO = 'S'
+And V_Mov_Concor.Cd_Mov_Deposito_Agrup = Tb_Conciliacao.Cd_Mov_Deposito_Agrup  (+)
+AND  V_MOV_CONCOR.DT_MOVIMENTACAO >= TO_DATE( TO_CHAR( :CAMPO_DATA_INIC, 'DD/MM/YYYY' ) || ' 00', 'DD/MM/YYYY HH24' )
+AND  V_MOV_CONCOR.DT_MOVIMENTACAO <= TO_DATE( TO_CHAR( :CAMPO_DATA_FIM , 'DD/MM/YYYY' ) || ' 23', 'DD/MM/YYYY HH24' )
+And  ( V_Mov_Concor.CD_MOV_DEPOSITO_AGRUP Is Not Null
+          And Tb_Conciliacao.Total = Tb_Conciliacao.Sim  or Tb_Conciliacao.Sim = 0  )
+and Mcc.Cd_Mov_Caixa = Mca.Cd_Mov_Caixa
+AND Mca.Cd_Lote_Caixa = Lca.Cd_Lote_Caixa
+AND Lca.Cd_Caixa = C.Cd_Caixa
+AND Mcc.Cd_Mov_Concor = (SELECT min(cd_mov_concor)
+                        FROM mov_concor  WHERE cd_mov_deposito_agrup = V_Mov_Concor.Cd_Mov_Deposito_Agrup )
+Group  By  'Empresa ' || e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+            ,e.cd_multi_empresa
+            ,e.cd_multi_empresa || ' - ' || e.ds_multi_empresa
+            ,V_Mov_Concor.Cd_Mov_Deposito_Agrup
+            ,'AG-' || To_Char(V_MOV_CONCOR.Cd_Mov_Deposito_Agrup)
+            ,'DEPÓSITO AGRUPADO DO CAIXA '||C.Ds_Caixa
+            ,V_MOV_CONCOR.CD_LAN_CONCOR
+            ,V_BCO_CONTA.CD_CON_COR
+            ,V_BCO_CONTA.CD_BANCO
+            ,V_BCO_CONTA.CD_AGENCIA
+            ,V_BCO_CONTA.NR_CONTA
+            ,V_MOV_CONCOR.DS_LAN_CONCOR
+            ,V_BCO_CONTA.CD_BANCO ||'/'|| V_BCO_CONTA.CD_AGENCIA||'/'||V_BCO_CONTA.NR_CONTA
+            ,V_MOV_CONCOR.CD_LAN_CONCOR ||'-'|| V_MOV_CONCOR.DS_LAN_CONCOR
+        HAVING ABS( Sum(V_MOV_CONCOR.VL_MOVIMENTACAO)) > 0
+   ORDER BY
+          DT_MOVIMENTACAO
+) x
+)
+WHERE 1=1
+AND ( :CAMPO_SN_LANC_SALDO = 'N' OR (vl_recebido+vl_recebido2) < VL_MOVIMENTACAO )
+ORDER BY CD_MULTI_EMPRESA, CD_LANC, DT_MOVIMENTACAO, NR_DOCUMENTO_IDENTIFICACAO

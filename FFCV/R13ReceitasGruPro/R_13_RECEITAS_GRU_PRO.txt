@@ -1,0 +1,493 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCV/R13ReceitasGruPro/R_13_RECEITAS_GRU_PRO.txt
+--Nome módulo: FFCV - SISTEMA FATURAMENTO CONTAS DE CONVENIO
+
+/*----------------------------------------------------------------------------*/
+--R_13_RECEITAS_GRU_PRO
+SELECT * FROM (
+SELECT  DS_GRU_PRO
+       ,MES
+       ,'  '   DS_CON_PLA
+       ,SUM(VL_TOTAL_CONTA)  VALOR
+FROM
+(SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_FAT.VL_TOTAL_CONTA,0)       VL_TOTAL_CONTA
+FROM    DBAMV.FATURA
+       ,DBAMV.REMESSA_FATURA    REMESSA
+       ,DBAMV.REG_FAT
+       ,DBAMV.ITREG_FAT
+       ,DBAMV.ATENDIME
+       ,DBAMV.GRU_PRO
+       ,DBAMV.PRO_FAT
+       ,DBAMV.CONVENIO
+       ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'F'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND   REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND   ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+AND   NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+AND   NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND   REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   REG_FAT.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM   DBAMV.FATURA
+      ,DBAMV.REMESSA_FATURA    REMESSA
+      ,DBAMV.REG_AMB
+      ,DBAMV.ITREG_AMB
+      ,DBAMV.CONVENIO
+      ,DBAMV.ATENDIME
+      ,DBAMV.PRO_FAT
+      ,DBAMV.GRU_PRO
+      ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'F'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_AMB.CD_REMESSA
+AND   REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND   ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND   NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+AND   NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND   ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   ITREG_AMB.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_FAT.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM    DBAMV.FATURA
+       ,DBAMV.REMESSA_FATURA    REMESSA
+       ,DBAMV.REG_FAT
+       ,DBAMV.ITREG_FAT
+       ,DBAMV.CONVENIO
+       ,DBAMV.ATENDIME
+       ,DBAMV.PRO_FAT
+       ,DBAMV.GRU_PRO
+       ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'C'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND   ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   PRO_FAT.SN_PACOTE = 'N'
+AND   NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND   REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   REG_FAT.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM   DBAMV.FATURA
+      ,DBAMV.REMESSA_FATURA    REMESSA
+      ,DBAMV.REG_AMB
+      ,DBAMV.ITREG_AMB
+      ,DBAMV.PRO_FAT
+      ,DBAMV.CONVENIO
+      ,DBAMV.ATENDIME
+      ,DBAMV.GRU_PRO
+      ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'C'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_AMB.CD_REMESSA
+AND   REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND   ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   PRO_FAT.SN_PACOTE = 'N'
+AND   NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND   ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   ITREG_AMB.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+:CAMPO_CF_CONTA_FECHADA_AMB
+)
+GROUP BY DS_GRU_PRO
+         ,MES
+)
+ORDER BY DS_GRU_PRO,
+DS_CON_PLA,
+MES
+
+
+/*----------------------------------------------------------------------------*/
+--R_13_RECEITAS_GRU_PRO_subreport1
+SELECT DS_GRU_PRO DS_GRU_PRO, SUM(VALOR) VALOR FROM (
+SELECT  DS_GRU_PRO
+       ,MES
+       ,'  '   DS_CON_PLA
+       ,SUM(VL_TOTAL_CONTA)  VALOR
+FROM
+(SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_FAT.VL_TOTAL_CONTA,0)       VL_TOTAL_CONTA
+FROM    DBAMV.FATURA
+       ,DBAMV.REMESSA_FATURA    REMESSA
+       ,DBAMV.REG_FAT
+       ,DBAMV.ITREG_FAT
+       ,DBAMV.ATENDIME
+       ,DBAMV.GRU_PRO
+       ,DBAMV.PRO_FAT
+       ,DBAMV.CONVENIO
+       ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'F'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND   REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND   ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+AND   NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+AND   NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND   REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   REG_FAT.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM   DBAMV.FATURA
+      ,DBAMV.REMESSA_FATURA    REMESSA
+      ,DBAMV.REG_AMB
+      ,DBAMV.ITREG_AMB
+      ,DBAMV.CONVENIO
+      ,DBAMV.ATENDIME
+      ,DBAMV.PRO_FAT
+      ,DBAMV.GRU_PRO
+      ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'F'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_AMB.CD_REMESSA
+AND   REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND   ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND   NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+AND   NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND   ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   ITREG_AMB.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_FAT.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM    DBAMV.FATURA
+       ,DBAMV.REMESSA_FATURA    REMESSA
+       ,DBAMV.REG_FAT
+       ,DBAMV.ITREG_FAT
+       ,DBAMV.CONVENIO
+       ,DBAMV.ATENDIME
+       ,DBAMV.PRO_FAT
+       ,DBAMV.GRU_PRO
+       ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'C'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND   ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   PRO_FAT.SN_PACOTE = 'N'
+AND   NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND   REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   REG_FAT.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM   DBAMV.FATURA
+      ,DBAMV.REMESSA_FATURA    REMESSA
+      ,DBAMV.REG_AMB
+      ,DBAMV.ITREG_AMB
+      ,DBAMV.PRO_FAT
+      ,DBAMV.CONVENIO
+      ,DBAMV.ATENDIME
+      ,DBAMV.GRU_PRO
+      ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'C'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_AMB.CD_REMESSA
+AND   REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND   ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   PRO_FAT.SN_PACOTE = 'N'
+AND   NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND   ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   ITREG_AMB.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+:CAMPO_CF_CONTA_FECHADA_AMB
+)
+GROUP BY DS_GRU_PRO
+         ,MES
+)
+GROUP BY DS_GRU_PRO
+
+
+/*----------------------------------------------------------------------------*/
+--R_13_RECEITAS_GRU_PRO_subreport2
+SELECT DS_GRU_PRO DS_GRU_PRO, MES, SUM(VALOR) VALOR FROM (
+SELECT  DS_GRU_PRO
+       ,MES
+       ,'  '   DS_CON_PLA
+       ,SUM(VL_TOTAL_CONTA)  VALOR
+FROM
+(SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_FAT.VL_TOTAL_CONTA,0)       VL_TOTAL_CONTA
+FROM    DBAMV.FATURA
+       ,DBAMV.REMESSA_FATURA    REMESSA
+       ,DBAMV.REG_FAT
+       ,DBAMV.ITREG_FAT
+       ,DBAMV.ATENDIME
+       ,DBAMV.GRU_PRO
+       ,DBAMV.PRO_FAT
+       ,DBAMV.CONVENIO
+       ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'F'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND   REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND   ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   ITREG_FAT.SN_PERTENCE_PACOTE = 'N'
+AND   NVL(ITREG_FAT.TP_PAGAMENTO,'X') <> 'C'
+AND   NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND   REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   REG_FAT.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM   DBAMV.FATURA
+      ,DBAMV.REMESSA_FATURA    REMESSA
+      ,DBAMV.REG_AMB
+      ,DBAMV.ITREG_AMB
+      ,DBAMV.CONVENIO
+      ,DBAMV.ATENDIME
+      ,DBAMV.PRO_FAT
+      ,DBAMV.GRU_PRO
+      ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'F'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_AMB.CD_REMESSA
+AND   REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND   ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   ITREG_AMB.SN_PERTENCE_PACOTE = 'N'
+AND   NVL(ITREG_AMB.TP_PAGAMENTO,'X') <> 'C'
+AND   NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND   ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   ITREG_AMB.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_FAT.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM    DBAMV.FATURA
+       ,DBAMV.REMESSA_FATURA    REMESSA
+       ,DBAMV.REG_FAT
+       ,DBAMV.ITREG_FAT
+       ,DBAMV.CONVENIO
+       ,DBAMV.ATENDIME
+       ,DBAMV.PRO_FAT
+       ,DBAMV.GRU_PRO
+       ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'C'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_FAT.CD_REMESSA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_FAT.CD_REG_FAT = ITREG_FAT.CD_REG_FAT
+AND   ITREG_FAT.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   PRO_FAT.SN_PACOTE = 'N'
+AND   NVL(REG_FAT.SN_DIAGNO, 'N') = 'N'
+AND   REG_FAT.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   REG_FAT.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+UNION ALL
+SELECT  DECODE(:CAMPO_TIPO, 'A', GRU_PRO.DS_GRU_PRO,
+			   DECODE(GRU_PRO.TP_GRU_PRO, 'SD', ' Serviços de Diagnóstico',
+             						        	'SP', ' Serviços Profissionais',
+					                                'SH', ' Serviços Hospitalares',
+					                                'OU', ' Outros Lançamentos',
+			                                                                'OP',  ' Órteses e Próteses',
+		                                                                                'MT', ' Materiais',
+				                                                'MD', ' Medicamentos',
+					                               ' Outro') )    DS_GRU_PRO
+       ,decode (:CAMPO_DT_REFERENCIA , 'Entrega', to_char(remessa.dt_entrega_da_fatura,'mm'), to_char(fatura.dt_competencia, 'mm')) mes
+       ,NVL(ITREG_AMB.VL_TOTAL_CONTA,0)              VL_TOTAL_CONTA
+FROM   DBAMV.FATURA
+      ,DBAMV.REMESSA_FATURA    REMESSA
+      ,DBAMV.REG_AMB
+      ,DBAMV.ITREG_AMB
+      ,DBAMV.PRO_FAT
+      ,DBAMV.CONVENIO
+      ,DBAMV.ATENDIME
+      ,DBAMV.GRU_PRO
+      ,DBAMV.SERVICO
+WHERE  :CAMPO_FATU_CONSU = 'C'
+AND   FATURA.CD_FATURA = REMESSA.CD_FATURA
+AND   REMESSA.SN_FECHADA = 'S'
+AND   REMESSA.CD_REMESSA = REG_AMB.CD_REMESSA
+AND   REG_AMB.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   REG_AMB.CD_REG_AMB = ITREG_AMB.CD_REG_AMB
+AND   ITREG_AMB.CD_PRO_FAT = PRO_FAT.CD_PRO_FAT
+AND   PRO_FAT.CD_GRU_PRO = GRU_PRO.CD_GRU_PRO
+AND   PRO_FAT.SN_PACOTE = 'N'
+AND   NVL(REG_AMB.SN_DIAGNO, 'N') = 'N'
+AND   ITREG_AMB.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO
+AND   ITREG_AMB.CD_CONVENIO    = CONVENIO.CD_CONVENIO
+AND   CONVENIO.TP_CONVENIO <> 'H'
+and   atendime.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+AND   ATENDIME.CD_SERVICO = SERVICO.CD_SERVICO(+)
+:CAMPO_CF_CONTA_FECHADA_AMB
+)
+GROUP BY DS_GRU_PRO
+         ,MES
+)
+GROUP BY DS_GRU_PRO, MES

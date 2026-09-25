@@ -1,0 +1,277 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RPrevRecGloEsp321/R_PREV_REC_GLO_ESP_321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PREV_REC_GLO_ESP_321
+select especialidades.competencia
+     , especialidades.cd_espec_sus cd_espec_ind
+     , especialidades.ds_espec_sus
+     , especialidades.contas
+     , trunc((permanencia.permanencia/especialidades.contas),1) media_permanencia
+  from ( select to_char(dt_competencia, 'mm/yyyy') competencia
+              , cd_espec_sus
+              , ds_espec_sus
+              , count(cd_reg_fat) contas
+           from ( select distinct v_ffis_fat_gerencial_total.dt_competencia
+                        , espec_sus.cd_espec_sus
+                        , espec_sus.ds_espec_sus
+                        , v_ffis_fat_gerencial_total.cd_reg_fat
+                     from dbamv.v_ffis_fat_gerencial_total
+                        , dbamv.espec_sus
+                    where v_ffis_fat_gerencial_total.cd_espec_sus                       = espec_sus.cd_espec_sus
+                      and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+                      and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'MM/YYYY') = :CAMPO_COMPET
+                    group by v_ffis_fat_gerencial_total.dt_competencia
+                           , espec_sus.cd_espec_sus
+                           , espec_sus.ds_espec_sus
+                           , v_ffis_fat_gerencial_total.cd_reg_fat )
+            group by dt_competencia
+            , cd_espec_sus
+            , ds_espec_sus ) especialidades
+     , ( select to_char(fatura.dt_competencia, 'mm/yyyy') competencia
+              , reg_fat.cd_espec_sus
+              , sum(reg_fat.dt_final-reg_fat.dt_inicio) permanencia
+           from dbamv.remessa_fatura
+              , dbamv.fatura
+              , dbamv.reg_fat
+          where remessa_fatura.cd_fatura = fatura.cd_fatura
+            and reg_fat.cd_remessa       = remessa_fatura.cd_remessa
+            and reg_fat.cd_convenio      = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+            and reg_fat.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            and to_char(fatura.dt_competencia, 'MM/YYYY') = :CAMPO_COMPET
+          group by to_char(fatura.dt_competencia, 'mm/yyyy')
+		         , reg_fat.cd_espec_sus ) permanencia
+  where	especialidades.competencia  = permanencia.competencia
+    and especialidades.cd_espec_sus = permanencia.cd_espec_sus
+
+
+/*----------------------------------------------------------------------------*/
+--R_PREV_REC_GLO_ESP_321_RF_PROC_ESPECIAIS1_Q_PROC_ESPECIAIS
+SELECT * FROM (
+select v_ffis_fat_gerencial_total.cd_espec_sus cd_espec_esp
+     , sum(v_ffis_fat_gerencial_total.qtd_concentrado_fator_viii) qtd_concentrado_fator_viii
+     , sum(v_ffis_fat_gerencial_total.qtd_fatores_x_coagulacao) qtd_fatores_x_coagulacao
+     , sum(v_ffis_fat_gerencial_total.qtd_albumina_humana) qtd_albumina_humana
+     , sum(v_ffis_fat_gerencial_total.qtd_plasma_humano) qtd_plasma_humano
+     , sum(v_ffis_fat_gerencial_total.qtd_arterior_neuro) qtd_arterior_neuro
+     , sum(v_ffis_fat_gerencial_total.qtd_litotripsia) qtd_litotripsia
+     , sum(v_ffis_fat_gerencial_total.qtd_anticorpo_anti_rh) qtd_anticorpo_anti_rh
+     , sum(v_ffis_fat_gerencial_total.qtd_exosanguineo_transfusao) qtd_exosanguineo_transfusao
+     , sum(v_ffis_fat_gerencial_total.qtd_ciclosporina) qtd_ciclosporina
+     , (sum(v_ffis_fat_gerencial_total.qtd_sangue) - sum(v_ffis_fat_gerencial_total.qtd_exosanguineo_transfusao)  ) qtd_sangue
+     , sum(v_ffis_fat_gerencial_total.qtd_tomografias) qtd_tomografias
+     , sum(v_ffis_fat_gerencial_total.qtd_estudos_hemodinamicos) qtd_estudos_hemodinamicos
+     , sum(v_ffis_fat_gerencial_total.qtd_imunoglobulina_g) qtd_imunoglobulina_g
+     , sum(v_ffis_fat_gerencial_total.qtd_estreptoquinase) qtd_estreptoquinase
+     , sum(v_ffis_fat_gerencial_total.qtd_criacao_fav) qtd_criacao_fav
+     , sum(v_ffis_fat_gerencial_total.qtd_anticorpo_monocloral) qtd_anticorpo_monocloral
+     , sum(v_ffis_fat_gerencial_total.qtd_globulina_antimocitaria) qtd_globulina_antimocitaria
+     , sum(v_ffis_fat_gerencial_total.qtd_ciclosporina_capsula) qtd_ciclosporina_capsula
+     , sum(v_ffis_fat_gerencial_total.qtd_metilprednisilona) qtd_metilprednisilona
+     , sum(v_ffis_fat_gerencial_total.qtd_surfactante_fr_amp) qtd_surfactante_fr_amp
+     , sum(v_ffis_fat_gerencial_total.qtd_nutricao_enteral) qtd_nutricao_enteral
+     , sum(v_ffis_fat_gerencial_total.qtd_tomografias_neuro) qtd_tomografias_neuro
+     , sum(v_ffis_fat_gerencial_total.qtd_componente_i) qtd_componente_i
+     , sum(v_ffis_fat_gerencial_total.qtd_registro_civil) qtd_registro_civil
+     , sum(v_ffis_fat_gerencial_total.qtd_teste_hiv) qtd_teste_hiv
+     , sum(v_ffis_fat_gerencial_total.qtd_hemodialise_pac_renais)  qtd_hemodialise_pac_renais
+     , sum(v_ffis_fat_gerencial_total.qtd_dialise_pac_renais) qtd_dialise_pac_renais
+     , sum(v_ffis_fat_gerencial_total.qtd_hemoperfusao) qtd_hemoperfusao
+     , sum(v_ffis_fat_gerencial_total.qtd_ultrafiltracao_continua) qtd_ultrafiltracao_continua
+     , sum(v_ffis_fat_gerencial_total.qtd_hemodialise_continua) qtd_hemodialise_continua
+     , sum(v_ffis_fat_gerencial_total.qtd_hemofiltracao_continua) qtd_hemofiltracao_continua
+     , sum(v_ffis_fat_gerencial_total.qtd_hediafiltracao_continua) qtd_hediafiltracao_continua
+     , sum(v_ffis_fat_gerencial_total.qtd_hemofiltracao) qtd_hemofiltracao
+     , sum(v_ffis_fat_gerencial_total.Qtd_cateterismo) Qtd_cateterismo
+     , sum(v_ffis_fat_gerencial_total.Qtd_notificacao_agravo) Qtd_notificacao_agravo
+     , sum(v_ffis_fat_gerencial_total.vlr_concentrado_fator_viii) vlr_concentrado_fator_viii
+     , sum(v_ffis_fat_gerencial_total.vlr_fatores_x_coagulacao) vlr_fatores_x_coagulacao
+     , sum(v_ffis_fat_gerencial_total.vlr_albumina_humana) vlr_albumina_humana
+     , sum(v_ffis_fat_gerencial_total.vlr_plasma_humano) vlr_plasma_humano
+     , sum(v_ffis_fat_gerencial_total.vlr_arterior_neuro) vlr_arterior_neuro
+     , sum(v_ffis_fat_gerencial_total.vlr_litotripsia) vlr_litotripsia
+     , sum(v_ffis_fat_gerencial_total.vlr_anticorpo_anti_rh) vlr_anticorpo_anti_rh
+     , sum(v_ffis_fat_gerencial_total.vlr_exosanguineo_transfusao) vlr_exosanguineo_transfusao
+     , sum(v_ffis_fat_gerencial_total.vlr_ciclosporina) vlr_ciclosporina
+     , (sum(v_ffis_fat_gerencial_total.vlr_sangue)  - sum(v_ffis_fat_gerencial_total.vlr_exosanguineo_transfusao) )vlr_sangue
+     , sum(v_ffis_fat_gerencial_total.vlr_tomografias) vlr_tomografias
+     , sum(v_ffis_fat_gerencial_total.vlr_estudos_hemodinamicos) vlr_estudos_hemodinamicos
+     , sum(v_ffis_fat_gerencial_total.vlr_imunoglobulina_g) vlr_imunoglobulina_g
+     , sum(v_ffis_fat_gerencial_total.vlr_estreptoquinase) vlr_estreptoquinase
+     , sum(v_ffis_fat_gerencial_total.vlr_criacao_fav) vlr_criacao_fav
+     , sum(v_ffis_fat_gerencial_total.vlr_anticorpo_monocloral) vlr_anticorpo_monocloral
+     , sum(v_ffis_fat_gerencial_total.vlr_globulina_antimocitaria) vlr_globulina_antimocitaria
+     , sum(v_ffis_fat_gerencial_total.vlr_ciclosporina_capsula) vlr_ciclosporina_capsula
+     , sum(v_ffis_fat_gerencial_total.vlr_metilprednisilona) vlr_metilprednisilona
+     , sum(v_ffis_fat_gerencial_total.vlr_surfactante_fr_amp) vlr_surfactante_fr_amp
+     , sum(v_ffis_fat_gerencial_total.vlr_nutricao_enteral) vlr_nutricao_enteral
+     , sum(v_ffis_fat_gerencial_total.vlr_componente_i)  vlr_componente_i
+     , sum(v_ffis_fat_gerencial_total.vlr_registro_civil) vlr_registro_civil
+     , sum(v_ffis_fat_gerencial_total.vlr_teste_hiv) vlr_teste_hiv
+     , sum(v_ffis_fat_gerencial_total.vlr_hemodialise_pac_renais) vlr_hemodialise_pac_renais
+     , sum(v_ffis_fat_gerencial_total.vlr_dialise_pac_renais) vlr_dialise_pac_renais
+     , sum(v_ffis_fat_gerencial_total.vlr_hemoperfusao) vlr_hemoperfusao
+     , sum(v_ffis_fat_gerencial_total.vlr_ultrafiltracao_continua) vlr_ultrafiltracao_continua
+     , sum(v_ffis_fat_gerencial_total.vlr_hemodialise_continua) vlr_hemodialise_continua
+     , sum(v_ffis_fat_gerencial_total.vlr_hemofiltracao_continua) vlr_hemofiltracao_continua
+     , sum(v_ffis_fat_gerencial_total.vlr_hediafiltracao_continua) vlr_hediafiltracao_continua
+     , sum(v_ffis_fat_gerencial_total.vlr_hemofiltracao) vlr_hemofiltracao
+     , sum(v_ffis_fat_gerencial_total.Vlr_cateterismo) Vlr_cateterismo
+     , sum(v_ffis_fat_gerencial_total.vlr_notificacao_agravo) vlr_notificacao_agravo
+  from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.procedimento_sus_detalhe procDet
+ where v_ffis_fat_gerencial_total.cd_procedimento                    = procDet.cd_procedimento
+   and nvl(procDet.sn_aih_especial, 'N')                             = 'S'
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'MM/YYYY') =:CAMPO_COMPET
+ group by v_ffis_fat_gerencial_total.cd_espec_sus
+)
+WHERE CD_ESPEC_ESP = :CAMPO_CD_ESPEC_IND
+
+
+/*----------------------------------------------------------------------------*/
+--R_PREV_REC_GLO_ESP_321_RF_SERV_HOSP1_Q_SERV_HOSPITALARES
+SELECT * FROM (
+Select cd_espec_hos
+     , sum(qtd_enfermaria) qtd_enfermaria
+     , sum(qtd_permanencia_maior)  qtd_permanencia_maior
+     , sum(qtd_acompanhante)  qtd_acompanhante
+     , sum(qtd_acomp_idoso)  qtd_acomp_idoso
+     , sum(qtd_uti_normal)  qtd_uti_normal
+     , sum(qtd_uti_espec)  qtd_uti_espec
+     , sum(qtd_uci)  qtd_uci
+     , sum(qtd_proc_diversos_Hosp) qtd_proc_diversos_Hosp
+     , sum(vlr_enfermaria) vlr_enfermaria
+     , sum(vlr_permanencia_maior)  vlr_permanencia_maior
+     , sum(vlr_acompanhante)  vlr_acompanhante
+     , sum(vlr_acomp_idoso)  vlr_acomp_idoso
+     , sum(vlr_uti_normal)  vlr_uti_normal
+     , sum(vlr_uti_espec)  vlr_uti_espec
+     , sum(vlr_uci)  vlr_uci
+     , sum(vlr_proc_diversos_Hosp) vlr_proc_diversos_Hosp
+From (
+select v_ffis_fat_gerencial_total.cd_espec_sus cd_espec_hos
+     , (sum(v_ffis_fat_gerencial_total.qtd_enfermaria) +
+        sum(v_ffis_fat_gerencial_total.qtd_litotripsia)) qtd_enfermaria
+     , sum(v_ffis_fat_gerencial_total.qtd_permanencia_maior) qtd_permanencia_maior
+     , 0 qtd_acompanhante
+     , 0 qtd_acomp_idoso
+     , sum(v_ffis_fat_gerencial_total.qtd_uti_normal) qtd_uti_normal
+     , sum(v_ffis_fat_gerencial_total.qtd_uti_espec) qtd_uti_espec
+     , sum(v_ffis_fat_gerencial_total.qtd_uci) qtd_uci
+     , sum(v_ffis_fat_gerencial_total.qtd_proc_diversos) qtd_proc_diversos_Hosp
+     , (sum(v_ffis_fat_gerencial_total.vlr_enfermaria) +
+        sum(v_ffis_fat_gerencial_total.vlr_litotripsia))vlr_enfermaria
+     , sum(v_ffis_fat_gerencial_total.vlr_permanencia_maior) vlr_permanencia_maior
+     , 0 vlr_acompanhante
+     , 0 vlr_acomp_idoso
+     , sum(v_ffis_fat_gerencial_total.vlr_uti_normal) vlr_uti_normal
+     , sum(v_ffis_fat_gerencial_total.vlr_uti_espec) vlr_uti_espec
+     , sum(v_ffis_fat_gerencial_total.vlr_uci) vlr_uci
+     , sum(v_ffis_fat_gerencial_total.vlr_proc_diversos) vlr_proc_diversos_Hosp
+  from dbamv.v_ffis_fat_gerencial_total
+ where v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'MM/YYYY') = :CAMPO_COMPET
+   and 0 <> (select nvl(vl_sp,0)
+               From dbamv.itreg_fat
+              where itreg_fat.cd_reg_fat    = v_ffis_fat_gerencial_total.cd_reg_fat
+                and itreg_fat.cd_lancamento = v_ffis_fat_gerencial_total.cd_lancamento)
+ group by v_ffis_fat_gerencial_total.cd_espec_sus
+Union
+select v_ffis_fat_gerencial_total.cd_espec_sus cd_espec_hos
+     , 0 qtd_enfermaria
+     , 0 qtd_permanencia_maior
+     , sum(v_ffis_fat_gerencial_total.qtd_acompanhante) qtd_acompanhante
+     , sum(v_ffis_fat_gerencial_total.qtd_acomp_idoso) qtd_acomp_idoso
+     , 0 qtd_uti_normal
+     , 0 qtd_uti_espec
+     , 0 qtd_uci
+     , 0 qtd_proc_diversos_Hosp
+     , 0 vlr_enfermaria
+     , 0 vlr_permanencia_maior
+     , sum(v_ffis_fat_gerencial_total.vlr_acompanhante) vlr_acompanhante
+     , sum(v_ffis_fat_gerencial_total.vlr_acomp_idoso) vlr_acomp_idoso
+     , 0 vlr_uti_normal
+     , 0 vlr_uti_espec
+     , 0 vlr_uci
+     , 0 vlr_proc_diversos_Hosp
+  from dbamv.v_ffis_fat_gerencial_total
+ where v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'MM/YYYY') = :CAMPO_COMPET
+ group by v_ffis_fat_gerencial_total.cd_espec_sus  )
+group by cd_espec_hos
+)
+WHERE CD_ESPEC_HOS = :CAMPO_CD_ESPEC_IND
+
+
+/*----------------------------------------------------------------------------*/
+--R_PREV_REC_GLO_ESP_321_RF_SERV_PROFISSIONAIS1_Q_SERV_PROFISSIONAIS
+SELECT * FROM (
+Select cd_espec_pro
+     , sum(vlr_anestesista) vlr_anestesista
+     , sum(vlr_analg_obstetrica) vlr_analg_obstetrica
+     , sum(vlr_consulta_pediatrica) vlr_consulta_pediatrica
+     , sum(vlr_neonatologia) vlr_neonatologia
+     , sum(vlr_perfusionista) vlr_perfusionista
+     , sum(vlr_prof_uti) vlr_prof_uti
+     , sum(vlr_prof_uti_especializada) vlr_prof_uti_especializada
+     , sum(Vlr_Profissionais) Vlr_Profissionais
+  From (
+select v_ffis_fat_gerencial_total.cd_espec_sus cd_espec_pro
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista) vlr_anestesista
+     , sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica) vlr_analg_obstetrica
+     , sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica) vlr_consulta_pediatrica
+     , sum(v_ffis_fat_gerencial_total.vlr_neonatologia) vlr_neonatologia
+     , sum(v_ffis_fat_gerencial_total.vlr_perfusionista) vlr_perfusionista
+     , sum(v_ffis_fat_gerencial_total.vlr_prof_uti) vlr_prof_uti
+     , sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada) vlr_prof_uti_especializada
+     , sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Vlr_Profissionais
+  from dbamv.v_ffis_fat_gerencial_total
+ where v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'MM/YYYY') = :CAMPO_COMPET
+   and v_ffis_fat_gerencial_total.sn_ortese_protese  = 'N'
+      and v_ffis_fat_gerencial_total.cd_procedimento      Not in (Select cd_procedimento
+                                                                    from dbamv.procedimento_sus_detalhe
+                                                                   where sn_nutricao_enteral = 'S'
+                                                                     and cd_procedimento   Not In ('0309010012','0309010039')
+                                                                     and sn_aih_especial     = 'S')
+      and v_ffis_fat_gerencial_total.cd_procedimento      Not in (Select cd_procedimento
+                                                                    from dbamv.procedimento_sus_detalhe
+                                                                   where sn_sangue         = 'S'
+                                                                      or sn_componente_i   = 'S'
+                                                                      or sn_teste_hiv      = 'S'
+                                                                      or sn_registro_civil = 'S'
+                                                                      or sn_teste_hiv      = 'S'
+                                                                      or sn_arterior_neuro = 'S'
+                                                                      or SN_albumina_humana = 'S'
+                                                                      or sn_hemodialise_pac_renais = 'S'
+                                                                      or sn_plasma_humano = 'S'
+                                                                      or sn_anticorpo_anti_rh = 'S'
+                                                                      or sn_exosanguineo_transfusao = 'S'
+                                                                      or sn_ciclosporina = 'S'
+                                                                      or sn_hemoperfusao  = 'S'
+                                                                      or sn_imunoglobulina_g = 'S'
+                                                                      or sn_metilprednisilona = 'S'
+                                                                      or sn_estreptoquinase = 'S'
+                                                                      or sn_criacao_fav = 'S'
+                                                                      or sn_anticorpo_monocloral = 'S'
+                                                                      or sn_globulina_antimocitaria = 'S'
+                                                                      or sn_ciclosporina_capsula = 'S'
+                                                                      or sn_surfactante_fr_amp = 'S'
+                                                                      or sn_dialise_pac_renais = 'S'
+                                                                      or sn_ultrafiltracao_continua = 'S'
+                                                                      or sn_hemodialise_continua = 'S'
+                                                                      or sn_tomografias = 'S'
+                                                                      or sn_hemofiltracao_continua  = 'S'
+                                                                      or sn_hediafiltracao_continua = 'S'
+                                                                      or sn_hemofiltracao = 'S'
+                                                                      or sn_acompanhante   = 'S'
+                                                                      or sn_notificacao_agravo = 'S'
+                                                                      or sn_concentrado_fator_viii = 'S'
+                                                                      or sn_cateterismo    = 'S')
+ group by v_ffis_fat_gerencial_total.cd_espec_sus
+)
+Group by cd_espec_pro
+)
+WHERE CD_ESPEC_PRO = :CAMPO_CD_ESPEC_IND

@@ -1,0 +1,195 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAS/RProdPrestOrigemP321/R_PROD_PREST_ORIGEM_P321.txt
+--Nome módulo: FFAS - SISTEMA FATURAMENTO AMBULATORIO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_ORIGEM_P321
+SELECT * FROM (
+SELECT PRESTADOR.DS_CODIGO_CONSELHO,
+               PRESTADOR.NM_PRESTADOR,
+               ORI_ATE.CD_ORI_ATE,
+               ORI_ATE.DS_ORI_ATE,
+               PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+               PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+               NVL(SUM(EVE_SIASUS.QT_LANCADA) ,0) QT_LANCADA ,
+               EVE_SIASUS.VL_SERVICO_AMBULATORIAL VL_TOTAL_AMBULATORIAL,
+               EVE_SIASUS.VL_SERVICO_PROFISSIONAL,
+               EVE_SIASUS.VL_SERVICO_ANESTESIA,
+               NVL(EVE_SIASUS.CD_PRESTADOR_EXECUTANTE, EVE_SIASUS.CD_PRESTADOR)  CD_PRESTADOR,
+               FAT_SIA.CD_FAT_SIA,
+               'M' TP_MEDICO
+FROM     DBAMV.PRESTADOR,
+               DBAMV.PROCEDIMENTO_SUS,
+               DBAMV.EVE_SIASUS,
+               DBAMV.ORI_ATE,
+               DBAMV.FAT_SIA
+WHERE EVE_SIASUS.CD_PROCEDIMENTO IS NOT NULL
+AND       EVE_SIASUS.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND       EVE_SIASUS.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+AND       EVE_SIASUS.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE(+)
+AND       EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+GROUP BY PRESTADOR.DS_CODIGO_CONSELHO,
+                    PRESTADOR.NM_PRESTADOR,
+                    ORI_ATE.CD_ORI_ATE,
+                    ORI_ATE.DS_ORI_ATE,
+                    PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                    PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                    EVE_SIASUS.VL_SERVICO_AMBULATORIAL,
+                    EVE_SIASUS.VL_SERVICO_PROFISSIONAL,
+                    EVE_SIASUS.VL_SERVICO_ANESTESIA,
+                    NVL(EVE_SIASUS.CD_PRESTADOR_EXECUTANTE, EVE_SIASUS.CD_PRESTADOR) ,
+                    FAT_SIA.CD_FAT_SIA,
+                    'M'
+:CAMPO_CF_ORDEM
+)
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_ORIGEM_P321_R_PRESTADOR1_Q_ANESTESISTA
+SELECT * FROM (
+SELECT PRESTADOR.DS_CODIGO_CONSELHO,
+              PRESTADOR.NM_PRESTADOR,
+              ORI_ATE.CD_ORI_ATE,
+              ORI_ATE.DS_ORI_ATE, 
+              PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+              PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+              SUM(EVE_SIASUS.QT_LANCADA) QT_LANCADA,
+              PROCEDIMENTO_SUS_VALOR.VL_TOTAL_AMBULATORIAL,
+              PROCEDIMENTO_SUS_VALOR.VL_SERVICO_PROFISSIONAL_AMB,
+              PROCEDIMENTO_SUS_VALOR.VL_SERVICO_ANESTESIA_AMB,
+              NVL(EVE_SIASUS.CD_PRESTADOR_PODE_TER, EVE_SIASUS.CD_PRESTADOR)CD_PRESTADOR,
+              FAT_SIA.CD_FAT_SIA,       
+              'A'     TP_MEDICO
+FROM          DBAMV.PRESTADOR,
+              DBAMV.PROCEDIMENTO_SUS,
+              DBAMV.PROCEDIMENTO_SUS_VALOR,
+              DBAMV.EVE_SIASUS,
+              DBAMV.ORI_ATE, 
+              DBAMV.FAT_SIA
+WHERE EVE_SIASUS.CD_PROCEDIMENTO IS NOT NULL
+AND EVE_SIASUS.CD_PRESTADOR_PODE_TER = PRESTADOR.CD_PRESTADOR 
+AND       EVE_SIASUS.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE(+)
+AND       EVE_SIASUS.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+AND       EVE_SIASUS.CD_PROCEDIMENTO  =  PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+AND 	  EVE_SIASUS.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND       PROCEDIMENTO_SUS.CD_PROCEDIMENTO =  PROCEDIMENTO_SUS_VALOR.CD_PROCEDIMENTO
+AND       PROCEDIMENTO_SUS_VALOR.DT_VIGENCIA =  ( SELECT   MAX(  VAL_SIA.DT_VIGENCIA )
+                                                                             FROM      DBAMV.PROCEDIMENTO_SUS_VALOR   VAL_SIA
+                                                                             WHERE   VAL_SIA.CD_PROCEDIMENTO  =  PROCEDIMENTO_SUS_VALOR.CD_PROCEDIMENTO
+                                                                                   AND val_sia.dt_vigencia <= (select decode(config_ffas.tp_entrega_comp,'F',fat_sia.dt_periodo_final, fat_sia.dt_periodo_inicial)
+                                                                                                                                    from dbamv.fat_sia
+                                                                                                                                         , dbamv.config_ffas
+                                                                                                                                 where fat_sia.cd_multi_empresa = config_ffas.cd_multi_empresa
+                                                                                                                                     and config_ffas.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                                                                                     and cd_fat_sia = eve_siasus.cd_fat_sia))
+GROUP BY PRESTADOR.DS_CODIGO_CONSELHO,
+                    PRESTADOR.NM_PRESTADOR,
+                    ORI_ATE.CD_ORI_ATE,
+                    ORI_ATE.DS_ORI_ATE,
+                    PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                    PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                    PROCEDIMENTO_SUS_VALOR.VL_TOTAL_AMBULATORIAL,
+                    PROCEDIMENTO_SUS_VALOR.VL_SERVICO_PROFISSIONAL_AMB,
+                    PROCEDIMENTO_SUS_VALOR.VL_SERVICO_ANESTESIA_AMB,
+                    NVL(EVE_SIASUS.CD_PRESTADOR_PODE_TER, EVE_SIASUS.CD_PRESTADOR), 
+                    FAT_SIA.CD_FAT_SIA,
+                    'A'
+:CAMPO_CF_ORDEM
+)
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_ORIGEM_P321_R_PRESTADOR4_Q_R_A_REP_PREST
+SELECT * FROM (
+SELECT PRESTADOR.DS_CODIGO_CONSELHO,
+               PRESTADOR.NM_PRESTADOR,
+               ORI_ATE.CD_ORI_ATE,
+               ORI_ATE.DS_ORI_ATE,
+               PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+               PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+               NVL(SUM(EVE_SIASUS.QT_LANCADA) ,0) QT_LANCADA ,
+               EVE_SIASUS.VL_SERVICO_AMBULATORIAL VL_TOTAL_AMBULATORIAL,
+               EVE_SIASUS.VL_SERVICO_PROFISSIONAL,
+               EVE_SIASUS.VL_SERVICO_ANESTESIA,
+               NVL(EVE_SIASUS.CD_PRESTADOR, 0)  CD_PRESTADOR,
+               FAT_SIA.CD_FAT_SIA,
+               'M' TP_MEDICO
+FROM     DBAMV.PRESTADOR,
+               DBAMV.PROCEDIMENTO_SUS,
+               DBAMV.EVE_SIASUS,
+               DBAMV.ORI_ATE,
+               DBAMV.FAT_SIA
+WHERE EVE_SIASUS.CD_PROCEDIMENTO IS NOT NULL
+AND       EVE_SIASUS.CD_PRESTADOR = PRESTADOR.CD_PRESTADOR
+AND       EVE_SIASUS.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+AND       EVE_SIASUS.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE(+)
+AND       EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+AND 	  EVE_SIASUS.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+GROUP BY PRESTADOR.DS_CODIGO_CONSELHO,
+                    PRESTADOR.NM_PRESTADOR,
+                    ORI_ATE.CD_ORI_ATE,
+                    ORI_ATE.DS_ORI_ATE,
+                    PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                    PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                    EVE_SIASUS.VL_SERVICO_AMBULATORIAL,
+                    EVE_SIASUS.VL_SERVICO_PROFISSIONAL,
+                    EVE_SIASUS.VL_SERVICO_ANESTESIA,
+                    NVL(EVE_SIASUS.CD_PRESTADOR, 0) ,
+                    FAT_SIA.CD_FAT_SIA,
+                    'M'
+:CAMPO_CF_ORDEM
+)
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_ORIGEM_P321_R_PRESTADOR5_Q_ANESTESISTA
+SELECT * FROM (
+SELECT PRESTADOR.DS_CODIGO_CONSELHO,
+              PRESTADOR.NM_PRESTADOR,
+              ORI_ATE.CD_ORI_ATE,
+              ORI_ATE.DS_ORI_ATE,
+              PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+              PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+              SUM(EVE_SIASUS.QT_LANCADA) QT_LANCADA,
+              PROCEDIMENTO_SUS_VALOR.VL_TOTAL_AMBULATORIAL,
+              PROCEDIMENTO_SUS_VALOR.VL_SERVICO_PROFISSIONAL_AMB,
+              PROCEDIMENTO_SUS_VALOR.VL_SERVICO_ANESTESIA_AMB,
+              NVL(EVE_SIASUS.CD_PRESTADOR_PODE_TER, EVE_SIASUS.CD_PRESTADOR)CD_PRESTADOR,
+              FAT_SIA.CD_FAT_SIA,
+              'A'     TP_MEDICO
+FROM          DBAMV.PRESTADOR,
+              DBAMV.PROCEDIMENTO_SUS,
+              DBAMV.PROCEDIMENTO_SUS_VALOR,
+              DBAMV.EVE_SIASUS,
+              DBAMV.ORI_ATE,
+              DBAMV.FAT_SIA
+WHERE EVE_SIASUS.CD_PROCEDIMENTO IS NOT NULL
+AND EVE_SIASUS.CD_PRESTADOR_PODE_TER = PRESTADOR.CD_PRESTADOR
+AND       EVE_SIASUS.CD_ORI_ATE  =  ORI_ATE.CD_ORI_ATE(+)
+AND       EVE_SIASUS.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+AND       EVE_SIASUS.CD_PROCEDIMENTO  =  PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+AND 	  EVE_SIASUS.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+AND       PROCEDIMENTO_SUS.CD_PROCEDIMENTO =  PROCEDIMENTO_SUS_VALOR.CD_PROCEDIMENTO
+AND       PROCEDIMENTO_SUS_VALOR.DT_VIGENCIA =  ( SELECT   MAX(  VAL_SIA.DT_VIGENCIA )
+                                                                             FROM      DBAMV.PROCEDIMENTO_SUS_VALOR   VAL_SIA
+                                                                             WHERE   VAL_SIA.CD_PROCEDIMENTO  =  PROCEDIMENTO_SUS_VALOR.CD_PROCEDIMENTO
+                                                                                   AND val_sia.dt_vigencia <= (select decode(config_ffas.tp_entrega_comp,'F',fat_sia.dt_periodo_final, fat_sia.dt_periodo_inicial)
+                                                                                                                                    from dbamv.fat_sia
+                                                                                                                                         , dbamv.config_ffas
+                                                                                                                                 where fat_sia.cd_multi_empresa = config_ffas.cd_multi_empresa
+                                                                                                                                     and config_ffas.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+                                                                                                                                     and cd_fat_sia = eve_siasus.cd_fat_sia))
+GROUP BY PRESTADOR.DS_CODIGO_CONSELHO,
+                    PRESTADOR.NM_PRESTADOR,
+                    ORI_ATE.CD_ORI_ATE,
+                    ORI_ATE.DS_ORI_ATE,
+                    PROCEDIMENTO_SUS.CD_PROCEDIMENTO,
+                    PROCEDIMENTO_SUS.DS_PROCEDIMENTO,
+                    PROCEDIMENTO_SUS_VALOR.VL_TOTAL_AMBULATORIAL,
+                    PROCEDIMENTO_SUS_VALOR.VL_SERVICO_PROFISSIONAL_AMB,
+                    PROCEDIMENTO_SUS_VALOR.VL_SERVICO_ANESTESIA_AMB,
+                    NVL(EVE_SIASUS.CD_PRESTADOR_PODE_TER, EVE_SIASUS.CD_PRESTADOR),
+                    FAT_SIA.CD_FAT_SIA,
+                    'A'
+:CAMPO_CF_ORDEM
+)

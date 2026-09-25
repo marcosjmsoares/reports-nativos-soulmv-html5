@@ -1,0 +1,573 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAG/RAudConGru2/R_AUD_CON_GRU2.txt
+--Nome módulo: FFAG - AUDITORIA E GLOSAS
+
+/*----------------------------------------------------------------------------*/
+--R_AUD_CON_GRU2
+Select 1 from dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_AUD_CON_GRU2_R_1_Q_QUEBRA_2
+SELECT * FROM (
+Select convenio.cd_convenio,
+       convenio.nm_convenio,
+       amb.cd_remessa,
+       amb.vl_total_conta,
+       amb.vl_auditado,
+       amb.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       gru_pro.cd_gru_pro,
+       gru_pro.ds_gru_pro,
+       to_char(gru_pro.cd_gru_pro, 'fm00')||' - '||gru_pro.ds_gru_pro gru_procedimento,
+       amb.cd_atendimento,
+       amb.cd_reg_amb conta,
+       amb.cd_lancamento,
+       fatura.dt_competencia,
+       remessa_fatura.dt_entrega_da_fatura,
+       remessa_fatura.dt_prevista_para_pgto
+  from Dbamv.convenio,
+       Dbamv.Empresa_Convenio,
+       Dbamv.pro_fat,
+       Dbamv.gru_pro,
+       Dbamv.remessa_fatura,
+       Dbamv.fatura,
+       (Select reg_amb.cd_remessa,
+               itreg_amb_original.vl_total_conta,
+               (nvl(itreg_amb_original.vl_total_conta,0) - decode(nvl(itreg_amb.vl_desconto_conta,0),0,nvl(itreg_amb.vl_total_conta,0),nvl(itreg_amb_original.vl_total_conta,0))) vl_auditado,  
+               nvl(itreg_amb.cd_pro_fat,itreg_amb_original.cd_pro_fat) cd_pro_fat,
+               nvl(itreg_amb.cd_convenio,itreg_amb_original.cd_convenio) cd_convenio,
+               nvl(itreg_amb.cd_reg_amb,itreg_amb_original.cd_reg_amb) cd_reg_amb,
+               nvl(itreg_amb.cd_lancamento,itreg_amb_original.cd_lancamento) cd_lancamento,
+               nvl(itreg_amb.cd_atendimento,itreg_amb_original.cd_atendimento) cd_atendimento,
+               nvl(itreg_amb.cd_ati_med,itreg_amb_original.cd_ati_med) cd_ati_med
+         from dbamv.reg_amb,
+              dbamv.itreg_amb,
+              dbamv.remessa_fatura,
+              dbamv.fatura,
+              dbamv.itreg_amb_original
+        where reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+          AND fatura.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+          and itreg_amb.cd_reg_amb = itreg_amb_original.cd_reg_amb(+)
+          and itreg_amb.cd_lancamento = itreg_amb_original.cd_lancamento(+)
+          and reg_amb.cd_remessa = remessa_fatura.cd_remessa(+)
+          and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+          and to_char( fatura.dt_competencia, 'mmyyyy' ) = to_char( :CAMPO_DT_COMPETENCIA, 'mmyyyy' )
+          and nvl(itreg_amb_original.sn_pertence_pacote, 'N') = 'N'
+          and nvl(itreg_amb_original.tp_pagamento,'X') <> 'C'
+          and nvl(itreg_amb.sn_fechada, 'N') = 'S' ) Amb
+ where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+   and Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and amb.cd_convenio = convenio.cd_convenio
+   and amb.cd_pro_fat = pro_fat.cd_pro_fat
+   and amb.cd_remessa = remessa_fatura.cd_remessa(+)
+   and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and convenio.tp_convenio in ('C','P')
+Union All
+Select convenio.cd_convenio,
+       convenio.nm_convenio,
+       hosp.cd_remessa,
+       hosp.vl_total_conta,
+       hosp.vl_auditado,
+       hosp.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       gru_pro.cd_gru_pro,
+       gru_pro.ds_gru_pro,
+       to_char(gru_pro.cd_gru_pro, 'fm00')||' - '||gru_pro.ds_gru_pro gru_procedimento,
+       hosp.cd_atendimento,
+       hosp.cd_reg_fat conta,
+       hosp.cd_lancamento,
+       fatura.dt_competencia,
+       remessa_fatura.dt_entrega_da_fatura,
+       remessa_fatura.dt_prevista_para_pgto
+  From Dbamv.convenio,
+       Dbamv.Empresa_Convenio,
+       Dbamv.pro_fat,
+       Dbamv.gru_pro,
+       Dbamv.remessa_fatura,
+       Dbamv.fatura,
+      (
+    Select fat_orig.cd_remessa,
+           fat_orig.cd_reg_fat,
+           fat_orig.cd_lancamento,
+           fat_orig.cd_atendimento,
+           fat_orig.vl_total_conta,
+           nvl(fat_orig.vl_total_conta,0) - decode(Nvl(fat.vl_desconto_conta,0),0,nvl(fat.vl_total_conta,0),nvl(fat_orig.vl_total_conta,0)) vl_auditado,  
+           fat_orig.cd_convenio,
+           fat_orig.cd_pro_fat,
+           fat_orig.cd_ati_med
+      From (
+         Select reg_fat.cd_remessa,
+                nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta) vl_total_conta,  
+                itreg_fat.cd_pro_fat,
+                reg_fat.cd_convenio,
+                reg_fat.cd_reg_fat,
+                itreg_fat.cd_lancamento,
+                reg_fat.cd_atendimento,
+                itlan_med.cd_ati_med  ,
+                reg_fat.vl_desconto_conta  
+           from dbamv.reg_fat,
+                dbamv.itreg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itlan_med
+           where reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+           and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+            and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+            and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and to_char( fatura.dt_competencia, 'mmyyyy' ) = to_char( :CAMPO_DT_COMPETENCIA, 'mmyyyy' )
+            and nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+            and nvl( nvl(itlan_med.tp_pagamento,itreg_fat.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S' ) Fat,
+         (
+         Select reg_fat.cd_remessa,
+                nvl(itlan_med_original.vl_liquido,itreg_fat_original.vl_total_conta) vl_total_conta,  
+                itreg_fat_original.cd_pro_fat,
+                reg_fat.cd_convenio,
+                itreg_fat_original.cd_reg_fat,
+                itreg_fat_original.cd_lancamento,
+                reg_fat.cd_atendimento,
+                itlan_med_original.cd_ati_med
+           from dbamv.reg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itreg_fat_original,
+                dbamv.itlan_med_original
+          where reg_fat.cd_reg_fat = itreg_fat_original.cd_reg_fat
+             and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+            and itreg_fat_original.cd_reg_fat = itlan_med_original.cd_reg_fat(+)
+            and itreg_fat_original.cd_lancamento = itlan_med_original.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and to_char( fatura.dt_competencia, 'mmyyyy' ) = to_char( :CAMPO_DT_COMPETENCIA, 'mmyyyy' )
+            and nvl(itreg_fat_original.sn_pertence_pacote,'N') = 'N'
+            and nvl(nvl(itlan_med_original.tp_pagamento,itreg_fat_original.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S' ) Fat_orig
+     Where  fat_orig.cd_reg_fat = fat.cd_reg_fat(+)
+       and  fat_orig.cd_lancamento = fat.cd_lancamento(+)
+       and  nvl(fat_orig.cd_ati_med,'0') = nvl(fat.cd_ati_med(+),'0')
+       union all
+         Select reg_fat.cd_remessa,
+                reg_fat.cd_reg_fat,
+                itreg_fat.cd_lancamento,
+                reg_fat.cd_atendimento,
+                nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta) vl_total_conta,
+                0 vl_auditado,
+                reg_fat.cd_convenio,
+                itreg_fat.cd_pro_fat,
+                itlan_med.cd_ati_med
+           from dbamv.reg_fat,
+                dbamv.itreg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itlan_med
+           where reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+            and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+            and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and TO_CHAR( fatura.dt_competencia, 'MM/YYYY') = TO_CHAR( :CAMPO_DT_COMPETENCIA, 'MM/YYYY')
+            and nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+            and not exists (select 1
+                            from dbamv.itreg_fat_original
+                            where itreg_fat_original.cd_reg_fat = itreg_fat.cd_reg_fat
+                              and itreg_fat_original.cd_lancamento = itreg_fat.cd_lancamento)
+            and nvl( nvl(itlan_med.tp_pagamento,itreg_fat.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S'
+             ) Hosp
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+   and Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and hosp.cd_convenio = convenio.cd_convenio
+   and hosp.cd_pro_fat = pro_fat.cd_pro_fat
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and hosp.cd_remessa = remessa_fatura.cd_remessa(+)
+   and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+   and convenio.tp_convenio in ('C','P')
+   :CAMPO_CF_CONVENIO
+)
+ORDER BY NM_CONVENIO,
+CD_REMESSA,
+GRU_PROCEDIMENTO
+
+
+/*----------------------------------------------------------------------------*/
+--R_AUD_CON_GRU2_R_6_Q_QUEBRA_3
+SELECT * FROM (
+Select convenio.cd_convenio,
+       convenio.nm_convenio,
+       amb.cd_remessa,
+       amb.vl_total_conta,
+       amb.vl_auditado,
+       amb.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       gru_pro.cd_gru_pro,
+       gru_pro.ds_gru_pro,
+       to_char(gru_pro.cd_gru_pro, 'fm00')||' - '||gru_pro.ds_gru_pro gru_procedimento,
+       amb.cd_atendimento,
+       amb.cd_reg_amb conta,
+       amb.cd_lancamento,
+       amb.cd_pro_fat ||' - '||pro_fat.ds_pro_fat          pro_fat,
+       fatura.dt_competencia,
+       remessa_fatura.dt_entrega_da_fatura,
+       remessa_fatura.dt_prevista_para_pgto,
+       convenio.cd_convenio||' - '||convenio.nm_convenio convenio
+  from Dbamv.convenio,
+       Dbamv.empresa_convenio,
+       Dbamv.pro_fat,
+       Dbamv.gru_pro,
+       Dbamv.remessa_fatura,
+       Dbamv.fatura,
+       (Select reg_amb.cd_remessa,
+               itreg_amb.vl_total_conta,
+               (nvl(itreg_amb_original.vl_total_conta,0) - decode(nvl(itreg_amb.vl_desconto_conta,0),0,nvl(itreg_amb.vl_total_conta,0),nvl(itreg_amb_original.vl_total_conta,0))) vl_auditado,  
+               nvl(itreg_amb.cd_pro_fat,itreg_amb_original.cd_pro_fat) cd_pro_fat,
+               nvl(itreg_amb.cd_convenio,itreg_amb_original.cd_convenio) cd_convenio,
+               nvl(itreg_amb.cd_reg_amb,itreg_amb_original.cd_reg_amb) cd_reg_amb,
+               nvl(itreg_amb.cd_lancamento,itreg_amb_original.cd_lancamento) cd_lancamento,
+               nvl(itreg_amb.cd_atendimento,itreg_amb_original.cd_atendimento) cd_atendimento,
+               nvl(itreg_amb.cd_ati_med,itreg_amb_original.cd_ati_med) cd_ati_med
+         from dbamv.reg_amb,
+              dbamv.itreg_amb,
+              dbamv.remessa_fatura,
+              dbamv.fatura,
+              dbamv.itreg_amb_original
+        where reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+          AND fatura.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+          and itreg_amb.cd_reg_amb = itreg_amb_original.cd_reg_amb(+)
+          and itreg_amb.cd_lancamento = itreg_amb_original.cd_lancamento(+)
+          and reg_amb.cd_remessa = remessa_fatura.cd_remessa(+)
+          and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+          and to_char( fatura.dt_competencia, 'mmyyyy' ) = to_char( :CAMPO_DT_COMPETENCIA, 'mmyyyy' )
+          and nvl(itreg_amb_original.sn_pertence_pacote, 'N') = 'N'
+          and nvl(itreg_amb_original.tp_pagamento,'X') <> 'C'
+          and nvl(itreg_amb.sn_fechada, 'N') = 'S' ) Amb
+ where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and amb.cd_convenio = convenio.cd_convenio
+   and amb.cd_pro_fat = pro_fat.cd_pro_fat
+   and amb.cd_remessa = remessa_fatura.cd_remessa(+)
+   and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and convenio.tp_convenio in ('C','P')
+Union All
+Select convenio.cd_convenio,
+       convenio.nm_convenio,
+       hosp.cd_remessa,
+       hosp.vl_total_conta,
+       hosp.vl_auditado,
+       hosp.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       gru_pro.cd_gru_pro,
+       gru_pro.ds_gru_pro,
+       to_char(gru_pro.cd_gru_pro, 'fm00')||' - '||gru_pro.ds_gru_pro gru_procedimento,
+       hosp.cd_atendimento,
+       hosp.cd_reg_fat conta,
+       hosp.cd_lancamento,
+       hosp.cd_pro_fat ||' - '||pro_fat.ds_pro_fat          pro_fat,
+       fatura.dt_competencia,
+       remessa_fatura.dt_entrega_da_fatura,
+       remessa_fatura.dt_prevista_para_pgto,
+       convenio.cd_convenio||' - '||convenio.nm_convenio convenio
+  From Dbamv.convenio,
+       Dbamv.empresa_convenio,
+       Dbamv.pro_fat,
+       Dbamv.gru_pro,
+       Dbamv.remessa_fatura,
+       Dbamv.fatura,
+      (
+    Select fat_orig.cd_remessa,
+           fat_orig.cd_reg_fat,
+           fat_orig.cd_lancamento,
+           fat_orig.cd_atendimento,
+           fat_orig.vl_total_conta,
+           nvl(fat_orig.vl_total_conta,0) - decode(Nvl(fat.vl_desconto_conta,0),0,nvl(fat.vl_total_conta,0),nvl(fat_orig.vl_total_conta,0)) vl_auditado,  
+           fat_orig.cd_convenio,
+           fat_orig.cd_pro_fat,
+           fat_orig.cd_ati_med
+      From (
+         Select reg_fat.cd_remessa,
+                nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta) vl_total_conta,  
+                itreg_fat.cd_pro_fat,
+                reg_fat.cd_convenio,
+                reg_fat.cd_reg_fat,
+                itreg_fat.cd_lancamento,
+                reg_fat.cd_atendimento,
+                itlan_med.cd_ati_med,
+                reg_fat.vl_desconto_conta  
+           from dbamv.reg_fat,
+                dbamv.itreg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itlan_med
+           where reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+            and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+            and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+            and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and to_char( fatura.dt_competencia, 'mmyyyy' ) = to_char( :CAMPO_DT_COMPETENCIA, 'mmyyyy' )
+            and nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+            and nvl( nvl(itlan_med.tp_pagamento,itreg_fat.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S' ) Fat,
+         (
+         Select reg_fat.cd_remessa,
+                nvl(itlan_med_original.vl_liquido,itreg_fat_original.vl_total_conta) vl_total_conta,  
+                itreg_fat_original.cd_pro_fat,
+                reg_fat.cd_convenio,
+                itreg_fat_original.cd_reg_fat,
+                itreg_fat_original.cd_lancamento,
+                reg_fat.cd_atendimento,
+                itlan_med_original.cd_ati_med
+           from dbamv.reg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itreg_fat_original,
+                dbamv.itlan_med_original
+          where reg_fat.cd_reg_fat = itreg_fat_original.cd_reg_fat
+            and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+            and itreg_fat_original.cd_reg_fat = itlan_med_original.cd_reg_fat(+)
+            and itreg_fat_original.cd_lancamento = itlan_med_original.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and to_char( fatura.dt_competencia, 'mmyyyy' ) = to_char( :CAMPO_DT_COMPETENCIA, 'mmyyyy' )
+            and nvl(itreg_fat_original.sn_pertence_pacote,'N') = 'N'
+            and nvl(nvl(itlan_med_original.tp_pagamento,itreg_fat_original.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S' ) Fat_orig
+     Where  fat_orig.cd_reg_fat = fat.cd_reg_fat(+)
+       and  fat_orig.cd_lancamento = fat.cd_lancamento(+)
+       and  nvl(fat_orig.cd_ati_med,'0') = nvl(fat.cd_ati_med(+),'0')
+      union all
+         Select reg_fat.cd_remessa,
+                reg_fat.cd_reg_fat,
+                itreg_fat.cd_lancamento,
+                reg_fat.cd_atendimento,
+                nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta) vl_total_conta,  
+                0 vl_auditado,
+                reg_fat.cd_convenio,
+                itreg_fat.cd_pro_fat,
+                itlan_med.cd_ati_med
+           from dbamv.reg_fat,
+                dbamv.itreg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itlan_med
+           where reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+            and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+            and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+            and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and TO_CHAR( fatura.dt_competencia, 'MM/YYYY') = TO_CHAR( :CAMPO_DT_COMPETENCIA, 'MM/YYYY')
+            and nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+            and not exists (select 1
+                            from dbamv.itreg_fat_original
+                            where itreg_fat_original.cd_reg_fat = itreg_fat.cd_reg_fat
+                              and itreg_fat_original.cd_lancamento = itreg_fat.cd_lancamento)
+            and nvl( nvl(itlan_med.tp_pagamento,itreg_fat.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S'
+            ) Hosp
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+And Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and hosp.cd_convenio = convenio.cd_convenio
+   and hosp.cd_pro_fat = pro_fat.cd_pro_fat
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and hosp.cd_remessa = remessa_fatura.cd_remessa(+)
+   and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+   and convenio.tp_convenio in ('C','P')
+   :CAMPO_CF_CONVENIO
+)
+ORDER BY CD_CONVENIO,NM_CONVENIO,CONVENIO,
+CD_REMESSA,
+GRU_PROCEDIMENTO,
+PRO_FAT
+
+
+/*----------------------------------------------------------------------------*/
+--R_AUD_CON_GRU2_R_GRUPO_PROCEDIMENTO2_Q_QUEBRA_1
+SELECT * FROM (
+Select convenio.cd_convenio,
+       convenio.nm_convenio,
+       amb.cd_remessa,
+       amb.vl_total_conta,
+       amb.vl_auditado,
+       amb.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       gru_pro.cd_gru_pro,
+       gru_pro.ds_gru_pro,
+       amb.cd_atendimento,
+       amb.cd_reg_amb conta,
+       amb.cd_lancamento,
+       fatura.dt_competencia,
+       remessa_fatura.dt_entrega_da_fatura,
+       remessa_fatura.dt_prevista_para_pgto,
+       gru_pro.cd_gru_pro||' - '||gru_pro.ds_gru_pro   gru_proced,
+       convenio.cd_convenio||' - '||convenio.nm_convenio convenio
+  from Dbamv.convenio,
+       dbamv.empresa_convenio,
+       Dbamv.pro_fat,
+       Dbamv.gru_pro,
+       Dbamv.remessa_fatura,
+       Dbamv.fatura,
+       (Select reg_amb.cd_remessa,
+               itreg_amb.vl_total_conta,
+               (nvl(itreg_amb_original.vl_total_conta,0) - decode(nvl(itreg_amb.vl_desconto_conta,0),0,nvl(itreg_amb.vl_total_conta,0),nvl(itreg_amb_original.vl_total_conta,0))) vl_auditado, 
+               nvl(itreg_amb.cd_pro_fat,itreg_amb_original.cd_pro_fat) cd_pro_fat,
+               nvl(itreg_amb.cd_convenio,itreg_amb_original.cd_convenio) cd_convenio,
+               nvl(itreg_amb.cd_reg_amb,itreg_amb_original.cd_reg_amb) cd_reg_amb,
+               nvl(itreg_amb.cd_lancamento,itreg_amb_original.cd_lancamento) cd_lancamento,
+               nvl(itreg_amb.cd_atendimento,itreg_amb_original.cd_atendimento) cd_atendimento,
+               nvl(itreg_amb.cd_ati_med,itreg_amb_original.cd_ati_med) cd_ati_med
+         from dbamv.reg_amb,
+              dbamv.itreg_amb,
+              dbamv.remessa_fatura,
+              dbamv.fatura,
+              dbamv.itreg_amb_original
+        where reg_amb.cd_reg_amb = itreg_amb.cd_reg_amb
+          AND fatura.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+          and itreg_amb.cd_reg_amb = itreg_amb_original.cd_reg_amb(+)
+          and itreg_amb.cd_lancamento = itreg_amb_original.cd_lancamento(+)
+          and reg_amb.cd_remessa = remessa_fatura.cd_remessa(+)
+          and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+          and to_char( Fatura.Dt_Competencia, 'MMYYYY' ) = to_char( :CAMPO_DT_COMPETENCIA, 'MMYYYY' )
+          and nvl(itreg_amb_original.sn_pertence_pacote, 'N') = 'N'
+          and nvl(itreg_amb_original.tp_pagamento,'X') <> 'C'
+          and nvl(itreg_amb.sn_fechada, 'N') = 'S' ) Amb
+where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+   and Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and amb.cd_convenio = convenio.cd_convenio
+   and amb.cd_pro_fat = pro_fat.cd_pro_fat
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and amb.cd_remessa = remessa_fatura.cd_remessa(+)
+   and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+   and convenio.tp_convenio in ('C','P')
+Union All
+Select convenio.cd_convenio,
+       convenio.nm_convenio,
+       hosp.cd_remessa,
+       hosp.vl_total_conta,
+       hosp.vl_auditado,
+       hosp.cd_pro_fat,
+       pro_fat.ds_pro_fat,
+       gru_pro.cd_gru_pro,
+       gru_pro.ds_gru_pro,
+       hosp.cd_atendimento,
+       hosp.cd_reg_fat conta,
+       hosp.cd_lancamento,
+       fatura.dt_competencia,
+       remessa_fatura.dt_entrega_da_fatura,
+       remessa_fatura.dt_prevista_para_pgto,
+       gru_pro.cd_gru_pro||' - '||gru_pro.ds_gru_pro   gru_proced,
+       convenio.cd_convenio||' - '||convenio.nm_convenio convenio
+  From Dbamv.convenio,
+       dbamv.empresa_convenio,
+       Dbamv.pro_fat,
+       Dbamv.gru_pro,
+       Dbamv.remessa_fatura,
+       Dbamv.fatura,
+      (
+    Select fat_orig.cd_remessa,
+           fat_orig.cd_reg_fat,
+           fat_orig.cd_lancamento,
+           fat_orig.cd_atendimento,
+           fat_orig.vl_total_conta,
+           nvl(fat_orig.vl_total_conta,0) - decode(Nvl(fat.vl_desconto_conta,0),0,nvl(fat.vl_total_conta,0),nvl(fat_orig.vl_total_conta,0)) vl_auditado, 
+           fat_orig.cd_convenio,
+           fat_orig.cd_pro_fat,
+           fat_orig.cd_ati_med
+      From (
+         Select reg_fat.cd_remessa,
+                nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta) vl_total_conta, 
+                itreg_fat.cd_pro_fat,
+                reg_fat.cd_convenio,
+                reg_fat.cd_reg_fat,
+                itreg_fat.cd_lancamento,
+                reg_fat.cd_atendimento,
+                itlan_med.cd_ati_med  ,
+                reg_fat.vl_desconto_conta  
+           from dbamv.reg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itreg_fat,
+                dbamv.itlan_med
+           where reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+            and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+            and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+            and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and to_char( Fatura.Dt_Competencia, 'MMYYYY' ) = to_char( :CAMPO_DT_COMPETENCIA, 'MMYYYY' )
+            and nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+            and nvl( nvl(itlan_med.tp_pagamento,itreg_fat.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S' ) Fat,
+         (
+         Select reg_fat.cd_remessa,
+                nvl(itlan_med_original.vl_liquido,itreg_fat_original.vl_total_conta) vl_total_conta,  
+                itreg_fat_original.cd_pro_fat,
+                reg_fat.cd_convenio,
+                itreg_fat_original.cd_reg_fat,
+                itreg_fat_original.cd_lancamento,
+                reg_fat.cd_atendimento,
+                itlan_med_original.cd_ati_med
+           from dbamv.reg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itreg_fat_original,
+                dbamv.itlan_med_original
+          where reg_fat.cd_reg_fat = itreg_fat_original.cd_reg_fat
+            and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA 
+            and itreg_fat_original.cd_reg_fat = itlan_med_original.cd_reg_fat(+)
+            and itreg_fat_original.cd_lancamento = itlan_med_original.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and to_char( Fatura.Dt_Competencia, 'MMYYYY' ) = to_char( :CAMPO_DT_COMPETENCIA, 'MMYYYY' )
+            and nvl(itreg_fat_original.sn_pertence_pacote,'N') = 'N'
+            and nvl(nvl(itlan_med_original.tp_pagamento,itreg_fat_original.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S' ) Fat_orig
+     Where  fat_orig.cd_reg_fat = fat.cd_reg_fat(+)
+       and  fat_orig.cd_lancamento = fat.cd_lancamento(+)
+       and  nvl(fat_orig.cd_ati_med,'0') = nvl(fat.cd_ati_med(+),'0')
+      union all
+         Select reg_fat.cd_remessa,
+                reg_fat.cd_reg_fat,
+                itreg_fat.cd_lancamento,
+                reg_fat.cd_atendimento,
+                nvl(itlan_med.vl_liquido,itreg_fat.vl_total_conta) vl_total_conta,
+                0 vl_auditado,
+                reg_fat.cd_convenio,
+                itreg_fat.cd_pro_fat,
+                itlan_med.cd_ati_med
+           from dbamv.reg_fat,
+                dbamv.itreg_fat,
+                dbamv.remessa_fatura,
+                dbamv.fatura,
+                dbamv.itlan_med
+           where reg_fat.cd_reg_fat = itreg_fat.cd_reg_fat
+            and itreg_fat.cd_reg_fat = itlan_med.cd_reg_fat(+)
+            and fatura.cd_multi_empresa = :CAMPO_CD_MULTI_EMPRESA
+            and itreg_fat.cd_lancamento = itlan_med.cd_lancamento(+)
+            and reg_fat.cd_remessa = remessa_fatura.cd_remessa(+)
+            and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+            and TO_CHAR( fatura.dt_competencia, 'MM/YYYY') = TO_CHAR( :CAMPO_DT_COMPETENCIA, 'MM/YYYY')
+            and nvl(itreg_fat.sn_pertence_pacote,'N') = 'N'
+            and not exists (select 1
+                            from dbamv.itreg_fat_original
+                            where itreg_fat_original.cd_reg_fat = itreg_fat.cd_reg_fat
+                              and itreg_fat_original.cd_lancamento = itreg_fat.cd_lancamento)
+            and nvl( nvl(itlan_med.tp_pagamento,itreg_fat.tp_pagamento), 'P' ) <> 'C'
+            and reg_fat.sn_fechada  = 'S'
+       ) Hosp
+Where Empresa_Convenio.Cd_Convenio = Convenio.Cd_Convenio
+   and Empresa_Convenio.Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA
+   and hosp.cd_convenio = convenio.cd_convenio
+   and hosp.cd_pro_fat = pro_fat.cd_pro_fat
+   and pro_fat.cd_gru_pro = gru_pro.cd_gru_pro
+   and hosp.cd_remessa = remessa_fatura.cd_remessa(+)
+   and remessa_fatura.cd_fatura = fatura.cd_fatura(+)
+   and convenio.tp_convenio in ('C','P')
+   :CAMPO_CF_GRU_PRO
+)
+ORDER BY GRU_PROCED

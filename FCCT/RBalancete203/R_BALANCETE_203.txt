@@ -1,0 +1,122 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FCCT/RBalancete203/R_BALANCETE_203.txt
+--Nome módulo: FCCT - SISTEMA DE CONTROLE CONTABIL
+
+/*----------------------------------------------------------------------------*/
+--R_BALANCETE_203
+SELECT * FROM (
+SELECT  SUBSTR( A.CD_CONTABIL, 1, 1 )  TAMANHO
+         ,A.CD_CONTABIL           CD_CONTABIL
+         ,A.DS_CONTA              DS_CONTA
+         ,A.CD_GRAU               CD_GRAU
+         ,A.TP_CONTA              TP_CONTA
+         ,SUM( A.VL_SALDO_ANT )   VL_SALDO_ANT
+         ,SUM( A.VL_DEBITO )      VL_DEBITO
+         ,SUM( A.VL_CREDITO )     VL_CREDITO
+         ,SUM( A.VL_SALDO_ATU )   VL_SALDO_ATU
+FROM (
+SELECT  PC.CD_CONTABIL             CD_CONTABIL
+       ,PC.DS_CONTA                DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA        CD_GRAU
+       ,PC.TP_CONTA                           TP_CONTA
+       ,DBAMV.FCCT_SALDO_CONTA(  :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, :CAMPO_DT_ANO_ANT, :CAMPO_DT_MES_ANT, PC.CD_CONTABIL )   VL_SALDO_ANT
+       ,nvl( SM.VL_DEBITO, 0 )     VL_DEBITO
+       ,nvl( SM.VL_CREDITO, 0 )    VL_CREDITO
+       ,DBAMV.FCCT_SALDO_CONTA(  :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, :CAMPO_DT_ANO, :CAMPO_DT_MES, PC.CD_CONTABIL )   VL_SALDO_ATU
+FROM    	 DBAMV.PLANO_CONTAS      PC
+       	,DBAMV.SALDO_MENSAL      SM
+WHERE  PC.CD_MULTI_EMPRESA            =  :CAMPO_CD_MULTI_EMPRESA
+AND	:CAMPO_QUEBRA		= 'S'
+AND     	PC.CD_GRAU_DA_CONTA          <= :CAMPO_CD_GRAU_CONTA
+AND     	PC.CD_REDUZIDO                       =  SM.CD_REDUZIDO
+AND EXISTS (   SELECT  CD_REDUZIDO
+                      FROM  DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+                     WHERE  PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+                       AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                       AND PU.CD_ID_USUARIO     = USER  )
+UNION ALL
+SELECT  PC.CD_CONTABIL        CD_CONTABIL
+       ,PC.DS_CONTA           DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA   CD_GRAU
+       ,PC.TP_CONTA                           TP_CONTA
+       ,0                     VL_SALDO_ANT
+       ,0                     VL_CREDITO
+       ,0                     VL_DEBITO
+       ,0                     VL_SALDO_ATU
+FROM    DBAMV.PLANO_CONTAS    PC
+WHERE   PC.CD_MULTI_EMPRESA     =  :CAMPO_CD_MULTI_EMPRESA
+AND	:CAMPO_QUEBRA		= 'S'
+AND         PC.CD_GRAU_DA_CONTA    <= :CAMPO_CD_GRAU_CONTA
+AND EXISTS (   SELECT  CD_REDUZIDO
+                      FROM  DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+                     WHERE  PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+                       AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                       AND PU.CD_ID_USUARIO     = USER  )
+:CAMPO_COND_CONTA_CONTABIL
+) A
+WHERE :CAMPO_QUEBRA	= 'S'
+GROUP BY  A.CD_CONTABIL
+         ,A.DS_CONTA
+         ,A.CD_GRAU
+         ,A.TP_CONTA
+ORDER BY  A.CD_CONTABIL
+)
+ORDER BY TAMANHO, CD_CONTABIL
+
+
+/*----------------------------------------------------------------------------*/
+--R_BALANCETE_203_R_G_DT_SALDO_MES2_Q_BALANCETE_SEM_QUEBRA
+SELECT  A.CD_CONTABIL           CD_CONTABIL2
+         ,A.DS_CONTA              DS_CONTA2
+         ,A.CD_GRAU               CD_GRAU2
+         ,A.TP_CONTA              TP_CONTA2
+         ,SUM( A.VL_SALDO_ANT )   VL_SALDO_ANT2
+         ,SUM( A.VL_DEBITO )      VL_DEBITO2
+         ,SUM( A.VL_CREDITO )     VL_CREDITO2
+         ,SUM( A.VL_SALDO_ATU )   VL_SALDO_ATU2
+FROM (
+SELECT  PC.CD_CONTABIL             CD_CONTABIL
+       ,PC.DS_CONTA                DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA        CD_GRAU
+       ,PC.TP_CONTA                           TP_CONTA
+       ,DBAMV.FCCT_SALDO_CONTA(  :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, :CAMPO_DT_ANO_ANT, :CAMPO_DT_MES_ANT, PC.CD_CONTABIL )   VL_SALDO_ANT
+       ,nvl( SM.VL_DEBITO, 0 )     VL_DEBITO
+       ,nvl( SM.VL_CREDITO, 0 )    VL_CREDITO
+       ,DBAMV.FCCT_SALDO_CONTA(  :CAMPO_CD_MULTI_EMPRESA, :CAMPO_CD_GRAU_CONTA, :CAMPO_DT_ANO, :CAMPO_DT_MES, PC.CD_CONTABIL )   VL_SALDO_ATU
+FROM    	 DBAMV.PLANO_CONTAS      PC
+       	,DBAMV.SALDO_MENSAL      SM
+WHERE   PC.CD_MULTI_EMPRESA                  	=  :CAMPO_CD_MULTI_EMPRESA
+AND	:CAMPO_QUEBRA			= 'N'
+AND         PC.CD_GRAU_DA_CONTA                 	<= :CAMPO_CD_GRAU_CONTA
+AND         PC.CD_REDUZIDO                       	=  SM.CD_REDUZIDO
+AND EXISTS (   SELECT  CD_REDUZIDO
+                      FROM  DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+                     WHERE  PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+                       AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                       AND PU.CD_ID_USUARIO     = USER  )
+UNION ALL
+SELECT  PC.CD_CONTABIL        CD_CONTABIL
+       ,PC.DS_CONTA           DS_CONTA
+       ,PC.CD_GRAU_DA_CONTA   CD_GRAU
+       ,PC.TP_CONTA                           TP_CONTA
+       ,0                     VL_SALDO_ANT
+       ,0                     VL_CREDITO
+       ,0                     VL_DEBITO
+       ,0                     VL_SALDO_ATU
+FROM    DBAMV.PLANO_CONTAS    PC
+WHERE   PC.CD_MULTI_EMPRESA  =  :CAMPO_CD_MULTI_EMPRESA
+AND	:CAMPO_QUEBRA		= 'N'
+AND         PC.CD_GRAU_DA_CONTA  <= :CAMPO_CD_GRAU_CONTA
+AND EXISTS (   SELECT  CD_REDUZIDO
+                      FROM  DBAMV.PLANO_USUARIO_MULTI_EMPRESA PU
+                     WHERE  PU.CD_REDUZIDO       = PC.CD_REDUZIDO
+                       AND PU.CD_MULTI_EMPRESA  = :CAMPO_CD_MULTI_EMPRESA
+                       AND PU.CD_ID_USUARIO     = USER  )
+:CAMPO_COND_CONTA_CONTABIL
+) A
+WHERE :CAMPO_QUEBRA	= 'N'
+GROUP BY  A.CD_CONTABIL
+         ,A.DS_CONTA
+         ,A.CD_GRAU
+         ,A.TP_CONTA
+ORDER BY  A.CD_CONTABIL

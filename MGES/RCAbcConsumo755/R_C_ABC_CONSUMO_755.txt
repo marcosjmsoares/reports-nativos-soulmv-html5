@@ -1,0 +1,158 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/MGES/RCAbcConsumo755/R_C_ABC_CONSUMO_755.txt
+--Nome módulo: MGES - SISTEMA DE GERENCIAMENTO DE ESTOQUE
+
+/*----------------------------------------------------------------------------*/
+--R_C_ABC_CONSUMO_755
+Select * from (
+select
+ PRODUTO.DS_PRODUTO DS_PRODUTO,
+ PRODUTO.CD_PRODUTO CD_PRODUTO,
+ PRODUTO.TP_CLASSIFICACAO_XYZ TP_CLASSIFICACAO_XYZ,
+ VERIF_DS_UNID_PROD(PRODUTO.CD_PRODUTO)   DS_UNIDADE,
+ sum( resultado.qt_consumo) / verif_vl_fator_prod(produto.cd_produto) QT_CONSUMO,
+ sum(resultado.vl_custo_periodo) VL_CUSTO_PERIODO1
+from
+     (select TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'D', -1, 'C', -1, 'N', -1, 1 ) *
+                  (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator)),4) QT_CONSUMO,
+             TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'D', -1, 'C', -1, 'N', -1, 1 ) *
+                 (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator) *
+                 (VERIF_VL_CUSTO_MEDIO( PRODUTO.CD_PRODUTO, MVTO_ESTOQUE.DT_MVTO_ESTOQUE, :CAMPO_TP_CUSTO,
+                                        PRODUTO.VL_CUSTO_MEDIO, Mvto_Estoque.Hr_Mvto_Estoque ))),4) VL_CUSTO_PERIODO,
+             DECODE(nvl('','N'), 'S', produto.cd_produto_tem, produto.cd_produto) cd_produto
+      from
+        DBAMV.MVTO_ESTOQUE,
+        DBAMV.ITMVTO_ESTOQUE,
+        DBAMV.ESTOQUE,
+        DBAMV.PRODUTO,
+        DBAMV.UNI_PRO
+      where
+          ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE IN ( 'D', 'C', 'S', 'P', 'X', 'N', 'V', DECODE(ESTOQUE.TP_ESTOQUE ,'D','T','#'))
+      and PRODUTO.TP_ATIVO = 'S'
+      AND TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DT_INICIAL AND 
+      AND MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+      AND ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+      AND ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+      AND MVTO_ESTOQUE.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+      group by DECODE(nvl('','N') , 'S', produto.cd_produto_tem, produto.cd_produto)
+ UNION
+      SELECT TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'T', 1, 0 ) *
+                  (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator)*(-1)),4) QT_CONSUMO, 
+             TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'T', 1, 0 ) *
+                  (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator) *
+                  (VERIF_VL_CUSTO_MEDIO( PRODUTO.CD_PRODUTO, MVTO_ESTOQUE.DT_MVTO_ESTOQUE, :CAMPO_TP_CUSTO,
+                                         PRODUTO.VL_CUSTO_MEDIO, Mvto_Estoque.Hr_Mvto_Estoque ))*(-1)),4) VL_CUSTO_PERIODO, 
+             DECODE(nvl('','N'), 'S', produto.cd_produto_tem, produto.cd_produto) cd_produto
+      FROM
+       DBAMV.MVTO_ESTOQUE,
+       DBAMV.ITMVTO_ESTOQUE,
+       DBAMV.ESTOQUE,
+       DBAMV.PRODUTO,
+       DBAMV.UNI_PRO
+      WHERE
+       ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+       AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE IN ( DECODE(ESTOQUE.TP_ESTOQUE ,'D','T','#') ) 
+       and PRODUTO.TP_ATIVO = 'S'
+       AND TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DT_INICIAL AND 
+       AND MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+       AND ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+       AND ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+       AND MVTO_ESTOQUE.CD_ESTOQUE_DESTINO = ESTOQUE.CD_ESTOQUE 
+      group by DECODE(nvl('','N') , 'S', produto.cd_produto_tem, produto.cd_produto)
+      ) resultado,
+ DBAMV.PRODUTO,
+ DBAMV.SUB_CLAS
+WHERE
+ PRODUTO.CD_SUB_CLA     = SUB_CLAS.CD_SUB_CLA
+ AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+ AND PRODUTO.SN_MESTRE  = 'N'
+ AND PRODUTO.TP_ATIVO   = 'S'
+ AND PRODUTO.CD_CLASSE  = SUB_CLAS.CD_CLASSE
+ AND PRODUTO.CD_ESPECIE = SUB_CLAS.CD_ESPECIE
+ AND resultado.CD_PRODUTO = PRODUTO.CD_PRODUTO
+group by
+ PRODUTO.DS_PRODUTO,
+ PRODUTO.CD_PRODUTO,
+ PRODUTO.TP_CLASSIFICACAO_XYZ,
+ VERIF_DS_UNID_PROD(PRODUTO.CD_PRODUTO))
+where Qt_Consumo <> 0
+ORDER BY VL_CUSTO_PERIODO1 DESC
+
+
+/*----------------------------------------------------------------------------*/
+--R_C_ABC_CONSUMO_755_subreport1
+Select * from (
+select
+ PRODUTO.DS_PRODUTO DS_PRODUTO,
+ PRODUTO.CD_PRODUTO CD_PRODUTO,
+ PRODUTO.TP_CLASSIFICACAO_XYZ TP_CLASSIFICACAO_XYZ,
+ VERIF_DS_UNID_PROD(PRODUTO.CD_PRODUTO)   DS_UNIDADE,
+ sum( resultado.qt_consumo) / verif_vl_fator_prod(produto.cd_produto) QT_CONSUMO,
+ sum(resultado.vl_custo_periodo) VL_CUSTO_PERIODO1
+from
+     (select TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'D', -1, 'C', -1, 'N', -1, 1 ) *
+                  (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator)),4) QT_CONSUMO,
+             TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'D', -1, 'C', -1, 'N', -1, 1 ) *
+                 (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator) *
+                 (VERIF_VL_CUSTO_MEDIO( PRODUTO.CD_PRODUTO, MVTO_ESTOQUE.DT_MVTO_ESTOQUE, :CAMPO_TP_CUSTO,
+                                        PRODUTO.VL_CUSTO_MEDIO, Mvto_Estoque.Hr_Mvto_Estoque ))),4) VL_CUSTO_PERIODO,
+             DECODE(nvl('','N'), 'S', produto.cd_produto_tem, produto.cd_produto) cd_produto
+      from
+        DBAMV.MVTO_ESTOQUE,
+        DBAMV.ITMVTO_ESTOQUE,
+        DBAMV.ESTOQUE,
+        DBAMV.PRODUTO,
+        DBAMV.UNI_PRO
+      where
+          ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+      AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE IN ( 'D', 'C', 'S', 'P', 'X', 'N', 'V', DECODE(ESTOQUE.TP_ESTOQUE ,'D','T','#'))
+      and PRODUTO.TP_ATIVO = 'S'
+      AND TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DT_INICIAL AND 
+      AND MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+      AND ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+      AND ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+      AND MVTO_ESTOQUE.CD_ESTOQUE = ESTOQUE.CD_ESTOQUE
+      group by DECODE(nvl('','N') , 'S', produto.cd_produto_tem, produto.cd_produto)
+ UNION
+      SELECT TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'T', 1, 0 ) *
+                  (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator)*(-1)),4) QT_CONSUMO, 
+             TRUNC( Sum( Decode( Mvto_Estoque.Tp_Mvto_Estoque, 'T', 1, 0 ) *
+                  (ItMvto_Estoque.Qt_Movimentacao * uni_pro.vl_fator) *
+                  (VERIF_VL_CUSTO_MEDIO( PRODUTO.CD_PRODUTO, MVTO_ESTOQUE.DT_MVTO_ESTOQUE, :CAMPO_TP_CUSTO,
+                                         PRODUTO.VL_CUSTO_MEDIO, Mvto_Estoque.Hr_Mvto_Estoque ))*(-1)),4) VL_CUSTO_PERIODO, 
+             DECODE(nvl('','N'), 'S', produto.cd_produto_tem, produto.cd_produto) cd_produto
+      FROM
+       DBAMV.MVTO_ESTOQUE,
+       DBAMV.ITMVTO_ESTOQUE,
+       DBAMV.ESTOQUE,
+       DBAMV.PRODUTO,
+       DBAMV.UNI_PRO
+      WHERE
+       ESTOQUE.CD_MULTI_EMPRESA = :CAMPO_CD_MULTI_EMPRESA
+       AND MVTO_ESTOQUE.TP_MVTO_ESTOQUE IN ( DECODE(ESTOQUE.TP_ESTOQUE ,'D','T','#') ) 
+       and PRODUTO.TP_ATIVO = 'S'
+       AND TRUNC(MVTO_ESTOQUE.DT_MVTO_ESTOQUE) BETWEEN :CAMPO_DT_INICIAL AND 
+       AND MVTO_ESTOQUE.CD_MVTO_ESTOQUE = ITMVTO_ESTOQUE.CD_MVTO_ESTOQUE
+       AND ITMVTO_ESTOQUE.CD_PRODUTO = PRODUTO.CD_PRODUTO
+       AND ITMVTO_ESTOQUE.CD_UNI_PRO = UNI_PRO.CD_UNI_PRO
+       AND MVTO_ESTOQUE.CD_ESTOQUE_DESTINO = ESTOQUE.CD_ESTOQUE 
+      group by DECODE(nvl('','N') , 'S', produto.cd_produto_tem, produto.cd_produto)
+      ) resultado,
+ DBAMV.PRODUTO,
+ DBAMV.SUB_CLAS
+WHERE
+ PRODUTO.CD_SUB_CLA     = SUB_CLAS.CD_SUB_CLA
+ AND Exists ( SELECT Empresa_Produto.Cd_Produto FROM Dbamv.Empresa_Produto WHERE Cd_Multi_Empresa = :CAMPO_CD_MULTI_EMPRESA AND Empresa_Produto.Cd_Produto = Produto.Cd_Produto )
+ AND PRODUTO.SN_MESTRE  = 'N'
+ AND PRODUTO.TP_ATIVO   = 'S'
+ AND PRODUTO.CD_CLASSE  = SUB_CLAS.CD_CLASSE
+ AND PRODUTO.CD_ESPECIE = SUB_CLAS.CD_ESPECIE
+ AND resultado.CD_PRODUTO = PRODUTO.CD_PRODUTO
+group by
+ PRODUTO.DS_PRODUTO,
+ PRODUTO.CD_PRODUTO,
+ PRODUTO.TP_CLASSIFICACAO_XYZ,
+ VERIF_DS_UNID_PROD(PRODUTO.CD_PRODUTO))
+Where QT_CONSUMO <> 0
+ORDER BY VL_CUSTO_PERIODO1 DESC

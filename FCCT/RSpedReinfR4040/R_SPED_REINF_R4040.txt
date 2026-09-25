@@ -1,0 +1,46 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FCCT/RSpedReinfR4040/R_SPED_REINF_R4040.txt
+--Nome módulo: FCCT - SISTEMA DE CONTROLE CONTABIL
+
+/*----------------------------------------------------------------------------*/
+--R_SPED_REINF_R4040
+SELECT 1 FROM dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_SPED_REINF_PAGAMENTO
+SELECT (SELECT DS_DESCRICAO
+               FROM   DBAMV.LISTAS_SPED_ECF
+               WHERE  CD_LISTA = 'NATU_REND_REINF'
+            AND CD_CHAVE_ECF = P.CD_NAT_REND)    NAT_RENDIMENTOS_PAG,
+       P.DT_PAGAMENTO                               DT_PAG,
+       P.VL_PAGO                                    VL_PAG,
+       P.DS_OBSERVACAO                              OBS_PAG,
+       DECODE(P.TP_ORIGEM_INFORMACAO, 'M', 'MANUAL',
+                                      'AUTOMATICO') ORIGEM_PAG,
+                                     P.CD_CON_PAG,
+                                   P.CD_REINF_BEN_PAG,
+                                   P.TP_DEDUCAO,
+                                   P.VL_DEDUCAO,
+                                   P.TP_ISENCAO,
+                                   P.VL_ISENTO,
+                                  P.TP_SCP_FNI,
+                                  P.NR_CNPJ_SCP_FNI,
+ 			                             P.VL_PERC_SCP,
+                                   eventos.CD_REINF_EVENTOS,
+            (SELECT Sum(VL_PAGO) FROM DBAMV.REINF_BEN_PAG  WHERE  cd_reinf_beneficiario = P.CD_REINF_BENEFICIARIO) VL_TOTAL_PAGO ,
+            (SELECT Sum (VL_IMP) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_IMPOSTO IN ('F','J') AND CD_REINF_BEN_PAG IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  cd_reinf_beneficiario = P.CD_REINF_BENEFICIARIO))  VL_TOTAL_IR,
+            (SELECT Sum (VL_IMP) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_IMPOSTO = 'L' AND CD_REINF_BEN_PAG IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  cd_reinf_beneficiario = P.CD_REINF_BENEFICIARIO) ) VL_TOTAL_CSLL ,
+            (SELECT Sum (VL_IMP) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE  CD_IMPOSTO = 'P' AND CD_REINF_BEN_PAG  IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  cd_reinf_beneficiario = P.CD_REINF_BENEFICIARIO)  ) VL_TOTAL_PIS_PASEP,
+            (SELECT Sum (VL_IMP) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_IMPOSTO = 'C' AND CD_REINF_BEN_PAG IN  (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  cd_reinf_beneficiario = P.CD_REINF_BENEFICIARIO)) VL_TOTAL_COFINS,
+            (SELECT Sum(VL_IMP) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_REINF_BEN_PAG IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  cd_reinf_beneficiario = P.CD_REINF_BENEFICIARIO))  VL_TOTAL_IMP,
+            (SELECT Nvl(Sum(vl_imp),0) FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag, DBAMV.reinf_ben_pag_imp WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario AND reinf_ben_pag.cd_reinf_ben_pag = reinf_ben_pag_imp.cd_reinf_ben_pag AND CD_IMPOSTO IN ('F','J') AND reinf_beneficiario.cd_reinf_eventos = b.CD_REINF_EVENTOS) VL_TOTAL_IR_GERAL,
+             ( SELECT Nvl(Sum(vl_pago),0)  FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag  WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario AND reinf_beneficiario.cd_reinf_eventos =b.CD_REINF_EVENTOS) VL_TOTAL_PAGO_GERAL
+           FROM   DBAMV.REINF_BEN_PAG P,
+             dbamv.reinf_beneficiario b,
+              dbamv.REINF_EVENTOS eventos
+            WHERE b.CD_REINF_EVENTOS = eventos.CD_REINF_EVENTOS
+            AND b.cd_reinf_beneficiario = P.cd_reinf_beneficiario(+)
+            AND eventos.DT_COMPETENCIA = to_date('','mm/yyyy')
+            AND eventos.CD_EVENTO = 'R-4040'
+            ORDER BY P.CD_REINF_BEN_PAG ASC

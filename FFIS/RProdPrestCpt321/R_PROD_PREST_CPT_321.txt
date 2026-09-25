@@ -1,0 +1,164 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RProdPrestCpt321/R_PROD_PREST_CPT_321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_CPT_321
+select sysdate from sys.dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_CPT_321_RF_PRESTADOR1_Q_PRODUTIVIDADE_SINT
+select  *  from (
+select v_ffis_fat_gerencial_total.cd_prestador cd_prestador_s
+     , prestador.nm_prestador nm_prestador_s
+     , prestador.tp_vinculo tp_vinculo_s
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos_s
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional_s
+  from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.remessa_fatura
+     , dbamv.fatura
+     , dbamv.reg_fat
+     , dbamv.prestador
+ where v_ffis_fat_gerencial_total.cd_remessa                         = remessa_fatura.cd_remessa
+   and fatura.cd_fatura                                              = remessa_fatura.cd_fatura
+   and v_ffis_fat_gerencial_total.cd_reg_fat       = reg_fat.cd_reg_fat
+   and prestador.cd_prestador                                        = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , prestador.tp_vinculo
+ order by 2,5
+ ) WHERE 1 = 1
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_CPT_321_RF_PRESTADOR_ANAL1_Q_PRODUTIVIDADE_ANA
+SELECT * FROM (
+select decode (setor.cd_setor, null, '00'                  , setor.cd_setor) cd_setor_a
+     , decode (setor.nm_setor, null, 'SETOR NÃO ENCONTRADO', setor.nm_setor) nm_setor_a
+     , v_ffis_fat_gerencial_total.cd_prestador cd_prestador_a
+     , prestador.nm_prestador nm_prestador_a
+     , v_ffis_fat_gerencial_total.cd_tipo_vinculo cd_tipo_vinculo_a
+     , reg_fat.nr_guia nr_guia_a
+     , paciente.cd_paciente cd_paciente_a
+     , paciente.nm_paciente nm_paciente_a
+     , v_ffis_fat_gerencial_total.cd_procedimento cd_procedimento_a
+     , procedimento_sus.ds_procedimento ds_procedimento_a
+     , reg_fat.dt_inicio dt_inicio_a
+     , reg_fat.dt_final dt_final_a
+     , v_ffis_fat_gerencial_total.vl_ponto vl_ponto_a
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos_a
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional_a
+  from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.prestador
+     , dbamv.reg_fat
+     , dbamv.atendime
+     , dbamv.paciente
+     , dbamv.procedimento_sus
+     , dbamv.setor
+ where prestador.cd_prestador                      = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_reg_fat       = reg_fat.cd_reg_fat
+   and reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   and atendime.cd_paciente                        = paciente.cd_paciente
+   and v_ffis_fat_gerencial_total.cd_procedimento  = procedimento_sus.cd_procedimento
+   and v_ffis_fat_gerencial_total.cd_setor         = setor.cd_setor(+)
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , decode (setor.nm_setor, null, 'SETOR NÃO ENCONTRADO', setor.nm_setor)
+        , decode (setor.cd_setor, null, '00'                  , setor.cd_setor)
+        , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+        , reg_fat.nr_guia
+        , paciente.cd_paciente
+        , paciente.nm_paciente
+        , v_ffis_fat_gerencial_total.cd_procedimento
+        , procedimento_sus.ds_procedimento
+        , reg_fat.dt_inicio
+        , reg_fat.dt_final
+        , v_ffis_fat_gerencial_total.vl_ponto
+) WHERE 1 = 1
+ORDER BY NM_PRESTADOR_A,CD_PRESTADOR_A,
+NM_SETOR_A,CD_SETOR_A,
+CD_TIPO_VINCULO_A
+
+
+/*----------------------------------------------------------------------------*/
+--R_PROD_PREST_CPT_321_RF_PRESTADOR_ANAL2_Q_PRODUTIVIDADE_ANA
+SELECT * FROM (
+select decode (setor.cd_setor, null, '00'                  , setor.cd_setor) cd_setor_a
+     , decode (setor.nm_setor, null, 'SETOR NÃO ENCONTRADO', setor.nm_setor) nm_setor_a
+     , v_ffis_fat_gerencial_total.cd_prestador cd_prestador_a
+     , prestador.nm_prestador nm_prestador_a
+     , v_ffis_fat_gerencial_total.cd_tipo_vinculo cd_tipo_vinculo_a
+     , reg_fat.nr_guia nr_guia_a
+     , paciente.cd_paciente cd_paciente_a
+     , paciente.nm_paciente nm_paciente_a
+     , v_ffis_fat_gerencial_total.cd_procedimento cd_procedimento_a
+     , procedimento_sus.ds_procedimento ds_procedimento_a
+     , reg_fat.dt_inicio dt_inicio_a
+     , reg_fat.dt_final dt_final_a
+     , v_ffis_fat_gerencial_total.vl_ponto vl_ponto_a
+     , sum(v_ffis_fat_gerencial_total.qt_pontos) qt_pontos_a
+     , sum(v_ffis_fat_gerencial_total.vlr_anestesista)
+     + sum(v_ffis_fat_gerencial_total.vlr_analg_obstetrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_consulta_pediatrica)
+     + sum(v_ffis_fat_gerencial_total.vlr_neonatologia)
+     + sum(v_ffis_fat_gerencial_total.vlr_perfusionista)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti)
+     + sum(v_ffis_fat_gerencial_total.vlr_prof_uti_especializada)
+     + sum(v_ffis_fat_gerencial_total.Vlr_Profissionais) Valor_Profissional_a
+  from dbamv.v_ffis_fat_gerencial_total
+     , dbamv.prestador
+     , dbamv.reg_fat
+     , dbamv.atendime
+     , dbamv.paciente
+     , dbamv.procedimento_sus
+     , dbamv.setor
+ where prestador.cd_prestador                      = v_ffis_fat_gerencial_total.cd_prestador
+   and v_ffis_fat_gerencial_total.cd_reg_fat       = reg_fat.cd_reg_fat
+   and reg_fat.cd_atendimento                      = atendime.cd_atendimento
+   and atendime.cd_paciente                        = paciente.cd_paciente
+   and v_ffis_fat_gerencial_total.cd_procedimento  = procedimento_sus.cd_procedimento
+   and v_ffis_fat_gerencial_total.cd_setor         = setor.cd_setor(+)
+   and v_ffis_fat_gerencial_total.cd_multi_empresa                   = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(v_ffis_fat_gerencial_total.dt_competencia, 'mm/yyyy') = to_char(:CAMPO_COMPET, 'mm/yyyy')
+   and v_ffis_fat_gerencial_total.sn_ortese_protese <> 'S'
+   and v_ffis_fat_gerencial_total.sn_teste_hiv <> 'S'
+ group by prestador.nm_prestador
+        , v_ffis_fat_gerencial_total.cd_prestador
+        , decode (setor.nm_setor, null, 'SETOR NÃO ENCONTRADO', setor.nm_setor)
+        , decode (setor.cd_setor, null, '00'                  , setor.cd_setor)
+        , v_ffis_fat_gerencial_total.cd_tipo_vinculo
+        , reg_fat.nr_guia
+        , paciente.cd_paciente
+        , paciente.nm_paciente
+        , v_ffis_fat_gerencial_total.cd_procedimento
+        , procedimento_sus.ds_procedimento
+        , reg_fat.dt_inicio
+        , reg_fat.dt_final
+        , v_ffis_fat_gerencial_total.vl_ponto
+) WHERE 1 = 1
+ORDER BY NM_PRESTADOR_A,CD_PRESTADOR_A,
+NM_SETOR_A,CD_SETOR_A,
+CD_TIPO_VINCULO_A

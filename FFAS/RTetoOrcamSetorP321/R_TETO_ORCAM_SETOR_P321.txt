@@ -1,0 +1,42 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAS/RTetoOrcamSetorP321/R_TETO_ORCAM_SETOR_P321.txt
+--Nome módulo: FFAS - SISTEMA FATURAMENTO AMBULATORIO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_TETO_ORCAM_SETOR_P321
+SELECT distinct
+       FAT_SIA.CD_FAT_SIA
+     , FAT_SIA.DS_FAT_SIA
+     , FAT_SIA.DT_COMPETENCIA
+     , SETOR.CD_SETOR
+     , SETOR.NM_SETOR
+     , PROCEDIMENTO_SUS.CD_PROCEDIMENTO CD_PROCEDIMENTO
+     , PROCEDIMENTO_SUS.DS_PROCEDIMENTO DS_TITULO
+     , TETO_ORCAMENTARIO_SET_PRC_SUS.QT_FISICO QT_FISICO
+     , TETO_ORCAMENTARIO_SET_PRC_SUS.VL_ORCAMENTO VL_ORCAMENTO
+     ,  nvl((select sum(EVE_SIASUS.QT_LANCADA)
+              from eve_siasus
+             where eve_siasus.cd_fat_sia = FAT_SIA.CD_FAT_SIA
+               AND EVE_SIASUS.CD_MULTI_EMPRESA = dbamv.pkg_mv2000.le_empresa
+               AND EVE_SIASUS.CD_PROCEDIMENTO  = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+         ),0) Mov_Fisico
+     , nvl((select sum(dbamv.pck_lcto_amb.Valor_Atual_SSM_321 ( FAT_SIA.CD_FAT_SIA
+                                                              , EVE_SIASUS.CD_PROCEDIMENTO
+                                                              , 'G'
+                                                              , 'F'
+                                                              , Null)) from dbamv.eve_siasus
+                                                                WHERE EVE_SIASUS.CD_MULTI_EMPRESA   = dbamv.pkg_mv2000.le_empresa
+                                                                  AND EVE_SIASUS.CD_FAT_SIA        = :CAMPO_FAT_SIA
+                                                                  AND EVE_SIASUS.CD_PROCEDIMENTO  = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+                                                              ),0) Mov_Orcamentario
+  FROM dbamv.TETO_ORCAMENTARIO_SET_PRC_SUS
+     , dbamv.SETOR
+     , dbamv.PROCEDIMENTO_SUS
+     , dbamv.FAT_SIA
+ WHERE FAT_SIA.CD_FAT_SIA                       = TETO_ORCAMENTARIO_SET_PRC_SUS.CD_FAT_SIA
+   AND SETOR.CD_SETOR                           = TETO_ORCAMENTARIO_SET_PRC_SUS.CD_SETOR
+   AND PROCEDIMENTO_SUS.CD_PROCEDIMENTO         = TETO_ORCAMENTARIO_SET_PRC_SUS.CD_PROCEDIMENTO
+   AND FAT_SIA.CD_MULTI_EMPRESA                 = dbamv.pkg_mv2000.le_empresa
+   AND FAT_SIA.CD_FAT_SIA                       = :CAMPO_FAT_SIA
+   AND TETO_ORCAMENTARIO_SET_PRC_SUS.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+   order by PROCEDIMENTO_SUS.CD_PROCEDIMENTO

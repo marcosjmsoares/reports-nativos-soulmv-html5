@@ -1,0 +1,758 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCV/RNotaFiscalConvenio493/R_NOTA_FISCAL_CONVENIO_493.txt
+--Nome módulo: FFCV - SISTEMA FATURAMENTO CONTAS DE CONVENIO
+
+/*----------------------------------------------------------------------------*/
+--R_NOTA_FISCAL_CONVENIO_493
+SELECT * FROM (
+SELECT '1ª Via Cliente'                                                                                                                Via,
+       NOTA_FISCAL.CD_NOTA_FISCAL                                          CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE                                                  NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF                                                  NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO ||' - '||NOTA_FISCAL.NM_BAIRRO                   DS_ENDERE,
+       NOTA_FISCAL.NM_BAIRRO                  DS_BAIRRO,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP                                                          NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL                            NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL                            NR_INSCRICAO_MUNICIPAL,
+       NOTA_FISCAL.EMAIL                            EMAIL,
+       NOTA_FISCAL.NR_FONE                                                        NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' )                          DT_EMISSAO,
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL                                    NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            VL_TOTAL_NOTA,
+        Sum ( ( SELECT Sum(Nvl(c.vl_caucao,0)) FROM dbamv.caucao  c
+        WHERE  c.cd_atendimento = nota_fiscal.cd_atendimento )   )           vl_caucao ,
+         Sum ( NOTA_FISCAL.VL_TOTAL_NOTA - Nvl(( SELECT Sum(Nvl(c.vl_caucao,0)) FROM dbamv.caucao  c
+        WHERE  c.cd_atendimento = nota_fiscal.cd_atendimento ) ,0)   )  total_nota,
+       NOTA_FISCAL.DS_OBSERVACOES                                           DS_OBSERVACAO,
+       ITNOTA_FISCAL.CD_GRU_FAT                                                CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT                                                      DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT                                                VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0)                               vl_desconto_nota,
+       nvl(nota_fiscal.vl_acrescimo_nota,0)                             vl_acrescimo_nota,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' )                          DS_DESCONTO,
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' )                       DS_ACRESCIMO,
+       FORMULARIO_NF.CD_SERIE                                                    CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_nf.DS_OBSERVACAO                                                 DS_OBS_FORMUL,
+       NOTA_FISCAL.CD_CONVENIO                                                  CD_CONVENIO,
+       CONVENIO.TP_CONVENIO                                                        TP_CONVENIO,
+       CONVENIO.NM_CONVENIO                                                        NM_CONVENIO,
+       Nvl(multi_empresas.ds_email_contato,' ') EMAIL_HOSPITAL,
+       multi_empresas.DS_RAZAO_SOCIAL DS_MULTI_EMPRESA,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)    DS_ENDERECO_EMPRESA,
+       multi_empresas.nr_ddd_empresa  NR_DDD_EMPRESA,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4)     NR_FONE_EMPRESA,
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf NM_CIDADE_EMPRESA,
+       multi_empresas.nr_ddd_fax  NR_DDD_FAX_EMPRESA,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4) NR_FAX_EMPRESA,
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2) NR_CGC,
+       multi_empresas.cd_imun NR_INSCRICAO_MUNIC,
+       multi_empresas.cd_iest NR_INSCRICAO_EST,
+       ATENDIME.DT_ALTA,
+       ATENDIME.HR_ALTA,
+       ATENDIME.DT_ATENDIMENTO,
+       ATENDIME.CD_ATENDIMENTO,
+       ATENDIME.HR_ATENDIMENTO,
+      ORI_ATE.DS_ORI_ATE,
+      PACIENTE.NM_PACIENTE,
+      PACIENTE2.NM_PACIENTE NM_PACIENTE2,
+      convenio.ds_endereco_cobranca DS_ENDERECO_COBRANCA,
+      convenio.ds_bairro_cobranca DS_BAIRRO_COBRANCA,
+      convenio.ds_cidade_cobranca DS_CIDADE_COBRANCA,
+      convenio.NR_CEP_COBRANCA NR_CEP_COBRANCA ,
+      convenio.DS_UF_COBRANCA DS_UF_COBRANCA,
+      PACIENTE.nr_cpf NR_CPF_PACIENTE,PACIENTE.dt_nascimento dt_nascimento_paciente,
+      To_Char(Nvl(Nvl(nota_fiscal.cd_reg_amb, nota_fiscal.cd_reg_fat),0)) conta_nr
+FROM DBAMV.NOTA_FISCAL  ,
+           DBAMV.ITNOTA_FISCAL,
+           DBAMV.GRU_FAT    ,
+          DBAMV.CONVENIO,
+          DBAMV.FORMULARIO_NF,
+          DBAMV.MULTI_EMPRESAS,
+          DBAMV.CIDADE,
+          DBAMV.EMPRESA_CONVENIO,
+          dbamv.ATENDIME,
+         DBAMV.PACIENTE,
+         dbamv.itfat_nota_fiscal,
+         dbamv.ATENDIME ATENDIME2,
+         DBAMV.PACIENTE PACIENTE2,
+         DBAMV.ORI_ATE,
+         dbamv.tipo_logradouro
+where Empresa_Convenio.Cd_Convenio      = Convenio.Cd_Convenio
+   and NOTA_FISCAL.Cd_Multi_Empresa      = :CAMPO_CD_MULTI_EMPRESA
+   and Empresa_Convenio.Cd_Multi_Empresa = MULTI_EMPRESAS.CD_MULTI_EMPRESA
+   and MULTI_EMPRESAS.CD_MULTI_EMPRESA   = NOTA_FISCAL.Cd_Multi_Empresa
+   And NOTA_FISCAL.CD_NOTA_FISCAL        = ITNOTA_FISCAL.CD_NOTA_FISCAL
+   AND GRU_FAT.CD_GRU_FAT                = ITNOTA_FISCAL.CD_GRU_FAT
+   AND CONVENIO.CD_CONVENIO(+)           = NOTA_FISCAL.CD_CONVENIO
+   AND NOTA_FISCAL.CD_NOTA_FISCAL        = :CAMPO_CD_NOTA_FISCAL
+   AND NOTA_FISCAL.CD_FORMULARIO_NF      = FORMULARIO_NF.CD_FORMULARIO_NF
+   AND CIDADE.CD_CIDADE                  = MULTI_EMPRESAS.CD_CIDADE
+   AND NOTA_FISCAL.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO(+)
+   AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE(+)
+   And NOTA_FISCAL.CD_NOTA_FISCAL  =  itfat_nota_fiscal.CD_NOTA_FISCAL(+)
+   AND itfat_nota_fiscal.CD_ATENDIMENTO = ATENDIME2.CD_ATENDIMENTO(+)
+   AND ATENDIME2.CD_PACIENTE = PACIENTE2.CD_PACIENTE(+)
+   AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE(+)
+   AND TIPO_LOGRADOURO.CD_TIPO_LOGRADOURO(+) = NOTA_FISCAL.CD_TIPO_LOGRADOURO
+   AND NOTA_FISCAL.TP_NOTA_FISCAL = 'N'
+group by
+       NOTA_FISCAL.CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO                 ,
+       NOTA_FISCAL.NM_BAIRRO    ,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL  ,
+       NOTA_FISCAL.EMAIL             ,
+       NOTA_FISCAL.NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' ),
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA,
+       NOTA_FISCAL.DS_OBSERVACOES,
+       ITNOTA_FISCAL.CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0),
+       nvl(nota_fiscal.vl_acrescimo_nota,0),
+       multi_empresas.ds_email_contato,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' ),
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' ),
+       FORMULARIO_NF.CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_NF.DS_OBSERVACAO     ,
+       NOTA_FISCAL.CD_CONVENIO,
+       CONVENIO.TP_CONVENIO,
+       CONVENIO.NM_CONVENIO,
+       ATENDIME.DT_ALTA,
+       ATENDIME.HR_ALTA,
+       ATENDIME.CD_ATENDIMENTO,
+       ATENDIME.DT_ATENDIMENTO,
+       ATENDIME.HR_ATENDIMENTO,
+       ORI_ATE.DS_ORI_ATE,
+       multi_empresas.ds_email_contato,
+       multi_empresas.DS_RAZAO_SOCIAL,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)  ,
+       multi_empresas.nr_ddd_empresa ,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4),
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf,
+       multi_empresas.nr_ddd_fax,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4),
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2),
+       multi_empresas.cd_imun,
+       multi_empresas.cd_iest,
+       PACIENTE.NM_PACIENTE,
+       PACIENTE2.NM_PACIENTE ,
+       convenio.ds_endereco_cobranca ,
+       convenio.ds_bairro_cobranca ,
+       convenio.ds_cidade_cobranca ,
+       convenio.NR_CEP_COBRANCA,
+       convenio.DS_UF_COBRANCA,
+      PACIENTE.nr_cpf,
+      PACIENTE.dt_nascimento,
+      nota_fiscal.cd_reg_amb, nota_fiscal.CD_REG_FAT
+union all
+SELECT '2ª Via Contabilidade'                                                                                                                Via,
+       NOTA_FISCAL.CD_NOTA_FISCAL                                          CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE                                                  NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF                                                  NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO ||' - '||NOTA_FISCAL.NM_BAIRRO                   DS_ENDERE,
+       NOTA_FISCAL.NM_BAIRRO                  DS_BAIRRO,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP                                                          NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL                            NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL                            NR_INSCRICAO_MUNICIPAL,
+       NOTA_FISCAL.EMAIL                            EMAIL,
+       NOTA_FISCAL.NR_FONE                                                        NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' )                          DT_EMISSAO,
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL                                    NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            VL_TOTAL_NOTA,
+        Sum ( ( SELECT Sum(Nvl(c.vl_caucao,0)) FROM dbamv.caucao  c
+        WHERE  c.cd_atendimento = nota_fiscal.cd_atendimento )   )           vl_caucao ,
+         Sum ( NOTA_FISCAL.VL_TOTAL_NOTA - Nvl(( SELECT Sum(Nvl(c.vl_caucao,0)) FROM dbamv.caucao  c
+        WHERE  c.cd_atendimento = nota_fiscal.cd_atendimento ) ,0)   )  total_nota,
+       NOTA_FISCAL.DS_OBSERVACOES                                           DS_OBSERVACAO,
+       ITNOTA_FISCAL.CD_GRU_FAT                                                CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT                                                      DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT                                                VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0)                               vl_desconto_nota,
+       nvl(nota_fiscal.vl_acrescimo_nota,0)                             vl_acrescimo_nota,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' )                          DS_DESCONTO,
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' )                       DS_ACRESCIMO,
+       FORMULARIO_NF.CD_SERIE                                                    CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_nf.DS_OBSERVACAO                                                 DS_OBS_FORMUL,
+       NOTA_FISCAL.CD_CONVENIO                                                  CD_CONVENIO,
+       CONVENIO.TP_CONVENIO                                                        TP_CONVENIO,
+       CONVENIO.NM_CONVENIO                                                        NM_CONVENIO,
+       Nvl(multi_empresas.ds_email_contato,' ') EMAIL_HOSPITAL,
+       multi_empresas.DS_RAZAO_SOCIAL DS_MULTI_EMPRESA,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)    DS_ENDERECO_EMPRESA,
+       multi_empresas.nr_ddd_empresa  NR_DDD_EMPRESA,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4)     NR_FONE_EMPRESA,
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf NM_CIDADE_EMPRESA,
+       multi_empresas.nr_ddd_fax  NR_DDD_FAX_EMPRESA,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4) NR_FAX_EMPRESA,
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2) NR_CGC,
+       multi_empresas.cd_imun NR_INSCRICAO_MUNIC,
+       multi_empresas.cd_iest NR_INSCRICAO_EST,
+       ATENDIME.DT_ALTA,
+       ATENDIME.HR_ALTA,
+       ATENDIME.DT_ATENDIMENTO,
+       ATENDIME.CD_ATENDIMENTO,
+       ATENDIME.HR_ATENDIMENTO,
+      ORI_ATE.DS_ORI_ATE,
+      PACIENTE.NM_PACIENTE,
+      PACIENTE2.NM_PACIENTE NM_PACIENTE2,
+      convenio.ds_endereco_cobranca DS_ENDERECO_COBRANCA,
+      convenio.ds_bairro_cobranca DS_BAIRRO_COBRANCA,
+      convenio.ds_cidade_cobranca DS_CIDADE_COBRANCA,
+      convenio.NR_CEP_COBRANCA NR_CEP_COBRANCA ,
+      convenio.DS_UF_COBRANCA DS_UF_COBRANCA,
+      PACIENTE.nr_cpf NR_CPF_PACIENTE,PACIENTE.dt_nascimento dt_nascimento_paciente,
+      To_Char(Nvl(Nvl(nota_fiscal.cd_reg_amb, nota_fiscal.cd_reg_fat),0)) conta_nr
+FROM DBAMV.NOTA_FISCAL  ,
+           DBAMV.ITNOTA_FISCAL,
+           DBAMV.GRU_FAT    ,
+          DBAMV.CONVENIO,
+          DBAMV.FORMULARIO_NF,
+          DBAMV.MULTI_EMPRESAS,
+          DBAMV.CIDADE,
+          DBAMV.EMPRESA_CONVENIO,
+          dbamv.ATENDIME,
+         DBAMV.PACIENTE,
+         dbamv.itfat_nota_fiscal,
+         dbamv.ATENDIME ATENDIME2,
+         DBAMV.PACIENTE PACIENTE2,
+         DBAMV.ORI_ATE,
+         dbamv.tipo_logradouro
+where Empresa_Convenio.Cd_Convenio      = Convenio.Cd_Convenio
+   and NOTA_FISCAL.Cd_Multi_Empresa      = :CAMPO_CD_MULTI_EMPRESA
+   and Empresa_Convenio.Cd_Multi_Empresa = MULTI_EMPRESAS.CD_MULTI_EMPRESA
+   and MULTI_EMPRESAS.CD_MULTI_EMPRESA   = NOTA_FISCAL.Cd_Multi_Empresa
+   And NOTA_FISCAL.CD_NOTA_FISCAL        = ITNOTA_FISCAL.CD_NOTA_FISCAL
+   AND GRU_FAT.CD_GRU_FAT                = ITNOTA_FISCAL.CD_GRU_FAT
+   AND CONVENIO.CD_CONVENIO(+)           = NOTA_FISCAL.CD_CONVENIO
+   AND NOTA_FISCAL.CD_NOTA_FISCAL        = :CAMPO_CD_NOTA_FISCAL
+   AND NOTA_FISCAL.CD_FORMULARIO_NF      = FORMULARIO_NF.CD_FORMULARIO_NF
+   AND CIDADE.CD_CIDADE                  = MULTI_EMPRESAS.CD_CIDADE
+   AND NOTA_FISCAL.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO(+)
+   AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE(+)
+   And NOTA_FISCAL.CD_NOTA_FISCAL  =  itfat_nota_fiscal.CD_NOTA_FISCAL(+)
+   AND itfat_nota_fiscal.CD_ATENDIMENTO = ATENDIME2.CD_ATENDIMENTO(+)
+   AND ATENDIME2.CD_PACIENTE = PACIENTE2.CD_PACIENTE(+)
+   AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE(+)
+   AND TIPO_LOGRADOURO.CD_TIPO_LOGRADOURO(+) = NOTA_FISCAL.CD_TIPO_LOGRADOURO
+   AND NOTA_FISCAL.TP_NOTA_FISCAL = 'N'
+group by
+       NOTA_FISCAL.CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO                 ,
+       NOTA_FISCAL.NM_BAIRRO    ,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL  ,
+       NOTA_FISCAL.EMAIL             ,
+       NOTA_FISCAL.NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' ),
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA,
+       NOTA_FISCAL.DS_OBSERVACOES,
+       ITNOTA_FISCAL.CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0),
+       nvl(nota_fiscal.vl_acrescimo_nota,0),
+       multi_empresas.ds_email_contato,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' ),
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' ),
+       FORMULARIO_NF.CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_NF.DS_OBSERVACAO     ,
+       NOTA_FISCAL.CD_CONVENIO,
+       CONVENIO.TP_CONVENIO,
+       CONVENIO.NM_CONVENIO,
+       ATENDIME.DT_ALTA,
+       ATENDIME.HR_ALTA,
+       ATENDIME.CD_ATENDIMENTO,
+       ATENDIME.DT_ATENDIMENTO,
+       ATENDIME.HR_ATENDIMENTO,
+       ORI_ATE.DS_ORI_ATE,
+       multi_empresas.ds_email_contato,
+       multi_empresas.DS_RAZAO_SOCIAL,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)  ,
+       multi_empresas.nr_ddd_empresa ,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4),
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf,
+       multi_empresas.nr_ddd_fax,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4),
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2),
+       multi_empresas.cd_imun,
+       multi_empresas.cd_iest,
+       PACIENTE.NM_PACIENTE,
+       PACIENTE2.NM_PACIENTE ,
+       convenio.ds_endereco_cobranca ,
+       convenio.ds_bairro_cobranca ,
+       convenio.ds_cidade_cobranca ,
+       convenio.NR_CEP_COBRANCA,
+       convenio.DS_UF_COBRANCA,
+       PACIENTE.nr_cpf,
+       PACIENTE.dt_nascimento,
+       nota_fiscal.cd_reg_amb, nota_fiscal.CD_REG_FAT
+UNION ALL
+SELECT '3ª Via Fiscalização'                                                                                                                Via,
+       NOTA_FISCAL.CD_NOTA_FISCAL                                          CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE                                                  NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF                                                  NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO ||' - '||NOTA_FISCAL.NM_BAIRRO                   DS_ENDERE,
+       NOTA_FISCAL.NM_BAIRRO                  DS_BAIRRO,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP                                                          NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL                            NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL                            NR_INSCRICAO_MUNICIPAL,
+       NOTA_FISCAL.EMAIL                            EMAIL,
+       NOTA_FISCAL.NR_FONE                                                        NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' )                          DT_EMISSAO,
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL                                    NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            VL_TOTAL_NOTA,
+        Sum ( ( SELECT Sum(Nvl(c.vl_caucao,0)) FROM dbamv.caucao  c
+        WHERE  c.cd_atendimento = nota_fiscal.cd_atendimento )   )           vl_caucao ,
+         Sum ( NOTA_FISCAL.VL_TOTAL_NOTA - Nvl(( SELECT Sum(Nvl(c.vl_caucao,0)) FROM dbamv.caucao  c
+        WHERE  c.cd_atendimento = nota_fiscal.cd_atendimento ) ,0)   )  total_nota,
+       NOTA_FISCAL.DS_OBSERVACOES                                           DS_OBSERVACAO,
+       ITNOTA_FISCAL.CD_GRU_FAT                                                CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT                                                      DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT                                                VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0)                               vl_desconto_nota,
+       nvl(nota_fiscal.vl_acrescimo_nota,0)                             vl_acrescimo_nota,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' )                          DS_DESCONTO,
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' )                       DS_ACRESCIMO,
+       FORMULARIO_NF.CD_SERIE                                                    CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_nf.DS_OBSERVACAO                                                 DS_OBS_FORMUL,
+       NOTA_FISCAL.CD_CONVENIO                                                  CD_CONVENIO,
+       CONVENIO.TP_CONVENIO                                                        TP_CONVENIO,
+       CONVENIO.NM_CONVENIO                                                        NM_CONVENIO,
+       Nvl(multi_empresas.ds_email_contato,' ') EMAIL_HOSPITAL,
+       multi_empresas.DS_RAZAO_SOCIAL DS_MULTI_EMPRESA,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)    DS_ENDERECO_EMPRESA,
+       multi_empresas.nr_ddd_empresa  NR_DDD_EMPRESA,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4)     NR_FONE_EMPRESA,
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf NM_CIDADE_EMPRESA,
+       multi_empresas.nr_ddd_fax  NR_DDD_FAX_EMPRESA,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4) NR_FAX_EMPRESA,
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2) NR_CGC,
+       multi_empresas.cd_imun NR_INSCRICAO_MUNIC,
+       multi_empresas.cd_iest NR_INSCRICAO_EST,
+       ATENDIME.DT_ALTA,
+       ATENDIME.HR_ALTA,
+       ATENDIME.DT_ATENDIMENTO,
+       ATENDIME.CD_ATENDIMENTO,
+       ATENDIME.HR_ATENDIMENTO,
+      ORI_ATE.DS_ORI_ATE,
+      PACIENTE.NM_PACIENTE,
+      PACIENTE2.NM_PACIENTE NM_PACIENTE2,
+      convenio.ds_endereco_cobranca DS_ENDERECO_COBRANCA,
+      convenio.ds_bairro_cobranca DS_BAIRRO_COBRANCA,
+      convenio.ds_cidade_cobranca DS_CIDADE_COBRANCA,
+      convenio.NR_CEP_COBRANCA NR_CEP_COBRANCA ,
+      convenio.DS_UF_COBRANCA DS_UF_COBRANCA,
+      PACIENTE.nr_cpf NR_CPF_PACIENTE,
+      PACIENTE.dt_nascimento dt_nascimento_paciente,
+      To_Char(Nvl(Nvl(nota_fiscal.cd_reg_amb, nota_fiscal.cd_reg_fat),0)) conta_nr
+FROM DBAMV.NOTA_FISCAL  ,
+           DBAMV.ITNOTA_FISCAL,
+           DBAMV.GRU_FAT    ,
+          DBAMV.CONVENIO,
+          DBAMV.FORMULARIO_NF,
+          DBAMV.MULTI_EMPRESAS,
+          DBAMV.CIDADE,
+          DBAMV.EMPRESA_CONVENIO,
+          dbamv.ATENDIME,
+         DBAMV.PACIENTE,
+         dbamv.itfat_nota_fiscal,
+         dbamv.ATENDIME ATENDIME2,
+         DBAMV.PACIENTE PACIENTE2,
+         DBAMV.ORI_ATE,
+         dbamv.tipo_logradouro
+where Empresa_Convenio.Cd_Convenio      = Convenio.Cd_Convenio
+   and NOTA_FISCAL.Cd_Multi_Empresa      = :CAMPO_CD_MULTI_EMPRESA
+   and Empresa_Convenio.Cd_Multi_Empresa = MULTI_EMPRESAS.CD_MULTI_EMPRESA
+   and MULTI_EMPRESAS.CD_MULTI_EMPRESA   = NOTA_FISCAL.Cd_Multi_Empresa
+   And NOTA_FISCAL.CD_NOTA_FISCAL        = ITNOTA_FISCAL.CD_NOTA_FISCAL
+   AND GRU_FAT.CD_GRU_FAT                = ITNOTA_FISCAL.CD_GRU_FAT
+   AND CONVENIO.CD_CONVENIO(+)           = NOTA_FISCAL.CD_CONVENIO
+   AND NOTA_FISCAL.CD_NOTA_FISCAL        = :CAMPO_CD_NOTA_FISCAL
+   AND NOTA_FISCAL.CD_FORMULARIO_NF      = FORMULARIO_NF.CD_FORMULARIO_NF
+   AND CIDADE.CD_CIDADE                  = MULTI_EMPRESAS.CD_CIDADE
+   AND NOTA_FISCAL.CD_ATENDIMENTO = ATENDIME.CD_ATENDIMENTO(+)
+   AND ATENDIME.CD_PACIENTE = PACIENTE.CD_PACIENTE(+)
+   And NOTA_FISCAL.CD_NOTA_FISCAL  =  itfat_nota_fiscal.CD_NOTA_FISCAL(+)
+   AND itfat_nota_fiscal.CD_ATENDIMENTO = ATENDIME2.CD_ATENDIMENTO(+)
+   AND ATENDIME2.CD_PACIENTE = PACIENTE2.CD_PACIENTE(+)
+   AND ATENDIME.CD_ORI_ATE = ORI_ATE.CD_ORI_ATE(+)
+   AND TIPO_LOGRADOURO.CD_TIPO_LOGRADOURO(+) = NOTA_FISCAL.CD_TIPO_LOGRADOURO
+   AND NOTA_FISCAL.TP_NOTA_FISCAL = 'N'
+group by
+       NOTA_FISCAL.CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO                 ,
+       NOTA_FISCAL.NM_BAIRRO    ,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL  ,
+       NOTA_FISCAL.EMAIL             ,
+       NOTA_FISCAL.NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' ),
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA,
+       NOTA_FISCAL.DS_OBSERVACOES,
+       ITNOTA_FISCAL.CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0),
+       nvl(nota_fiscal.vl_acrescimo_nota,0),
+       multi_empresas.ds_email_contato,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' ),
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' ),
+       FORMULARIO_NF.CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_NF.DS_OBSERVACAO     ,
+       NOTA_FISCAL.CD_CONVENIO,
+       CONVENIO.TP_CONVENIO,
+       CONVENIO.NM_CONVENIO,
+       ATENDIME.DT_ALTA,
+       ATENDIME.HR_ALTA,
+       ATENDIME.CD_ATENDIMENTO,
+       ATENDIME.DT_ATENDIMENTO,
+       ATENDIME.HR_ATENDIMENTO,
+       ORI_ATE.DS_ORI_ATE,
+       multi_empresas.ds_email_contato,
+       multi_empresas.DS_RAZAO_SOCIAL,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)  ,
+       multi_empresas.nr_ddd_empresa ,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4),
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf,
+       multi_empresas.nr_ddd_fax,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4),
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2),
+       multi_empresas.cd_imun,
+       multi_empresas.cd_iest,
+       PACIENTE.NM_PACIENTE,
+       PACIENTE2.NM_PACIENTE ,
+       convenio.ds_endereco_cobranca ,
+       convenio.ds_bairro_cobranca ,
+       convenio.ds_cidade_cobranca ,
+       convenio.NR_CEP_COBRANCA,
+       convenio.DS_UF_COBRANCA,
+      PACIENTE.nr_cpf,
+       PACIENTE.dt_nascimento,
+      nota_fiscal.cd_reg_amb, nota_fiscal.CD_REG_FAT
+union all
+SELECT '1ª Via Cliente'                                                                       Via,
+       NOTA_FISCAL.CD_NOTA_FISCAL                                          CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE                                                  NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF                                                  NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO ||' - '||NOTA_FISCAL.NM_BAIRRO                   DS_ENDERE,
+       NOTA_FISCAL.NM_BAIRRO                  DS_BAIRRO,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP                                                          NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL                            NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL                            NR_INSCRICAO_MUNICIPAL,
+       NOTA_FISCAL.EMAIL                            EMAIL,
+       NOTA_FISCAL.NR_FONE                                                        NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' )                          DT_EMISSAO,
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL                                    NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            VL_TOTAL_NOTA,
+       0 vl_caucao,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            total_nota,
+       NOTA_FISCAL.DS_OBSERVACOES                                           DS_OBSERVACAO,
+       ITNOTA_FISCAL.CD_GRU_FAT                                                CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT                                                      DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT                                                VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0)                               vl_desconto_nota,
+       nvl(nota_fiscal.vl_acrescimo_nota,0)                             vl_acrescimo_nota,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' )                          DS_DESCONTO,
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' )                       DS_ACRESCIMO,
+       FORMULARIO_NF.CD_SERIE                                                    CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_nf.DS_OBSERVACAO                                                 DS_OBS_FORMUL,
+       NOTA_FISCAL.CD_CONVENIO                                                  CD_CONVENIO,
+       'X'                                                        TP_CONVENIO,
+       CONVENIO.NM_CONVENIO                                                        NM_CONVENIO,
+       Nvl(multi_empresas.ds_email_contato,' ') EMAIL_HOSPITAL,
+       multi_empresas.DS_RAZAO_SOCIAL DS_MULTI_EMPRESA,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)    DS_ENDERECO_EMPRESA,
+       multi_empresas.nr_ddd_empresa  NR_DDD_EMPRESA,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4)     NR_FONE_EMPRESA,
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf NM_CIDADE_EMPRESA,
+       multi_empresas.nr_ddd_fax  NR_DDD_FAX_EMPRESA,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4) NR_FAX_EMPRESA,
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2) NR_CGC,
+       multi_empresas.cd_imun NR_INSCRICAO_MUNIC,
+       multi_empresas.cd_iest NR_INSCRICAO_EST,
+       sysdate DT_ALTA,
+       sysdate HR_ALTA,
+       sysdate DT_ATENDIMENTO,
+       0 CD_ATENDIMENTO,
+       sysdate HR_ATENDIMENTO,
+      ' ' DS_ORI_ATE,
+      ' ' NM_PACIENTE,
+      PACIENTE2.NM_PACIENTE NM_PACIENTE2,
+      ' ' DS_ENDERECO_COBRANCA,
+      ' ' DS_BAIRRO_COBRANCA,
+      ' ' DS_CIDADE_COBRANCA,
+      ' '  NR_CEP_COBRANCA ,
+      ' ' DS_UF_COBRANCA,
+      ' ' NR_CPF_PACIENTE,null dt_nascimento_paciente,
+      To_Char(Nvl(Nvl(nota_fiscal.cd_reg_amb, nota_fiscal.cd_reg_fat),0)) conta_nr
+FROM      DBAMV.NOTA_FISCAL  ,
+          DBAMV.ITNOTA_FISCAL,
+          DBAMV.GRU_FAT    ,
+          DBAMV.CONVENIO,
+          DBAMV.FORMULARIO_NF,
+          DBAMV.MULTI_EMPRESAS,
+          DBAMV.CIDADE,
+          dbamv.itfat_nota_fiscal,
+         dbamv.ATENDIME ATENDIME2,
+         DBAMV.PACIENTE PACIENTE2,
+          dbamv.tipo_logradouro,
+          dbamv.fornecedor
+where   NOTA_FISCAL.Cd_Multi_Empresa      = :CAMPO_CD_MULTI_EMPRESA
+   and MULTI_EMPRESAS.CD_MULTI_EMPRESA   = NOTA_FISCAL.Cd_Multi_Empresa
+   And NOTA_FISCAL.CD_NOTA_FISCAL        = ITNOTA_FISCAL.CD_NOTA_FISCAL
+   AND GRU_FAT.CD_GRU_FAT                = ITNOTA_FISCAL.CD_GRU_FAT
+   AND CONVENIO.CD_CONVENIO(+)           = NOTA_FISCAL.CD_CONVENIO
+   and nota_fiscal.cd_fornecedor         = fornecedor.cd_fornecedor
+   AND NOTA_FISCAL.CD_NOTA_FISCAL        = :CAMPO_CD_NOTA_FISCAL
+   AND NOTA_FISCAL.CD_FORMULARIO_NF      = FORMULARIO_NF.CD_FORMULARIO_NF
+   AND CIDADE.CD_CIDADE                  = MULTI_EMPRESAS.CD_CIDADE
+   And NOTA_FISCAL.CD_NOTA_FISCAL  =  itfat_nota_fiscal.CD_NOTA_FISCAL(+)
+   AND itfat_nota_fiscal.CD_ATENDIMENTO = ATENDIME2.CD_ATENDIMENTO(+)
+   AND ATENDIME2.CD_PACIENTE = PACIENTE2.CD_PACIENTE(+)
+   AND TIPO_LOGRADOURO.CD_TIPO_LOGRADOURO(+) = NOTA_FISCAL.CD_TIPO_LOGRADOURO
+   AND NOTA_FISCAL.TP_NOTA_FISCAL = 'A'
+union all
+SELECT '2ª Via Contabilidade'                                                                                                                Via,
+       NOTA_FISCAL.CD_NOTA_FISCAL                                          CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE                                                  NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF                                                  NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO ||' - '||NOTA_FISCAL.NM_BAIRRO                   DS_ENDERE,
+       NOTA_FISCAL.NM_BAIRRO                  DS_BAIRRO,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP                                                          NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL                            NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL                            NR_INSCRICAO_MUNICIPAL,
+       NOTA_FISCAL.EMAIL                            EMAIL,
+       NOTA_FISCAL.NR_FONE                                                        NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' )                          DT_EMISSAO,
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL                                    NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            VL_TOTAL_NOTA,
+       0 vl_caucao,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            total_nota,
+       NOTA_FISCAL.DS_OBSERVACOES                                           DS_OBSERVACAO,
+       ITNOTA_FISCAL.CD_GRU_FAT                                                CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT                                                      DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT                                                VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0)                               vl_desconto_nota,
+       nvl(nota_fiscal.vl_acrescimo_nota,0)                             vl_acrescimo_nota,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' )                          DS_DESCONTO,
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' )                       DS_ACRESCIMO,
+       FORMULARIO_NF.CD_SERIE                                                    CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_nf.DS_OBSERVACAO                                                 DS_OBS_FORMUL,
+       NOTA_FISCAL.CD_CONVENIO                                                  CD_CONVENIO,
+       'X'                                                        TP_CONVENIO,
+       CONVENIO.NM_CONVENIO                                                        NM_CONVENIO,
+       Nvl(multi_empresas.ds_email_contato,' ') EMAIL_HOSPITAL,
+       multi_empresas.DS_RAZAO_SOCIAL DS_MULTI_EMPRESA,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)    DS_ENDERECO_EMPRESA,
+       multi_empresas.nr_ddd_empresa  NR_DDD_EMPRESA,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4)     NR_FONE_EMPRESA,
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf NM_CIDADE_EMPRESA,
+       multi_empresas.nr_ddd_fax  NR_DDD_FAX_EMPRESA,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4) NR_FAX_EMPRESA,
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2) NR_CGC,
+       multi_empresas.cd_imun NR_INSCRICAO_MUNIC,
+       multi_empresas.cd_iest NR_INSCRICAO_EST,
+       sysdate DT_ALTA,
+       sysdate HR_ALTA,
+       sysdate DT_ATENDIMENTO,
+       0 CD_ATENDIMENTO,
+       sysdate HR_ATENDIMENTO,
+      ' ' DS_ORI_ATE,
+      ' ' NM_PACIENTE,
+      PACIENTE2.NM_PACIENTE NM_PACIENTE2,
+      ' ' DS_ENDERECO_COBRANCA,
+      ' ' DS_BAIRRO_COBRANCA,
+      ' ' DS_CIDADE_COBRANCA,
+      ' '  NR_CEP_COBRANCA ,
+      ' ' DS_UF_COBRANCA,
+      ' ' NR_CPF_PACIENTE,null dt_nascimento_paciente,
+      To_Char(Nvl(Nvl(nota_fiscal.cd_reg_amb, nota_fiscal.cd_reg_fat),0)) conta_nr
+FROM      DBAMV.NOTA_FISCAL  ,
+          DBAMV.ITNOTA_FISCAL,
+          DBAMV.GRU_FAT    ,
+          DBAMV.CONVENIO,
+          DBAMV.FORMULARIO_NF,
+          DBAMV.MULTI_EMPRESAS,
+          DBAMV.CIDADE,
+          dbamv.itfat_nota_fiscal,
+         dbamv.ATENDIME ATENDIME2,
+         DBAMV.PACIENTE PACIENTE2,
+          dbamv.tipo_logradouro,
+          dbamv.fornecedor
+where   NOTA_FISCAL.Cd_Multi_Empresa      = :CAMPO_CD_MULTI_EMPRESA
+   and MULTI_EMPRESAS.CD_MULTI_EMPRESA   = NOTA_FISCAL.Cd_Multi_Empresa
+   And NOTA_FISCAL.CD_NOTA_FISCAL        = ITNOTA_FISCAL.CD_NOTA_FISCAL
+   AND GRU_FAT.CD_GRU_FAT                = ITNOTA_FISCAL.CD_GRU_FAT
+   AND CONVENIO.CD_CONVENIO(+)           = NOTA_FISCAL.CD_CONVENIO
+   and nota_fiscal.cd_fornecedor         = fornecedor.cd_fornecedor
+   AND NOTA_FISCAL.CD_NOTA_FISCAL        = :CAMPO_CD_NOTA_FISCAL
+   AND NOTA_FISCAL.CD_FORMULARIO_NF      = FORMULARIO_NF.CD_FORMULARIO_NF
+   AND CIDADE.CD_CIDADE                  = MULTI_EMPRESAS.CD_CIDADE
+   And NOTA_FISCAL.CD_NOTA_FISCAL  =  itfat_nota_fiscal.CD_NOTA_FISCAL(+)
+   AND itfat_nota_fiscal.CD_ATENDIMENTO = ATENDIME2.CD_ATENDIMENTO(+)
+   AND ATENDIME2.CD_PACIENTE = PACIENTE2.CD_PACIENTE(+)
+   AND TIPO_LOGRADOURO.CD_TIPO_LOGRADOURO(+) = NOTA_FISCAL.CD_TIPO_LOGRADOURO
+   AND NOTA_FISCAL.TP_NOTA_FISCAL = 'A'
+   union all
+   SELECT '3ª Via Fiscalização'                                                                                                                Via,
+       NOTA_FISCAL.CD_NOTA_FISCAL                                          CD_NOTA_FISCAL,
+       NOTA_FISCAL.NM_CLIENTE                                                  NM_CLIENTE,
+       NOTA_FISCAL.NR_CGC_CPF                                                  NR_CGC_CPF,
+       TIPO_LOGRADOURO.DS_RESUMIDO || ' ' || NOTA_FISCAL.DS_ENDERECO || ',' || NOTA_FISCAL.NR_ENDERECO ||' - '||NOTA_FISCAL.NM_BAIRRO                   DS_ENDERE,
+       NOTA_FISCAL.NM_BAIRRO                  DS_BAIRRO,
+       NOTA_FISCAL.NM_CIDADE ,
+       NOTA_FISCAL.NM_UF,
+       NOTA_FISCAL.NR_CEP                                                          NR_CEP,
+       NOTA_FISCAL.NR_INSCRICAO_ESTADUAL                            NR_INSCRICAO_ESTADUAL,
+       NOTA_FISCAL.NR_INSCRICAO_MUNICIPAL                            NR_INSCRICAO_MUNICIPAL,
+       NOTA_FISCAL.EMAIL                            EMAIL,
+       NOTA_FISCAL.NR_FONE                                                        NR_FONE,
+       to_char(NOTA_FISCAL.DT_EMISSAO, 'DD/MM/YYYY' )                          DT_EMISSAO,
+       NOTA_FISCAL.NR_ID_NOTA_FISCAL                                    NR_ID_NOTA_FISCAL,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            VL_TOTAL_NOTA,
+       0 vl_caucao,
+       NOTA_FISCAL.VL_TOTAL_NOTA                                            total_nota,
+       NOTA_FISCAL.DS_OBSERVACOES                                           DS_OBSERVACAO,
+       ITNOTA_FISCAL.CD_GRU_FAT                                                CD_GRU_FAT,
+       GRU_FAT.DS_GRU_FAT                                                      DS_GRU_FAT,
+       ITNOTA_FISCAL.VL_GRU_FAT                                                VL_GRU_FAT,
+       nvl(nota_fiscal.vl_desconto_nota,0)                               vl_desconto_nota,
+       nvl(nota_fiscal.vl_acrescimo_nota,0)                             vl_acrescimo_nota,
+       NVL( NOTA_FISCAL.DS_VL_DESCONTO, 'DESCONTO' )                          DS_DESCONTO,
+       NVL( NOTA_FISCAL.DS_VL_ACRESCIMO, 'ACRESCIMO' )                       DS_ACRESCIMO,
+       FORMULARIO_NF.CD_SERIE                                                    CD_SERIE,
+       FORMULARIO_NF.NR_AIDF, FORMULARIO_NF.DT_VALIDA_USO,
+       FORMULARIO_NF.nr_ini_sequencia_nota_fiscal,FORMULARIO_NF.nr_fim_sequencia_nota_fiscal,
+       FORMULARIO_nf.DS_OBSERVACAO                                                 DS_OBS_FORMUL,
+       NOTA_FISCAL.CD_CONVENIO                                                  CD_CONVENIO,
+       'X'                                                        TP_CONVENIO,
+       CONVENIO.NM_CONVENIO                                                        NM_CONVENIO,
+       Nvl(multi_empresas.ds_email_contato,' ') EMAIL_HOSPITAL,
+       multi_empresas.DS_RAZAO_SOCIAL DS_MULTI_EMPRESA,
+       multi_empresas.ds_endereco || '  ' || multi_empresas.nr_endereco  || '  ' || multi_empresas.NM_BAIRRO || ' CEP: ' || substr(multi_empresas.nr_cep,1,5) || '-' || substr(multi_empresas.nr_cep,6,3)    DS_ENDERECO_EMPRESA,
+       multi_empresas.nr_ddd_empresa  NR_DDD_EMPRESA,
+       substr(multi_empresas.nr_telefone_empresa,1,4) || '-' ||  substr(multi_empresas.nr_telefone_empresa,5,4)     NR_FONE_EMPRESA,
+       cidade.nm_cidade || ' - ' || multi_empresas.cd_uf NM_CIDADE_EMPRESA,
+       multi_empresas.nr_ddd_fax  NR_DDD_FAX_EMPRESA,
+       substr(multi_empresas.nr_fax,1,4) || '-' ||  substr(multi_empresas.nr_fax,6,4) NR_FAX_EMPRESA,
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),1,2) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),3,3) || '.' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),6,3) || '/' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),9,4) || '-' ||
+       substr(lpad(multi_empresas.cd_cgc, 14, 0),13,2) NR_CGC,
+       multi_empresas.cd_imun NR_INSCRICAO_MUNIC,
+       multi_empresas.cd_iest NR_INSCRICAO_EST,
+       sysdate DT_ALTA,
+       sysdate HR_ALTA,
+       sysdate DT_ATENDIMENTO,
+       0 CD_ATENDIMENTO,
+       sysdate HR_ATENDIMENTO,
+      ' ' DS_ORI_ATE,
+      ' ' NM_PACIENTE,
+      PACIENTE2.NM_PACIENTE NM_PACIENTE2,
+      ' ' DS_ENDERECO_COBRANCA,
+      ' ' DS_BAIRRO_COBRANCA,
+      ' ' DS_CIDADE_COBRANCA,
+      ' '  NR_CEP_COBRANCA ,
+      ' ' DS_UF_COBRANCA,
+      ' ' NR_CPF_PACIENTE,null dt_nascimento_paciente,
+      To_Char(Nvl(Nvl(nota_fiscal.cd_reg_amb, nota_fiscal.cd_reg_fat),0)) conta_nr
+FROM      DBAMV.NOTA_FISCAL  ,
+          DBAMV.ITNOTA_FISCAL,
+          DBAMV.GRU_FAT    ,
+          DBAMV.CONVENIO,
+          DBAMV.FORMULARIO_NF,
+          DBAMV.MULTI_EMPRESAS,
+          DBAMV.CIDADE,
+          dbamv.itfat_nota_fiscal,
+         dbamv.ATENDIME ATENDIME2,
+         DBAMV.PACIENTE PACIENTE2,
+          dbamv.tipo_logradouro,
+          dbamv.fornecedor
+where   NOTA_FISCAL.Cd_Multi_Empresa      = :CAMPO_CD_MULTI_EMPRESA
+   and MULTI_EMPRESAS.CD_MULTI_EMPRESA   = NOTA_FISCAL.Cd_Multi_Empresa
+   And NOTA_FISCAL.CD_NOTA_FISCAL        = ITNOTA_FISCAL.CD_NOTA_FISCAL
+   AND GRU_FAT.CD_GRU_FAT                = ITNOTA_FISCAL.CD_GRU_FAT
+   AND CONVENIO.CD_CONVENIO(+)           = NOTA_FISCAL.CD_CONVENIO
+   and nota_fiscal.cd_fornecedor         = fornecedor.cd_fornecedor
+   AND NOTA_FISCAL.CD_NOTA_FISCAL        = :CAMPO_CD_NOTA_FISCAL
+   AND NOTA_FISCAL.CD_FORMULARIO_NF      = FORMULARIO_NF.CD_FORMULARIO_NF
+   AND CIDADE.CD_CIDADE                  = MULTI_EMPRESAS.CD_CIDADE
+   And NOTA_FISCAL.CD_NOTA_FISCAL  =  itfat_nota_fiscal.CD_NOTA_FISCAL(+)
+   AND itfat_nota_fiscal.CD_ATENDIMENTO = ATENDIME2.CD_ATENDIMENTO(+)
+   AND ATENDIME2.CD_PACIENTE = PACIENTE2.CD_PACIENTE(+)
+   AND TIPO_LOGRADOURO.CD_TIPO_LOGRADOURO(+) = NOTA_FISCAL.CD_TIPO_LOGRADOURO
+   AND NOTA_FISCAL.TP_NOTA_FISCAL = 'A'
+Order by ds_gru_fat
+)
+ORDER BY Via, DS_GRU_FAT

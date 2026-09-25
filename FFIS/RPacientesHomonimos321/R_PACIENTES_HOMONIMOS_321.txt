@@ -1,0 +1,65 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RPacientesHomonimos321/R_PACIENTES_HOMONIMOS_321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_PACIENTES_HOMONIMOS_321
+select mov.CD_ATENDIMENTO
+     , mov.NR_GUIA
+     , mov.CD_PACIENTE
+     , mov.CD_PROCEDIMENTO
+     , mov.NM_PACIENTE
+     , mov.DT_NASCIMENTO
+     , mov.DT_INICIO
+     , mov.DT_FINAL
+     , mov.CD_MOTIVO
+     , to_number(mov.NR_CPF_GESTOR ) NR_CPF_GESTOR
+     , mov.DT_AUT_HOMONIMO
+  from ( SELECT reg_fat.Cd_Atendimento
+              , reg_fat.CD_REG_FAT
+              , reg_fat.NR_GUIA
+              , decode(reg_fat.DT_AUT_HOMONIMO, null, null, reg_fat.nr_cpf_gestor)  NR_CPF_GESTOR
+              , reg_fat.DT_AUT_HOMONIMO
+              , reg_fat.CD_PROCEDIMENTO_REALIZADO  CD_PROCEDIMENTO
+              , NM_PACIENTE
+              , DT_NASCIMENTO
+              , reg_fat.DT_INICIO
+              , CD_PACIENTE
+              , reg_fat.DT_FINAL
+              , reg_fat.CD_MOT_ALT CD_MOTIVO
+              , NOME_1
+              , NOME_2
+              , NOME_3
+              , NOME_4
+              , NOME_5
+              , NOME_6
+           FROM DBAMV.V_PACIENTES_HOMONIMOS               
+              , DBAMV.REG_FAT reg_fat         
+          WHERE reg_fat.CD_REG_FAT           = V_PACIENTES_HOMONIMOS.CD_REG_FAT     
+            AND to_char(DT_COMPETENCIA,'MM/YYYY') =  to_char(:CAMPO_COMPET, 'MM/YYYY')
+            :CAMPO_FC_REMESSA) mov ,			
+			 (select  NOME_1
+                    , NOME_2
+                    , NOME_3
+                    , NOME_4
+                    , NOME_5
+                    , NOME_6 
+                    , dt_nascimento
+                 from DBAMV.V_PACIENTES_HOMONIMOS 
+                WHERE to_char(DT_COMPETENCIA,'MM/YYYY') = to_char(:CAMPO_COMPET, 'MM/YYYY')
+             group by NOME_1
+                    , NOME_2
+                    , NOME_3
+                    , NOME_4
+                    , NOME_5
+                    , NOME_6          
+                    , dt_nascimento
+              having count('X') > 1) homo
+    WHERE homo.NOME_1 = mov.NOME_1
+      and homo.NOME_2 = mov.NOME_2
+      and homo.NOME_3 = mov.NOME_3
+      and homo.NOME_4 = mov.NOME_4
+      and homo.NOME_5 = mov.NOME_5
+      and homo.NOME_6 = mov.NOME_6
+      AND homo.DT_NASCIMENTO = mov.DT_NASCIMENTO
+order by mov.NM_PACIENTE, mov.DT_INICIO,  mov.DT_FINAL

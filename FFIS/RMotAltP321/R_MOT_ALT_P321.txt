@@ -1,0 +1,52 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RMotAltP321/R_MOT_ALT_P321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_MOT_ALT_P321
+select sysdate from dual
+
+
+/*----------------------------------------------------------------------------*/
+--R_MOT_ALT_P321_RF_ESPEC_ANAL_Q_MOT_ALT_ANAL
+select espec_sus.CD_ESPEC_SUS
+     , espec_sus.DS_ESPEC_SUS
+     , MOTIVO_COBRANCA_SUS.CD_MOTIVO CD_ALTA_SUS
+     , paciente.CD_PACIENTE
+     , paciente.NM_PACIENTE
+     , reg_fat.NR_GUIA
+     , reg_fat.CD_CID_PRINCIPAL
+     , PROCEDIMENTO_SUS.DS_PROCEDIMENTO DS_SUS
+     , dbamv.pack_siscolo.Retorna_Idade(trunc(paciente.DT_NASCIMENTO), trunc(reg_fat.DT_FINAL)) IDADE
+     , reg_fat.DT_INICIO
+     , reg_fat.DT_FINAL
+     , to_char(nvl(it_parto.QT_RN_VIVO,0)) ||
+       to_char(nvl(it_parto.QT_RN_MORTO,0)) ||
+       to_char(nvl(it_parto.QT_RN_ALTA,0)) ||
+       to_char(nvl(it_parto.QT_RN_TRANSFERIDO,0)) ||
+       to_char(nvl(it_parto.QT_RN_OBITO,0)) PARTO
+  from dbamv.FATURA
+     , dbamv.REMESSA_FATURA
+     , dbamv.REG_FAT
+     , dbamv.ESPEC_SUS
+     , dbamv.MOTIVO_COBRANCA_SUS
+     , dbamv.PACIENTE
+     , dbamv.ATENDIME
+     , dbamv.PROCEDIMENTO_SUS
+     , dbamv.IT_PARTO
+ where remessa_fatura.CD_REMESSA    = reg_fat.CD_REMESSA
+   and fatura.CD_CONVENIO           = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+   and reg_fat.CD_CONVENIO          = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO')
+   and espec_sus.CD_ESPEC_SUS       = reg_fat.CD_ESPEC_SUS
+   and MOTIVO_COBRANCA_SUS.CD_MOTIVO           = reg_fat.CD_MOT_ALT
+   and paciente.CD_PACIENTE         = atendime.CD_PACIENTE
+   and atendime.CD_ATENDIMENTO      = reg_fat.CD_ATENDIMENTO
+   and fatura.CD_FATURA             = remessa_fatura.CD_FATURA
+   and reg_fat.CD_REG_FAT           = it_parto.CD_REG_FAT (+)
+   and reg_fat.CD_PROCEDIMENTO_REALIZADO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+   AND reg_fat.DT_FINAL IS NOT NULL
+   and fatura.CD_MULTI_EMPRESA      = :CAMPO_CD_MULTI_EMPRESA
+   and to_char(fatura.DT_COMPETENCIA, 'YYYYMM') = to_char(:CAMPO_COMPET,'YYYYMM')
+ order by espec_sus.DS_ESPEC_SUS
+		, MOTIVO_COBRANCA_SUS.CD_MOTIVO
+		, paciente.NM_PACIENTE

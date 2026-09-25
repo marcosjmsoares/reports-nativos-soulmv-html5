@@ -1,0 +1,39 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RAnaliseCustoP321/R_ANALISE_CUSTO_P321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_ANALISE_CUSTO_P321
+SELECT prestador.NM_PRESTADOR
+     , prestador.DS_CODIGO_CONSELHO
+     , atendime.CD_ATENDIMENTO
+     , paciente.CD_PACIENTE
+     , dbamv.pkg_sus_regra_paciente.F_NOME_PACIENTE(atendime.CD_PACIENTE) NM_PACIENTE
+     , atendime.DT_ATENDIMENTO
+     , leito.DS_ENFERMARIA
+     , leito.DS_RESUMO
+     , procedimento_sus.cd_procedimento CD_SUS 
+     , procedimento_sus.ds_procedimento DS_SUS  
+     , procedimento_sus.NR_DIAS_INTERNACAO PERMANENCIA_100
+     , round(procedimento_sus.NR_DIAS_INTERNACAO * 0.7) PERMANENCIA_70
+     , trunc(SYSDATE-DT_ATENDIMENTO) PERMANENCIA_DATA
+     , (procedimento_sus.NR_DIAS_INTERNACAO - trunc(SYSDATE-DT_ATENDIMENTO)) PERMANENCIA
+     , dbamv.pkg_ffis_calc_aih.fnc_sus_max_valor_sh(procedimento_sus.cd_procedimento ,DT_ATENDIMENTO) VL_TOTAL_SH
+  FROM DBAMV.PRESTADOR prestador
+     , DBAMV.LEITO leito
+     , DBAMV.PACIENTE paciente
+     , DBAMV.ATENDIME atendime
+     , DBAMV.PROCEDIMENTO_SUS 
+     , DBAMV.ESPEC_SUS espec_sus
+     , DBAMV.PROCEDIMENTO_SUS_ESPEC_LEITO
+ WHERE atendime.CD_PRESTADOR     = prestador.CD_PRESTADOR
+   AND atendime.CD_CONVENIO      = dbamv.pkt_config_ffis.retorna_campo('CD_CONVENIO') 
+   AND atendime.CD_PACIENTE      = paciente.CD_PACIENTE
+   AND atendime.CD_LEITO         = leito.CD_LEITO
+   AND atendime.cd_procedimento = procedimento_sus.cd_procedimento
+   AND atendime.CD_MULTI_EMPRESA = Dbamv.Pkg_MV2000.Le_Empresa
+   AND atendime.DT_ALTA is null
+   AND PROCEDIMENTO_SUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS_ESPEC_LEITO.CD_PROCEDIMENTO
+   AND procedimento_sus_espec_leito.cd_espec_sus = espec_sus.cd_espec_sus
+ ORDER BY prestador.NM_PRESTADOR
+                  , paciente.NM_PACIENTE

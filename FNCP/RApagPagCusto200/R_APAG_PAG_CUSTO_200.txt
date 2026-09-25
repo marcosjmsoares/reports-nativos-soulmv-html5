@@ -1,0 +1,96 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FNCP/RApagPagCusto200/R_APAG_PAG_CUSTO_200.txt
+--Nome módulo: FNCP - SISTEMA FINANCEIRO - CONTAS A PAGAR
+
+/*----------------------------------------------------------------------------*/
+--R_APAG_PAG_CUSTO_200
+SELECT * FROM (
+SELECT	v_contas_apag_pag.cd_con_pag,
+	v_contas_apag_pag.cd_fornecedor,
+	v_contas_apag_pag.nm_fornecedor,
+	v_contas_apag_pag.nr_documento,
+	NVL(v_contas_apag_pag.vl_rateio, 0) vl_rateio,
+	trunc(v_contas_apag_pag.dt_emissao) dt_emissao,
+	v_contas_apag_pag.cd_item_res,
+	v_contas_apag_pag.ds_item_res,
+	v_contas_apag_pag.ds_con_pag,
+	v_contas_apag_pag.cd_setor,
+	v_contas_apag_pag.nm_setor
+FROM	(	SELECT	con_pag.cd_con_pag,
+			con_pag.cd_fornecedor,
+			DECODE (con_pag.cd_fornecedor, NULL, con_pag.DS_fornecedor, fornecedor.nm_fantasia) nm_fornecedor,
+			con_pag.nr_documento,
+			( ( DECODE(con_pag.vl_bruto_conta,NULL,0,0,0,ratcon_pag.vl_rateio) / DECODE(con_pag.vl_bruto_conta,NULL,1,0,1,con_pag.vl_bruto_conta)) * itcon_pag.vl_duplicata )  VL_RATEIO,
+			con_pag.dt_emissao,
+			item_res.cd_item_res,
+			item_res.ds_item_res,
+			con_pag.ds_con_pag,
+			ratcon_pag.cd_setor,
+			setor.nm_setor
+		FROM	dbamv.itcon_pag,
+			dbamv.fornecedor,
+			dbamv.tip_doc,
+			dbamv.con_pag,
+			dbamv.ratcon_pag,
+			dbamv.setor,
+			dbamv.item_res
+		WHERE	itcon_pag.cd_con_pag		=	con_pag.cd_con_pag
+		AND	con_pag.cd_multi_empresa	=	:CAMPO_CD_MULTI_EMPRESA
+		AND	ratcon_pag.cd_setor		=	setor.cd_setor (+)
+		AND	con_pag.cd_fornecedor		=	fornecedor.cd_fornecedor (+)
+		AND	con_pag.cd_tip_doc		=	tip_doc.cd_tip_doc
+		AND	ratcon_pag.cd_con_pag		=	con_pag.cd_con_pag(+)
+		AND	item_res.cd_item_res		=	ratcon_pag.cd_item_res (+)
+		AND	itcon_pag.cd_con_pag_agrup	IS NULL
+		:CAMPO_CF_SETOR	) V_CONTAS_APAG_PAG,
+	dbamv.fornecedor
+:CAMPO_CF_ORDER
+)
+ORDER BY CD_ITEM_RES,DS_ITEM_RES,
+CD_FORNECEDOR,NM_FORNECEDOR,
+DT_EMISSAO,CD_CON_PAG,DS_CON_PAG,NR_DOCUMENTO
+
+
+/*----------------------------------------------------------------------------*/
+--R_APAG_PAG_CUSTO_200_R_4_Q_1
+SELECT * FROM (
+SELECT * FROM (
+SELECT	v_contas_apag_pag.cd_con_pag,
+	v_contas_apag_pag.dt_pagamento,
+	v_contas_apag_pag.tipo_pagto,
+	NVL(v_contas_apag_pag.nr_parcela, 0) nr_parcela,
+	v_contas_apag_pag.dt_vencimento,
+	v_contas_apag_pag.cd_cheque,
+                NVL(v_contas_apag_pag.vl_pago, 0) vl_pago,
+	v_contas_apag_pag.nr_cheque,
+	v_contas_apag_pag.cd_bordero,
+	v_contas_apag_pag.tp_pagto,
+	v_contas_apag_pag.cd_con_cor,
+	NVL(v_contas_apag_pag.vl_duplicata, 0) vl_duplicata
+FROM	(	SELECT	con_pag.cd_con_pag,
+			pagcon_pag.dt_pagamento,
+			DECODE(pagcon_pag.tp_pagamento, '1', 'Borderô Boleto', '2', 'Borderô DOC', '3', 'cheque', '4', 'Dinheiro', '5', 'Débito C/C') TIPO_PAGTO,
+			itcon_pag.nr_parcela,
+			itcon_pag.dt_vencimento,
+			pagcon_pag.vl_pago,
+			cheque.cd_cheque,
+			cheque.nr_cheque,
+			pagcon_pag.cd_bordero,
+			pagcon_pag.tp_pagamento TP_PAGTO,
+			pagcon_pag.cd_con_cor,
+			itcon_pag.vl_duplicata
+		FROM	dbamv.pagcon_pag,
+			dbamv.itcon_pag,
+			dbamv.con_pag,
+			dbamv.cheque
+		WHERE	pagcon_pag.cd_itcon_pag(+)	=	itcon_pag.cd_itcon_pag
+		AND	itcon_pag.cd_con_pag		=	con_pag.cd_con_pag
+		and     con_pag.cd_multi_empresa        =       :CAMPO_CD_MULTI_EMPRESA
+		AND	cheque.cd_cheque(+)		=	pagcon_pag.cd_cheque
+		AND	itcon_pag.cd_con_pag_agrup	        IS NULL
+		:CAMPO_CF_COND_DATA1) V_CONTAS_APAG_PAG
+:CAMPO_CF_ORDER1
+)
+WHERE CD_CON_PAG = :CAMPO_CD_CON_PAG
+)
+ORDER BY CD_CON_PAG,NR_PARCELA,DT_VENCIMENTO,VL_DUPLICATA

@@ -1,0 +1,148 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFCV/RGuiaOrcamentoOpmeBradesco2/R_GUIA_ORCAMENTO_OPME_BRADESCO2.txt
+--Nome módulo: FFCV - SISTEMA FATURAMENTO CONTAS DE CONVENIO
+
+/*----------------------------------------------------------------------------*/
+--R_GUIA_ORCAMENTO_OPME_BRADESCO2
+SELECT To_Char(nvl(dt_solicitacao,dt_geracao),'dd/mm/yyyy') dt_solicitacao,
+       cd_atendimento,
+       cd_convenio,
+       cd_aviso_cirurgia,
+       nm_convenio,
+       nm_paciente,
+       cd_paciente,
+       nr_matricula_titular,
+       tp_sexo,
+       cd_senha,
+       cd_prestador,
+       nm_prestador,
+       nr_fone_comercial,
+       nr_fone_contato,
+       crm,
+       cpf_prestador,
+       ds_observacao,
+       cd_con_pla,
+       tp_atendimento,
+       NULL CD_FORNECEDOR,
+       NULL NM_FORNECEDOR,
+       CD_HOSPITAL_NO_CONVENIO,
+       VL_PERCENTUAL_COMERCIALIZACAO
+FROM (
+SELECT guia.dt_solicitacao,
+       atendime.cd_atendimento,
+       guia.cd_convenio  cd_convenio,
+       aviso.cd_aviso_cirurgia cd_aviso_cirurgia,
+       convenio.nm_convenio nm_convenio,
+       nvl( paciente.nm_paciente, aviso.nm_paciente )  nm_paciente,
+       paciente.cd_paciente,
+       carteira.nr_matricula_titular,
+       paciente.tp_sexo,
+       guia.cd_senha cd_senha,
+       prestador.cd_prestador cd_prestador,
+       prestador.nm_prestador nm_prestador,
+       prestador.nr_fone_comercial,
+       prestador.nr_fone_contato,
+       prestador.ds_codigo_conselho crm,
+       prestador.nr_cpf_cgc cpf_prestador,
+       guia.ds_observacao ds_observacao,
+       atendime.cd_con_pla cd_con_pla,
+       atendime.tp_atendimento tp_atendimento,
+       guia.dt_geracao,
+       (select cd_hospital_no_convenio from dbamv.empresa_convenio where cd_multi_empresa = nvl(:CAMPO_CD_MULTI_EMPRESA,dbamv.pkg_mv2000.le_empresa) and cd_convenio = guia.cd_convenio) cd_hospital_no_convenio,
+       (select vl_percentual from dbamv.percentual_consignado where cd_multi_empresa = nvl(:CAMPO_CD_MULTI_EMPRESA,dbamv.pkg_mv2000.le_empresa) and cd_convenio = guia.cd_convenio) vl_percentual_comercializacao
+  from dbamv.guia,
+       dbamv.aviso_cirurgia aviso,
+       dbamv.convenio,
+       dbamv.atendime,
+       dbamv.paciente,
+       ( SELECT nr_matricula_titular, dt_validade, cd_convenio, cd_con_pla FROM (
+          SELECT Nvl(carteira.nr_matricula_titular,carteira.nr_carteira) nr_matricula_titular, max(carteira.dt_validade) dt_validade,
+                carteira.cd_convenio, carteira.cd_con_pla
+            FROM dbamv.carteira, dbamv.guia
+          WHERE guia.cd_guia = :CAMPO_CD_GUIA
+            AND carteira.cd_paciente = guia.cd_paciente
+            AND carteira.cd_convenio = guia.cd_convenio
+          group by Nvl(carteira.nr_matricula_titular,carteira.nr_carteira), carteira.cd_convenio, carteira.cd_con_pla )
+          WHERE ROWNUM=1 ) carteira,
+       (select prestador_aviso.cd_aviso_cirurgia, prestador_aviso.cd_prestador, prestador_aviso.cd_ati_med
+          from dbamv.guia,
+               dbamv.cirurgia_aviso,
+               dbamv.prestador_aviso
+         where guia.cd_guia = :CAMPO_CD_GUIA
+           and guia.cd_aviso_cirurgia = cirurgia_aviso.cd_aviso_cirurgia
+           and cirurgia_aviso.sn_principal = 'S'
+           and guia.cd_aviso_cirurgia = prestador_aviso.cd_aviso_cirurgia
+           and cirurgia_aviso.cd_cirurgia = prestador_aviso.cd_cirurgia
+           and prestador_aviso.sn_principal = 'S') prestador_aviso,
+       dbamv.ati_med,
+       dbamv.prestador,
+       dbamv.age_cir
+ where guia.cd_guia               = :CAMPO_CD_GUIA
+   AND carteira.cd_convenio(+)   = atendime.cd_convenio
+   AND carteira.cd_con_pla(+)    = atendime.cd_con_pla
+   and aviso.cd_aviso_cirurgia    = guia.cd_aviso_cirurgia
+   and convenio.cd_convenio(+)    = guia.cd_convenio
+   and atendime.cd_atendimento(+) = guia.cd_atendimento
+   and paciente.cd_paciente(+)     = aviso.cd_paciente
+   and prestador_aviso.cd_aviso_cirurgia = guia.cd_aviso_cirurgia
+   and ati_med.cd_ati_med(+)      = prestador_aviso.cd_ati_med
+   and ati_med.tp_funcao          = 'C'
+   and prestador.cd_prestador(+)  = prestador_aviso.cd_prestador
+   and age_cir.cd_aviso_cirurgia(+)  = aviso.cd_aviso_cirurgia
+   and  aviso.Cd_Multi_Empresa = NVL(:CAMPO_CD_MULTI_EMPRESA,DBAMV.PKG_MV2000.LE_EMPRESA)
+union
+SELECT guia.dt_solicitacao,
+       atendime.cd_atendimento,
+       guia.cd_convenio  cd_convenio,
+       to_number(null)    cd_aviso_cirurgia,
+       convenio.nm_convenio nm_convenio,
+       paciente.nm_paciente nm_paciente,
+       paciente.cd_paciente,
+       carteira.nr_matricula_titular,
+       paciente.tp_sexo,
+       guia.cd_senha cd_senha,
+       prestador.cd_prestador cd_prestador,
+       prestador.nm_prestador nm_prestador,
+       prestador.nr_fone_comercial,
+       prestador.nr_fone_contato,
+       prestador.ds_codigo_conselho crm,
+       prestador.nr_cpf_cgc cpf_prestador,
+       guia.ds_observacao ds_observacao,
+       atendime.cd_con_pla cd_con_pla,
+       atendime.tp_atendimento tp_atendimento,
+       guia.dt_geracao,
+       (select cd_hospital_no_convenio from dbamv.empresa_convenio where cd_multi_empresa = NVL(:CAMPO_CD_MULTI_EMPRESA,DBAMV.PKG_MV2000.LE_EMPRESA) and cd_convenio = guia.cd_convenio) cd_hospital_no_convenio,
+       (select vl_percentual from dbamv.percentual_consignado where cd_multi_empresa = nvl(:CAMPO_CD_MULTI_EMPRESA,dbamv.pkg_mv2000.le_empresa) and cd_convenio = guia.cd_convenio) vl_percentual_comercializacao
+  from dbamv.guia,
+       dbamv.convenio,
+       dbamv.atendime,
+       dbamv.paciente,
+       dbamv.prestador,
+       ( SELECT DISTINCT val_opme.cd_fornecedor, fornecedor.nm_fornecedor
+          FROM dbamv.it_guia,
+              dbamv.val_opme_it_guia val_opme,
+              dbamv.fornecedor
+          WHERE it_guia.cd_guia =  :CAMPO_CD_GUIA
+          and val_opme.cd_guia(+)           = it_guia.cd_guia
+          and val_opme.cd_it_guia(+)        = it_guia.cd_it_guia
+          and fornecedor.cd_fornecedor(+)   = val_opme.cd_fornecedor ) fornecedor,
+       ( SELECT nr_matricula_titular, dt_validade, cd_convenio, cd_con_pla FROM (
+          SELECT Nvl(carteira.nr_matricula_titular,carteira.nr_carteira) nr_matricula_titular, max(carteira.dt_validade) dt_validade,
+                carteira.cd_convenio, carteira.cd_con_pla
+            FROM dbamv.carteira, dbamv.guia
+          WHERE guia.cd_guia = :CAMPO_CD_GUIA
+            AND carteira.cd_paciente = guia.cd_paciente
+            AND carteira.cd_convenio = guia.cd_convenio
+          group by Nvl(carteira.nr_matricula_titular,carteira.nr_carteira), carteira.cd_convenio, carteira.cd_con_pla )
+          WHERE ROWNUM=1 ) carteira
+ where guia.cd_guia               = :CAMPO_CD_GUIA
+   AND carteira.cd_convenio(+)   = atendime.cd_convenio
+   AND carteira.cd_con_pla(+)    = atendime.cd_con_pla
+   and convenio.cd_convenio(+)    = guia.cd_convenio
+   and atendime.cd_atendimento(+) = guia.cd_atendimento
+   and paciente.cd_paciente(+)     = atendime.cd_paciente
+   and prestador.cd_prestador(+)  = atendime.cd_prestador
+   and guia.cd_aviso_cirurgia is null
+   and guia.cd_atendimento is not null
+)
+ORDER BY CD_CONVENIO

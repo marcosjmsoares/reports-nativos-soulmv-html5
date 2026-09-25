@@ -1,0 +1,92 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFIS/RCtrlAutorAih321/R_CTRL_AUTOR_AIH_321.txt
+--Nome módulo: FFIS - SISTEMA FATURAMENTO INTERNACAO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_CTRL_AUTOR_AIH_321
+SELECT * FROM (
+select paciente.nm_paciente
+     , paciente.cd_paciente
+     , ctr_aih.cd_procedimento cd_sus
+     , ctr_aih.dt_internacao
+     , ctr_aih.nr_aih
+     , ctr_aih.ds_observacao
+     , ctr_aih.dt_competencia
+     , ctr_aih.cd_controle_autorizacao_aih
+     , ctr_aih.nr_sequencial
+     , ori_ate.ds_ori_ate ds_ori_ate
+     , ctr_aih.cd_usuario
+     , ctr_aih.cd_procedimento_original  cd_sus_original
+     , ori_ate_Original.ds_ori_ate ds_ori_ate_original
+     , ctr_aih.dt_internacao_original
+     , Ctr_AIH.Cd_CID_Principal
+     , Ctr_AIH.Cd_CID_Secundario
+     , Ctr_AIH.Cd_Atendimento
+     , Prestador.Nm_Prestador
+     , Nvl(null, 'Sem Complexidade') Ds_Complexidade
+  from dbamv.controle_autorizacao_aih ctr_aih
+     , dbamv.paciente
+     , dbamv.atendime
+     , dbamv.ori_ate ori_ate
+     , dbamv.ori_ate Ori_Ate_Original
+     , Dbamv.Prestador
+     , Dbamv.Procedimento_Sus Proc
+ Where ctr_aih.cd_atendimento                    = atendime.cd_atendimento
+   And atendime.cd_paciente                      = paciente.cd_paciente
+   And ctr_aih.cd_ori_ate                        = ori_ate.cd_ori_ate
+   And ctr_aih.cd_ori_ate_original               = Ori_Ate_Original.Cd_Ori_Ate
+   And to_char(ctr_aih.dt_competencia,'MM/YYYY') = TO_CHAR(:CAMPO_COMPET,'MM/YYYY')
+   And Atendime.Cd_Prestador                     = Prestador.Cd_Prestador
+   and Ctr_AIH.cd_procedimento                   = Proc.cd_procedimento
+   :CAMPO_FC_CD_AIH
+)
+ORDER BY DT_COMPETENCIA,
+DS_COMPLEXIDADE
+
+
+/*----------------------------------------------------------------------------*/
+--R_CTRL_AUTOR_AIH_321_R_11_Q_2
+SELECT * FROM (
+Select Atendime.Cd_Atendimento                                      Cd_Atendimento_A
+     , Atendime.Dt_Atendimento                                      Dt_Atendimento_A
+     , Nvl(cp.ds_complexidade_procedimento , 'Sem Complexidade')    Ds_Complexidade_A
+     , Nvl(ItReg_Fat.Cd_procedimento, Atendime.Cd_procedimento)     Cd_Pro_Fat_A
+     , Procedimento_Sus.ds_procedimento                             Ds_Pro_Fat_A
+     , Atendime.Cd_Prestador                                        Cd_Prestador_A
+     , Prestador.Nm_Prestador                                       Nm_Prestador_A
+     , Conselho.Ds_Conselho                                         Ds_Conselho_A
+     , Prestador.Ds_Codigo_Conselho                                 Ds_Codigo_Conselho_A
+     , Atendime.Cd_CID                                              Cd_CID_A
+     , CID.Ds_CID                                                   Ds_CID_A
+     , Atendime.Cd_Paciente                                         Cd_Paciente_A
+     , Paciente.Nm_Paciente                                         Nm_Paciente_A
+     , Reg_Fat.Cd_Reg_Fat                                           Cd_Reg_Fat_A
+  From Dbamv.Atendime
+     , Dbamv.Convenio
+     , Dbamv.Procedimento_Sus
+     , Dbamv.Prestador
+     , Dbamv.Conselho
+     , Dbamv.CID
+     , Dbamv.Paciente
+     , Dbamv.Reg_Fat
+     , Dbamv.ItReg_Fat
+     , Dbamv.procedimento_sus_complexidade psc
+     , Dbamv.complexidade_procedimento     cp
+ Where Atendime.Dt_Atendimento Between :CAMPO_DTINIC
+                                   And 
+   And Atendime.Cd_Convenio             = Convenio.Cd_Convenio
+   And Convenio.Tp_Convenio             = 'H'
+   And Atendime.Cd_Prestador            = Prestador.Cd_Prestador
+   And Prestador.Cd_Conselho            = Conselho.Cd_Conselho
+   And Atendime.Cd_CID                  = CID.Cd_CID
+   And Atendime.Cd_Paciente             = Paciente.Cd_Paciente
+   And Atendime.Cd_Atendimento          = Reg_Fat.Cd_Atendimento
+   And Reg_Fat.Cd_Reg_Fat               = ItReg_Fat.Cd_Reg_Fat
+   And ItReg_Fat.Cd_Procedimento        = Atendime.Cd_Procedimento
+   And Atendime.Cd_Procedimento         = Procedimento_Sus.Cd_Procedimento
+   And ItReg_Fat.Cd_Procedimento        = psc.Cd_Procedimento
+   And psc.Tp_Complexidade_procedimento = cp.Tp_Complexidade_procedimento
+ Order By 3, 7, 13
+)
+ORDER BY DS_COMPLEXIDADE_A,
+CD_PRESTADOR_A,NM_PRESTADOR_A,DS_CONSELHO_A,DS_CODIGO_CONSELHO_A

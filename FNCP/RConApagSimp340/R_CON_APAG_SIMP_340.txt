@@ -1,0 +1,62 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FNCP/RConApagSimp340/R_CON_APAG_SIMP_340.txt
+--Nome módulo: FNCP - SISTEMA FINANCEIRO - CONTAS A PAGAR
+
+/*----------------------------------------------------------------------------*/
+--R_CON_APAG_SIMP_340
+SELECT * FROM (
+select
+       decode(con_pag.cd_fornecedor, null, trim(con_pag.ds_fornecedor), trim(fornecedor.nm_fornecedor))  nm_fornecedor
+     , con_pag.nr_documento || '/' || to_char(itcon_pag.nr_parcela,'000')     nr_documento
+     , trunc(decode(:CAMPO_TP_PERIODO,'1',itcon_pag.dt_vencimento,'2',con_pag.dt_emissao,'3',itcon_pag.dt_vencimento,'4',itcon_pag.dt_prevista_pag))  dt_base
+     , trunc(con_pag.dt_emissao)                dt_emissao
+     , trunc(con_pag.dt_lancamento)             dt_lancamento
+     , trunc(itcon_pag.dt_vencimento)           dt_vencimento
+     , trunc(itcon_pag.dt_prevista_pag)         dt_prevista_pag
+     , con_pag.cd_con_pag                       cd_con_pag
+     , nvl(itcon_pag.vl_duplicata,0)           vl_duplicata
+     , nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + (nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) ) )     vl_devido
+     , tip_detalhe.cd_detalhamento              cd_detalhamento
+     , tip_detalhe.ds_detalhamento              ds_detalhamento
+     , tip_detcon_pag.cd_con_pag_filho          cd_con_pag_filho
+     , con_pag.cd_previsao                      cd_previsao
+from dbamv.con_pag
+   , dbamv.itcon_pag
+   , (select *
+      from dbamv.pagcon_pag
+      where nvl(pagcon_pag.sn_estorno,'N') = 'N'
+        :CAMPO_CF_DT_BASE_02
+      ) pagcon_pag
+   , dbamv.fornecedor
+   , dbamv.tip_detalhe
+   , dbamv.tip_detcon_pag
+where con_pag.cd_con_pag                = itcon_pag.cd_con_pag
+  and con_pag.cd_fornecedor             = fornecedor.cd_fornecedor(+)
+  and con_pag.cd_multi_empresa          =  :CAMPO_CD_MULTI_EMPRESA
+  and con_pag.cd_con_pag                = tip_detcon_pag.cd_con_pag_filho(+)
+  and tip_detcon_pag.cd_detalhamento    = tip_detalhe.cd_detalhamento(+)
+  and itcon_pag.cd_itcon_pag            = pagcon_pag.cd_itcon_pag(+)
+  and con_pag.cd_con_pag_dev        is null
+  and nvl(con_pag.vl_bruto_conta,0)     > 0
+  and itcon_pag.cd_con_pag_agrup    is null
+  and nvl(itcon_pag.vl_duplicata,0)     > 0
+group by
+       decode(con_pag.cd_fornecedor, null, trim(con_pag.ds_fornecedor), trim(fornecedor.nm_fornecedor))
+     , con_pag.nr_documento || '/' || to_char(itcon_pag.nr_parcela,'000')
+     , trunc(decode(:CAMPO_TP_PERIODO,'1',itcon_pag.dt_vencimento,'2',con_pag.dt_emissao,'3',itcon_pag.dt_vencimento,'4',itcon_pag.dt_prevista_pag))
+     , trunc(con_pag.dt_emissao)
+     , trunc(con_pag.dt_lancamento)
+     , trunc(itcon_pag.dt_vencimento)
+     , trunc(itcon_pag.dt_prevista_pag)
+     , con_pag.cd_con_pag
+     , nvl(itcon_pag.vl_duplicata,0)
+     , tip_detalhe.cd_detalhamento
+     , tip_detalhe.ds_detalhamento
+     , tip_detcon_pag.cd_con_pag_filho
+     , con_pag.cd_previsao
+having nvl(itcon_pag.vl_duplicata,0) - sum( nvl(pagcon_pag.vl_pago,0) + (nvl(pagcon_pag.vl_desconto,0) - nvl(pagcon_pag.vl_acrescimo,0) ) ) > 0
+order by
+  decode(con_pag.cd_fornecedor, null, trim(con_pag.ds_fornecedor), trim(fornecedor.nm_fornecedor))
+, con_pag.nr_documento || '/' || to_char(itcon_pag.nr_parcela,'000')
+)
+ORDER BY DT_BASE

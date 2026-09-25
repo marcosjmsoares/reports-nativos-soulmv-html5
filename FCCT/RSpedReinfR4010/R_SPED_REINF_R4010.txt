@@ -1,0 +1,127 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FCCT/RSpedReinfR4010/R_SPED_REINF_R4010.txt
+--Nome módulo: FCCT - SISTEMA DE CONTROLE CONTABIL
+
+/*----------------------------------------------------------------------------*/
+--R_SPED_REINF_R4010
+SELECT b.NR_CNPJ_CPF CNPJ_CPF_BENEF,
+       b.cd_fornecedor ||' - '||b.NM_FORNECEDOR NM_BENEF,
+       (select ds_descricao
+        from DBAMV.LISTAS_SPED_ECF
+        where cd_lista = 'PAIS_REINF'
+        AND cd_chave_ecf = b.cd_pais_resid ) desc_pais_benef,
+        (select cd_chave_ecf
+        from DBAMV.LISTAS_SPED_ECF
+        where cd_lista = 'PAIS_REINF'
+        AND cd_chave_ecf = b.cd_pais_resid ) cd_chave_ecf,
+      (CASE b.tp_isento   WHEN '0' THEN 'Nenhuma opção selecionada'
+                          WHEN '2' THEN 'Instituição de educação e de assistência social sem fins lucrativos'
+                          WHEN '3' THEN 'Instituição de caráter filantrópico, recreativo, cultural, científico e às associações civis'
+        END ) tp_isento,
+         e.ds_logradouro,
+      e.cd_logradouro,
+      e.ds_complemento,
+      e.nm_bairro,
+      e.nm_cidade,
+      e.nm_estado,
+      e.ds_postal,
+      e.nr_telefone,
+      Decode(e.tp_nif,'1','Beneficiário com NIF',Decode(e.tp_nif,'2','Beneficiário dispensado do NIF', decode(tp_nif,'3','País não exige NIF',null))) ident_fiscal,
+      e.CD_ID_NIF num_ident_fiscal,
+      e.nr_fonte_pag,
+      (select ds_descricao
+       from dbamv.listas_sped_ecf
+       where cd_lista = 'forma_tribut_reinf'
+       AND cd_chave_ecf = e.CD_TRIBUT )forma_tribut,
+     retorno.DS_PROTOCOLO recibo,
+      B.CD_REINF_BENEFICIARIO,
+       (SELECT Nvl(Sum(vl_imp),0)
+   FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag, DBAMV.reinf_ben_pag_imp
+   WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario
+   AND reinf_ben_pag.cd_reinf_ben_pag = reinf_ben_pag_imp.cd_reinf_ben_pag
+   AND CD_IMPOSTO IN ('F','J')
+   AND reinf_beneficiario.cd_reinf_eventos = b.CD_REINF_EVENTOS) VL_TOTAL_IR_GERAL,
+    (SELECT Nvl(Sum(vl_imp),0)
+   FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag, DBAMV.reinf_ben_pag_imp
+   WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario
+   AND reinf_ben_pag.cd_reinf_ben_pag = reinf_ben_pag_imp.cd_reinf_ben_pag
+   AND CD_IMPOSTO = 'L'
+   AND reinf_beneficiario.cd_reinf_eventos = b.CD_REINF_EVENTOS) VL_TOTAL_CSLL_GERAL,
+   (SELECT Nvl(Sum(vl_imp),0)
+   FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag, DBAMV.reinf_ben_pag_imp
+   WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario
+   AND reinf_ben_pag.cd_reinf_ben_pag = reinf_ben_pag_imp.cd_reinf_ben_pag
+   AND CD_IMPOSTO = 'P'
+   AND reinf_beneficiario.cd_reinf_eventos = b.CD_REINF_EVENTOS) VL_TOTAL_PIS_PASEP_GERAL,
+  (SELECT Nvl(Sum(vl_imp),0)
+   FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag, DBAMV.reinf_ben_pag_imp
+   WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario
+   AND reinf_ben_pag.cd_reinf_ben_pag = reinf_ben_pag_imp.cd_reinf_ben_pag
+   AND CD_IMPOSTO = 'C'
+   AND reinf_beneficiario.cd_reinf_eventos = b.CD_REINF_EVENTOS) VL_TOTAL_COFINS_GERAL,
+( SELECT Nvl(Sum(vl_imp),0)
+   FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag, DBAMV.reinf_ben_pag_imp
+   WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario
+   AND reinf_ben_pag.cd_reinf_ben_pag = reinf_ben_pag_imp.cd_reinf_ben_pag
+   AND reinf_beneficiario.cd_reinf_eventos =  b.CD_REINF_EVENTOS) VL_TOTAL_IMP_GERAL
+  ,( SELECT Nvl(Sum(vl_pago),0)
+   FROM DBAMV.reinf_beneficiario, DBAMV.reinf_ben_pag
+   WHERE reinf_beneficiario.cd_reinf_beneficiario = reinf_ben_pag.cd_reinf_beneficiario
+   AND reinf_beneficiario.cd_reinf_eventos =b.CD_REINF_EVENTOS) VL_TOTAL_PAGO_GERAL
+FROM
+      dbamv.reinf_beneficiario b,
+      dbamv.reinf_resid_exterior e,
+      dbamv.REINF_EVENTOS eventos,
+      dbamv.REINF_TRANS_RETORNO retorno
+WHERE b.CD_REINF_EVENTOS = eventos.CD_REINF_EVENTOS
+AND b.cd_reinf_beneficiario = e.cd_reinf_beneficiario(+)
+AND eventos.CD_REINF_EVENTOS = retorno.CD_REINF_EVENTOS(+)
+AND eventos.CD_EVENTO = 'R-4010'
+and ( ( eventos.cd_multi_empresa = :CAMPO_MULTI_EMPRESA )
+	      or
+	    ( Dbamv.Pkg_Transacao_Entre_Empresas.IsFilial(eventos.cd_multi_empresa, :CAMPO_MULTI_EMPRESA ) = 1 and
+	      Dbamv.Pkg_Transacao_Entre_Empresas.CompartilhaPlContas(eventos.cd_multi_empresa) = 'S'
+	    )
+	  )
+  AND eventos.DT_COMPETENCIA = to_date('','mm/yyyy')
+AND retorno.cd_reinf_trans_retorno IN
+(SELECT Max(cd_reinf_trans_retorno)
+FROM dbamv.reinf_trans_retorno
+WHERE cd_reinf_eventos = eventos.CD_REINF_EVENTOS
+AND cd_reinf_registro = b.cd_reinf_beneficiario
+)
+
+
+/*----------------------------------------------------------------------------*/
+--R_SPED_REINF_PAGAMENTO4010
+SELECT (SELECT cd_chave_ecf || ' - ' || DS_DESCRICAO
+               FROM   DBAMV.LISTAS_SPED_ECF
+               WHERE  CD_LISTA = 'NATU_REND_REINF'
+            AND CD_CHAVE_ECF = P.CD_NAT_REND)    NAT_RENDIMENTOS_PAG,
+       P.DT_PAGAMENTO                               DT_PAG,
+       P.VL_PAGO                                    VL_PAG,
+       P.DS_OBSERVACAO                              OBS_PAG,
+       DECODE(P.TP_ORIGEM_INFORMACAO, 'M', 'MANUAL',
+                                      'AUTOMATICO') ORIGEM_PAG,
+                                     P.CD_CON_PAG,
+                                   P.CD_REINF_BEN_PAG,
+                                   P.TP_DEDUCAO,
+                                   P.VL_DEDUCAO,
+                                   P.TP_ISENCAO,
+                                   P.VL_ISENTO,
+                                  P.TP_SCP_FNI,
+                                  P.NR_CNPJ_SCP_FNI,
+ 			         P.VL_PERC_SCP,
+            (SELECT Sum(vl_pago) vl_pago
+             FROM (SELECT DISTINCT cd_con_pag, vl_pago FROM dbamv.reinf_ben_pag WHERE cd_reinf_beneficiario = :CAMPO_CD_REINF_BENEFICIARIO AND cd_con_pag IS NOT NULL
+                   UNION ALL
+                   SELECT DISTINCT cd_con_pag, Sum(vl_pago) vl_pago FROM dbamv.reinf_ben_pag WHERE cd_reinf_beneficiario = :CAMPO_CD_REINF_BENEFICIARIO AND cd_con_pag IS NULL GROUP BY cd_con_pag)
+            ) VL_TOTAL_PAGO ,
+            (SELECT NVL(SUM(VL_IMP),0) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_IMPOSTO IN ('F','J') AND CD_REINF_BEN_PAG IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  CD_REINF_BENEFICIARIO = P.CD_REINF_BENEFICIARIO))  VL_TOTAL_IR,
+            (SELECT NVL(SUM(VL_IMP),0) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_IMPOSTO = 'L' AND CD_REINF_BEN_PAG IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  CD_REINF_BENEFICIARIO = P.CD_REINF_BENEFICIARIO) ) VL_TOTAL_CSLL ,
+            (SELECT NVL(SUM(VL_IMP),0) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE  CD_IMPOSTO = 'P' AND CD_REINF_BEN_PAG  IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  CD_REINF_BENEFICIARIO = P.CD_REINF_BENEFICIARIO)  ) VL_TOTAL_PIS_PASEP,
+            (SELECT NVL(SUM(VL_IMP),0) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_IMPOSTO = 'C' AND CD_REINF_BEN_PAG IN  (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  CD_REINF_BENEFICIARIO = P.CD_REINF_BENEFICIARIO)) VL_TOTAL_COFINS,
+            (SELECT NVL(SUM(VL_IMP),0) FROM DBAMV.REINF_BEN_PAG_IMP  WHERE CD_REINF_BEN_PAG IN (SELECT CD_REINF_BEN_PAG FROM DBAMV.REINF_BEN_PAG  WHERE  CD_REINF_BENEFICIARIO = P.CD_REINF_BENEFICIARIO))  VL_TOTAL_IMP
+            ,(SELECT 'X' FROM DBAMV.REINF_DEPENDENTES WHERE CD_REINF_BEN_PAG = P.CD_REINF_BEN_PAG) REINF_DEPEN
+            FROM   DBAMV.REINF_BEN_PAG P
+                   WHERE  P.CD_REINF_BENEFICIARIO = :CAMPO_CD_REINF_BENEFICIARIO

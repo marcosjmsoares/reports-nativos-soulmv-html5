@@ -1,0 +1,146 @@
+--Repositório Completo: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5
+--Link do report: https://github.com/marcosjmsoares/reports-nativos-soulmv-html5/blob/main/FFAS/RFatPreCboP321/R_FAT_PRE_CBO_P321.txt
+--Nome módulo: FFAS - SISTEMA FATURAMENTO AMBULATORIO SUS
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_PRE_CBO_P321
+SELECT * FROM (
+Select  Prestador.Ds_Codigo_Conselho
+           ,Prestador.Nm_Prestador
+          , Procedimento_Sus.Cd_Procedimento
+          , Procedimento_Sus.Ds_Procedimento
+         , SUM(Eve_Siasus.Qt_Lancada)  QT_LANCADA
+         , Eve_Siasus.Vl_Servico_Ambulatorial
+         , Eve_Siasus.Vl_Servico_Profissional
+         , Eve_Siasus.Vl_Servico_Anestesia
+         , Prestador.Cd_Prestador
+         , Fat_Sia.Cd_Fat_Sia
+         , 'M'   Tp_Medico
+        ,EVE_SIASUS.CD_CBO_PRESTADOR
+        , CBO.DS_CBOS
+        , ORI_ATE.CD_ORI_ATE
+        , ORI_ATE.DS_ORI_ATE
+  FROM DBAMV.PRESTADOR                  PRESTADOR
+     , DBAMV.PROCEDIMENTO_SUS
+     , DBAMV.EVE_SIASUS                 EVE_SIASUS
+     , DBAMV.FAT_SIA                    FAT_SIA
+      ,  DBAMV.CBO                              CBO
+     , DBAMV.ORI_ATE                    ORI_ATE
+ WHERE EVE_SIASUS.CD_PROCEDIMENTO  IS NOT NULL
+    AND EVE_SIASUS.CD_FAT_SIA      = :CAMPO_FATURA
+    AND EVE_SIASUS.CD_FAT_SIA      = FAT_SIA.CD_FAT_SIA
+    AND PRESTADOR.CD_PRESTADOR     = EVE_SIASUS.CD_PRESTADOR
+    AND CBO.CD_CBOS                              = EVE_SIASUS.CD_CBO_PRESTADOR
+    AND EVE_SIASUS.CD_ORI_ATE          = ORI_ATE.CD_ORI_ATE(+)
+    AND EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS .CD_PROCEDIMENTO
+    AND EVE_SIASUS.SN_PACOTE = 'N'
+ GROUP BY PRESTADOR.DS_CODIGO_CONSELHO
+        , PRESTADOR.NM_PRESTADOR
+        , PROCEDIMENTO_SUS .CD_PROCEDIMENTO
+        , PROCEDIMENTO_SUS .DS_PROCEDIMENTO
+        , EVE_SIASUS.VL_SERVICO_AMBULATORIAL
+        , EVE_SIASUS.VL_SERVICO_PROFISSIONAL
+        , EVE_SIASUS.VL_SERVICO_ANESTESIA
+        , PRESTADOR.CD_PRESTADOR
+        , FAT_SIA.CD_FAT_SIA
+        , 'M'
+         ,EVE_SIASUS.CD_CBO_PRESTADOR
+        , CBO.DS_CBOS
+        , ORI_ATE.CD_ORI_ATE
+        , ORI_ATE.DS_ORI_ATE
+UNION ALL
+SELECT PRESTADOR.DS_CODIGO_CONSELHO
+     , PRESTADOR.NM_PRESTADOR
+     , PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+     , PROCEDIMENTO_SUS.DS_PROCEDIMENTO
+     , SUM(DECODE(EVE_SIASUS.QT_LANCADA,1,0)) QT_LANCADA
+     , EVE_SIASUS.VL_SERVICO_AMBULATORIAL
+     , EVE_SIASUS.VL_SERVICO_PROFISSIONAL
+     , EVE_SIASUS.VL_SERVICO_ANESTESIA
+     , PRESTADOR.CD_PRESTADOR
+     , FAT_SIA.CD_FAT_SIA
+     , 'A'     TP_MEDICO
+        ,EVE_SIASUS.CD_CBO_PRESTADOR
+       , CBO.DS_CBOS
+     , ORI_ATE.CD_ORI_ATE
+     , ORI_ATE.DS_ORI_ATE
+  FROM DBAMV.PRESTADOR                  PRESTADOR
+     , DBAMV.PROCEDIMENTO_SUS
+     , DBAMV.EVE_SIASUS                 EVE_SIASUS
+    ,  DBAMV.CBO                              CBO
+     , DBAMV.FAT_SIA                    FAT_SIA
+     , DBAMV.ORI_ATE                    ORI_ATE
+ WHERE EVE_SIASUS.CD_PROCEDIMENTO  IS NOT NULL
+   AND EVE_SIASUS.CD_FAT_SIA               =  :CAMPO_FATURA
+   AND EVE_SIASUS.CD_PRESTADOR_PODE_TER(+) = PRESTADOR.CD_PRESTADOR
+   AND EVE_SIASUS.CD_FAT_SIA               = FAT_SIA.CD_FAT_SIA
+   AND CBO.CD_CBOS                                  = EVE_SIASUS.CD_CBO_PRESTADOR
+   AND EVE_SIASUS.CD_ORI_ATE               = ORI_ATE.CD_ORI_ATE(+)
+   AND EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+ GROUP BY PRESTADOR.DS_CODIGO_CONSELHO
+        , PRESTADOR.NM_PRESTADOR
+        , PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+        , PROCEDIMENTO_SUS.DS_PROCEDIMENTO
+        , EVE_SIASUS.VL_SERVICO_AMBULATORIAL
+        , EVE_SIASUS.VL_SERVICO_PROFISSIONAL
+        , EVE_SIASUS.VL_SERVICO_ANESTESIA
+        , PRESTADOR.CD_PRESTADOR
+        , FAT_SIA.CD_FAT_SIA
+        , 'A'
+           ,EVE_SIASUS.CD_CBO_PRESTADOR
+        , CBO.DS_CBOS
+        , ORI_ATE.CD_ORI_ATE
+        , ORI_ATE.DS_ORI_ATE
+)
+ORDER BY CD_CBO_PRESTADOR,DS_CBOS,
+CD_PRESTADOR,NM_PRESTADOR,
+CD_ORI_ATE,DS_ORI_ATE
+
+
+/*----------------------------------------------------------------------------*/
+--R_FAT_PRE_CBO_P321_X_G_TOTALVALORPERNM_CONVENIO1
+SELECT * FROM (
+SELECT MES
+     , NM_PRESTADOR
+     , SUM(VALOR)   VALOR
+  FROM (SELECT TO_CHAR(EVE_SIASUS.DT_EVE_SIASUS, 'DD') MES
+              , CBO.DS_CBOS                                       NM_PRESTADOR
+             , SUM(EVE_SIASUS.QT_LANCADA)              VALOR
+          FROM DBAMV.PRESTADOR                PRESTADOR
+             , DBAMV.PROCEDIMENTO_SUS
+             , DBAMV.EVE_SIASUS               EVE_SIASUS
+             , DBAMV.FAT_SIA                  FAT_SIA
+             , DBAMV.CBO                           CBO
+         WHERE EVE_SIASUS.CD_PROCEDIMENTO IS NOT NULL
+	   AND EVE_SIASUS.SN_PACOTE = 'N'
+           AND EVE_SIASUS.CD_FAT_SIA = :CAMPO_FATURA
+           AND EVE_SIASUS.CD_PRESTADOR(+) = PRESTADOR.CD_PRESTADOR
+           AND EVE_SIASUS.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+           AND EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS       .CD_PROCEDIMENTO
+          AND EVE_SIASUS.CD_CBO_PRESTADOR         = CBO.CD_CBOS
+         GROUP BY CBO.DS_CBOS
+                , TO_CHAR(EVE_SIASUS.DT_EVE_SIASUS, 'DD')
+         UNION ALL
+        SELECT TO_CHAR(EVE_SIASUS.DT_EVE_SIASUS, 'DD')  MES
+               , CBO.DS_CBOS                                  NM_PRESTADOR
+             , SUM(DECODE(EVE_SIASUS.QT_LANCADA,1,0))   VALOR
+          FROM DBAMV.PRESTADOR                PRESTADOR
+             , DBAMV.PROCEDIMENTO_SUS
+             , DBAMV.EVE_SIASUS               EVE_SIASUS
+             , DBAMV.FAT_SIA                  FAT_SIA
+             , DBAMV.CBO                           CBO
+         WHERE EVE_SIASUS.CD_PROCEDIMENTO IS NOT NULL
+	   AND EVE_SIASUS.SN_PACOTE = 'N'
+           AND EVE_SIASUS.CD_FAT_SIA  =  :CAMPO_FATURA
+           AND EVE_SIASUS.CD_PRESTADOR_PODE_TER(+) = PRESTADOR.CD_PRESTADOR
+           AND EVE_SIASUS.CD_FAT_SIA = FAT_SIA.CD_FAT_SIA
+           AND EVE_SIASUS.CD_CBO_PRESTADOR         = CBO.CD_CBOS
+           AND EVE_SIASUS.CD_PROCEDIMENTO = PROCEDIMENTO_SUS.CD_PROCEDIMENTO
+         GROUP BY  CBO.DS_CBOS
+               , TO_CHAR(EVE_SIASUS.DT_EVE_SIASUS, 'DD')
+)
+GROUP BY NM_PRESTADOR
+       , MES
+)
+ORDER BY NM_PRESTADOR,
+MES
